@@ -32,7 +32,7 @@ import {
   meldungHinzufuegen,
   type MeldeEintrag,
 } from "@bos/meldekopf/einsaetze";
-import { eintreffzeitSetzen, meldungAufnehmen, notizSetzen, vomPapierMarkieren, zeitLang, zugSetzen } from "./eintrag-zeiten";
+import { eintreffzeitSetzen, meldungAufnehmen, notizSetzen, statusMitZeitSetzen, vomPapierMarkieren, zeitLang, zugSetzen } from "./eintrag-zeiten";
 import { aggregiere } from "./auswertung";
 import { neuerBogen, neuePerson } from "./hilfen";
 import { EXPORT_ZIELE, lageblattVermerken, weitergabeVermerken, type ExportStand, type ExportUmfang, type ExportZiel } from "./export-stand";
@@ -732,6 +732,35 @@ describe("Abrücken mit Zeit, Quittung und Rückweg", () => {
       uhr.mockRestore();
     }
     expect(gespeichert(einsatzId, "Crailsheim").status).toBe(MeldeStatus.ANWESEND);
+  });
+});
+
+describe("Folgemeldung holt eine abgerückte Einheit zurück (R5-K1)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("nennt die Rückkehr an der Karte und in der Quittung; „Wieder abrücken“ stellt die frühere Abrückzeit her", async () => {
+    const nutzer = userEvent.setup();
+    const b = buehne(["Wardenburg"]);
+    const erste = gespeichert(b.einsatzId, "Wardenburg");
+    const abAm = Date.now() - 3 * 3_600_000;
+    statusMitZeitSetzen(b.einsatzId, erste.id, MeldeStatus.ABGERUECKT, abAm);
+    const neuer = bogenMitName("Wardenburg");
+    neuer.stand = erste.bogen.stand + 120;
+    const r = meldungAufnehmen(b.einsatzId, neuer, { quelle: "scan" })!;
+    expect(r.rueckkehr).toEqual({ abgerueckAm: abAm });
+    b.neuLaden();
+
+    // Die Karte sagt es ausdrücklich — nicht erst im Verlauf.
+    const hinweis = document.querySelector(".rueckkehr")!;
+    expect(hinweis.textContent).toContain("wieder anwesend — war abgerückt seit");
+    expect(hinweis.textContent).toContain("zählt wieder mit");
+
+    await nutzer.click(within(hinweis as HTMLElement).getByRole("button", { name: "Wieder abrücken" }));
+    await waitFor(() => expect(gespeichert(b.einsatzId, "Wardenburg").status).toBe(MeldeStatus.ABGERUECKT));
+    expect(gespeichert(b.einsatzId, "Wardenburg").abgerueckAm).toBe(abAm);
+    expect(gespeichert(b.einsatzId, "Wardenburg").rueckkehr).toBeUndefined();
   });
 });
 

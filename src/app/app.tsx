@@ -91,7 +91,7 @@ import {
 import { offlineText, useOfflineStand } from "./offline-bereit";
 import { uebergabeBestaetigen, uebergabeNachWeg, uebergabeText, type UebergabeStand } from "./uebergabe-stand";
 import { ART_LABEL, EinsatzDetail, EinsatzListe, letzteMeldungText, type Eingang } from "./einsaetze-ui";
-import { letzteMeldung, meldungsNummern } from "./einheiten-tabelle";
+import { letzteMeldung, meldungsNummern, rueckkehrText } from "./einheiten-tabelle";
 import { exportSammlung, exportStaendeLaden, exportVermerken, weitergabeUmImportErgaenzen, type ExportStand, type ExportUmfang, type ExportZiel } from "./export-stand";
 import { abgleichText, einsatzAbgleichen, sammlungFuerZiel } from "./einsatz-abgleich";
 import { aktuelleMeldungen } from "./auswertung";
@@ -1945,7 +1945,10 @@ function AppInhalt() {
     } else if (pruefung) {
       vorrang = await vorrangKlaeren(zielId, pruefung);
     }
-    const folgeText = r.neu && vorige ? `Folgemeldung: ${diffKurzfassung(bogenDiff(vorige.bogen, aufzunehmen)) || "inhaltlich unverändert"}` : "";
+    // Holt die Folgemeldung eine abgerückte Einheit zurück, sagt die Quittung es ausdrücklich (R5-K1).
+    const rueckkehrZusatz = r.neu && r.rueckkehr ? `; ⚠ ${rueckkehrText(r.rueckkehr)}, zählt wieder mit` : "";
+    const folgeText =
+      r.neu && vorige ? `Folgemeldung: ${diffKurzfassung(bogenDiff(vorige.bogen, aufzunehmen)) || "inhaltlich unverändert"}${rueckkehrZusatz}` : "";
     const folge =
       (vorrang && folgeText && pruefung?.lage === "gleiche-minute"
         ? ` (${folgeText}; ${vorrang.text})`
@@ -2053,12 +2056,19 @@ function AppInhalt() {
         <>
           „{name}" hat schon eine Fassung mit Stand {zeitpunktDeutsch(p.bisher.bogen.stand)} (Stärke {staerkeKurz(p.bisher.bogen)}). Die eben
           eingelesene trägt dieselbe Minute (Stärke {staerkeKurz(p.neu.bogen)}). Welche gilt?
+          {/* War die Einheit abgerückt, entscheidet die Wahl auch darüber, ob sie wieder mitzählt (R5-K1). */}
+          {p.neu.rueckkehr && (
+            <>
+              {" "}
+              <strong>Die Einheit ist abgerückt{p.neu.rueckkehr.abgerueckAm != null ? ` (seit ${zeitLang(p.neu.rueckkehr.abgerueckAm)})` : ""}: Gilt die eben eingelesene, zählt sie wieder mit.</strong>
+            </>
+          )}
           <MeldungsGegenueberstellung vergleich={vergleich} />
         </>
       ),
       wege: [
-        { wert: "neu", label: `Die eben eingelesene (Stärke ${staerkeKurz(p.neu.bogen)})` },
-        { wert: "bisher", label: `Die bisherige (Stärke ${staerkeKurz(p.bisher.bogen)})` },
+        { wert: "neu", label: `Die eben eingelesene (Stärke ${staerkeKurz(p.neu.bogen)})${p.neu.rueckkehr ? " — Einheit zählt wieder mit" : ""}` },
+        { wert: "bisher", label: `Die bisherige (Stärke ${staerkeKurz(p.bisher.bogen)})${p.neu.rueckkehr ? " — Einheit bleibt abgerückt" : ""}` },
       ],
       abbruch: "Bisherige behalten",
     });

@@ -173,6 +173,7 @@ function uebersichtEintrag(
     abgerueckt: m.status !== MeldeStatus.ANWESEND,
     zaehlt: m.status === MeldeStatus.ANWESEND && zaehltInLage(einsatz.art, m.bogen),
     notiz: m.notiz,
+    ...(m.rueckkehr ? { rueckkehr: m.rueckkehr } : {}),
     // Über die ganze Sammlung gezählt — auch im Nachtrag „nur neue Bögen"
     // dieselbe Nummer wie am Gerät (R2-A6).
     nummer: meldungsNummern(historie).get(m.einheitSchluessel),

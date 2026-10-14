@@ -30,6 +30,7 @@ import {
   einsaetzePapierkorb as kernEinsaetzePapierkorb,
 } from "@bos/meldekopf/einsaetze";
 import { entfernteMerken } from "./entfernte-meldungen";
+import { geltendeJeEinheit } from "./fassung-vorrang";
 import { EEB_EPOCHE_MS, type EebZeitpunkt } from "@bos/eeb-format/model";
 
 declare module "@bos/meldekopf/einsaetze" {
@@ -72,6 +73,16 @@ declare module "@bos/meldekopf/einsaetze" {
      * der Wand. Eine gesetzte Nummer ist fest, die übrigen rücken um sie herum.
      */
     nummer?: number;
+    /**
+     * Diese Fassung hat eine abgerückte Einheit wieder in die Lage geholt: Zu
+     * einer Einheit, die abgerückt war, kam eine Fassung mit neuerem Stand, und
+     * sie gilt nun als anwesend (Audit Runde 5, R5-K1). Die App holt die Einheit
+     * nicht still zurück, sondern kennzeichnet es — Verlauf, Quittung, Karte,
+     * Lageblatt und Nachtrag nennen es, die Karte bietet „Wieder abrücken" an.
+     * `abgerueckAm` ist die frühere Abrückzeit. Fällt weg, sobald jemand den
+     * Status von Hand setzt.
+     */
+    rueckkehr?: { abgerueckAm?: number };
   }
 }
 
@@ -271,15 +282,18 @@ export function statusMitZeitSetzen(
   eintragId: string,
   status: MeldeStatus,
   zeitpunkt = Date.now(),
+  /** Zeit des Vermerks im Verlauf, wenn sie von der Abrückzeit abweicht („Wieder abrücken" nach einer Rückkehr, R5-K1). */
+  vermerkZeit = zeitpunkt,
 ): void {
   eintragAendern(einsatzId, eintragId, (e) => {
     if (e.status !== status) {
       vermerken(
         e,
         status === MeldeStatus.ABGERUECKT ? "Abgerückt" : status === MeldeStatus.ANWESEND ? "Wieder als anwesend geführt" : "Status geändert",
-        zeitpunkt,
+        vermerkZeit,
       );
     }
+    delete e.rueckkehr; // von Hand entschieden: die Kennzeichnung der Folgemeldung gilt nicht mehr
     e.status = status;
     if (status === MeldeStatus.ABGERUECKT) e.abgerueckAm = zeitpunkt;
     else delete e.abgerueckAm;
@@ -414,7 +428,48 @@ export function folgemeldungErbt(einsatzId: string, eintragId: string): void {
  * abgelegt, aber Zug, Auftrag und Eintreffzeit der Vorgängerin konnten nicht
  * übernommen werden (Speicher voll) — das muss der Aufrufer sagen.
  */
-export type MeldungAufnahmeMitErbe = MeldungAufnahme & { erbeFehlt?: boolean };
+export type MeldungAufnahmeMitErbe = MeldungAufnahme & {
+  erbeFehlt?: boolean;
+  /** Die Fassung hat eine abgerückte Einheit zurückgeholt (R5-K1); `abgerueckAm` = seit wann sie abgerückt war. */
+  rueckkehr?: { abgerueckAm?: number };
+};
+
+/**
+ * Eine eben aufgenommene Fassung, die eine abgerückte Einheit zurück in die
+ * Lage holt (Audit Runde 5, R5-K1).
+ *
+ * Entscheidung: Eine Folgemeldung mit neuerem Stand holt die Einheit zurück,
+ * aber nicht still. Sie ist die ausdrückliche neue Aussage der Einheit („ich
+ * bin wieder da", neuer Einsatz, geänderte Stärke); sie zu übergehen ließe
+ * eine Einheit in der Lage fehlen, die wieder vor Ort ist. Eine Rückfrage
+ * scheidet aus: Im Kiosk-Stapel und beim Einlesen vieler Bögen gibt es keine,
+ * und wer am Meldekopf in der Schlange steht, soll nicht pro Bogen entscheiden.
+ * Stattdessen steht der Wechsel im Verlauf der Einheit, in der Quittung, an
+ * der Karte (mit „Wieder abrücken"), im Lageblatt und im Nachtrag.
+ *
+ * Ein älterer Stand (Historie) oder eine abgerückte Einheit, deren neue
+ * Fassung nicht gilt, bleibt abgerückt: Dort gilt der Kopf weiter.
+ */
+function rueckkehrErkennen(einsatzId: string, eintragId: string): { abgerueckAm?: number } | null {
+  const liste = alleSammlungen();
+  const s = liste.find((x) => x.id === einsatzId);
+  const e = s?.eintraege.find((x) => x.id === eintragId);
+  if (!s || !e) return null;
+  const davor = geltendeJeEinheit(s.eintraege.filter((x) => x.einheitSchluessel === e.einheitSchluessel && x.id !== e.id))[0];
+  if (!davor || davor.status !== MeldeStatus.ABGERUECKT) return null;
+  const gilt = geltendeJeEinheit(s.eintraege.filter((x) => x.einheitSchluessel === e.einheitSchluessel))[0];
+  if (!gilt || gilt.id !== e.id || e.status !== MeldeStatus.ANWESEND) return null;
+  const rueck: { abgerueckAm?: number } = davor.abgerueckAm != null ? { abgerueckAm: davor.abgerueckAm } : {};
+  e.rueckkehr = rueck;
+  vermerken(
+    e,
+    `Wieder als anwesend geführt: Folgemeldung (Stand ${zeitLang(zeitpunktZuMs(e.bogen.stand))}) holt die abgerückte Einheit zurück` +
+      (davor.abgerueckAm != null ? ` — war abgerückt seit ${zeitLang(davor.abgerueckAm)}` : ""),
+  );
+  s.geaendert = Date.now();
+  sammlungenSchreiben(liste);
+  return rueck;
+}
 
 /**
  * Bogen als Meldung in eine Sammlung legen — der einzige Weg, den die App
@@ -433,6 +488,12 @@ export function meldungAufnehmen(
     folgemeldungErbt(einsatzId, r.eintrag.id);
   } catch {
     return { ...r, erbeFehlt: true };
+  }
+  try {
+    const rueck = rueckkehrErkennen(einsatzId, r.eintrag.id);
+    if (rueck) return { ...r, rueckkehr: rueck };
+  } catch {
+    /* die Kennzeichnung ist Zusatz; die Meldung ist abgelegt */
   }
   return r;
 }

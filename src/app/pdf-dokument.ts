@@ -44,7 +44,7 @@ import {
 } from "./hilfen";
 import { mwdText, summiereBoegen, unterbringungAngefordertText, type EinsatzSummen } from "./auswertung";
 import { zeitLang } from "./eintrag-zeiten";
-import { bedarfMarken, datumVonMs, lueckenAlle } from "./einheiten-tabelle";
+import { bedarfMarken, datumVonMs, lueckenAlle, rueckkehrText } from "./einheiten-tabelle";
 import { FELD_GESAMTSTAERKE, bogenDiff, diffZeilen, type BogenDiff } from "@bos/meldekopf/meldung-diff";
 import { fahrzeugSymbolSvg } from "./taktische-zeichen-bogen";
 import { orgFarbe } from "./org-farben";
@@ -279,6 +279,12 @@ export interface UebersichtEintrag {
   notiz?: string;
   /** Laufende Nummer der Meldung, wie an der Karte am Gerät (R2-A6). */
   nummer?: number;
+  /**
+   * Diese Fassung hat die abgerückte Einheit wieder in die Lage geholt (R5-K1);
+   * `abgerueckAm` = seit wann sie abgerückt war. Das Blatt nennt es in der Spalte
+   * „Veränderung" — die Wand und der Stab lesen sonst nur eine normale Zeile.
+   */
+  rueckkehr?: { abgerueckAm?: number };
 }
 
 /** Ein Bogen der Sammel-PDF samt QR — die Übersichtsangaben plus der Code für die Bogenseiten. */
@@ -469,6 +475,11 @@ function uebersichtsTabelle(
                 ...diffZeilen(gesamtZuerst(d), maxZeilen).map((z) => ({ text: aenderungFuerPapier(z) })),
               ],
             };
+    }
+    // Eine durch Folgemeldung zurückgeholte Einheit steht als Erstes in der
+    // Spalte — nicht als gewöhnliche Zeile (R5-K1).
+    if (e.rueckkehr) {
+      aenderung = { stack: [{ text: rueckkehrText(e.rueckkehr).toUpperCase(), bold: true }, aenderung] };
     }
     // Name, darunter bei Bedarf die Kennzeichnung eines abgeteilten Truppteils
     // und der Übungs-Störer — beides muss in der Übersicht stehen, sonst sind

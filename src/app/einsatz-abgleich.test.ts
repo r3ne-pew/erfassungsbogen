@@ -19,6 +19,7 @@ import {
 } from "@bos/meldekopf/einsaetze";
 import { meldungAufnehmen, notizSetzen, statusMitZeitSetzen, zugSetzen, eintreffzeitSetzen } from "./eintrag-zeiten";
 import { abgleichText, einsatzAbgleichen, sammlungFuerZiel } from "./einsatz-abgleich";
+import { fassungGiltSetzen, geltendeJeEinheit } from "./fassung-vorrang";
 import { aenderungenSeit, neueEintraege, weitergabeStandLaden, weitergabeUmImportErgaenzen, weitergabeVermerken } from "./export-stand";
 
 class MemStorage {
@@ -250,7 +251,7 @@ describe("Weitergabe-Vermerk nach dem Rückimport (R3-W2)", () => {
     expect(r.aktualisiert).toHaveLength(3);
     weitergabeUmImportErgaenzen(id, r.neueIds, r.neueVermerke, r.bekannt);
     const stand = weitergabeStandLaden(id)!;
-    expect(aenderungenSeit(sammlung(id).eintraege, stand)).toEqual({ anzahl: 0, arten: [], einheiten: [] });
+    expect(aenderungenSeit(sammlung(id).eintraege, stand)).toEqual({ anzahl: 0, arten: [], einheiten: [], jeEinheit: {} });
     // Ändert A danach selbst einen Zug, steht genau das da.
     const bib = kopf(id, "Biberach");
     zugSetzen(id, bib.einheitSchluessel, bib.id, "1. TZ");
@@ -285,6 +286,59 @@ describe("Weitergabe-Vermerk nach dem Rückimport (R3-W2)", () => {
     weitergabeVermerken(sammlung(id));
     expect(geraetA.getItem("eeb.weitergabe-stand.v1")).not.toContain("Geheimer");
     expect(aenderungenSeit(sammlung(id).eintraege, weitergabeStandLaden(id)!).anzahl).toBe(0);
+  });
+});
+
+describe("Fassungsentscheidung des anderen Geräts (Audit Runde 5, R5-W4, R5-W1)", () => {
+  /** Beide Geräte: Schnellerfassung (jüngerer Stand) und der nachgereichte Bogen (älterer Stand), nicht entschieden. */
+  function zweiFassungen() {
+    auf(geraetA);
+    const s = einsatzAnlegen("Vorrang", EinsatzArt.EINSATZ);
+    meldungAufnehmen(s.id, bogen("Crailsheim", 1, 200), { quelle: "manuell" });
+    meldungAufnehmen(s.id, bogen("Crailsheim", 5, 100), { quelle: "scan" });
+    weitergabeVermerken(sammlung(s.id));
+    const datei = weitergeben(s.id);
+    auf(geraetB);
+    einsatzAbgleichen(datei);
+    return s.id;
+  }
+
+  it("nennt den Wechsel der geltenden Fassung in der Quittung, statt „enthält nichts“", () => {
+    const id = zweiFassungen();
+    // B lässt den Bogen gelten und gibt weiter.
+    auf(geraetB);
+    const bogenId = sammlung(id).eintraege.find((e) => e.quelle === "scan")!.id;
+    expect(geltendeJeEinheit(sammlung(id).eintraege)[0]!.quelle).toBe("manuell");
+    fassungGiltSetzen(id, bogenId);
+    const vonB = weitergeben(id);
+    // A importiert: kein neuer Eintrag, aber die geltende Fassung wechselt.
+    auf(geraetA);
+    expect(geltendeJeEinheit(sammlung(id).eintraege)[0]!.quelle).toBe("manuell");
+    const r = einsatzAbgleichen(vonB);
+    expect(r.hinzugefuegt).toBe(0);
+    expect(geltendeJeEinheit(sammlung(id).eintraege)[0]!.quelle).toBe("scan");
+    expect(r.aktualisiert).toHaveLength(1);
+    const text = abgleichText(r);
+    expect(text).toContain("Crailsheim Bogen der Einheit gilt, ersetzt die Schnellerfassung (Stärke 2 → 6)");
+    expect(text).not.toContain("nichts");
+  });
+
+  it("zählt den vom anderen Gerät mitgebrachten Wechsel nicht als „hier“ geändert", () => {
+    const id = zweiFassungen();
+    auf(geraetB);
+    fassungGiltSetzen(id, sammlung(id).eintraege.find((e) => e.quelle === "scan")!.id);
+    const vonB = weitergeben(id);
+    auf(geraetA);
+    const r = einsatzAbgleichen(vonB);
+    weitergabeUmImportErgaenzen(id, r.neueIds, r.neueVermerke, r.bekannt);
+    expect(aenderungenSeit(sammlung(id).eintraege, weitergabeStandLaden(id)!).anzahl).toBe(0);
+  });
+
+  it("zählt den Wechsel hier selbst als Änderung seit der Weitergabe", () => {
+    const id = zweiFassungen();
+    auf(geraetA);
+    fassungGiltSetzen(id, sammlung(id).eintraege.find((e) => e.quelle === "scan")!.id);
+    expect(aenderungenSeit(sammlung(id).eintraege, weitergabeStandLaden(id)!)).toMatchObject({ anzahl: 1, arten: ["Fassung"] });
   });
 });
 

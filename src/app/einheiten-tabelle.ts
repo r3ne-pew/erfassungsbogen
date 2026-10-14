@@ -319,6 +319,16 @@ export interface FolgeAenderung {
   staerkeNachher?: number;
   /** Die Gesamtstärke ist gesunken — das muss auffallen. */
   verlust: boolean;
+  /**
+   * Die Folgemeldung hat eine abgerückte Einheit wieder in die Lage geholt
+   * (R5-K1); `abgerueckAm` = seit wann sie abgerückt war.
+   */
+  rueckkehr?: { abgerueckAm?: number };
+}
+
+/** „wieder anwesend — war abgerückt seit 12:47" für Quittung, Karte und Blatt (R5-K1). */
+export function rueckkehrText(r: { abgerueckAm?: number }): string {
+  return r.abgerueckAm != null ? `wieder anwesend — war abgerückt seit ${zeitLang(r.abgerueckAm)}` : "wieder anwesend — war abgerückt";
 }
 
 /**
@@ -338,6 +348,7 @@ export function folgeAenderung(kopf: MeldeEintrag, alle: MeldeEintrag[]): FolgeA
     kurz: folgeKurztext(d, vorher, nachher),
     ...(vorher !== nachher ? { staerkeVorher: vorher, staerkeNachher: nachher } : {}),
     verlust: nachher < vorher,
+    ...(kopf.rueckkehr ? { rueckkehr: kopf.rueckkehr } : {}),
   };
 }
 

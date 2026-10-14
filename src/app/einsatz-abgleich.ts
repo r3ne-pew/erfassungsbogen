@@ -38,8 +38,9 @@ import {
   type Einsatzsammlung,
   type MeldeEintrag,
 } from "@bos/meldekopf/einsaetze";
-import { geltendeJeEinheit } from "./fassung-vorrang";
-import { einheitAnzeigename } from "./hilfen";
+import { staerke } from "@bos/eeb-format/model";
+import { geltendeJeEinheit, istPlatzhalterFassung } from "./fassung-vorrang";
+import { einheitAnzeigename, zeitpunktDeutsch } from "./hilfen";
 import { sammlungenSchreiben, zeitKurz, type FuehrungsVermerk } from "./eintrag-zeiten";
 
 export type Feld = "status" | "zug" | "notiz" | "eintreffzeit";
@@ -119,6 +120,21 @@ interface Wert {
  */
 export function feldGleichheit(feld: Feld, e: MeldeEintrag): string {
   return wert(feld, e).gleichheit;
+}
+
+/**
+ * Felder der Stände „was hat sich seit dem Export geändert?": die vier Felder
+ * des Abgleichs und dazu die geltende Fassung selbst (R5-W1). Der Wechsel der
+ * geltenden Fassung („Diese Fassung gilt", Vorrang vom anderen Gerät) ist eine
+ * Änderung der Lage, auch wenn kein neuer Eintrag entstand — der Stab plant
+ * sonst weiter mit der Schnellerfassung, während der Meldekopf den Bogen führt.
+ * Der Abgleich selbst gleicht „fassung" nicht nach den Regeln der übrigen Felder
+ * ab: Den Vorrang trägt `ersetztDurch`.
+ */
+export type StandFeld = Feld | "fassung";
+
+export function standGleichheit(feld: StandFeld, e: MeldeEintrag): string {
+  return feld === "fassung" ? e.id : feldGleichheit(feld, e);
 }
 
 function wert(feld: Feld, e: MeldeEintrag): Wert {
@@ -250,7 +266,7 @@ export interface AbgleichErgebnis {
    * andere Gerät kennt sie (R4-W7). Wo hier ein anderer Wert gilt (Widerspruch,
    * hier behalten), fehlt das Feld: das hat das andere Gerät noch nicht.
    */
-  bekannt: Record<string, Partial<Record<Feld, string>>>;
+  bekannt: Record<string, Partial<Record<StandFeld, string>>>;
 }
 
 function kurzname(e: MeldeEintrag): string {
@@ -264,6 +280,20 @@ function alleSammlungen(): Einsatzsammlung[] {
 }
 
 export const FELDER: Feld[] = ["status", "zug", "notiz", "eintreffzeit"];
+
+/** Alle Felder der Stände: {@link FELDER} und die geltende Fassung (R5-W1). */
+export const STAND_FELDER: StandFeld[] = [...FELDER, "fassung"];
+
+/** „Bogen der Einheit gilt (Stärke 10 → 12)" — der Wechsel der geltenden Fassung in Worten (R5-W4). */
+export function fassungWechselText(alt: MeldeEintrag, neu: MeldeEintrag): string {
+  const von = staerke(alt.bogen).gesamt;
+  const nach = staerke(neu.bogen).gesamt;
+  const kopf =
+    istPlatzhalterFassung(alt) && !istPlatzhalterFassung(neu)
+      ? "Bogen der Einheit gilt, ersetzt die Schnellerfassung"
+      : `Fassung vom ${zeitpunktDeutsch(neu.bogen.stand)} gilt`;
+  return von !== nach ? `${kopf} (Stärke ${von} → ${nach})` : kopf;
+}
 
 /**
  * Sammlung importieren und mit dem Stand dieses Geräts abgleichen. Ersetzt
@@ -296,10 +326,10 @@ export function einsatzAbgleichen(importiert: Einsatzsammlung, jetzt = Date.now(
       const datei = seite(importiert.eintraege, schl);
       const jetztKopf = seite(s.eintraege, schl);
       if (!datei || !jetztKopf) continue;
-      const felder: Partial<Record<Feld, string>> = {};
-      for (const feld of FELDER) {
-        const g = feldGleichheit(feld, jetztKopf.kopf);
-        if (g === feldGleichheit(feld, datei.kopf)) felder[feld] = g;
+      const felder: Partial<Record<StandFeld, string>> = {};
+      for (const feld of STAND_FELDER) {
+        const g = standGleichheit(feld, jetztKopf.kopf);
+        if (g === standGleichheit(feld, datei.kopf)) felder[feld] = g;
       }
       ergebnis.bekannt[schl] = felder;
     }
@@ -333,6 +363,10 @@ export function einsatzAbgleichen(importiert: Einsatzsammlung, jetzt = Date.now(
     const vorZiel = JSON.stringify(ziel) + fassungen.map((e) => e.zugEtikett ?? "").join("|");
     const was: string[] = [];
     const notizen: FuehrungsVermerk[] = [];
+    // Hat das andere Gerät entschieden, welche vorhandene Fassung gilt (Vorrang),
+    // wechselt hier der Kopf, ohne dass ein Eintrag dazukam: auch das nennt die
+    // Quittung (R5-W4).
+    if (ziel.id !== hier.kopf.id && vorherIds.has(ziel.id)) was.push(fassungWechselText(hier.kopf, ziel));
     for (const feld of FELDER) {
       const ent = entscheide(feld, hier, datei);
       if (!ent) continue; // beide Köpfe gleich — der neue Kopf ist einer davon

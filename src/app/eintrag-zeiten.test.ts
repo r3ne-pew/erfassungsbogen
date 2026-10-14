@@ -228,6 +228,50 @@ describe("meldungAufnehmen (R2-K1)", () => {
   });
 });
 
+describe("Folgemeldung einer abgerückten Einheit (Audit Runde 5, R5-K1)", () => {
+  it("holt die Einheit zurück — gekennzeichnet, mit Vermerk und früherer Abrückzeit", () => {
+    const { einsatzId, eintragId } = buehne();
+    statusMitZeitSetzen(einsatzId, eintragId, MeldeStatus.ABGERUECKT, 7777);
+
+    const r = meldungAufnehmen(einsatzId, bogen("Crailsheim", 200), { quelle: "scan" })!;
+    expect(r.neu).toBe(true);
+    expect(r.rueckkehr).toEqual({ abgerueckAm: 7777 });
+    const folge = eintrag(einsatzId, r.eintrag.id);
+    expect(folge.status).toBe(MeldeStatus.ANWESEND);
+    expect(folge.rueckkehr).toEqual({ abgerueckAm: 7777 });
+    const letzter = folge.vermerke![folge.vermerke!.length - 1]!;
+    expect(letzter.text).toMatch(/^Wieder als anwesend geführt: Folgemeldung .* war abgerückt seit /);
+  });
+
+  it("lässt eine Einheit abgerückt, wenn nur ein älterer Stand nachgereicht wird", () => {
+    const { einsatzId, eintragId } = buehne(); // Stand 100
+    meldungAufnehmen(einsatzId, bogen("Crailsheim", 300), { quelle: "scan" });
+    const neuerId = einsaetzeLaden().find((s) => s.id === einsatzId)!.eintraege.find((e) => e.bogen.stand === 300)!.id;
+    statusMitZeitSetzen(einsatzId, neuerId, MeldeStatus.ABGERUECKT, 7777);
+    const r = meldungAufnehmen(einsatzId, bogen("Crailsheim", 200), { quelle: "scan" })!;
+    expect(r.rueckkehr).toBeUndefined();
+    expect(eintrag(einsatzId, r.eintrag.id).rueckkehr).toBeUndefined();
+    expect(eintrag(einsatzId, eintragId).status).toBe(MeldeStatus.ANWESEND); // unberührt
+  });
+
+  it("kennzeichnet nichts bei einer anwesenden Einheit, und ein Statuswechsel von Hand löscht die Kennzeichnung", () => {
+    const { einsatzId, eintragId } = buehne();
+    const normal = meldungAufnehmen(einsatzId, bogen("Crailsheim", 200), { quelle: "scan" })!;
+    expect(normal.rueckkehr).toBeUndefined();
+
+    statusMitZeitSetzen(einsatzId, normal.eintrag.id, MeldeStatus.ABGERUECKT, 8000);
+    const zurueck = meldungAufnehmen(einsatzId, bogen("Crailsheim", 300), { quelle: "scan" })!;
+    expect(zurueck.rueckkehr).toEqual({ abgerueckAm: 8000 });
+    // „Wieder abrücken" mit der früheren Zeit, Vermerk mit der Zeit von jetzt.
+    statusMitZeitSetzen(einsatzId, zurueck.eintrag.id, MeldeStatus.ABGERUECKT, 8000, 9000);
+    const jetzt = eintrag(einsatzId, zurueck.eintrag.id);
+    expect(jetzt.rueckkehr).toBeUndefined();
+    expect(jetzt.abgerueckAm).toBe(8000);
+    expect(jetzt.vermerke![jetzt.vermerke!.length - 1]).toEqual({ zeit: 9000, text: "Abgerückt" });
+    expect(eintragId).toBeTruthy();
+  });
+});
+
 describe("Speicher voll", () => {
   it("meldet einen vollen Speicher als SpeicherVollFehler", () => {
     const { einsatzId, eintragId } = buehne();

@@ -28,7 +28,7 @@
  * (verworfen, nicht mit importiert), gilt der Verweis nicht — dann entscheidet
  * wieder der Kern.
  */
-import { neuesteJeEinheit, revisionen, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
+import { MeldeStatus, neuesteJeEinheit, revisionen, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { einsaetzeLaden as kernEinsaetzeLaden, einsaetzePapierkorb as kernEinsaetzePapierkorb } from "@bos/meldekopf/einsaetze";
 import { sammlungenSchreiben } from "./eintrag-zeiten";
 
@@ -203,14 +203,23 @@ export function fassungGiltSetzen(einsatzId: string, eintragId: string, jetzt = 
     if (gilt.notiz == null && bisherKopf.notiz) gilt.notiz = bisherKopf.notiz;
     if (!gilt.zugEtikett && bisherKopf.zugEtikett) gilt.zugEtikett = bisherKopf.zugEtikett;
     if (!gilt.teilEtikett && bisherKopf.teilEtikett) gilt.teilEtikett = bisherKopf.teilEtikett;
-    if (gilt.status !== bisherKopf.status) {
+    // Hat die bisher geltende Fassung die Einheit nur durch eine Folgemeldung
+    // zurückgeholt (R5-K1), war ihr Status keine Entscheidung der Führungsstelle:
+    // Dann gilt der Status der Fassung, die jetzt gilt, nicht der geerbte.
+    if (!bisherKopf.rueckkehr && gilt.status !== bisherKopf.status) {
       gilt.status = bisherKopf.status;
       if (bisherKopf.abgerueckAm != null) gilt.abgerueckAm = bisherKopf.abgerueckAm;
       else delete gilt.abgerueckAm;
     }
+    if (gilt.status === MeldeStatus.ABGERUECKT) delete gilt.rueckkehr;
     if (bisherKopf.vermerke?.length) {
       const bekannt = new Set((gilt.vermerke ?? []).map((v) => `${v.zeit}|${v.text}`));
-      const dazu = bisherKopf.vermerke.filter((v) => !bekannt.has(`${v.zeit}|${v.text}`));
+      const dazu = bisherKopf.vermerke.filter(
+        (v) =>
+          !bekannt.has(`${v.zeit}|${v.text}`) &&
+          // Der Vermerk der Rückkehr gehört zu der Fassung, die sie bewirkt hat.
+          !(gilt.status === MeldeStatus.ABGERUECKT && bisherKopf.rueckkehr && v.text.startsWith("Wieder als anwesend geführt: Folgemeldung")),
+      );
       if (dazu.length > 0) gilt.vermerke = [...(gilt.vermerke ?? []), ...dazu.map((v) => ({ ...v }))].sort((a, b) => a.zeit - b.zeit);
     }
   }

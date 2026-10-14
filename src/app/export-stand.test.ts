@@ -213,13 +213,13 @@ describe("Änderungen an bekannten Einheiten seit dem Stand (Audit Runde 4, R4-K
     const a = eintrag("m1", "Wardenburg", 1000);
     const b = eintrag("m2", "Hatten", 2000);
     const stand = lageblattVermerken(sammlung("e1", [a, b]), undefined, 3000);
-    expect(aenderungenSeit([a, b], stand)).toEqual({ anzahl: 0, arten: [], einheiten: [] });
+    expect(aenderungenSeit([a, b], stand)).toEqual({ anzahl: 0, arten: [], einheiten: [], jeEinheit: {} });
     expect(seitdemText(0, aenderungenSeit([a, b], stand))).toBe("seitdem keine neue Meldung");
 
     a.status = MeldeStatus.ABGERUECKT;
     a.abgerueckAm = 4000;
     const aend = aenderungenSeit([a, b], stand);
-    expect(aend).toEqual({ anzahl: 1, arten: ["Abrücken"], einheiten: [a.einheitSchluessel] });
+    expect(aend).toEqual({ anzahl: 1, arten: ["Abrücken"], einheiten: [a.einheitSchluessel], jeEinheit: { [a.einheitSchluessel]: ["Abrücken"] } });
     expect(seitdemText(0, aend)).toBe("seitdem 1 Änderung (Abrücken)");
     expect(seitdemText(1, aend)).toBe("seitdem 1 neue Meldung und 1 Änderung (Abrücken)");
 
@@ -258,6 +258,71 @@ describe("Änderungen an bekannten Einheiten seit dem Stand (Audit Runde 4, R4-K
     a.vermerke = [{ zeit: 5000, text: "Abgerückt" }];
     const alt: ExportStand = { zeitpunkt: 4000, eintragIds: ["m1"] };
     expect(aenderungenSeit([a], alt)).toMatchObject({ anzahl: 1, arten: ["Abrücken"] });
+  });
+});
+
+describe("Wechsel der geltenden Fassung und Richtung des Statuswechsels (Audit Runde 5, R5-W1, R5-K1)", () => {
+  /** Schnellerfassung (m1, Platzhalter) und der später nachgereichte Bogen (m2, älterer Stand). */
+  function lage() {
+    // Die Eintreffzeit gehört der Einheit, nicht der Fassung (folgemeldungErbt, fassungGiltSetzen).
+    const schnell = eintrag("m1", "Crailsheim", 3000);
+    schnell.quelle = "manuell";
+    schnell.bogen.stand = 200;
+    schnell.eingetroffenAm = 3000;
+    const bogenDerEinheit = eintrag("m2", "Crailsheim", 4000);
+    bogenDerEinheit.bogen.stand = 100;
+    bogenDerEinheit.eingetroffenAm = 3000;
+    return { schnell, bogenDerEinheit };
+  }
+
+  it("zählt „Diese Fassung gilt“ nach einem Export als Änderung (Fassung) und nimmt die Einheit in den Nachtrag", () => {
+    const { schnell, bogenDerEinheit } = lage();
+    const stand = exportVermerken(sammlung("e1", [schnell, bogenDerEinheit]), "csv", undefined, 5000);
+    // Nach dem Stand ist die Schnellerfassung die geltende Fassung.
+    expect(aenderungenSeit([schnell, bogenDerEinheit], stand).anzahl).toBe(0);
+    expect(nachtragEintraege([schnell, bogenDerEinheit], stand)).toEqual([]);
+
+    // Die Führungsstelle lässt den Bogen gelten.
+    schnell.ersetztDurch = "m2";
+    const aend = aenderungenSeit([schnell, bogenDerEinheit], stand);
+    expect(aend).toMatchObject({ anzahl: 1, arten: ["Fassung"] });
+    expect(seitdemText(0, aend)).toBe("seitdem 1 Änderung (Fassung)");
+    // Der Nachtrag trägt die jetzt geltende Fassung — nicht die Schnellerfassung.
+    expect(nachtragEintraege([schnell, bogenDerEinheit], stand).map((e) => e.id)).toEqual(["m2"]);
+  });
+
+  it("zählt eine NEUE Fassung nur als neue Meldung, nicht zusätzlich als Fassungswechsel", () => {
+    const a = eintrag("m1", "Crailsheim", 1000);
+    a.bogen.stand = 100;
+    const stand = exportVermerken(sammlung("e1", [a]), "csv", undefined, 5000);
+    a.eingetroffenAm = 1000;
+    const folge = eintrag("m2", "Crailsheim", 6000);
+    folge.bogen.stand = 300;
+    folge.eingetroffenAm = 1000;
+    expect(aenderungenSeit([a, folge], stand).anzahl).toBe(0);
+    expect(neueEintraege([a, folge], stand).map((e) => e.id)).toEqual(["m2"]);
+  });
+
+  it("liest Stände aus der Zeit vor dem Fassungsfeld weiter (kein Fassungswechsel erfunden)", () => {
+    const { schnell, bogenDerEinheit } = lage();
+    const stand = exportVermerken(sammlung("e1", [schnell, bogenDerEinheit]), "csv", undefined, 5000);
+    for (const z of Object.values(stand.zustand!)) delete z.fassung;
+    schnell.ersetztDurch = "m2";
+    expect(aenderungenSeit([schnell, bogenDerEinheit], stand).anzahl).toBe(0);
+  });
+
+  it("nennt die Rückkehr einer abgerückten Einheit „Wieder anwesend“, nicht „Abrücken“", () => {
+    const a = eintrag("m1", "Ansbach", 1000);
+    a.bogen.stand = 100;
+    a.status = MeldeStatus.ABGERUECKT;
+    a.abgerueckAm = 2000;
+    const stand = exportVermerken(sammlung("e1", [a]), "csv", undefined, 5000);
+    // Zurück per Hand: dieselbe Fassung, Status anwesend.
+    a.status = MeldeStatus.ANWESEND;
+    delete a.abgerueckAm;
+    const aend = aenderungenSeit([a], stand);
+    expect(aend).toMatchObject({ anzahl: 1, arten: ["Wieder anwesend"] });
+    expect(seitdemText(0, aend)).toBe("seitdem 1 Änderung (Wieder anwesend)");
   });
 });
 

@@ -25,7 +25,8 @@
 
 import type { Einsatzsammlung, MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { zeitLang } from "./eintrag-zeiten";
-import { FELDER, feldGleichheit, vermerkFeld, vermerkKennung, type Feld } from "./einsatz-abgleich";
+import { FELDER, STAND_FELDER, standGleichheit, vermerkFeld, vermerkKennung, type Feld, type StandFeld } from "./einsatz-abgleich";
+import { MeldeStatus } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit } from "./fassung-vorrang";
 
 /**
@@ -86,7 +87,7 @@ export interface ExportStand {
    * bekannt buchen (R4-W7). Prüfsummen statt Text, damit kein Auftragstext in
    * diesem Komfort-Stand landet.
    */
-  zustand?: Record<string, Partial<Record<Feld, string>>>;
+  zustand?: Record<string, Partial<Record<StandFeld, string>>>;
   /** Nur Weitergabe-Stand: wann zuletzt eine Sammlung von dort übernommen wurde. */
   uebernommenAm?: number;
   /**
@@ -118,8 +119,8 @@ function standLesen(stand: unknown): ExportStand | null {
     zustand = {};
     for (const [schl, felder] of Object.entries(s.zustand)) {
       if (!felder || typeof felder !== "object") continue;
-      const f: Partial<Record<Feld, string>> = {};
-      for (const feld of FELDER) {
+      const f: Partial<Record<StandFeld, string>> = {};
+      for (const feld of STAND_FELDER) {
         const w = (felder as Record<string, unknown>)[feld];
         if (typeof w === "string") f[feld] = w;
       }
@@ -193,8 +194,8 @@ export function exportStaendeLaden(einsatzId: string): Partial<Record<ExportZiel
 function zustandVon(eintraege: MeldeEintrag[]): NonNullable<ExportStand["zustand"]> {
   const z: NonNullable<ExportStand["zustand"]> = {};
   for (const k of geltendeJeEinheit(eintraege)) {
-    const f: Partial<Record<Feld, string>> = {};
-    for (const feld of FELDER) f[feld] = pruefsumme(feldGleichheit(feld, k));
+    const f: Partial<Record<StandFeld, string>> = {};
+    for (const feld of STAND_FELDER) f[feld] = pruefsumme(standGleichheit(feld, k));
     z[k.einheitSchluessel] = f;
   }
   return z;
@@ -313,7 +314,7 @@ export function weitergabeUmImportErgaenzen(
   einsatzId: string,
   eintragIds: string[],
   vermerke: string[],
-  bekannt: Record<string, Partial<Record<Feld, string>>> = {},
+  bekannt: Record<string, Partial<Record<StandFeld, string>>> = {},
   jetzt = Date.now(),
 ): void {
   const alt = ablageLaden(WEITERGABE_SCHLUESSEL);
@@ -323,8 +324,8 @@ export function weitergabeUmImportErgaenzen(
   if (zustand) {
     zustand = { ...zustand };
     for (const [schl, felder] of Object.entries(bekannt)) {
-      const f: Partial<Record<Feld, string>> = { ...zustand[schl] };
-      for (const feld of FELDER) {
+      const f: Partial<Record<StandFeld, string>> = { ...zustand[schl] };
+      for (const feld of STAND_FELDER) {
         const w = felder[feld];
         if (w !== undefined) f[feld] = pruefsumme(w);
       }
@@ -344,34 +345,63 @@ export function weitergabeUmImportErgaenzen(
 /** Was seit dem Stand HIER an bekannten Einheiten geändert wurde (R3-W2, R4-K1). */
 export interface AenderungenSeit {
   anzahl: number;
-  /** „Abrücken", „Zug", „Auftrag", „Eintreffzeit" — in dieser Reihenfolge, ohne Doppel. */
+  /**
+   * „Abrücken", „Wieder anwesend", „Zug", „Auftrag", „Eintreffzeit", „Fassung" —
+   * in dieser Reihenfolge, ohne Doppel.
+   */
   arten: string[];
   /** Schlüssel der betroffenen Einheiten. */
   einheiten: string[];
+  /** Je Einheit die Arten der Änderung (gleiche Wörter und Reihenfolge wie `arten`). */
+  jeEinheit: Record<string, string[]>;
 }
 
 const ART_TEXT: Record<Feld, string> = { status: "Abrücken", zug: "Zug", notiz: "Auftrag", eintreffzeit: "Eintreffzeit" };
+const ART_FASSUNG = "Fassung";
+const ART_WIEDER_DA = "Wieder anwesend";
+/** Reihenfolge der Arten in „2 Änderungen (Zug, Auftrag)". */
+const ART_REIHE = [ART_TEXT.status, "Zusammenführen", ART_WIEDER_DA, ART_TEXT.zug, ART_TEXT.notiz, ART_TEXT.eintreffzeit, ART_FASSUNG];
+
+/** Das Wort für einen Statuswechsel — in die Richtung, in die er ging (R5-K1: „Abrücken" für zwei Zurückgekehrte war falsch). */
+function statusArt(status: MeldeStatus): string {
+  if (status === MeldeStatus.ABGERUECKT) return ART_TEXT.status;
+  if (status === MeldeStatus.AUFGEGANGEN) return "Zusammenführen";
+  return ART_WIEDER_DA;
+}
 
 /**
  * Änderungen an bekannten Einheiten seit einem Stand. Stände mit Zustand
  * vergleichen den Zustand der geltenden Fassung je Einheit — ein „Rückgängig"
  * nimmt die Änderung damit wirklich zurück. Ältere Stände (ohne Zustand)
  * zählen die Vermerke der Führungsstelle.
+ *
+ * Auch der Wechsel der geltenden Fassung zählt („Fassung", R5-W1): wer nach
+ * einem Export den nachgereichten Bogen statt der Schnellerfassung gelten
+ * lässt, hat die Lage geändert. Eine NEUE Fassung ist dagegen eine neue
+ * Meldung und wird dort gezählt, nicht hier.
  */
 export function aenderungenSeit(eintraege: MeldeEintrag[], stand: ExportStand): AenderungenSeit {
-  const arten = new Set<Feld>();
+  const arten = new Set<string>();
+  const jeEinheit: Record<string, Set<string>> = {};
   const einheiten = new Set<string>();
   let anzahl = 0;
+  const vermerke = (schl: string, art: string) => {
+    arten.add(art);
+    einheiten.add(schl);
+    (jeEinheit[schl] ??= new Set()).add(art);
+  };
   if (stand.zustand) {
+    const bekannteIds = new Set(stand.eintragIds);
     for (const k of geltendeJeEinheit(eintraege)) {
       const z = stand.zustand[k.einheitSchluessel];
       if (!z) continue; // neue Einheit: zählt als neue Meldung, nicht als Änderung
-      for (const feld of FELDER) {
+      for (const feld of STAND_FELDER) {
         const bekannt = z[feld];
-        if (bekannt === undefined || bekannt === pruefsumme(feldGleichheit(feld, k))) continue;
+        if (bekannt === undefined || bekannt === pruefsumme(standGleichheit(feld, k))) continue;
+        // Eine Fassung, die der Stand nicht kannte, ist eine neue Meldung.
+        if (feld === "fassung" && !bekannteIds.has(k.id)) continue;
         anzahl++;
-        arten.add(feld);
-        einheiten.add(k.einheitSchluessel);
+        vermerke(k.einheitSchluessel, feld === "fassung" ? ART_FASSUNG : feld === "status" ? statusArt(k.status) : ART_TEXT[feld]);
       }
     }
   } else {
@@ -386,13 +416,17 @@ export function aenderungenSeit(eintraege: MeldeEintrag[], stand: ExportStand): 
         const neu = bekannt ? !bekannt.has(p) : v.zeit > stand.zeitpunkt;
         if (!neu) continue;
         gezaehlt.add(p);
-        arten.add(feld);
-        einheiten.add(e.einheitSchluessel);
+        vermerke(e.einheitSchluessel, feld === "status" && /^Wieder als anwesend/.test(v.text) ? ART_WIEDER_DA : ART_TEXT[feld]);
       }
     }
     anzahl = gezaehlt.size;
   }
-  return { anzahl, arten: FELDER.filter((f) => arten.has(f)).map((f) => ART_TEXT[f]), einheiten: [...einheiten] };
+  return {
+    anzahl,
+    arten: ART_REIHE.filter((a) => arten.has(a)),
+    einheiten: [...einheiten],
+    jeEinheit: Object.fromEntries(Object.entries(jeEinheit).map(([schl, a]) => [schl, ART_REIHE.filter((x) => a.has(x))])),
+  };
 }
 
 /** „1 Änderung (Abrücken)" / „2 Änderungen (Zug, Auftrag)" — leer ohne Änderung. */

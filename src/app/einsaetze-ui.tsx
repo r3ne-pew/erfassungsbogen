@@ -108,6 +108,7 @@ import {
   lueckenText,
   pruefpunkteEintrag,
   folgeAenderung,
+  rueckkehrText,
   meldungsNummern,
   passtZuBedarfsfilter,
   type BedarfsFilter,
@@ -1357,6 +1358,10 @@ export function EinsatzDetail(props: {
           Zuletzt eingelesen: „{einheitAnzeigename(eingegangen.bogen.einheit)}"
           {eingegangen.teilEtikett ? ` (${eingegangen.teilEtikett})` : ""}
           {eingangFolge ? <> — Folgemeldung: <span className={eingangFolge.verlust ? "staerke-verlust" : undefined}>{eingangFolge.kurz}</span></> : null}
+          {/* Eine abgerückte Einheit kommt durch die Folgemeldung zurück in die Lage — nicht still (R5-K1). */}
+          {eingangFolge?.rueckkehr && (
+            <strong className="rueckkehr-hinweis"> — ⚠ {rueckkehrText(eingangFolge.rueckkehr)}, zählt wieder mit{eingangFolge.kurz === "inhaltlich unverändert" ? " (inhaltlich unverändert — war sie wirklich zurück?)" : ""}</strong>
+          )}
           {" · "}jetzt {sum.einheiten}{" "}
           {sum.einheiten === 1 ? "Einheit" : "Einheiten"}, Gesamt {sum.staerke.gesamt}.{" "}
           <button type="button" className="link" onClick={eingangZeigen}>In der Liste zeigen</button>
@@ -1426,6 +1431,7 @@ export function EinsatzDetail(props: {
                   ) : (
                     " — neu gemeldet"
                   )}
+                  {folge?.rueckkehr && <strong className="rueckkehr-hinweis"> — ⚠ {rueckkehrText(folge.rueckkehr)}, zählt wieder mit</strong>}
                   {fremdeOrte.has(e.einheitSchluessel) && (
                     <span className="warnung-text"> — ⚠ Bogen nennt: „{fremdeOrte.get(e.einheitSchluessel)}“, passt das zu dieser Lage?</span>
                   )}
@@ -2659,6 +2665,23 @@ function EinheitKarte(props: {
     onGeaendert();
   }
 
+  /**
+   * Eine durch Folgemeldung zurückgeholte Einheit wieder abrücken (R5-K1) — mit
+   * ihrer früheren Abrückzeit; der Verlauf bekommt den Vermerk mit der Zeit von jetzt.
+   */
+  async function wiederAbruecken() {
+    const rueck = kopf.rueckkehr;
+    if (!rueck) return;
+    const zeit = Date.now();
+    const vorher = { ...kopf };
+    const ok = await gesichert("Wieder abrücken", () =>
+      statusMitZeitSetzen(einsatzId, kopf.id, MeldeStatus.ABGERUECKT, rueck.abgerueckAm ?? zeit, zeit),
+    );
+    if (!ok) return;
+    onStatusWechsel?.({ vorher, status: MeldeStatus.ABGERUECKT, zeit });
+    onGeaendert();
+  }
+
   async function zugSpeichern() {
     const ok = await gesichert("Zug zuordnen", () =>
       zugSetzen(einsatzId, kopf.einheitSchluessel, kopf.id, zugEntwurf ?? ""),
@@ -3129,6 +3152,11 @@ function EinheitKarte(props: {
                   {folge.staerkeVorher != null ? ` · ${folge.staerkeVorher} → ${folge.staerkeNachher}` : ""}
                 </span>
               )}
+              {kopf.rueckkehr && zaehlt && (
+                <span className="kompakt-merkmal luecken-merkmal" title={`${rueckkehrText(kopf.rueckkehr)} (durch die Folgemeldung) — zählt wieder mit`}>
+                  ⚠ wieder da
+                </span>
+              )}
               {bedarf.map((m) => (
                 <span className={m.dringend && zaehlt ? "bedarf-marke dringend" : "bedarf-marke routine"} key={m.lang} title={m.lang}>{m.kurz}</span>
               ))}
@@ -3314,6 +3342,15 @@ function EinheitKarte(props: {
               seit {standText(vorige.bogen)}: {kurz}
             </span>
           ) : null}
+          {/* Die Folgemeldung hat die Einheit aus „abgerückt" zurückgeholt (R5-K1). */}
+          {kopf.rueckkehr && zaehlt && (
+            <span className="muster-sub warnung-text rueckkehr" role="note">
+              ⚠ {rueckkehrText(kopf.rueckkehr)} (durch die Folgemeldung) — zählt wieder mit.{" "}
+              <button type="button" className="link" aria-describedby={nameId} onClick={() => void wiederAbruecken()}>
+                Wieder abrücken
+              </button>
+            </span>
+          )}
           {kopf.aufgegangenIn && (
             <span className="muster-sub">
               aufgegangen in{" "}
