@@ -58,6 +58,7 @@ import { fassungGiltSetzen, fassungObenauf, fassungenJeEinheit, geltendeJeEinhei
 import { einsaetzeLaden, einsaetzePapierkorb } from "./einsaetze-lesen";
 import { koepfeJe, revisionenJe } from "./einheiten-index";
 import { RolleMarke } from "./rolle-marke";
+import { useArbeitet } from "./arbeitet";
 import { AufteilenPanel } from "./aufteilen-ui";
 import { ZusammenfuehrenPanel } from "./zusammenfuehren-ui";
 import type { AufteilungsWahl } from "@bos/meldekopf/aufteilen";
@@ -180,12 +181,24 @@ const QUELLE_LABEL: Record<keyof typeof HERKUNFT_TEXT, string> = {
  * Anzeige sagt „abgerückt", der Speicher sagt „anwesend", und beim nächsten
  * Laden stimmt die Lage nicht mehr. Liefert, ob geschrieben wurde.
  */
-async function gesichert(titel: string, aktion: () => void): Promise<boolean> {
+async function gesichert(titel: string, aktion: () => void, merke?: string): Promise<boolean> {
   try {
     aktion();
     return true;
   } catch (e) {
-    await zeigeHinweis({ titel, text: e instanceof SpeicherVollFehler ? e.message : fehlerText(e) });
+    const grund = e instanceof SpeicherVollFehler ? e.message : fehlerText(e);
+    // `merke`: was der Helfer eingegeben hatte und das der Dialog nicht mehr
+    // zeigt — so lässt es sich auf den Meldeblock schreiben, bevor Platz
+    // geschaffen und neu eingegeben wird (Audit Runde 5, R5-E7).
+    await zeigeHinweis({
+      titel,
+      text: merke ? (
+        <>
+          <p>{grund}</p>
+          <p><strong>{merke}</strong></p>
+        </>
+      ) : grund,
+    });
     return false;
   }
 }
@@ -801,6 +814,11 @@ export function EinsatzDetail(props: {
   onWeitergeben?: () => void;
   /** Einseitiges Lageblatt (Übersicht + Bedarf + Züge) als PDF. */
   onLageblatt?: () => void;
+  /**
+   * Bestätigung der letzten PDF-Erzeugung (Weitergeben, Lageblatt, Blanko),
+   * gezeigt direkt unter deren Knöpfen statt am Seitenende (Audit Runde 5, R5-L4).
+   */
+  ausgabeQuittung?: string | null;
   /** Leerer Bogen zum Ausfüllen mit der Hand — die Papier-Reserve (R3-A7). */
   onBlanko?: () => void;
   onGeloescht: () => void;
@@ -819,7 +837,9 @@ export function EinsatzDetail(props: {
   exportUmfang?: ExportUmfang;
   onExportUmfang?: (umfang: ExportUmfang) => void;
 }) {
-  const { einsatz, onZurueck, onGeaendert, onScannen, onManuell, onDateiImport, onBilderImport, onExport, onCsvExport, onCsvDetailExport, onOldenburgExport, onSammelPdf, onWeitergeben, onLageblatt, onBlanko, onGeloescht, eingang } = props;
+  const { einsatz, onZurueck, onGeaendert, onScannen, onManuell, onDateiImport, onBilderImport, onExport, onCsvExport, onCsvDetailExport, onOldenburgExport, onSammelPdf, onWeitergeben, onLageblatt, onBlanko, onGeloescht, eingang, ausgabeQuittung } = props;
+  // Läuft eine PDF-Erzeugung (arbeitet.ts), sperrt sie alle PDF-Knöpfe und beschriftet den eigenen (R5-O3).
+  const arbeitet = useArbeitet();
   const exportStaende = props.exportStaende ?? {};
   const [eigenerUmfang, setEigenerUmfang] = useState<ExportUmfang>("alle");
   const exportUmfang = props.exportUmfang ?? eigenerUmfang;
@@ -1726,22 +1746,27 @@ export function EinsatzDetail(props: {
           {onWeitergeben && (
             <button
               type="button"
-              className="primaer"
+              className={`primaer${arbeitet === "weitergeben" ? " arbeitet" : ""}`}
+              aria-busy={arbeitet === "weitergeben" || undefined}
+              disabled={arbeitet !== null}
               onClick={onWeitergeben}
               title="Die ganze Sammlung als Datei — auf dem nächsten Gerät über „Einsatz importieren…“ einlesbar."
             >
-              Einsatz weitergeben / sichern
+              {arbeitet === "weitergeben" ? "Einsatz wird erzeugt…" : "Einsatz weitergeben / sichern"}
             </button>
           )}{" "}
           {onLageblatt && (
             <button
               type="button"
+              className={arbeitet === "lageblatt" ? "arbeitet" : ""}
+              aria-busy={arbeitet === "lageblatt" || undefined}
+              disabled={arbeitet !== null}
               onClick={onLageblatt}
               title="Nur die Übersicht: Einheiten mit Zug, Eintreff- und Abrückzeit, Bedarf und Zwischensummen — A4 quer, ohne Bögen; Stärke und Bedarf stehen oben auf Seite 1; bis etwa zehn Einheiten eine Seite."
             >
               {/* Ehrlich beschriftet: bei großen Lagen wird es mehr als eine
                   Seite (Audit Runde 2, R2-K3). */}
-              Lageblatt (A4 quer)
+              {arbeitet === "lageblatt" ? "Lageblatt wird erzeugt…" : "Lageblatt (A4 quer)"}
             </button>
           )}{" "}
           {/* Der leere Vordruck dort, wo am Meldekopf gearbeitet wird — vorher
@@ -1749,13 +1774,30 @@ export function EinsatzDetail(props: {
           {onBlanko && (
             <button
               type="button"
+              className={arbeitet === "blanko" ? "arbeitet" : ""}
+              aria-busy={arbeitet === "blanko" || undefined}
+              disabled={arbeitet !== null}
               onClick={onBlanko}
               title="Leerer Erfassungsbogen (2 Seiten A4) zum Ausfüllen mit der Hand — für Einheiten ohne Gerät oder bei Geräteausfall."
             >
-              Blanko-Vordruck (Papier-Reserve)
+              {arbeitet === "blanko" ? "Blanko-Vordruck wird erzeugt…" : "Blanko-Vordruck (Papier-Reserve)"}
             </button>
           )}
         </div>
+      )}
+      {/* Rückmeldung dort, wo getippt wurde: während der Arbeit, dass sie läuft
+          und nicht noch einmal getippt werden muss; danach die Bestätigung
+          (R5-O3, R5-L4). */}
+      {(onWeitergeben || onLageblatt || onBlanko) && (arbeitet === "weitergeben" || arbeitet === "lageblatt" || arbeitet === "blanko" || ausgabeQuittung) && (
+        <p className="hinweis arbeitet-zeile ausgabe-quittung" role="status">
+          {arbeitet === "weitergeben"
+            ? "Die Sammel-PDF mit allen Bögen wird erzeugt — bei vielen Bögen dauert das bis zu einer halben Minute. Bitte nicht noch einmal tippen."
+            : arbeitet === "lageblatt"
+              ? "Das Lageblatt wird erzeugt — einen Moment, bitte nicht noch einmal tippen."
+              : arbeitet === "blanko"
+                ? "Der Blanko-Vordruck wird erzeugt — einen Moment, bitte nicht noch einmal tippen."
+                : ausgabeQuittung}
+        </p>
       )}
       {onLageblatt && (
         <p className="hinweis lageblatt-stand" role="status">
@@ -2832,7 +2874,7 @@ function EinheitKarte(props: {
         // Die eigene Handlung gilt, auch nach einer zurückgestellten Uhr (R5-E2).
         fassungObenauf(einsatzId, r.eintrag.id);
       }
-    });
+    }, `Gewünscht war für „${einheitAnzeigename(kopf.bogen.einheit)}": Stärke ${f} / ${u} / ${m} / ${f + u + m} (bisher ${alt.fuehrer} / ${alt.unterfuehrer} / ${alt.mannschaft} / ${alt.gesamt}). Bitte auf dem Meldeblock notieren, Platz schaffen und noch einmal eingeben.`);
     if (!ok) return;
     if (neueFassung.fassung) {
       props.onStaerkeGeaendert?.({

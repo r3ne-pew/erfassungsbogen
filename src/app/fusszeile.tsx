@@ -35,6 +35,7 @@ import { groessteText, istVoll } from "./speicher-warnung";
 import { dauerhaftenSpeicherAnfragen, speicherDauerhaft } from "./speicher-browser";
 import { WERKZEUGE, WERKZEUGE_TITEL } from "./werkzeuge";
 import { folgenText } from "./uhr-folgen";
+import { arbeiten, useArbeitet } from "./arbeitet";
 
 const KONTAKT = "johannes.rudolph@thw-oldenburg.de";
 const REPO = "https://github.com/wattnpapa/erfassungsbogen";
@@ -384,16 +385,19 @@ function Datenschutzdialog({ dialogRef }: { dialogRef: RefObject<HTMLDialogEleme
  * Website, aber offline und in der Desktop-/Mobil-App ohne Umweg (R3-A7).
  */
 async function blankoHerunterladen(): Promise<void> {
-  try {
-    const { blankoPdfErzeugen } = await import("./pdf");
-    await blankoPdfErzeugen();
-  } catch (e) {
-    if (e instanceof Error && e.name === "AbortError") return;
-    await zeigeHinweis({
-      titel: "Blanko-Vordruck",
-      text: `Der Vordruck ließ sich nicht erzeugen (${e instanceof Error ? e.message : String(e)}). Er liegt auch unter „Aufbau des Bogens" auf erfassungsbogen.app.`,
-    });
-  }
+  // Mit Sperre und Rückmeldung wie die übrigen PDF-Wege (arbeitet.ts, R5-L4).
+  await arbeiten("blanko", async () => {
+    try {
+      const { blankoPdfErzeugen } = await import("./pdf");
+      await blankoPdfErzeugen();
+    } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") return;
+      await zeigeHinweis({
+        titel: "Blanko-Vordruck",
+        text: `Der Vordruck ließ sich nicht erzeugen (${e instanceof Error ? e.message : String(e)}). Er liegt auch unter „Aufbau des Bogens" auf erfassungsbogen.app.`,
+      });
+    }
+  });
 }
 
 export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
@@ -413,6 +417,8 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
    */
   kompakt?: boolean;
 }) {
+  // Eine PDF-Erzeugung läuft höchstens einmal, gleich von welcher Stelle (arbeitet.ts).
+  const arbeitet = useArbeitet();
   const ueber = useRef<HTMLDialogElement>(null);
   const impressum = useRef<HTMLDialogElement>(null);
   const datenschutz = useRef<HTMLDialogElement>(null);
@@ -798,7 +804,15 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
           <span className="fuss-titel">Projekt</span>
           <a href={ANLEITUNG} target="_blank" rel="noopener noreferrer">Anleitung</a>
           <a href={VORLAGE} target="_blank" rel="noopener noreferrer">Aufbau des Bogens</a>
-          <button type="button" className="link" onClick={() => void blankoHerunterladen()}>Blanko-Vordruck (PDF)</button>
+          <button
+            type="button"
+            className={`link${arbeitet === "blanko" ? " arbeitet" : ""}`}
+            aria-busy={arbeitet === "blanko" || undefined}
+            disabled={arbeitet !== null}
+            onClick={() => void blankoHerunterladen()}
+          >
+            {arbeitet === "blanko" ? "Blanko-Vordruck wird erzeugt…" : "Blanko-Vordruck (PDF)"}
+          </button>
           <a href={`mailto:${KONTAKT}`}>Kontakt</a>
           <a href={REPO} target="_blank" rel="noopener noreferrer">Open Source auf GitHub</a>
         </nav>

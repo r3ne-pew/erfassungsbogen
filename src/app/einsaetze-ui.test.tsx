@@ -905,6 +905,35 @@ describe("Ausgabewege der Einsatzansicht", () => {
     expect(blanko).toHaveBeenCalledTimes(1);
   });
 
+  /** Audit Runde 5, R5-O3/R5-L4: Sperre, „wird erzeugt…" und Bestätigung unter den Knöpfen. */
+  it("sperrt die PDF-Knöpfe während der Erzeugung, beschriftet den laufenden und bestätigt darunter (R5-O3, R5-L4)", async () => {
+    const { arbeiten, arbeitetZuruecksetzen } = await import("./arbeitet");
+    const weitergeben = vi.fn();
+    let fertig!: () => void;
+    const lauf = arbeiten("weitergeben", () => new Promise<void>((r) => (fertig = r)));
+    try {
+      await waitFor(() => expect(typeof fertig).toBe("function"));
+      buehne(["Wardenburg"], { onWeitergeben: weitergeben, onLageblatt: vi.fn(), onBlanko: vi.fn() });
+      const knopf = screen.getByRole("button", { name: "Einsatz wird erzeugt…" }) as HTMLButtonElement;
+      expect(knopf.disabled).toBe(true);
+      expect(knopf.getAttribute("aria-busy")).toBe("true");
+      expect((screen.getByRole("button", { name: "Lageblatt (A4 quer)" }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole("button", { name: "Blanko-Vordruck (Papier-Reserve)" }) as HTMLButtonElement).disabled).toBe(true);
+      expect(document.querySelector(".arbeitet-zeile")!.textContent).toMatch(/bis zu einer halben Minute.*nicht noch einmal tippen/);
+    } finally {
+      fertig();
+      await lauf;
+      arbeitetZuruecksetzen();
+    }
+  });
+
+  it("zeigt die Bestätigung der letzten Erzeugung direkt unter den Knöpfen (R5-L4)", () => {
+    buehne(["Wardenburg"], { onWeitergeben: vi.fn(), onLageblatt: vi.fn(), ausgabeQuittung: "✓ Lageblatt erzeugt (A4 quer)." });
+    const zeile = document.querySelector(".ausgabe-quittung")!;
+    expect(zeile.textContent).toBe("✓ Lageblatt erzeugt (A4 quer).");
+    expect(zeile.previousElementSibling?.classList.contains("einsatz-weitergabe")).toBe(true);
+  });
+
   it("sagt, wann zuletzt ein Lageblatt entstand und was seitdem neu ist (R2-A3)", () => {
     buehne(["Wardenburg"], { onLageblatt: vi.fn() });
     expect(document.querySelector(".lageblatt-stand")!.textContent).toBe("Noch kein Lageblatt aus diesem Einsatz.");
@@ -1753,6 +1782,28 @@ describe("Stärke ändern mit Prüfung und Rückweg (R4-E4)", () => {
     expect(einsaetzeLaden().find((s) => s.id === angelegt.id)!.eintraege).toHaveLength(1);
     expect(document.querySelector(".eingang-quittung")).toBeNull();
     expect(document.querySelector(".quittung-daumen")!.textContent).toMatch(/^Folgemeldung zurückgenommen: „.*Wardenburg" gilt wieder mit Stärke 3\./);
+  });
+
+  /** Audit Runde 5, R5-E7: Bei vollem Speicher ist die Eingabe weg — der Hinweis nennt sie. */
+  it("nennt bei vollem Speicher die gewünschte Stärke, damit sie sich aufschreiben lässt (R5-E7)", async () => {
+    const nutzer = userEvent.setup();
+    const { einsatzId } = einsatzMitDreiPersonen();
+    const dialog = await dialogOeffnen(nutzer);
+    await eintragen(nutzer, dialog, "Mannschaft", "2");
+    const echt = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === "eeb.einsaetze.v1") throw new DOMException("voll", "QuotaExceededError");
+      return echt.call(this, k, v);
+    });
+    try {
+      await nutzer.click(within(dialog).getByRole("button", { name: "Stärke übernehmen" }));
+      const hinweis = await screen.findByRole("dialog", { name: "Stärke ändern" });
+      expect(hinweis.textContent).toMatch(/Gewünscht war für „.*Wardenburg": Stärke 0 \/ 0 \/ 2 \/ 2 \(bisher 0 \/ 0 \/ 3 \/ 3\)/);
+      expect(hinweis.textContent).toMatch(/Meldeblock notieren/);
+    } finally {
+      vi.restoreAllMocks();
+    }
+    expect(einsaetzeLaden().find((s) => s.id === einsatzId)!.eintraege).toHaveLength(1);
   });
 
   it("übernimmt eine plausible Änderung ohne Rückfrage — mit Rückweg", async () => {

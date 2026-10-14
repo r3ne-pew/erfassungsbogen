@@ -57,6 +57,7 @@ import { geraeteKurzform, geraeteSchluesselNurSitzung, geraeteOeffentlichHex } f
 import { istNativ, linkTeilen, nahbereichDienst, pdfEinbettbar, shareSheetVerfuegbar, textTeilen } from "../nativ";
 import { fehlerText, istNachladeFehler } from "../nachladen";
 import { frageJaNein, frageText, zeigeHinweis } from "../dialoge";
+import { arbeiten, useArbeitet } from "../arbeitet";
 import { SpeicherVollFehler, istSpeicherVoll } from "../eintrag-zeiten";
 import { uebergabeText, type UebergabeStand, type UebergabeWeg } from "../uebergabe-stand";
 import { ebeneBetreten, ebeneVerlassen, useEbeneZurueck, useModalesOverlay } from "../modal-overlay";
@@ -173,7 +174,9 @@ export function Uebersicht(props: {
 
   const [qr, setQr] = useState<QrSatz | null>(null);
   const [fehler, setFehler] = useState("");
-  const [pdfLaeuft, setPdfLaeuft] = useState(false);
+  // Die PDF-Erzeugung teilt sich die Sperre mit den übrigen PDF-Wegen der App
+  // (arbeitet.ts): zweimal getippt, entsteht eine Datei (Audit Runde 5, R5-H4).
+  const pdfLaeuft = useArbeitet() === "pdf";
   // Quittung nach „PDF erzeugen": der Browser zeigt den Download oft nur kurz
   // oder gar nicht (Telefon), die App sagte nichts — also wurde ein zweites
   // Mal getippt und die Mail an den Meldekopf trug zwei Anhänge. Steht bis
@@ -444,7 +447,10 @@ export function Uebersicht(props: {
   }
 
   async function pdf() {
-    setPdfLaeuft(true);
+    await arbeiten("pdf", pdfErzeugenUndMelden);
+  }
+
+  async function pdfErzeugenUndMelden() {
     setFehler("");
     setPdfQuittung("");
     setPdfFehler("");
@@ -475,8 +481,6 @@ export function Uebersicht(props: {
           ? "PDF nicht möglich: Der PDF-Baustein ist noch nicht geladen. Ohne Netz geht jetzt nur der QR-Code — mit Netz die Seite einmal neu laden."
           : `PDF: ${fehlerText(e)} Der QR-Code geht trotzdem.`,
       );
-    } finally {
-      setPdfLaeuft(false);
     }
   }
 

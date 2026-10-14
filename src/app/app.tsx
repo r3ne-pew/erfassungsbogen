@@ -138,6 +138,7 @@ import { einheitSymbolSvg, svgDataUrl } from "./taktische-zeichen-bogen";
 import { Fusszeile } from "./fusszeile";
 import { Aktualisierungshinweise } from "./aktualisierung";
 import { SpeicherWarnung } from "./speicher-warnung";
+import { arbeiten, useArbeitet } from "./arbeitet";
 import { FesteWarnung } from "./feste-warnung";
 import { speicherFehlerDetails, speicherFehlerKurz } from "./speicher-fehler-text";
 import { UhrWarnung } from "./uhr-warnung";
@@ -809,6 +810,10 @@ function AppInhalt() {
   const [scannerOffen, setScannerOffen] = useState(false);
   // Zuletzt verdrängter Arbeitsbogen (entwurf.ts): Solange er hier steht,
   // bietet die Startseite ihn zum Zurückholen an.
+  // Bestätigung der letzten PDF-Erzeugung (Weitergeben, Lageblatt, Blanko-Vordruck),
+  // gezeigt direkt unter deren Knöpfen (R5-L4).
+  const [ausgabeQuittung, setAusgabeQuittung] = useState<string | null>(null);
+  const pdfArbeitet = useArbeitet();
   const [ersetzterEntwurf, setErsetzterEntwurf] = useState<Entwurf | null>(() => ersetztenEntwurfLaden());
   // Ein gespeicherter Bogen, den die App nicht lesen kann, liegt beiseite und
   // wird auf der Startseite genannt, statt zu verschwinden oder die Ansicht
@@ -2885,52 +2890,68 @@ function AppInhalt() {
    */
   async function sammelPdf(s: Einsatzsammlung, umfang: ExportUmfang, weitergabe = false) {
     setFehler("");
+    setAusgabeQuittung(null);
     const teil = exportSammlung(s, umfang, exportStaende.pdf ?? null);
     if (teil.eintraege.length === 0) {
       setFehler("Seit dem letzten Sammel-PDF ist kein Bogen neu dazugekommen und nichts geändert.");
       return;
     }
-    try {
-      // Dynamisch: pdfmake samt eingebetteter Schriften bleibt aus dem
-      // Start-Bundle heraus und wird erst beim ersten PDF geladen.
-      const { einsatzPdfErzeugen } = await import("./pdf");
-      const stand = umfang === "neue" ? exportStaende.pdf : undefined;
-      const ok = await einsatzPdfErzeugen(teil, undefined, s.eintraege, stand?.zeitpunkt);
-      if (!ok) return; // Share-Sheet abgebrochen — nichts übergeben
-      // „Einsatz weitergeben / sichern" geht an die Ablösung oder ins Archiv,
-      // nicht an den Stab: Es hat seinen eigenen Stand (pdf.ts) und verbraucht
-      // den Nachtrag-Bezugspunkt nicht (R4-W2).
-      if (!weitergabe) exportVerbuchen(s, "pdf");
-      setMeldung(
-        umfang === "neue"
-          ? `Neue Bögen aus „${s.name}" als PDF weitergegeben.`
-          : `Einsatz „${s.name}" als PDF weitergegeben/gesichert — mit allen Meldungen, Zeiten und Historie.`,
-      );
-    } catch (e) {
-      setFehler(`Einsatz weitergeben: ${fehlerText(e)}`);
-    }
+    // Sperre und „wird erzeugt…" für alle PDF-Wege gemeinsam (arbeitet.ts, R5-O3).
+    await arbeiten(weitergabe ? "weitergeben" : "sammel-pdf", async () => {
+      try {
+        // Dynamisch: pdfmake samt eingebetteter Schriften bleibt aus dem
+        // Start-Bundle heraus und wird erst beim ersten PDF geladen.
+        const { einsatzPdfErzeugen } = await import("./pdf");
+        const stand = umfang === "neue" ? exportStaende.pdf : undefined;
+        const ok = await einsatzPdfErzeugen(teil, undefined, s.eintraege, stand?.zeitpunkt);
+        if (!ok) return; // Share-Sheet abgebrochen — nichts übergeben
+        // „Einsatz weitergeben / sichern" geht an die Ablösung oder ins Archiv,
+        // nicht an den Stab: Es hat seinen eigenen Stand (pdf.ts) und verbraucht
+        // den Nachtrag-Bezugspunkt nicht (R4-W2).
+        if (!weitergabe) exportVerbuchen(s, "pdf");
+        // Die Bestätigung steht direkt unter den Knöpfen (R5-L4), nicht am Seitenende.
+        setAusgabeQuittung(
+          umfang === "neue"
+            ? `✓ Neue Bögen aus „${s.name}" als PDF weitergegeben.`
+            : `✓ Einsatz „${s.name}" als PDF weitergegeben/gesichert — mit allen Meldungen, Zeiten und Historie.`,
+        );
+      } catch (e) {
+        setFehler(`Einsatz weitergeben: ${fehlerText(e)}`);
+      }
+    });
   }
 
   /** Einseitiges Lageblatt (nur Übersicht) — für Wand, Ablösung und Klemmbrett (A3/A4). */
   /** Blanko-Vordruck aus der Einsatzansicht (R3-A7). */
   async function blankoVordruck() {
     setFehler("");
-    try {
-      const { blankoPdfErzeugen } = await import("./pdf");
-      if (await blankoPdfErzeugen()) setMeldung("Blanko-Vordruck erzeugt (2 Seiten A4, zum Ausfüllen mit der Hand).");
-    } catch (e) {
-      setFehler(`Blanko-Vordruck: ${fehlerText(e)}`);
-    }
+    setAusgabeQuittung(null);
+    await arbeiten("blanko", async () => {
+      try {
+        const { blankoPdfErzeugen } = await import("./pdf");
+        if (await blankoPdfErzeugen()) {
+          const text = "Blanko-Vordruck erzeugt (2 Seiten A4, zum Ausfüllen mit der Hand).";
+          // In der Einsatzansicht direkt unter den Knöpfen, auf der Startseite wie bisher oben (R5-L4).
+          if (offenerEinsatzId) setAusgabeQuittung(`✓ ${text}`);
+          else setMeldung(text);
+        }
+      } catch (e) {
+        setFehler(`Blanko-Vordruck: ${fehlerText(e)}`);
+      }
+    });
   }
 
   async function lageblatt(s: Einsatzsammlung) {
     setFehler("");
-    try {
-      const { einsatzLageblattErzeugen } = await import("./pdf");
-      if (await einsatzLageblattErzeugen(s)) setMeldung("Lageblatt erzeugt (A4 quer).");
-    } catch (e) {
-      setFehler(`Lageblatt: ${fehlerText(e)}`);
-    }
+    setAusgabeQuittung(null);
+    await arbeiten("lageblatt", async () => {
+      try {
+        const { einsatzLageblattErzeugen } = await import("./pdf");
+        if (await einsatzLageblattErzeugen(s)) setAusgabeQuittung("✓ Lageblatt erzeugt (A4 quer).");
+      } catch (e) {
+        setFehler(`Lageblatt: ${fehlerText(e)}`);
+      }
+    });
   }
 
   /**
@@ -3458,7 +3479,7 @@ function AppInhalt() {
         <UhrWarnung />
         <EinsatzDetail
           einsatz={offenerEinsatz}
-          onZurueck={() => { setOffenerEinsatzId(null); setZeigeStart(true); setMeldung(""); setEingang(null); setZusammenlegung(null); setEinlese(null); setStapelBericht([]); }}
+          onZurueck={() => { setOffenerEinsatzId(null); setZeigeStart(true); setMeldung(""); setAusgabeQuittung(null); setEingang(null); setZusammenlegung(null); setEinlese(null); setStapelBericht([]); }}
           onGeaendert={einsaetzeNeuLaden}
           onScannen={() => scanneInEinsatz(offenerEinsatz.id)}
           onManuell={() => manuellInEinsatz(offenerEinsatz.id)}
@@ -3502,6 +3523,7 @@ function AppInhalt() {
           onWeitergeben={() => sammelPdf(offenerEinsatz, "alle", true)}
           onLageblatt={() => lageblatt(offenerEinsatz)}
           onBlanko={() => void blankoVordruck()}
+          ausgabeQuittung={ausgabeQuittung}
           eingang={eingang}
           onGeloescht={() => { setOffenerEinsatzId(null); einsaetzeNeuLaden(); setMeldung(""); /* Quittung mit Rückweg: Startseite (R2-D6) */ }}
         />
@@ -3819,9 +3841,18 @@ function AppInhalt() {
               {/* Die Papier-Reserve für die eigene Einheit, bevor man sie
                   braucht: stand nur als Fußzeilen-Link unter „Projekt“, bei
                   leerem Gerät rund 6 300 px tief (Audit Runde 4, R4-A8). */}
-              <button type="button" className="mit-zusatz" onClick={() => void blankoVordruck()} aria-describedby="start-blanko-zusatz">
-                Leeren Vordruck drucken (PDF)
-                <span className="knopf-zusatz" id="start-blanko-zusatz" aria-hidden="true">Papier-Reserve zum Ausfüllen mit der Hand</span>
+              <button
+                type="button"
+                className={`mit-zusatz${pdfArbeitet === "blanko" ? " arbeitet" : ""}`}
+                aria-busy={pdfArbeitet === "blanko" || undefined}
+                disabled={pdfArbeitet !== null}
+                onClick={() => void blankoVordruck()}
+                aria-describedby="start-blanko-zusatz"
+              >
+                {pdfArbeitet === "blanko" ? "Vordruck wird erzeugt…" : "Leeren Vordruck drucken (PDF)"}
+                <span className="knopf-zusatz" id="start-blanko-zusatz" aria-hidden="true">
+                  {pdfArbeitet === "blanko" ? "Einen Moment, bitte nicht noch einmal tippen" : "Papier-Reserve zum Ausfüllen mit der Hand"}
+                </span>
               </button>
             </div>
           </section>
