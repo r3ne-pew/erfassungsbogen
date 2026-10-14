@@ -210,20 +210,20 @@ Funktionalität: Einsatz-Sammlung führen (Meldekopf)
     Wenn ich auf "Einsatz löschen…" klicke
     Und ich im Dialog auf "In den Papierkorb" klicke
     Dann sehe ich die Schaltfläche "Neuen Bogen erstellen"
-    Und sehe ich die Schaltfläche "Papierkorb (1)"
-    Wenn ich auf "Papierkorb (1)" klicke
+    Und sehe ich die Schaltfläche "Papierkorb Einsätze (1)"
+    Wenn ich auf "Papierkorb Einsätze (1)" klicke
     Und ich auf "Wiederherstellen" klicke
     Dann sehe ich die Schaltfläche "Öffnen"
 
   Szenario: Einsatz endgültig löschen fragt in der App zurück
     Wenn ich auf "Einsatz löschen…" klicke
     Und ich im Dialog auf "In den Papierkorb" klicke
-    Und ich auf "Papierkorb (1)" klicke
+    Und ich auf "Papierkorb Einsätze (1)" klicke
     Und ich auf "Endgültig löschen…" klicke
     Dann sehe ich den Dialog "Einsatz endgültig löschen?"
     Und sehe ich den Hinweis "Darin stecken fremde Personendaten"
     Wenn ich im Dialog auf "Endgültig löschen" klicke
-    Dann sehe ich die Schaltfläche "Papierkorb (1)" nicht
+    Dann sehe ich die Schaltfläche "Papierkorb Einsätze (1)" nicht
 
   Szenario: Bei einer einzigen Meldung bleibt die Filterleiste weg
     Dann sehe ich "Suche" nicht

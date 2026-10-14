@@ -58,7 +58,7 @@ describe("Papierkorb der Einsätze", () => {
     localStorage.setItem("eeb.einsaetze.v1", JSON.stringify(liste));
     render(<EinsatzListe einsaetze={einsaetzeLaden()} onOeffnen={() => {}} onGeaendert={() => {}} />);
 
-    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb \(1\)/ }));
+    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb Einsätze \(1\)/ }));
 
     const zeile = document.querySelector<HTMLElement>(".papierkorb .hinweis")!;
     expect(zeile.textContent).toMatch(/Wird morgen endgültig entfernt/);
@@ -78,7 +78,7 @@ describe("Papierkorb der Einsätze", () => {
       </>,
     );
 
-    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb \(1\)/ }));
+    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb Einsätze \(1\)/ }));
     await nutzer.click(screen.getByRole("button", { name: "Endgültig löschen…" }));
 
     expect(rueckfrage("Einsatz endgültig löschen?").textContent).toMatch(/noch keinen Export, kein Lageblatt und keine Weitergabe — es ist die einzige Kopie/);
@@ -88,7 +88,7 @@ describe("Papierkorb der Einsätze", () => {
     const nutzer = userEvent.setup();
     buehne();
 
-    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb \(1\)/ }));
+    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb Einsätze \(1\)/ }));
     await nutzer.click(screen.getByRole("button", { name: "Endgültig löschen…" }));
     await nutzer.click(
       within(rueckfrage("Einsatz endgültig löschen?")).getByRole("button", { name: "Endgültig löschen" }),
@@ -102,7 +102,7 @@ describe("Papierkorb der Einsätze", () => {
     const nutzer = userEvent.setup();
     const s = buehne();
 
-    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb \(1\)/ }));
+    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb Einsätze \(1\)/ }));
     await nutzer.click(screen.getByRole("button", { name: "Endgültig löschen…" }));
     await nutzer.click(within(rueckfrage("Einsatz endgültig löschen?")).getByRole("button", { name: "Abbrechen" }));
 
@@ -113,7 +113,7 @@ describe("Papierkorb der Einsätze", () => {
     const nutzer = userEvent.setup();
     const s = buehne();
 
-    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb \(1\)/ }));
+    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb Einsätze \(1\)/ }));
     await nutzer.click(screen.getByRole("button", { name: "Wiederherstellen" }));
 
     expect(einsaetzeLaden().map((e) => e.id)).toEqual([s.id]);
@@ -217,7 +217,7 @@ describe("Papierkorb der Vorlagen", () => {
     const nutzer = userEvent.setup();
     buehne();
 
-    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb \(1\)/ }));
+    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb Vorlagen \(1\)/ }));
     await nutzer.click(screen.getByRole("button", { name: "Endgültig löschen…" }));
     await nutzer.click(
       within(rueckfrage("Vorlage endgültig löschen?")).getByRole("button", { name: "Endgültig löschen" }),
@@ -231,7 +231,7 @@ describe("Papierkorb der Vorlagen", () => {
     const nutzer = userEvent.setup();
     const v = buehne();
 
-    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb \(1\)/ }));
+    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb Vorlagen \(1\)/ }));
     await nutzer.click(screen.getByRole("button", { name: "Endgültig löschen…" }));
     await nutzer.click(within(rueckfrage("Vorlage endgültig löschen?")).getByRole("button", { name: "Abbrechen" }));
 

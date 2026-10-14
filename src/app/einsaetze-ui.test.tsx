@@ -1867,6 +1867,27 @@ describe("Zusammenführen mit Quittung und Rückweg (R4-D5)", () => {
     expect(zurueck.textContent).toMatch(/^Zusammenführen zurückgenommen: „.*Wardenburg" steht wieder in zwei Teilen\./);
     expect(within(zurueck).queryByRole("button", { name: "Rückgängig" })).toBeNull();
   });
+
+  // Audit Runde 5, R5-D5: Die Teilzeile zeigte „Stand 061148okt26" (Tag-Stunde-Minute ohne Trenner).
+  it("schreibt den Stand der Teile aus, nicht als Zeitgruppe (R5-D5)", async () => {
+    const nutzer = userEvent.setup();
+    const angelegt = einsatzAnlegen("Hochwasser Test", EinsatzArt.EINSATZ);
+    const b = bogenMitName("Wardenburg");
+    b.personal = ["Rudolph", "Lang", "Weber"].map((nachname) => ({ ...neuePerson(), vorname: "T", nachname }));
+    meldungHinzufuegen(angelegt.id, b);
+    const { neuLaden } = ansicht(angelegt.id);
+    await nutzer.click(screen.getByRole("button", { name: "Mehr…" }));
+    await nutzer.click(screen.getByRole("button", { name: "Aufteilen…" }));
+    await nutzer.type(screen.getByLabelText("Bezeichnung des abgeteilten Teils"), "Fachberater");
+    await nutzer.click(screen.getByRole("checkbox", { name: /Rudolph/ }));
+    await nutzer.click(screen.getByRole("button", { name: "Aufteilen" }));
+    neuLaden();
+    const rest = [...document.querySelectorAll<HTMLElement>(".einheit-zeile")].find((k) => !k.textContent!.includes("Fachberater"))!;
+    await nutzer.click(within(rest).getByRole("button", { name: "Zusammenführen…" }));
+    const sub = [...rest.querySelectorAll(".muster-sub")].map((x) => x.textContent!).find((t) => t.includes("Stand"))!;
+    expect(sub).toMatch(/Stand \d\d\.\d\d\.\d{4}, \d\d:\d\d/);
+    expect(sub).not.toMatch(/Stand \d{6}[a-z]{3}\d\d/);
+  });
 });
 
 /**

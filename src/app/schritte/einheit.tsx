@@ -32,6 +32,7 @@ import {
 } from "../hilfen";
 import { frageJaNein } from "../dialoge";
 import { DaumenQuittung } from "../daumen-quittung";
+import { vorbelegungWegLesen, vorbelegungWegSichern, zustandsAbdruck, type VorbelegungWeg } from "../vorbelegung-rueckweg";
 import { Auswahl, Feld, FREMDE_DATEN, Hinweise, KENNUNG_EINGABE, VokabAuswahl, VorschlagFeld, type SchrittProps } from "./bausteine";
 
 // Die beiden großen Datenpakete laden erst mit Schritt 1, nicht mit dem
@@ -121,6 +122,17 @@ function ovInHierarchieUebernehmen(daten: OvDaten, hierarchie: HierarchieEbene[]
  * Ortsverband in das Feld „Organisationsname“ tippt, bekam weder Kürzel noch
  * Kontakte noch übergeordnete Stellen (Audit Runde 4, R4-N5).
  */
+/**
+ * Weicht Rolle oder Funktion einer unbenannten Karte von der Vorbelegung des
+ * Typs ab? Gibt es keine Vorbelegung (Typ geleert oder frei getippt), zählt
+ * jede gesetzte Rolle oder Funktion als von Hand gesetzt (Audit Runde 5, R5-D5).
+ */
+function rolleOderFunktionGeaendert(p: Person, soll: readonly Person[]): boolean {
+  const schluessel = (x: Person) => `${x.staerkeRolle}|${JSON.stringify(x.funktionen)}`;
+  if (soll.length === 0) return p.staerkeRolle !== 0 || p.funktionen.length > 0;
+  return !soll.some((x) => schluessel(x) === schluessel(p));
+}
+
 export function ovImText(verzeichnis: ThwOrtsverband[], text: string): ThwOrtsverband | undefined {
   const t = text.trim().toLowerCase();
   if (t.length < 4) return undefined;
@@ -277,9 +289,15 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
    * Wer den Typ erst leert und dann einen neuen tippt, geht über mehrere
    * Schritte, und „Rückgängig" soll zum Anfang zurück, nicht zum Zwischenstand.
    */
-  const [vorbelegungWeg, setVorbelegungWeg] = useState<
-    { kopf: string; vor: number; personal: Person[]; fahrzeuge: Fahrzeug[]; einheit: Einheit; nonce: number } | null
-  >(null);
+  const [vorbelegungWeg, setVorbelegungWegRoh] = useState<VorbelegungWeg | null>(() => vorbelegungWegLesen(bogen));
+  // Mit Sitzungsspeicher dahinter: Der Rückweg überlebt ein Neuladen (R5-D5).
+  const setVorbelegungWeg = (v: VorbelegungWeg | null | ((alt: VorbelegungWeg | null) => VorbelegungWeg | null)) => {
+    setVorbelegungWegRoh((alt) => {
+      const neu = typeof v === "function" ? v(alt) : v;
+      vorbelegungWegSichern(neu);
+      return neu;
+    });
+  };
   /** `aendern` mit Rückweg, wenn dabei unbenannte Sollplätze weggehen (oder schon eine Leiste steht). */
   function aendernMitVorbelegungWeg(patch: Partial<typeof bogen>, titel: string) {
     if (vorbelegtePersonen > 0 || vorbelegteFahrzeuge > 0) {
@@ -290,13 +308,22 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
       const mitAngaben = bogen.personal.filter(
         (p) => personUnbenannt(p) && (p.geschlecht !== Geschlecht.M || p.ernaehrung !== Ernaehrung.FLEISCH),
       ).length;
+      // Rolle oder Funktion, die von der Vorbelegung des Typs abweicht: Von Hand
+      // gesetzt, auch wenn Name und Rufnummer noch fehlen (R5-D5).
+      const soll = stanPersonalVorbelegung(e.organisation, e.einheitsTyp);
+      const mitRolle = bogen.personal.filter((p) => personUnbenannt(p) && rolleOderFunktionGeaendert(p, soll)).length;
+      const zusatz = [
+        mitAngaben > 0 ? `${mitAngaben} mit Geschlecht oder Ernährung` : "",
+        mitRolle > 0 ? `${mitRolle} mit geänderter Rolle oder Funktion` : "",
+      ].filter(Boolean);
       const neu = {
-        kopf: `${titel}: ${teile.join(", ")}${mitAngaben > 0 ? ` (${mitAngaben} mit Geschlecht oder Ernährung)` : ""}`,
+        kopf: `${titel}: ${teile.join(", ")}${zusatz.length > 0 ? ` (${zusatz.join(", ")})` : ""}`,
         vor: staerke(bogen).gesamt,
         personal: bogen.personal,
         fahrzeuge: bogen.fahrzeuge,
         einheit: e,
         nonce: Date.now(),
+        danach: zustandsAbdruck(patch.personal ?? bogen.personal, patch.fahrzeuge ?? bogen.fahrzeuge),
       };
       setVorbelegungWeg((alt) => alt ?? neu);
     }

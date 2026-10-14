@@ -516,7 +516,7 @@ export function EinsatzListe(props: {
       {papierkorb.length > 0 && (
         <p>
           <button type="button" className="link" onClick={() => setZeigePapierkorb(!zeigePapierkorb)}>
-            {zeigePapierkorb ? "Papierkorb ausblenden" : `Papierkorb (${papierkorb.length})`}
+            {zeigePapierkorb ? "Papierkorb Einsätze ausblenden" : `Papierkorb Einsätze (${papierkorb.length})`}
           </button>
         </p>
       )}

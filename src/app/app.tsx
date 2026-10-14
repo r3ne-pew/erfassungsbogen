@@ -139,6 +139,7 @@ import { Fusszeile } from "./fusszeile";
 import { Aktualisierungshinweise } from "./aktualisierung";
 import { SpeicherWarnung } from "./speicher-warnung";
 import { arbeiten, useArbeitet } from "./arbeitet";
+import { wartendenLinkErledigt, wartendenLinkLesen, wartendenLinkMerken } from "./wartender-link";
 import { FesteWarnung } from "./feste-warnung";
 import { speicherFehlerDetails, speicherFehlerKurz } from "./speicher-fehler-text";
 import { UhrWarnung } from "./uhr-warnung";
@@ -248,7 +249,9 @@ function startAusUrlFragment(): {
   /** Segment-Teil eines mehrteiligen Bogens — die übrigen Teile fehlen noch. */
   segment: string;
 } {
-  const fragment = fragmentNehmen();
+  // Kein Link in der Adresszeile, aber einer, auf dessen Wahl vor dem Neuladen
+  // noch gewartet wurde: erneut fragen, statt ihn zu verlieren (R5-S6).
+  const fragment = fragmentNehmen() || wartendenLinkLesen();
   if (!fragment) return { bogen: null, vorlage: null, fehler: "", text: "", segment: "" };
   try {
     if (istVorlageNutzlast(fragment)) {
@@ -626,6 +629,10 @@ function startLage(): StartLage {
       START.bogen && !(ENTWURF_GESPEICHERT && bogenHatInhalt(ENTWURF_GESPEICHERT.bogen)) && einsaetzeLaden().length === 0
         ? START.bogen
         : null;
+    // Wartet noch die Wahl „Wohin damit?", bleibt der Link im Sitzungsspeicher
+    // (R5-S6); alles andere ist mit dem Aufbau der App erledigt.
+    if (START.bogen && !sofort && START.text) wartendenLinkMerken(START.text);
+    else wartendenLinkErledigt();
     startLageGemerkt = {
       sofort,
       empfang: START.bogen && !sofort ? START.bogen : null,
@@ -1372,7 +1379,8 @@ function AppInhalt() {
         verlust: true,
       };
     }
-    const bleibt = `„${name}" bleibt auf der Startseite unter „Zuletzt geschlossenen Bogen zurückholen" erreichbar.`;
+    // Der Name steht schon im Satz davor; hier nicht noch einmal (Audit Runde 5, R5-D5).
+    const bleibt = `Der Stand bleibt auf der Startseite unter „Zuletzt geschlossenen Bogen zurückholen" erreichbar.`;
     if (!altZaehlt) return { satz: bleibt, verlust: false };
     const stand = new Date(alt.gespeichert).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
     return {
@@ -1491,7 +1499,7 @@ function AppInhalt() {
     const altZaehlt = !!alt && bogenHatInhalt(alt.bogen);
     const folge = !nimmt
       ? ` Als Erfassung einer fremden Einheit wird sie dabei verworfen; dein Bogen „${einheitAnzeigename(alt!.bogen.einheit)}" bleibt zurückholbar.`
-      : ` „${name}" bleibt auf der Startseite unter „Zuletzt geschlossenen Bogen zurückholen" erreichbar.${
+      : ` Der Stand bleibt auf der Startseite unter „Zuletzt geschlossenen Bogen zurückholen" erreichbar.${
           altZaehlt ? ` Der dort bisher liegende Bogen „${einheitAnzeigename(alt!.bogen.einheit)}" wird dabei endgültig gelöscht.` : ""
         }`;
     if (!a.ohneFrage) {
@@ -2375,7 +2383,11 @@ function AppInhalt() {
     const b = START_EMPFANG;
     void (async () => {
       const status = START.text ? await signaturVonText(START.text) : ({ zustand: "unsigniert" } as SignaturStatus);
-      await uebernimmBogen(b, status, START.text ? payloadAusText(START.text) : null, { ohneKiosk: true });
+      try {
+        await uebernimmBogen(b, status, START.text ? payloadAusText(START.text) : null, { ohneKiosk: true });
+      } finally {
+        wartendenLinkErledigt(); // aufgenommen, geöffnet oder abgebrochen: entschieden (R5-S6)
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- nur beim Mounten
   }, []);
@@ -2408,7 +2420,8 @@ function AppInhalt() {
    */
   const linkEmpfangenRef = useRef<(text: string) => void>(() => {});
   linkEmpfangenRef.current = (text: string) => {
-    void uebernehmeText(text, LINK_UNGUELTIG, { ohneKiosk: true }).then(
+    wartendenLinkMerken(text); // bis zur Wahl; ein Neuladen fragt erneut (R5-S6)
+    void uebernehmeText(text, LINK_UNGUELTIG, { ohneKiosk: true }).finally(wartendenLinkErledigt).then(
       (fertig) => {
         // Segment-Teil eines mehrteiligen Bogens: Scanner öffnen, damit die
         // übrigen Teile direkt folgen können. Kam umgekehrt der LETZTE Teil

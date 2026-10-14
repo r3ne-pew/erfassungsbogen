@@ -49,18 +49,18 @@ Funktionalität: Vorlagen anlegen, verwalten und mustern
 
   Szenario: Gelöschte Vorlage liegt im Papierkorb und lässt sich zurückholen
     Wenn ich auf "Löschen" klicke
-    Dann sehe ich die Schaltfläche "Papierkorb (1)"
-    Wenn ich auf "Papierkorb (1)" klicke
+    Dann sehe ich die Schaltfläche "Papierkorb Vorlagen (1)"
+    Wenn ich auf "Papierkorb Vorlagen (1)" klicke
     Und ich auf "Wiederherstellen" klicke
     Dann sehe ich die Schaltfläche "Einsatz vorbereiten"
 
   Szenario: Endgültiges Löschen fragt in der App zurück
     Wenn ich auf "Löschen" klicke
-    Und ich auf "Papierkorb (1)" klicke
+    Und ich auf "Papierkorb Vorlagen (1)" klicke
     Und ich auf "Endgültig löschen…" klicke
     Dann sehe ich den Dialog "Vorlage endgültig löschen?"
     Wenn ich im Dialog auf "Endgültig löschen" klicke
-    Dann sehe ich die Schaltfläche "Papierkorb (1)" nicht
+    Dann sehe ich die Schaltfläche "Papierkorb Vorlagen (1)" nicht
 
   Szenario: Musterung streicht Abwesende und startet einen frischen Bogen
     Wenn ich auf "Einsatz vorbereiten" klicke

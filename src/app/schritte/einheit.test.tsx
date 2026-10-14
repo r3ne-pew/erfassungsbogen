@@ -586,6 +586,54 @@ describe("Schritt Einheit — Vorbelegung nach Einheitstyp", () => {
     expect(document.querySelector(".quittung-daumen")).toBeNull();
   });
 
+  // Audit Runde 5, R5-D5: Rolle und Funktion einer unbenannten Karte zählten nicht
+  // als Inhalt, und die Quittung nannte sie nicht.
+  it("nennt in der Quittung auch Karten mit von Hand geänderter Rolle oder Funktion (R5-D5)", async () => {
+    const nutzer = userEvent.setup();
+    const start = neuerBogen();
+    start.einheit.einheitsTyp = { code: klein.code };
+    const plaetze = stanPersonalVorbelegung(org, { code: klein.code });
+    start.personal = [
+      { ...plaetze[0]!, staerkeRolle: 2, funktionen: [{ freitext: "Einsatzleiter" }] },
+      ...plaetze.slice(1),
+    ];
+    render(<VorbelegungBuehne start={start} />);
+
+    await nutzer.click(screen.getByRole("button", { name: "Vorbelegung entfernen" }));
+
+    const quittung = document.querySelector<HTMLElement>(".quittung-daumen")!;
+    expect(quittung.textContent).toContain("(1 mit geänderter Rolle oder Funktion)");
+  });
+
+  it("der Rückweg überlebt ein Neuladen, solange sich am Bogen nichts geändert hat — danach nicht mehr (R5-D5)", async () => {
+    sessionStorage.clear();
+    const nutzer = userEvent.setup();
+    const start = neuerBogen();
+    start.einheit.einheitsTyp = { code: klein.code };
+    start.personal = [{ ...neuePerson(), vorname: "Thomas", nachname: "Lange" }, ...stanPersonalVorbelegung(org, { code: klein.code })];
+    const ersteAnsicht = render(<VorbelegungBuehne start={start} />);
+    await nutzer.click(screen.getByRole("button", { name: "Vorbelegung entfernen" }));
+    expect(document.querySelector(".quittung-daumen")).not.toBeNull();
+
+    // Neuladen: frischer Aufbau mit dem gespeicherten Stand (nur noch Lange).
+    ersteAnsicht.unmount();
+    const danach = { ...start, personal: [start.personal[0]!], fahrzeuge: [] };
+    const zweite = render(<VorbelegungBuehne start={danach} />);
+    const quittung = document.querySelector<HTMLElement>(".quittung-daumen")!;
+    expect(quittung.textContent).toContain("Vorbelegung entfernt");
+    await nutzer.click(within(quittung).getByRole("button", { name: "Rückgängig" }));
+    expect(zahl("personal")).toBe(1 + stanPersonalVorbelegung(org, { code: klein.code }).length);
+    zweite.unmount();
+
+    // Wer inzwischen anderes eingetragen hat, bekommt keinen Rückweg, der es überschriebe.
+    sessionStorage.clear();
+    const dritte = render(<VorbelegungBuehne start={start} />);
+    await nutzer.click(screen.getByRole("button", { name: "Vorbelegung entfernen" }));
+    dritte.unmount();
+    render(<VorbelegungBuehne start={{ ...danach, personal: [danach.personal[0]!, { ...neuePerson(), vorname: "Neu", nachname: "Hinzu" }] }} />);
+    expect(document.querySelector(".quittung-daumen")).toBeNull();
+  });
+
   it("quittiert den Typwechsel, der Sollplätze ersetzt, und „Rückgängig“ stellt auch den alten Typ wieder her (R4-D4)", async () => {
     const nutzer = userEvent.setup();
     render(<VorbelegungBuehne start={neuerBogen()} />);

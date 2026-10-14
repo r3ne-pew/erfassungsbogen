@@ -315,3 +315,23 @@ describe("Beispielbogen-Link kopieren", () => {
     }
   }, 20000);
 });
+
+/** Audit Runde 5, R5-D5: keine doppelte Verneinung in der Löschrückfrage. */
+describe("Alle Daten löschen — Wortlaut (R5-D5)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("sagt „kein Export, kein Lageblatt und keine Weitergabe“, nicht „… oder keine“", async () => {
+    const { EinsatzArt, einsatzAnlegen, meldungHinzufuegen, speicherhuelleSetzen } = await import("@bos/meldekopf/einsaetze");
+    speicherhuelleSetzen(localStorage);
+    const s = einsatzAnlegen("Hochwasser Donau", EinsatzArt.EINSATZ);
+    meldungHinzufuegen(s.id, neuerBogen());
+    const nutzer = userEvent.setup();
+    buehne();
+    await nutzer.click(screen.getByRole("button", { name: "Alle Daten löschen" }));
+    const text = document.querySelector<HTMLDialogElement>("dialog[aria-label='Alle lokalen Daten löschen']")!.textContent!;
+    expect(text).toContain("noch kein Export, kein Lageblatt und keine Weitergabe von:");
+    expect(text).not.toMatch(/Lageblatt oder keine/);
+  });
+});

@@ -994,7 +994,7 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
                   {/* Wo es keine Kopie gibt, ist das hier die einzige (R4-D5). */}
                   {loeschUmfang.ohneExport.length > 0 && (
                     <strong className="warnung-text">
-                      {" "}— noch kein Export, Lageblatt oder keine Weitergabe von:{" "}
+                      {" "}— noch kein Export, kein Lageblatt und keine Weitergabe von:{" "}
                       {loeschUmfang.ohneExport.map((n) => `„${n}"`).join(", ")}
                     </strong>
                   )}

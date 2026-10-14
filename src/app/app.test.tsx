@@ -429,7 +429,8 @@ describe("Assistenten-Durchlauf", () => {
 
     await nutzer.click(pdfKnopf);
 
-    expect(pdfErzeugen).toHaveBeenCalledTimes(1);
+    // Erst ein Bild für „wird erstellt…", dann die Arbeit (arbeitet.ts, R5-O3).
+    await waitFor(() => expect(pdfErzeugen).toHaveBeenCalledTimes(1));
     expect(pdfErzeugen.mock.calls[0]![0].einheit.organisation).toBe(OrganisationsTyp.THW);
   });
 
@@ -521,6 +522,19 @@ describe("Assistenten-Durchlauf", () => {
    * tut": Der Dialog geht zu, die Zusage wird aber nie eingelöst. Geprüft wird
    * darum immer beides — der bejahende Weg wirkt, der Abbruch wirkt nicht.
    */
+  /** Audit Runde 5, R5-D5: Der Name stand im Satz zweimal hintereinander. */
+  it("nennt den Namen in der Rückfrage zu „Verwerfen“ nur einmal (R5-D5)", async () => {
+    const nutzer = userEvent.setup();
+    render(<App />);
+    await neuerBogenBis(nutzer, 0);
+    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Doppelhausen");
+    await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
+    await nutzer.click(screen.getByRole("button", { name: "Verwerfen" }));
+    const text = rueckfrage("Angefangenen Bogen verwerfen?").textContent!;
+    expect(text.split("Doppelhausen")).toHaveLength(2);
+    expect(text).toContain('Der Stand bleibt auf der Startseite unter „Zuletzt geschlossenen Bogen zurückholen" erreichbar');
+  });
+
   it("verwirft den Bogen auf der Übersicht erst nach Rückfrage und beginnt neu", async () => {
     const nutzer = userEvent.setup();
     render(<App />);
@@ -1270,6 +1284,39 @@ describe("Assistenten-Durchlauf", () => {
     expect(localStorage.getItem("eeb.entwurf.v1")).toBeNull();
     expect(screen.queryByRole("button", { name: "Fortsetzen" })).toBeNull();
   }, 20000);
+
+  /**
+   * Audit Runde 5, R5-S6: Mit offener Rückfrage „Wohin damit?" neu geladen, war die
+   * Meldung weg und die Startseite stand ohne Hinweis da. Jetzt wartet der Link im
+   * Sitzungsspeicher, bis über ihn entschieden ist.
+   */
+  it("fragt nach dem Neuladen bei offener Rückfrage „Wohin damit?“ erneut und vergisst den Link nach der Antwort (R5-S6)", async () => {
+    sessionStorage.clear();
+    const sammlung = einsatzImSpeicherAnlegen("Hochwasser Eyach", EinsatzArt.EINSATZ);
+    window.location.hash = fragmentInhalt(encodePayloadUrl(bogenMitName("Albstadt"), browserKompressor));
+    vi.resetModules();
+    const erster = await import("./app");
+    (await import("./speicher-browser")).speicherVerdrahten();
+    (await import("./dialoge")).prellschutzSetzen(0);
+    const ersterBaum = render(<erster.App />);
+    await screen.findByRole("dialog", { name: /Meldung von „THW Albstadt.*" empfangen/ });
+    // Adresszeile ist leer, der Link wartet im Sitzungsspeicher
+    expect(window.location.hash).toBe("");
+    expect(sessionStorage.getItem("eeb.wartet.fragment")).toBeTruthy();
+
+    // Neuladen: frische Module, kein Fragment in der Adresse
+    ersterBaum.unmount();
+    vi.resetModules();
+    const zweiter = await import("./app");
+    (await import("./speicher-browser")).speicherVerdrahten();
+    (await import("./dialoge")).prellschutzSetzen(0);
+    const nutzer = userEvent.setup();
+    render(<zweiter.App />);
+    const wieder = await screen.findByRole("dialog", { name: /Meldung von „THW Albstadt.*" empfangen/ });
+    await nutzer.click(within(wieder).getByRole("button", { name: 'In „Hochwasser Eyach" aufnehmen' }));
+    await waitFor(() => expect(neuesteJeEinheit(einsaetzeLaden().find((e) => e.id === sammlung.id)!.eintraege)).toHaveLength(1));
+    expect(sessionStorage.getItem("eeb.wartet.fragment")).toBeNull();
+  }, 30000);
 
   /** Audit Runde 3, R3-S7: Neuladen in der Einsatz-Erfassung führte zur Startseite. */
   it("öffnet nach dem Neuladen eine angefangene Erfassung für eine Sammlung direkt wieder (R3-S7)", async () => {

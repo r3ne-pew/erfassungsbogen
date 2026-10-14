@@ -164,7 +164,7 @@ export function VorlagenListe(props: {
       {papierkorb.length > 0 && (
         <p>
           <button type="button" className="link" onClick={() => setZeigePapierkorb(!zeigePapierkorb)}>
-            {zeigePapierkorb ? "Papierkorb ausblenden" : `Papierkorb (${papierkorb.length})`}
+            {zeigePapierkorb ? "Papierkorb Vorlagen ausblenden" : `Papierkorb Vorlagen (${papierkorb.length})`}
           </button>
         </p>
       )}
