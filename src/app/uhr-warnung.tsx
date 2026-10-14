@@ -1,14 +1,19 @@
 /**
- * Warnung „Geräteuhr prüfen" (Audit Runde 4, R4-D1).
+ * Warnung „Geräteuhr prüfen" (Audit Runde 4, R4-D1; Runde 5, R5-D1, R5-O5).
  *
- * Geht die Geräteuhr unplausibel weit vor dem letzten Start (mehr als
- * `UHR_SPRUNG_TAGE`), rechnet die App alle Fristen mit dem letzten
- * akzeptierten Zeitpunkt und löscht oder anonymisiert nichts. Das muss der
- * Helfer wissen: Falsch ist meist die Uhr, nicht die Sammlung.
+ * Weicht die Geräteuhr unplausibel weit vom letzten Start ab (mehr als
+ * `UHR_SPRUNG_TAGE`, vor oder zurück), rechnet die App alle Fristen mit dem
+ * letzten akzeptierten Zeitpunkt und löscht oder anonymisiert nichts. Ob das
+ * Datum stimmt, kann nur der Helfer sagen: Nach einer echten Pause von 100
+ * Tagen ist es richtig, nach einem leeren Akku falsch. Die Meldung nennt
+ * deshalb beide Möglichkeiten, sagt mit Zahlen, was „Stimmt" kostet, und
+ * verlangt eine Antwort. Ein Sprung wird nie durch Zeitablauf bestätigt.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { EEB_EPOCHE_MS, type EebZeitpunkt } from "@bos/eeb-format/model";
-import { uhrWarnung } from "./datenschutz-uhr";
+import { uhrBestaetigen, uhrWarnung } from "./datenschutz-uhr";
+import { folgenText, folgenVorhanden } from "./uhr-folgen";
+import { frageJaNein } from "./dialoge";
 
 function tag(z: EebZeitpunkt): string {
   return new Date(EEB_EPOCHE_MS + z * 60_000).toLocaleDateString("de-DE", {
@@ -19,14 +24,57 @@ function tag(z: EebZeitpunkt): string {
   });
 }
 
-export function UhrWarnung() {
+export function UhrWarnung({ neuLaden = () => window.location.reload() }: { neuLaden?: () => void } = {}) {
   const w = useMemo(() => uhrWarnung(), []);
+  const [korrigieren, setKorrigieren] = useState(false);
+  const [fehler, setFehler] = useState(false);
   if (!w) return null;
+  const vor = w.richtung === "vor";
+  const folgen = folgenText(w.folgen);
+  const hatFolgen = folgenVorhanden(w.folgen);
+
+  async function stimmt() {
+    if (hatFolgen) {
+      const ja = await frageJaNein({
+        titel: "Datum stimmt — jetzt aufräumen?",
+        text: `Das Gerät zeigt den ${tag(w!.geraet)}. Damit werden ${folgen} endgültig gelöscht — nicht im Papierkorb. Eine Sammlung, die du noch brauchst, vorher exportieren: Dazu „Abbrechen" und die Sammlung öffnen.`,
+        ok: "Ja, Datum stimmt — löschen",
+        abbruch: "Abbrechen",
+        gefahr: true,
+      });
+      if (!ja) return;
+    }
+    if (uhrBestaetigen()) neuLaden();
+    else setFehler(true);
+  }
+
   return (
-    <p className="warnung uhr-warnung" role="alert">
-      ⚠ Geräteuhr prüfen: Das Gerät zeigt den {tag(w.geraet)}, beim letzten Start war der {tag(w.zuletzt)}. Bis das
-      geklärt ist, löscht und anonymisiert die App nichts. Datum falsch? In den Geräteeinstellungen korrigieren.
-      Stimmt es, gilt es ab dem nächsten Start (frühestens morgen).
-    </p>
+    <div className="warnung uhr-warnung" role="alert">
+      <p>
+        <strong>⚠ Geräteuhr prüfen:</strong> Das Gerät zeigt den {tag(w.geraet)}, beim letzten Start war der{" "}
+        {tag(w.zuletzt)} ({w.tage} {w.tage === 1 ? "Tag" : "Tage"} {vor ? "davor" : "danach"}). Stimmt das heutige
+        Datum? Bis du antwortest, löscht und anonymisiert die App nichts.
+      </p>
+      {hatFolgen && (
+        <p>
+          Wenn das Datum stimmt, werden {folgen} endgültig gelöscht. Wenn die Uhr falsch geht, bleibt alles.
+        </p>
+      )}
+      {korrigieren && (
+        <p>
+          Stelle in den Geräteeinstellungen Datum und Uhrzeit richtig ein (am besten „automatisch"), dann „Neu
+          prüfen". Passt die Uhr wieder zum letzten Start, verschwindet diese Meldung von selbst.
+        </p>
+      )}
+      {fehler && <p className="fehler">Die Antwort ließ sich nicht speichern (Speicher gesperrt). Es bleibt alles, wie es ist.</p>}
+      <div className="vorlage-aktionen">
+        <button type="button" onClick={stimmt}>Geräteuhr stimmt</button>
+        {korrigieren ? (
+          <button type="button" onClick={neuLaden}>Neu prüfen</button>
+        ) : (
+          <button type="button" onClick={() => setKorrigieren(true)}>Uhr korrigieren</button>
+        )}
+      </div>
+    </div>
   );
 }

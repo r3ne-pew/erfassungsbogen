@@ -17,7 +17,7 @@ import {
 } from "@bos/meldekopf/einsaetze";
 import { aufgeraeumteLaden, aufraeumBeobachter } from "./aufraeum-hinweis";
 import { datenschutzUhrSetzen } from "@bos/meldekopf/einsaetze";
-import { datenschutzZeitpunkt, geraeteuhrPruefen, geprueftesJetzt, uhrPruefungZuruecksetzen, uhrWarnung } from "./datenschutz-uhr";
+import { datenschutzZeitpunkt, geraeteuhrPruefen, geprueftesJetzt, uhrBestaetigen, uhrPruefungZuruecksetzen, uhrWarnung } from "./datenschutz-uhr";
 import { uhrKorrigierteHuelle, zeitstempelVerschieben } from "./uhr-korrektur";
 import { schonendeHuelle } from "./speicher-schonend";
 import { MINUTEN_JE_TAG, OrganisationsTyp, PersonalErfassung, SCHEMA_VERSION, type Erfassungsbogen } from "@bos/eeb-format/model";
@@ -81,21 +81,42 @@ afterEach(() => {
 
 describe("geraeteuhrPruefen()", () => {
   const Z = 2500 * MINUTEN_JE_TAG;
-  it("lässt kleine Vorsprünge durch und hält ab 60 Tagen zurück", () => {
-    expect(geraeteuhrPruefen(Z + 40 * MINUTEN_JE_TAG, { zuletzt: Z }).gehalten).toBe(false);
-    expect(geraeteuhrPruefen(Z + 60 * MINUTEN_JE_TAG, { zuletzt: Z }).gehalten).toBe(false);
-    const r = geraeteuhrPruefen(Z + 365 * MINUTEN_JE_TAG, { zuletzt: Z });
+  it("lässt kleine Vorsprünge durch und hält ab 60 Tagen zurück, wenn etwas fällig würde", () => {
+    const fällig = () => true;
+    expect(geraeteuhrPruefen(Z + 40 * MINUTEN_JE_TAG, { zuletzt: Z }, fällig).gehalten).toBe(false);
+    expect(geraeteuhrPruefen(Z + 60 * MINUTEN_JE_TAG, { zuletzt: Z }, fällig).gehalten).toBe(false);
+    const r = geraeteuhrPruefen(Z + 365 * MINUTEN_JE_TAG, { zuletzt: Z }, fällig);
     expect(r.gehalten).toBe(true);
+    expect(r.richtung).toBe("vor");
     expect(r.zeitpunkt).toBe(Z);
     expect(r.stand).toEqual({ zuletzt: Z, sprung: Z + 365 * MINUTEN_JE_TAG });
   });
 
-  it("übernimmt den Sprung erst, wenn er sich einen Tag später bestätigt", () => {
+  it("nimmt einen Sprung ohne Folgen an (echte Pause), fragt aber bei Folgen", () => {
+    const pause = geraeteuhrPruefen(Z + 100 * MINUTEN_JE_TAG, { zuletzt: Z }, () => false);
+    expect(pause.gehalten).toBe(false);
+    expect(pause.stand).toEqual({ zuletzt: Z + 100 * MINUTEN_JE_TAG });
+  });
+
+  it("übernimmt einen vermerkten Sprung nie durch Zeitablauf (R5-D1)", () => {
     const sprung = Z + 400 * MINUTEN_JE_TAG;
-    expect(geraeteuhrPruefen(sprung + 60, { zuletzt: Z, sprung }).gehalten).toBe(true);
-    const r = geraeteuhrPruefen(sprung + MINUTEN_JE_TAG, { zuletzt: Z, sprung });
-    expect(r.gehalten).toBe(false);
-    expect(r.zeitpunkt).toBe(sprung + MINUTEN_JE_TAG);
+    for (const spaeter of [60, MINUTEN_JE_TAG, 3 * MINUTEN_JE_TAG, 29 * MINUTEN_JE_TAG, 200 * MINUTEN_JE_TAG]) {
+      const r = geraeteuhrPruefen(sprung + spaeter, { zuletzt: Z, sprung }, () => false);
+      expect(r.gehalten).toBe(true);
+      expect(r.zeitpunkt).toBe(Z);
+      expect(r.stand).toEqual({ zuletzt: Z, sprung });
+    }
+  });
+
+  it("hält eine weit zurückgestellte Uhr fest, auch wenn nichts fällig wäre, und dreht den Stand nicht zurück", () => {
+    const r = geraeteuhrPruefen(Z - 400 * MINUTEN_JE_TAG, { zuletzt: Z }, () => false);
+    expect(r.gehalten).toBe(true);
+    expect(r.richtung).toBe("zurueck");
+    expect(r.stand).toEqual({ zuletzt: Z, sprung: Z - 400 * MINUTEN_JE_TAG });
+    // Uhr wieder nah am letzten Start: Rückfrage beendet
+    const wieder = geraeteuhrPruefen(Z + 2 * MINUTEN_JE_TAG, r.stand, () => true);
+    expect(wieder.gehalten).toBe(false);
+    expect(wieder.stand).toEqual({ zuletzt: Z + 2 * MINUTEN_JE_TAG });
   });
 });
 
@@ -153,13 +174,64 @@ describe("Aufräum- und Papierkorbfrist bei vorgestellter Geräteuhr (R4-D1)", (
     expect(einsaetzeLaden().map((s) => s.name).sort()).toEqual(["Laufender Einsatz", "Neu am falschen Tag"]);
   });
 
-  it("räumt nach bestätigtem Sprung (einen Tag später) wirklich auf", () => {
+  it("löscht auch Tage später nichts, solange der Sprung nicht bestätigt ist (R5-D1)", () => {
     sammlungen();
     neuStart(START + 400 * TAG);
     expect(einsaetzeLaden()).toHaveLength(1);
-    neuStart(START + 401 * TAG + 60_000);
+    for (const tage of [401, 402, 430, 500]) {
+      neuStart(START + tage * TAG + 60_000);
+      expect(einsaetzeLaden().map((s) => s.name)).toEqual(["Laufender Einsatz"]);
+      expect(einsaetzePapierkorb()).toHaveLength(1);
+      expect(aufgeraeumteLaden(mem)).toEqual([]);
+      expect(uhrWarnung()).not.toBeNull();
+    }
+  });
+
+  it("räumt nach ausdrücklicher Bestätigung auf — und nur dann", () => {
+    sammlungen();
+    neuStart(START + 400 * TAG);
+    const w = uhrWarnung()!;
+    expect(w.folgen).toMatchObject({ sammlungen: 1, papierkorb: 1 });
+    expect(uhrBestaetigen()).toBe(true);
+    neuStart(START + 401 * TAG);
     expect(einsaetzeLaden()).toHaveLength(0);
     expect(uhrWarnung()).toBeNull();
+    expect(aufgeraeumteLaden(mem)).toHaveLength(1);
+  });
+
+  it("Uhr nach dem Sprung zurück: alles unverändert, nichts bestätigt", () => {
+    sammlungen();
+    neuStart(START + 400 * TAG);
+    neuStart(START + 401 * TAG);
+    neuStart(START + 2 * TAG);
+    expect(einsaetzeLaden().map((s) => s.name)).toEqual(["Laufender Einsatz"]);
+    expect(uhrWarnung()).toBeNull();
+  });
+
+  it("Pause von 100 Tagen mit einer dann fälligen Sammlung: Frage mit Folgen statt Löschen (R5-D1)", () => {
+    einsatzAnlegen("Junge Sammlung", EinsatzArt.EINSATZ);
+    geprueftesJetzt();
+    // Die Sammlung ist am Tag 100 über 90 Tage alt, also fällig: Frage statt Löschen
+    // (die echte Pause, bei der nichts fällig ist, folgt im nächsten Fall)
+    neuStart(START + 100 * TAG);
+    expect(uhrWarnung()).not.toBeNull();
+    expect(einsaetzeLaden()).toHaveLength(1);
+  });
+
+  it("echte Pause ohne jede Sammlung: weder Warnung noch Frage", () => {
+    geprueftesJetzt();
+    neuStart(START + 100 * TAG);
+    expect(uhrWarnung()).toBeNull();
+  });
+
+  it("zurückgestellte Uhr, dann korrigiert: keine falsche Warnung, Sammlungen bleiben (R5-O5)", () => {
+    sammlungen();
+    neuStart(START - 400 * TAG);
+    expect(uhrWarnung()?.richtung).toBe("zurueck");
+    einsatzAnlegen("Mit falscher Uhr angelegt", EinsatzArt.EINSATZ);
+    neuStart(START + TAG);
+    expect(uhrWarnung()).toBeNull();
+    expect(einsaetzeLaden().map((s) => s.name).sort()).toEqual(["Laufender Einsatz", "Mit falscher Uhr angelegt"]);
   });
 
   it("räumt bei plausibler Uhr nach 90 Tagen weiter auf", () => {

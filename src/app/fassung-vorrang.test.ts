@@ -7,11 +7,12 @@
  * Folgemeldung löst die bestätigte Fassung wieder normal ab, und
  * „Rückgängig" stellt den alten Stand her.
  */
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { OrganisationsTyp, PersonalErfassung, SCHEMA_VERSION, type Erfassungsbogen } from "@bos/eeb-format/model";
 import { EinsatzArt, einsaetzeLaden, einsatzAnlegen, meldungHinzufuegen, speicherhuelleSetzen, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import {
   fassungGiltSetzen,
+  fassungObenauf,
   fassungPruefen,
   fassungenJeEinheit,
   geltendeJeEinheit,
@@ -19,7 +20,8 @@ import {
   nachgereichterBogen,
   vorrangZuruecknehmen,
 } from "./fassung-vorrang";
-import { notizSetzen, zugSetzen } from "./eintrag-zeiten";
+import { notizSetzen, zugSetzen, meldungAufnehmen } from "./eintrag-zeiten";
+import { nurStaerkeUebernehmen } from "./nur-staerke";
 
 class MemStorage {
   private m = new Map<string, string>();
@@ -32,10 +34,13 @@ class MemStorage {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
   const mem = new MemStorage();
   (globalThis as { localStorage?: Storage }).localStorage = mem as unknown as Storage;
   speicherhuelleSetzen(mem as unknown as Storage);
 });
+
+afterEach(() => vi.useRealTimers());
 
 function bogen(stand: number, gesamt: number, fahrzeuge = 0): Erfassungsbogen {
   return {
@@ -149,5 +154,44 @@ describe("fassungGiltSetzen", () => {
       fassungGiltSetzen(s.id, vier.id);
       expect(gesamt(geltendeJeEinheit(eintraege(s.id))[0])).toBe(4);
     }
+  });
+});
+
+describe("fassungObenauf — eigene Handlung gilt nach einer Uhr, die zurückspringt (R5-E2)", () => {
+  /** Wie „Stärke ändern…": neue Fassung aus der geltenden, Stand = Maximum, obenauf legen. */
+  function staerkeAendern(id: string, zahl: number, stand: number, mitObenauf: boolean) {
+    const kopf = geltendeJeEinheit(eintraege(id))[0]!;
+    const neu = nurStaerkeUebernehmen(kopf.bogen, { fuehrer: 0, unterfuehrer: 0, mannschaft: zahl, gesamt: zahl }, stand);
+    const r = meldungAufnehmen(id, neu, { quelle: "manuell", einheitSchluesselOverride: kopf.einheitSchluessel })!;
+    if (mitObenauf && r.neu) fassungObenauf(id, r.eintrag.id);
+    return r;
+  }
+
+  it.each([5, 30])("Uhr %i Minuten vor, dann zurück: die zweite Änderung gilt", (minuten) => {
+    const s = einsatzAnlegen("Hochwasser Donau", EinsatzArt.EINSATZ);
+    meldungHinzufuegen(s.id, bogen(2000, 8), { quelle: "pdf-import" });
+    vi.setSystemTime(new Date("2026-10-06T12:00:00Z"));
+    staerkeAendern(s.id, 7, 2000 + minuten, true); // Uhr geht vor: Stand in der Zukunft
+    vi.setSystemTime(new Date("2026-10-06T11:55:00Z")); // Uhr stimmt wieder: die Empfangszeit liegt davor
+    staerkeAendern(s.id, 6, 1990, true);
+    expect(gesamt(geltendeJeEinheit(eintraege(s.id))[0])).toBe(6);
+    expect(gesamt(fassungenJeEinheit(eintraege(s.id), geltendeJeEinheit(eintraege(s.id))[0]!.einheitSchluessel)[0])).toBe(6);
+  });
+
+  it("ohne die Schicht bliebe die alte Zahl obenauf (der Befund)", () => {
+    const s = einsatzAnlegen("Hochwasser Donau", EinsatzArt.EINSATZ);
+    meldungHinzufuegen(s.id, bogen(2000, 8), { quelle: "pdf-import" });
+    vi.setSystemTime(new Date("2026-10-06T12:00:00Z"));
+    staerkeAendern(s.id, 7, 2005, false);
+    vi.setSystemTime(new Date("2026-10-06T11:55:00Z"));
+    staerkeAendern(s.id, 6, 1990, false);
+    expect(gesamt(geltendeJeEinheit(eintraege(s.id))[0])).toBe(7);
+  });
+
+  it("tut nichts, wenn die neue Fassung ohnehin vorn liegt", () => {
+    const s = einsatzAnlegen("Lage", EinsatzArt.EINSATZ);
+    meldungHinzufuegen(s.id, bogen(2000, 8), { quelle: "pdf-import" });
+    const r = staerkeAendern(s.id, 7, 2010, false);
+    expect(fassungObenauf(s.id, r.eintrag.id)).toBe(false);
   });
 });

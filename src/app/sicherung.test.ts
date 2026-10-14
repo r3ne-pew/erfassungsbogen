@@ -116,6 +116,38 @@ describe("sicherungErstellen() / sicherungEinspielen()", () => {
   });
 });
 
+describe("alte Sicherung (R5-D4)", () => {
+  const TAG = 24 * 60 * 60 * 1000;
+  function sammlungVor(tage: number, extra: Record<string, unknown> = {}) {
+    return { id: "s" + tage, name: "Altlage " + tage, art: 0, angelegt: Date.now() - (tage + 5) * TAG, geaendert: Date.now() - tage * TAG, eintraege: [], ...extra };
+  }
+
+  it("übernimmt den Uhrstand der Datei nicht, das Gerät behält seinen", () => {
+    localStorage.setItem("eeb.uhr.v1", JSON.stringify({ zuletzt: 111 }));
+    const datei = sicherungInhalt({ "eeb.vorlagen.v1": "[]", "eeb.uhr.v1": JSON.stringify({ zuletzt: 5 }) });
+    expect(sicherungEinspielen(datei)).toBe(1);
+    expect(JSON.parse(localStorage.getItem("eeb.uhr.v1")!)).toEqual({ zuletzt: 111 });
+  });
+
+  it("nennt in der Rückfrage, was von einer alten Datei sofort wieder fällt", () => {
+    const b = bestandUmfang({
+      "eeb.einsaetze.v1": JSON.stringify([
+        sammlungVor(100),
+        sammlungVor(10),
+        sammlungVor(5, { geloeschtAm: Date.now() - 40 * TAG }),
+      ]),
+    });
+    expect(b.faellig.sammlungen).toBe(1);
+    expect(b.faellig.namen).toEqual(["Altlage 100"]);
+    expect(b.faellig.papierkorb).toBe(1);
+  });
+
+  it("eine junge Datei hat nichts, was fällt", () => {
+    const b = bestandUmfang({ "eeb.einsaetze.v1": JSON.stringify([sammlungVor(10)]) });
+    expect(b.faellig).toEqual({ sammlungen: 0, namen: [], papierkorb: 0, meldungen: 0, entwurf: false });
+  });
+});
+
 describe("datenUmfang()", () => {
   it("meldet auf einem frischen Gerät nichts", () => {
     expect(datenUmfang()).toEqual({
@@ -225,6 +257,7 @@ describe("bestandUmfang() / geraetBestand() — für die Einspiel-Rückfrage (R2
       rueckholplatz: null,
       absender: false,
       geraeteschluessel: null,
+      faellig: { sammlungen: 0, namen: [], papierkorb: 0, meldungen: 0, entwurf: false },
     });
   });
 

@@ -33,6 +33,7 @@ import {
   unterbringungMWD,
   verpflegung,
 } from "@bos/eeb-format/model";
+import { stempelZeitpunkt } from "./datenschutz-uhr";
 import {
   EEB_URL_PREFIX,
   EEB_VORLAGE_MARKER,
@@ -1108,7 +1109,7 @@ export function neuerBogen(): Erfassungsbogen {
   const heute = datumAusIso(new Date().toISOString().slice(0, 10));
   return {
     schemaVersion: SCHEMA_VERSION,
-    stand: jetztZeitpunkt(),
+    stand: stempelZeitpunkt(),
     einheit: {
       organisation: OrganisationsTyp.THW,
       einheitsTyp: {},

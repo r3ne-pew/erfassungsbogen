@@ -21,7 +21,7 @@ import {
   type Erfassungsbogen,
 } from "@bos/eeb-format/model";
 import { datenschutzfristAbgelaufen } from "@bos/eeb-format/datenschutzfrist";
-import { datenschutzZeitpunkt } from "./datenschutz-uhr";
+import { datenschutzZeitpunkt, stempelZeitpunkt } from "./datenschutz-uhr";
 import {
   datumDeutsch,
   einheitAnzeigename,
@@ -54,7 +54,7 @@ import {
   type ZusammenfuehrungOptionen,
 } from "@bos/meldekopf/einsaetze";
 import { einsatzWiederherstellen, ruhtSchonLange } from "./einsatz-wiederherstellen";
-import { fassungGiltSetzen, fassungenJeEinheit, geltendeJeEinheit, istVerdraengt, nachgereichterBogen } from "./fassung-vorrang";
+import { fassungGiltSetzen, fassungObenauf, fassungenJeEinheit, geltendeJeEinheit, istVerdraengt, nachgereichterBogen } from "./fassung-vorrang";
 import { einsaetzeLaden, einsaetzePapierkorb } from "./einsaetze-lesen";
 import { koepfeJe, revisionenJe } from "./einheiten-index";
 import { RolleMarke } from "./rolle-marke";
@@ -428,7 +428,7 @@ export function EinsatzListe(props: {
         <div className="warnung aufgeraeumt-hinweis" role="status">
           <p>
             <strong>Automatisch gelöscht:</strong>{" "}
-            {aufgeraeumt.length === 1 ? "Diese Sammlung lag" : "Diese Sammlungen lagen"} 90 Tage unverändert
+            {aufgeraeumt.length === 1 ? "Diese Sammlung lag" : "Diese Sammlungen lagen"} nach dem Datum dieses Geräts 90 Tage unverändert
             und {aufgeraeumt.length === 1 ? "wurde" : "wurden"} wegen der enthaltenen Personendaten endgültig
             entfernt — nicht im Papierkorb. Wer die Daten noch braucht, greift auf einen Export oder das Papier zurück.
           </p>
@@ -2823,11 +2823,15 @@ function EinheitKarte(props: {
       if (ja) break;
       fehler = null;
     }
-    const neu = nurStaerkeUebernehmen(kopf.bogen, { fuehrer: f, unterfuehrer: u, mannschaft: m, gesamt: f + u + m }, jetztZeitpunkt());
+    const neu = nurStaerkeUebernehmen(kopf.bogen, { fuehrer: f, unterfuehrer: u, mannschaft: m, gesamt: f + u + m }, stempelZeitpunkt());
     const neueFassung: { fassung: MeldeEintrag | null } = { fassung: null };
     const ok = await gesichert("Stärke ändern", () => {
       const r = meldungAufnehmen(einsatzId, neu, { quelle: "manuell", einheitSchluesselOverride: kopf.einheitSchluessel });
-      if (r?.neu) neueFassung.fassung = r.eintrag;
+      if (r?.neu) {
+        neueFassung.fassung = r.eintrag;
+        // Die eigene Handlung gilt, auch nach einer zurückgestellten Uhr (R5-E2).
+        fassungObenauf(einsatzId, r.eintrag.id);
+      }
     });
     if (!ok) return;
     if (neueFassung.fassung) {

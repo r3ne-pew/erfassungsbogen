@@ -17,6 +17,7 @@ import {
   datenUmfang,
   bestandBetroffen,
   bestandUmfang,
+  folgenVorhanden,
   geraetBestand,
   letzteSicherung,
   sicherungErstellen,
@@ -33,6 +34,7 @@ import { speicherBelegung, speicherText } from "./eintrag-zeiten";
 import { groessteText, istVoll } from "./speicher-warnung";
 import { dauerhaftenSpeicherAnfragen, speicherDauerhaft } from "./speicher-browser";
 import { WERKZEUGE, WERKZEUGE_TITEL } from "./werkzeuge";
+import { folgenText } from "./uhr-folgen";
 
 const KONTAKT = "johannes.rudolph@thw-oldenburg.de";
 const REPO = "https://github.com/wattnpapa/erfassungsbogen";
@@ -907,6 +909,16 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
                 </strong>
               </p>
               <BestandListe bestand={einspielStand.datei} kurzform={einspielStand.kurzDatei} />
+              {/* Eine alte Datei bringt, was nach den Fristen übrig bleibt (R5-D4). */}
+              {folgenVorhanden(einspielStand.datei.faellig) && (
+                <p className="warnung" role="status">
+                  <strong>Davon fällt sofort wieder weg:</strong> {folgenText(einspielStand.datei.faellig)} — die
+                  Datei ist älter als die Fristen (Sammlungen 90 Tage ohne Änderung, Papierkorb 30 Tage, Namen in
+                  Bögen 90 Tage). Das Einspielen löst die Aufräumung beim Neuladen aus; was du noch brauchst, vorher
+                  aus der Datei übernehmen oder exportieren.
+                  {einspielStand.datei.faellig.namen.length > 0 && <> Betroffen: „{einspielStand.datei.faellig.namen.join("“, „")}“.</>}
+                </p>
+              )}
               {laufendBetroffen && (
                 <p className="warnung">
                   Die laufenden Sammlungen dieses Geräts sind danach weg — ohne Papierkorb.

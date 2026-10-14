@@ -13,10 +13,10 @@
  */
 
 import type { Erfassungsbogen } from "@bos/eeb-format/model";
-import { datumAusIso, jetztZeitpunkt, mitTransportVersion, staerke } from "@bos/eeb-format/model";
+import { datumAusIso, mitTransportVersion, staerke } from "@bos/eeb-format/model";
 import { bogenPruefen, dateinameTeil, einheitAnzeigename, migriereBogen } from "./hilfen";
 import { aktive, imPapierkorb, papierkorbBereinigt } from "@bos/meldekopf/papierkorb";
-import { geprueftesJetztMs } from "./datenschutz-uhr";
+import { geprueftesJetztMs, stempelZeitpunkt } from "./datenschutz-uhr";
 
 /** Versionierter Schlüssel — erlaubt spätere Formatwechsel der Sammlung selbst. */
 const SPEICHER_SCHLUESSEL = "eeb.vorlagen.v1";
@@ -48,7 +48,7 @@ function heute(): number {
 export function bogenAlsVorlage(b: Erfassungsbogen): Erfassungsbogen {
   const kopie = structuredClone(b);
   const t = heute();
-  kopie.stand = jetztZeitpunkt();
+  kopie.stand = stempelZeitpunkt();
   kopie.einsatz = { zeitraumVon: t, zeitraumBis: t, ortAuftrag: "" };
   return kopie;
 }

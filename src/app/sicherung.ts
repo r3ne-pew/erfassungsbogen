@@ -20,11 +20,14 @@ import { exportVorhanden } from "./export-stand";
 import { einheitAnzeigename } from "./hilfen";
 import { geraeteSchluesselPrivat } from "./geraete-schluessel";
 import { vorlagenLaden, vorlagenPapierkorb } from "./vorlagen";
+import { folgenVorhanden, uhrFolgen, type UhrFolgen } from "./uhr-folgen";
 
 const FORMAT = "eeb-sicherung";
 const VERSION = 1;
 /** Nur App-eigene Einträge wandern in die Sicherung. */
 const PRAEFIX = "eeb.";
+/** Merkzettel der Geräteuhr (datenschutz-uhr.ts) — bleibt beim Einspielen beim Gerät. */
+const UHR_SCHLUESSEL = "eeb.uhr.v1";
 
 export interface Sicherung {
   format: typeof FORMAT;
@@ -108,6 +111,13 @@ export interface BestandUmfang {
   absender: boolean;
   /** Privater Geräteschlüssel (Hex) — für die Kurzform vorher/nachher; null = keiner. */
   geraeteschluessel: string | null;
+  /**
+   * Was beim Einspielen sofort unter die Fristen fiele (R5-D4): Sammlungen
+   * über 90 Tage Ruhe, Papierkorb über 30 Tage, Namen in alten Meldungen und
+   * im Entwurf. Eine alte Datei bringt nicht, was in ihr steht, sondern was
+   * nach den Fristen übrig bleibt.
+   */
+  faellig: UhrFolgen;
 }
 
 const EINSAETZE_SCHLUESSEL = "eeb.einsaetze.v1";
@@ -159,8 +169,11 @@ export function bestandUmfang(eintraege: Record<string, string>): BestandUmfang 
     geraeteschluessel: /^[0-9a-f]{64}$/i.test(eintraege[GERAETESCHLUESSEL_SCHLUESSEL] ?? "")
       ? eintraege[GERAETESCHLUESSEL_SCHLUESSEL]!
       : null,
+    faellig: uhrFolgen(Date.now(), (k) => eintraege[k] ?? null),
   };
 }
+
+export { folgenVorhanden };
 
 function rueckholplatzAusRoh(roh: string | undefined): string | null {
   if (!roh) return null;
@@ -312,9 +325,17 @@ export function sicherungEinspielen(text: string): number {
   const eintraege = sicherungParsen(text);
   const s = speicher();
   if (!s) throw new Error("Lokaler Speicher ist nicht verfügbar (Privatmodus?).");
-  for (const k of alleEebSchluessel(s)) s.removeItem(k);
-  for (const [k, v] of Object.entries(eintraege)) s.setItem(k, v);
-  return Object.keys(eintraege).length;
+  for (const k of alleEebSchluessel(s)) if (k !== UHR_SCHLUESSEL) s.removeItem(k);
+  let anzahl = 0;
+  for (const [k, v] of Object.entries(eintraege)) {
+    // Der Uhrstand gehört zu diesem Gerät, nicht zur Datei: Der Stand aus einer
+    // 100 Tage alten Sicherung löste beim nächsten Start „Geräteuhr prüfen"
+    // aus, obwohl die Uhr stimmte (Audit Runde 5, R5-D4).
+    if (k === UHR_SCHLUESSEL) continue;
+    s.setItem(k, v);
+    anzahl++;
+  }
+  return anzahl;
 }
 
 // ------------------------------------------------- Restlos löschen

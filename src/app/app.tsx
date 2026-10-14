@@ -48,7 +48,7 @@ import {
   datenschutzfristEnde,
   tageBisAnonymisierung,
 } from "@bos/eeb-format/datenschutzfrist";
-import { datenschutzZeitpunkt } from "./datenschutz-uhr";
+import { datenschutzZeitpunkt, stempelZeitpunkt } from "./datenschutz-uhr";
 import { Kopfnav } from "./kopfnav-ui";
 import { bogenLinksEmpfangen, imWebBrowser, istNativ, qrScannen, textTeilen } from "./nativ";
 import { fehlerText } from "./nachladen";
@@ -3852,7 +3852,7 @@ function AppInhalt() {
   const aendern = (patch: Partial<Erfassungsbogen>) => {
     // Jede Bearbeitung datiert den Stand neu — die Zeitgruppe im PDF und die
     // Revisionsreihenfolge der Einsatz-Sammlung zeigen die letzte Änderung.
-    setBogen({ ...bogen, ...patch, stand: jetztZeitpunkt() });
+    setBogen({ ...bogen, ...patch, stand: stempelZeitpunkt() });
     setzeEmpfang(null);
   };
 
@@ -4037,7 +4037,7 @@ function AppInhalt() {
           onNeuerEinsatz={() => {
             const heute = heuteDatum();
             const { sofortbedarf: _alt, ...ohneBedarf } = bogen;
-            setBogen({ ...ohneBedarf, einsatz: { zeitraumVon: heute, zeitraumBis: heute, ortAuftrag: "" }, stand: jetztZeitpunkt() });
+            setBogen({ ...ohneBedarf, einsatz: { zeitraumVon: heute, zeitraumBis: heute, ortAuftrag: "" }, stand: stempelZeitpunkt() });
             setSchritt(1);
             setMeldung("Einsatzdaten für den neuen Einsatz zurückgesetzt — Ort/Auftrag eintragen. Personal und Fahrzeuge sind geblieben.");
           }}

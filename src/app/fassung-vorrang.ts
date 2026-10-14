@@ -219,6 +219,35 @@ export function fassungGiltSetzen(einsatzId: string, eintragId: string, jetzt = 
   return aenderung;
 }
 
+/**
+ * Eine Fassung, die der Helfer eben selbst gemacht hat („Stärke ändern…"),
+ * gilt vor allen anderen Fassungen ihrer Einheit (Audit Runde 5, R5-E2).
+ *
+ * Der Kern entscheidet nach `stand`, bei Gleichstand nach der Empfangszeit.
+ * Der Stand einer Handänderung ist das Maximum aus Jetzt und der bisherigen
+ * Fassung; nach einer zurückgestellten oder falsch gestellten Uhr ist er mit
+ * dem der bisherigen Fassung gleich, und die Empfangszeit der neuen Fassung
+ * lag davor — die Quittung meldete Erfolg, die Karte zeigte die alte Zahl.
+ * Hier rückt die Empfangszeit mindestens eine Millisekunde hinter die jüngste
+ * Fassung der Einheit (wie der Kern es für Aufteilen und Zusammenführen tut,
+ * `ablosendeEmpfangszeit`). Rückgabe: ob etwas zu tun war.
+ */
+export function fassungObenauf(einsatzId: string, eintragId: string): boolean {
+  const liste = alleSammlungen();
+  const s = liste.find((x) => x.id === einsatzId);
+  const e = s?.eintraege.find((x) => x.id === eintragId);
+  if (!s || !e) return false;
+  const andere = s.eintraege.filter((x) => x.einheitSchluessel === e.einheitSchluessel && x.id !== e.id);
+  if (andere.length === 0) return false;
+  const stand = Math.max(...andere.map((x) => x.bogen.stand));
+  if (e.bogen.stand < stand) return false; // der Stand entscheidet allein; hier hilft nur „Diese Fassung gilt"
+  const hinter = Math.max(...andere.filter((x) => x.bogen.stand === e.bogen.stand).map((x) => x.empfangenAm), -Infinity) + 1;
+  if (e.empfangenAm >= hinter) return false;
+  e.empfangenAm = hinter;
+  sammlungenSchreiben(liste);
+  return true;
+}
+
 /** {@link fassungGiltSetzen} zurücknehmen: die Verweise wie vorher. */
 export function vorrangZuruecknehmen(a: VorrangAenderung): void {
   const liste = alleSammlungen();
