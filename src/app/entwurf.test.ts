@@ -22,6 +22,7 @@ import {
   entwurfZuJson,
   entwurfLaden,
   entwurfSpeichern,
+  entwurfUeberschreibenErlauben,
   entwurfVerwerfen,
   ersetztenEntwurfLaden,
   ersetztenEntwurfMerken,
@@ -52,6 +53,8 @@ class MemStorage {
 
 beforeEach(() => {
   (globalThis as { localStorage?: Storage }).localStorage = new MemStorage() as unknown as Storage;
+  // Was ein früherer Test dieses Fensters geschrieben hat, gehört nicht zum nächsten (R5-D3).
+  entwurfUeberschreibenErlauben();
 });
 
 describe("entwurfAusJson()", () => {

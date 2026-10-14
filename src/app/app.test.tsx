@@ -1933,8 +1933,30 @@ describe("Speicher voll", () => {
     await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "V");
 
     const zeile = await screen.findByText(/Nicht gespeichert — der Speicher dieses Geräts ist voll/);
-    expect(zeile.textContent).toMatch(/bitte die Stärke jetzt auf dem Meldeblock notieren/);
+    expect(zeile.textContent).toMatch(/Die Stärke jetzt auf dem Meldeblock notieren/);
     expect(zeile.textContent).not.toMatch(/Bogen übergeben/);
+  });
+
+  /** Audit Runde 5, R5-O1: Die Warnung sitzt fest am Bildrand, nicht im Kopf, der mit der Seite wegrollt. */
+  it("zeigt „Nicht gespeichert“ als feste Leiste mit „Was tun?“ statt im Kopf (R5-O1)", async () => {
+    const nutzer = userEvent.setup();
+    render(<App />);
+    await neuerBogenBis(nutzer, 0);
+    const echt = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === "eeb.entwurf.v1") throw new DOMException("voll", "QuotaExceededError");
+      return echt.call(this, k, v);
+    });
+    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "V");
+    await screen.findByText(/Nicht gespeichert/);
+    const fest = document.querySelector<HTMLElement>(".fest-warnung.speicher-fehler")!;
+    expect(fest).not.toBeNull();
+    expect(fest.textContent).toMatch(/Jetzt „Bogen übergeben“ \(PDF\)/);
+    expect(fest.textContent).not.toMatch(/Papierkorb leeren/);
+    await nutzer.click(within(fest).getByRole("button", { name: "Was tun?" }));
+    expect(fest.textContent).toMatch(/Papierkorb leeren/);
+    expect(fest.textContent).toMatch(/Letzter gesicherter Stand/);
+    expect(document.documentElement.style.getPropertyValue("--fest-warnung-hoehe")).toMatch(/px$/);
   });
 
   /** Audit Runde 3, R3-O4: gesperrt ist nicht voll; Schließen fragt nach. */

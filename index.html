@@ -792,21 +792,32 @@
       border: var(--strich) solid var(--warn-linie); border-radius: var(--radius);
       padding: var(--r-2) var(--r-3); margin-bottom: var(--r-3); font-weight: 600;
     }
-    /* Zwei Fenster, ein Bogen (Audit Runde 2, R2-O4): Die Warnung trägt zwei
-       Knöpfe und darf auch quer nicht weggeblendet werden wie die ruhige
-       „gespeichert"-Zeile — hier wird gerade NICHT gespeichert. */
-    .seiten-kopf .autosave.fenster-konflikt { display: block; }
-    /* Fest am oberen Bildrand, solange nicht entschieden ist: Im Kopf stand
-       die Warnung beim Tippen weiter unten 488 px über dem Bild, und was
-       getippt wurde, ging ungesehen verloren (Audit Runde 3, R3-S3). */
-    .seiten-kopf .autosave.fenster-konflikt {
+    /* Feste Warnleiste am oberen Bildrand (feste-warnung.tsx): „Nicht
+       gespeichert" (R5-O1) und die Entscheidung der zwei Fenster (R2-O4,
+       R3-S3, R5-S4). Beide dürfen weder mit der Seite wegrollen noch quer
+       weggeblendet werden wie die ruhige „gespeichert"-Zeile — hier wird
+       gerade NICHT gespeichert. Die Seite rückt um die Leistenhöhe nach unten
+       (--fest-warnung-hoehe), damit sie weder den Kopf noch das Feld deckt,
+       in das getippt wird. */
+    .seiten-kopf .autosave.fest-warnung {
       position: fixed; z-index: 26; top: 0; left: 0; right: 0; margin: 0;
+      display: flex; flex-wrap: wrap; align-items: center; gap: var(--r-1) var(--r-3);
+      white-space: normal; overflow: visible; text-overflow: clip;
       border-radius: 0; border-width: 0 0 var(--strich-stark) 0;
-      padding: max(var(--r-2), env(safe-area-inset-top)) max(var(--r-3), env(safe-area-inset-right)) var(--r-2) max(var(--r-3), env(safe-area-inset-left));
+      padding: max(var(--r-1), env(safe-area-inset-top)) max(var(--r-3), env(safe-area-inset-right)) var(--r-1) max(var(--r-3), env(safe-area-inset-left));
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
     }
-    .autosave.fenster-konflikt p { margin: 0 0 var(--r-2); }
-    .autosave.fenster-konflikt .aktionen { margin: 0; font-weight: 400; }
+    .fest-warnung .fest-kurz { margin: 0; flex: 1 1 11rem; min-width: 0; line-height: 1.25; }
+    .fest-warnung .fest-details { flex: 1 1 100%; font-weight: 400; }
+    .fest-warnung .fest-details p { margin: 0 0 var(--r-1); }
+    .fest-warnung .aktionen { flex: 1 1 100%; margin: 0; font-weight: 400; }
+    .fest-warnung .fest-schalter { flex: 0 0 auto; }
+    /* Bei knapper Bildhöhe (Tastatur, quer) nur der Kurztext in einer Zeile. */
+    .fest-warnung.knapp .fest-kurz {
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden;
+    }
+    html:has(.fest-warnung) #app { padding-top: var(--fest-warnung-hoehe, 0px); }
+    html:has(.fest-warnung) { scroll-padding-top: calc(var(--fest-warnung-hoehe, 0px) + 8px); }
     .seiten-kopf.assistent-kopf .titelzeile { order: 1; }
     .seiten-kopf.assistent-kopf .autosave { order: 2; }
     .seiten-kopf.assistent-kopf .schritte { order: 3; }

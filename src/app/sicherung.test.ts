@@ -21,7 +21,7 @@ import { exportVermerken } from "./export-stand";
 import { EinsatzArt, einsaetzeLaden, einsatzAnlegen, meldungHinzufuegen,
   speicherhuelleSetzen,
 } from "@bos/meldekopf/einsaetze";
-import { entwurfLaden, entwurfSpeichern, ersetztenEntwurfMerken } from "./entwurf";
+import { entwurfLaden, entwurfSpeichern, entwurfUeberschreibenErlauben, ersetztenEntwurfMerken } from "./entwurf";
 import { vorlageAnlegen, vorlageLoeschen, vorlagenLaden } from "./vorlagen";
 
 function bogen(): Erfassungsbogen {
@@ -67,6 +67,7 @@ beforeEach(() => {
   (globalThis as { localStorage?: Storage }).localStorage = mem;
   // Die Einsatz-Sammlung bekommt ihre Ablage hineingereicht (ADR-003).
   speicherhuelleSetzen(mem);
+  entwurfUeberschreibenErlauben();
 });
 
 describe("sicherungInhalt() / sicherungParsen()", () => {

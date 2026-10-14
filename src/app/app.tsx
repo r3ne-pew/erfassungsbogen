@@ -136,6 +136,8 @@ import { einheitSymbolSvg, svgDataUrl } from "./taktische-zeichen-bogen";
 import { Fusszeile } from "./fusszeile";
 import { Aktualisierungshinweise } from "./aktualisierung";
 import { SpeicherWarnung } from "./speicher-warnung";
+import { FesteWarnung } from "./feste-warnung";
+import { speicherFehlerDetails, speicherFehlerKurz } from "./speicher-fehler-text";
 import { UhrWarnung } from "./uhr-warnung";
 import { Dialogschicht, frageFelder, frageJaNein, frageWahl, zeigeHinweis, type Antwortweg } from "./dialoge";
 import { istNurStaerke, nurStaerkeUebernehmen, wasWegfiele } from "./nur-staerke";
@@ -3579,10 +3581,20 @@ function AppInhalt() {
                   {/* Mit ausgefallenem Speicher stand hier „gespeichert 21:01 Uhr"
                       für einen Stand, der nicht im Speicher liegt (Audit Runde 4,
                       R4-E5). */}
-                  {!speicherFehler && gespeichertUm
+                  {!speicherFehler && !fenster.konflikt && gespeichertUm
                     ? ` · gespeichert ${uhrzeitMitTag(gespeichertUm)} Uhr`
                     : ""}
                 </span>
+                {/* Ein anderes Fenster hat den Bogen geändert oder gelöscht (Alle
+                    Daten löschen, Bogen geschlossen): Die Karte darf ihn nicht als
+                    gespeichert zeigen, und hier wird nichts zurückgeschrieben
+                    (Audit Runde 5, R5-D3). */}
+                {fenster.konflikt && (
+                  <span className="hinweis warnung-text speicher-fehler" role="alert">
+                    ⚠ {fenster.art === "entfernt" ? "In einem anderen Fenster gelöscht oder geschlossen" : "In einem anderen Fenster geändert"}
+                    {" "}— hier wird nichts gespeichert. „Fortsetzen“ zeigt die Entscheidung.
+                  </span>
+                )}
                 {speicherFehler && (
                   <span className="hinweis warnung-text speicher-fehler" role="alert">
                     ⚠ Nicht gespeichert — {speicherArt === "gesperrt" ? "dieser Browser lässt die App nichts speichern" : "der Speicher dieses Geräts ist voll"}.
@@ -3952,21 +3964,14 @@ function AppInhalt() {
       {fenster.konflikt ? (
         <FensterKonflikt abgleich={fenster} />
       ) : speicherFehler ? (
-        <p className="autosave speicher-fehler" role="alert">
-          {/* Gesperrt ist nicht voll: dort hilft kein Papierkorb, sondern
-              Speichern erlauben bzw. den privaten Modus verlassen (R3-O4). */}
-          {/* Eine fremde Erfassung am Meldekopf ist kein Bogen zum Übergeben: Dort
-              gehört die Stärke auf den Meldeblock, und der Speicher muss frei
-              werden (Audit Runde 4, R4-E7). */}
-          {fremdeErfassung
-            ? speicherArt === "gesperrt"
-              ? `⚠ Nicht gespeichert — dieser Browser lässt die App nichts speichern (etwa im privaten Modus oder durch eine Datenschutz-Einstellung). Die Erfassung bleibt geöffnet; bitte die Stärke jetzt auf dem Meldeblock notieren und Speichern für diese Seite erlauben oder ein normales Fenster nutzen.`
-              : `⚠ Nicht gespeichert — der Speicher dieses Geräts ist voll. Die Erfassung bleibt geöffnet; bitte die Stärke jetzt auf dem Meldeblock notieren und Platz schaffen: in der Fußzeile der Startseite Papierkorb leeren bzw. Sicherung erstellen.`
-            : speicherArt === "gesperrt"
-              ? `⚠ Nicht gespeichert — dieser Browser lässt die App nichts speichern (etwa im privaten Modus oder durch eine Datenschutz-Einstellung). Der Bogen bleibt geöffnet; bitte jetzt „Bogen übergeben" (PDF) und für die nächste Erfassung Speichern für diese Seite erlauben oder ein normales Fenster nutzen.`
-              : `⚠ Nicht gespeichert — der Speicher dieses Geräts ist voll. Der Bogen bleibt geöffnet; bitte jetzt „Bogen übergeben" (PDF) oder in der Fußzeile der Startseite Papierkorb leeren bzw. Sicherung erstellen.`}
-          {gespeichertUm ? ` Letzter gesicherter Stand: ${uhrzeitMitTag(gespeichertUm)} Uhr.` : ""}
-        </p>
+        // Feste Leiste am Bildrand, nicht im Kopf: Der rollte mit der Seite weg,
+        // und wer mitten im Schritt tippte, sah die Warnung erst nach dem
+        // Hochrollen (Audit Runde 5, R5-O1).
+        <FesteWarnung
+          klasse="speicher-fehler"
+          kurz={speicherFehlerKurz(speicherArt, fremdeErfassung)}
+          details={speicherFehlerDetails(speicherArt, fremdeErfassung, gespeichertUm ? uhrzeitMitTag(gespeichertUm) : null)}
+        />
       ) : gespeichertUm ? (
         <p className="autosave" role="status">
           {/* R4-M7: „✓ automatisch gespeichert · 22:24 Uhr — bleibt auf die…" wurde auf

@@ -183,7 +183,15 @@ export function entwurfSpeichern(bogen: Erfassungsbogen, zusatz: EntwurfZusatz =
   // Hat ein anderes Fenster den Entwurf seit unserem letzten Schreiben
   // geändert, wird nicht still darübergeschrieben (R2-O4, siehe unten).
   if (entwurfFremdGeaendert()) {
-    for (const h of konfliktHoerer) h();
+    for (const h of konfliktHoerer) h("geaendert");
+    return false;
+  }
+  // Hat ein anderes Fenster den Entwurf gelöscht („Alle Daten löschen", Bogen
+  // geschlossen), schreibt dieses ihn nicht still zurück: Ein Datenschutz-
+  // Löschen wäre sonst keines, und die Anzeige sagte dazu „gespeichert"
+  // (Audit Runde 5, R5-D3).
+  if (entwurfFremdEntfernt()) {
+    for (const h of konfliktHoerer) h("entfernt");
     return false;
   }
   const text = entwurfZuJson(bogen, gespeichert, zusatz);
@@ -220,19 +228,38 @@ export function entwurfVerwerfen(): void {
  * gilt nicht als Konflikt (dort ist nichts, was verloren ginge).
  */
 let eigenerStand: string | undefined;
-const konfliktHoerer = new Set<() => void>();
+const konfliktHoerer = new Set<(art: KonfliktArt) => void>();
+
+/** Was das andere Fenster getan hat: einen anderen Stand geschrieben oder den Entwurf entfernt. */
+export type KonfliktArt = "geaendert" | "entfernt";
 
 /** Steht im Speicher ein anderer Entwurf als der, den dieses Fenster zuletzt schrieb? */
 export function entwurfFremdGeaendert(): boolean {
   if (eigenerStand === undefined) return false;
-  // Leer ist kein fremder Stand: Hat das andere Fenster seinen Bogen
-  // geschlossen oder alles gelöscht, geht durch erneutes Schreiben nichts verloren.
+  // Leer ist kein fremder Stand, sondern ein entfernter ({@link entwurfFremdEntfernt}).
   const jetzt = speicher()?.getItem(SPEICHER_SCHLUESSEL) ?? null;
   return jetzt !== null && jetzt !== eigenerStand;
 }
 
+/**
+ * Wurde der Entwurf, den dieses Fenster zuletzt schrieb, von einem anderen
+ * Fenster aus dem Speicher entfernt? Dann geht durch Nichtschreiben nichts
+ * verloren, was nicht ohnehin nur hier steht — und durch Schreiben käme
+ * Gelöschtes zurück (R5-D3). Ein nicht lesbarer Speicher zählt nicht.
+ */
+export function entwurfFremdEntfernt(): boolean {
+  if (eigenerStand === undefined) return false;
+  const s = speicher();
+  if (!s) return false;
+  try {
+    return s.getItem(SPEICHER_SCHLUESSEL) === null;
+  } catch {
+    return false;
+  }
+}
+
 /** Benachrichtigung, wenn ein Speichern wegen fremder Änderung unterblieb. Rückgabe: Abmelden. */
-export function entwurfKonfliktAbonnieren(hoerer: () => void): () => void {
+export function entwurfKonfliktAbonnieren(hoerer: (art: KonfliktArt) => void): () => void {
   konfliktHoerer.add(hoerer);
   return () => {
     konfliktHoerer.delete(hoerer);

@@ -30,6 +30,7 @@ import type { Erfassungsbogen } from "@bos/eeb-format/model";
 import {
   ENTWURF_SCHLUESSEL,
   entwurfAusAnderemFenster,
+  entwurfFremdEntfernt,
   entwurfFremdGeaendert,
   entwurfKonfliktAbonnieren,
   entwurfUeberschreibenErlauben,
@@ -37,7 +38,9 @@ import {
   ersetztenEntwurfMerken,
   rueckholungNimmt,
   type Entwurf,
+  type KonfliktArt,
 } from "./entwurf";
+import { FesteWarnung } from "./feste-warnung";
 import { bogenHatInhalt, einheitAnzeigename } from "./hilfen";
 import { frageJaNein } from "./dialoge";
 
@@ -70,8 +73,10 @@ function zeitKurz(e: Entwurf): string {
 const EINSAETZE_SCHLUESSEL = "eeb.einsaetze.v1";
 
 export interface FensterAbgleich {
-  /** Ein anderes Fenster hat den offenen Bogen geändert; hier wird nicht gespeichert. */
+  /** Ein anderes Fenster hat den offenen Bogen geändert oder gelöscht; hier wird nicht gespeichert. */
   konflikt: boolean;
+  /** Was das andere Fenster tat (R5-D3: auch „entfernt" — „Alle Daten löschen", Bogen geschlossen). */
+  art: KonfliktArt | null;
   /** Zählt jede Entscheidung „behalten" hoch — gehört in die Abhängigkeiten des Autosave. */
   runde: number;
   /**
@@ -93,7 +98,7 @@ export function useFensterAbgleich(
     onRueckholung?: () => void;
   } = {},
 ): FensterAbgleich {
-  const [konflikt, setKonflikt] = useState(false);
+  const [konflikt, setKonflikt] = useState<KonfliktArt | null>(null);
   const [runde, setRunde] = useState(0);
   const offen = useRef(bogenOffen);
   offen.current = bogenOffen;
@@ -103,12 +108,13 @@ export function useFensterAbgleich(
   optRef.current = opt;
 
   useEffect(() => {
-    const abmelden = entwurfKonfliktAbonnieren(() => setKonflikt(true));
+    const abmelden = entwurfKonfliktAbonnieren((art) => setKonflikt(art));
     function beiSpeicher(e: StorageEvent) {
       // key === null: das andere Fenster hat den ganzen Speicher geleert.
       if (e.key === null || e.key === EINSAETZE_SCHLUESSEL) einsaetze.current();
-      if ((e.key === null || e.key === ENTWURF_SCHLUESSEL) && offen.current && entwurfFremdGeaendert()) {
-        setKonflikt(true);
+      if ((e.key === null || e.key === ENTWURF_SCHLUESSEL) && offen.current) {
+        if (entwurfFremdGeaendert()) setKonflikt("geaendert");
+        else if (entwurfFremdEntfernt()) setKonflikt("entfernt");
       }
     }
     window.addEventListener("storage", beiSpeicher);
@@ -120,13 +126,22 @@ export function useFensterAbgleich(
 
   // Ohne offenen Bogen gibt es nichts zu entscheiden.
   useEffect(() => {
-    if (!bogenOffen) setKonflikt(false);
+    if (!bogenOffen) setKonflikt(null);
   }, [bogenOffen]);
 
   return {
-    konflikt: konflikt && bogenOffen,
+    konflikt: konflikt != null && bogenOffen,
+    art: bogenOffen ? konflikt : null,
     runde,
     behalten: async () => {
+      if (konflikt === "entfernt") {
+        // Das andere Fenster hat den Entwurf gelöscht; „behalten" schreibt ihn
+        // bewusst zurück. Rückholplatz gibt es dabei nichts zu retten.
+        entwurfUeberschreibenErlauben();
+        setKonflikt(null);
+        setRunde((r) => r + 1);
+        return;
+      }
       const anderes = entwurfAusAnderemFenster();
       const eigener = optRef.current.eigenerBogen?.() ?? null;
       if (anderes && bogenHatInhalt(anderes.bogen) && !gleich(anderes.bogen, eigener)) {
@@ -136,14 +151,18 @@ export function useFensterAbgleich(
         // Was dort liegt und nicht ohnehin einer der beiden Stände ist, fiele weg.
         const altFaellt =
           nimmt && !!alt && bogenHatInhalt(alt.bogen) && !gleich(alt.bogen, anderes.bogen) && !gleich(alt.bogen, eigener);
-        if (!nimmt || altFaellt) {
+        // Die Rückfrage trägt, was die Daueranzeige nicht mehr sagt: wohin der
+        // andere Stand kommt (R5-S4) — und, wenn dabei etwas fiele, was.
+        {
           const ja = await frageJaNein({
             titel: "Meine Fassung behalten?",
             text: !nimmt
               ? `Die Erfassung „${name}" aus dem anderen Fenster (Stand ${zeitKurz(anderes)} Uhr) geht dabei verloren — auf dem Rückholplatz liegt dein eigener Bogen „${einheitAnzeigename(alt!.bogen.einheit)}", und der bleibt.`
-              : `„${name}" aus dem anderen Fenster (Stand ${zeitKurz(anderes)} Uhr) kommt auf den Rückholplatz. Der dort bisher liegende Bogen „${einheitAnzeigename(alt!.bogen.einheit)}" (Stand ${zeitKurz(alt!)} Uhr) wird dabei endgültig gelöscht.`,
+              : altFaellt
+                ? `„${name}" aus dem anderen Fenster (Stand ${zeitKurz(anderes)} Uhr) kommt auf den Rückholplatz. Der dort bisher liegende Bogen „${einheitAnzeigename(alt!.bogen.einheit)}" (Stand ${zeitKurz(alt!)} Uhr) wird dabei endgültig gelöscht.`
+                : `„${name}" aus dem anderen Fenster (Stand ${zeitKurz(anderes)} Uhr) kommt auf den Rückholplatz der Startseite und lässt sich von dort zurückholen. Deine Fassung wird ab jetzt gespeichert.`,
             ok: "Meine Fassung behalten",
-            gefahr: true,
+            gefahr: !nimmt || altFaellt,
           });
           if (!ja) return;
         }
@@ -151,7 +170,7 @@ export function useFensterAbgleich(
         optRef.current.onRueckholung?.();
       }
       entwurfUeberschreibenErlauben();
-      setKonflikt(false);
+      setKonflikt(null);
       setRunde((r) => r + 1);
     },
     neuLaden: () => {
@@ -165,21 +184,38 @@ export function useFensterAbgleich(
   };
 }
 
-/** Sichtbare Warnung an Stelle der „automatisch gespeichert"-Zeile. */
+/**
+ * Sichtbare Warnung an Stelle der „automatisch gespeichert"-Zeile — als feste
+ * Leiste am Bildrand mit zwei Zeilen und zwei Knöpfen (R5-S4: Die Fassung mit
+ * ganzem Absatz war 240 px hoch und deckte bei offener Tastatur das Feld).
+ * Welcher Stand wohin kommt, steht in der Rückfrage hinter „Meine Fassung
+ * behalten".
+ */
 export function FensterKonflikt({ abgleich }: { abgleich: FensterAbgleich }) {
-  const anderes = entwurfAusAnderemFenster();
+  const entfernt = abgleich.art === "entfernt";
+  const anderes = entfernt ? null : entwurfAusAnderemFenster();
   return (
-    <div className="autosave speicher-fehler fenster-konflikt" role="alert">
-      <p>
-        ⚠ Dieser Bogen wurde in einem anderen Fenster geändert
-        {anderes ? ` (dort: „${einheitAnzeigename(anderes.bogen.einheit)}", Stand ${zeitKurz(anderes)} Uhr)` : ""}. Eingaben hier
-        werden erst wieder gespeichert, wenn du entscheidest. „Meine Fassung behalten" legt den anderen Stand auf
-        den Rückholplatz.
-      </p>
-      <div className="aktionen">
-        <button type="button" onClick={abgleich.neuLaden}>Stand aus dem anderen Fenster laden</button>
-        <button type="button" onClick={() => void abgleich.behalten()}>Meine Fassung behalten</button>
-      </div>
-    </div>
+    <FesteWarnung
+      klasse="speicher-fehler fenster-konflikt"
+      offenAnfangs
+      kurz={
+        entfernt
+          ? "⚠ Dieser Bogen wurde in einem anderen Fenster gelöscht oder geschlossen. Hier wird nichts gespeichert, bis du entscheidest."
+          : `⚠ Dieser Bogen wurde in einem anderen Fenster geändert${anderes ? ` (dort: „${einheitAnzeigename(anderes.bogen.einheit)}", Stand ${zeitKurz(anderes)} Uhr)` : ""}. Eingaben hier werden erst wieder gespeichert, wenn du entscheidest.`
+      }
+      aktionen={
+        entfernt ? (
+          <>
+            <button type="button" onClick={abgleich.neuLaden}>Neu laden (Eingaben hier verwerfen)</button>
+            <button type="button" onClick={() => void abgleich.behalten()}>Bogen hier wieder speichern</button>
+          </>
+        ) : (
+          <>
+            <button type="button" onClick={abgleich.neuLaden}>Stand aus dem anderen Fenster laden</button>
+            <button type="button" onClick={() => void abgleich.behalten()}>Meine Fassung behalten</button>
+          </>
+        )
+      }
+    />
   );
 }

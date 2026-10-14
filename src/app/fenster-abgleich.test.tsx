@@ -63,14 +63,23 @@ describe("Fensterabgleich", () => {
     expect(gespeicherterOrt()).toBe("Ort aus Fenster B");
   });
 
-  it("„Meine Fassung behalten“ schreibt die eigene Fassung bewusst darüber", async () => {
+  it("„Meine Fassung behalten“ schreibt die eigene Fassung bewusst darüber, nach Rückfrage", async () => {
     const nutzer = userEvent.setup();
-    render(<Buehne />);
+    render(
+      <>
+        <Buehne />
+        <Dialogschicht />
+      </>,
+    );
     const b = neuerBogen();
     b.einsatz.ortAuftrag = "Ort aus Fenster B";
     anderesFensterSchreibt(ENTWURF_SCHLUESSEL, entwurfZuJson(b));
 
     await nutzer.click(screen.getByRole("button", { name: "Meine Fassung behalten" }));
+    // R5-S4: Wohin der andere Stand kommt, steht in der Rückfrage, nicht in der Daueranzeige.
+    const frage = await screen.findByRole("dialog", { name: "Meine Fassung behalten?" });
+    expect(frage.textContent).toContain("Rückholplatz");
+    await nutzer.click(within(frage).getByRole("button", { name: "Meine Fassung behalten" }));
 
     expect(screen.queryByRole("alert")).toBeNull();
     expect(gespeicherterOrt()).toBe("Ort A");
@@ -78,7 +87,7 @@ describe("Fensterabgleich", () => {
     expect(ersetztenEntwurfLaden()?.bogen.einsatz.ortAuftrag).toBe("Ort aus Fenster B");
   });
 
-  it("nennt in der Warnung den anderen Stand und was „behalten“ mit ihm macht (R4-S4)", () => {
+  it("nennt in der Warnung den anderen Stand, kurz und mit festem Platz (R4-S4, R5-S4)", () => {
     render(<Buehne />);
     const b = neuerBogen();
     b.einheit.hierarchie[0]!.name = "Fensterhausen";
@@ -86,7 +95,9 @@ describe("Fensterabgleich", () => {
     anderesFensterSchreibt(ENTWURF_SCHLUESSEL, entwurfZuJson(b));
     const warnung = screen.getByRole("alert").textContent!;
     expect(warnung).toMatch(/dort: „THW Fensterhausen", Stand \d\d\.\d\d\.\d\d, \d\d:\d\d Uhr/);
-    expect(warnung).toContain("legt den anderen Stand auf den Rückholplatz");
+    // Zwei Zeilen statt eines Absatzes: Der Hinweis auf den Rückholplatz steht in der Rückfrage.
+    expect(warnung).not.toContain("Rückholplatz");
+    expect(screen.getByRole("alert").className).toContain("fest-warnung");
   });
 
   it("fragt vor „behalten“, wenn dabei ein anderer Bogen vom Rückholplatz fiele (R4-S4)", async () => {
@@ -126,6 +137,46 @@ describe("Fensterabgleich", () => {
 
     expect(screen.getByRole("alert")).toBeDefined();
     expect(gespeicherterOrt()).toBe("Ort aus Fenster B");
+  });
+
+  // Audit Runde 5, R5-D3: „Alle Daten löschen" im anderen Fenster wurde vom
+  // Autosave dieses Fensters still zurückgeschrieben.
+  it("schreibt einen im anderen Fenster gelöschten Entwurf nicht zurück und warnt (R5-D3)", async () => {
+    const nutzer = userEvent.setup();
+    render(<Buehne />);
+    expect(gespeicherterOrt()).toBe("Ort A");
+
+    // Das andere Fenster löscht alles („Alle Daten löschen"), dieses bekommt das Ereignis.
+    localStorage.removeItem(ENTWURF_SCHLUESSEL);
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: ENTWURF_SCHLUESSEL, newValue: null }));
+    });
+    expect(screen.getByRole("alert").textContent).toMatch(/gelöscht oder geschlossen/);
+    expect(screen.getByRole("alert").textContent).toMatch(/Hier wird nichts gespeichert/);
+
+    await nutzer.type(screen.getByLabelText("Ort"), " zweite");
+    expect(localStorage.getItem(ENTWURF_SCHLUESSEL)).toBeNull();
+  });
+
+  it("bemerkt einen entfernten Entwurf auch ohne Ereignis beim nächsten Speichern (R5-D3)", async () => {
+    const nutzer = userEvent.setup();
+    render(<Buehne />);
+    localStorage.removeItem(ENTWURF_SCHLUESSEL); // Ereignis verpasst
+    await nutzer.type(screen.getByLabelText("Ort"), "!");
+    expect(screen.getByRole("alert")).toBeDefined();
+    expect(localStorage.getItem(ENTWURF_SCHLUESSEL)).toBeNull();
+  });
+
+  it("„Bogen hier wieder speichern“ ist die bewusste Gegenentscheidung (R5-D3)", async () => {
+    const nutzer = userEvent.setup();
+    render(<Buehne />);
+    localStorage.removeItem(ENTWURF_SCHLUESSEL);
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: ENTWURF_SCHLUESSEL, newValue: null }));
+    });
+    await nutzer.click(screen.getByRole("button", { name: "Bogen hier wieder speichern" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(gespeicherterOrt()).toBe("Ort A");
   });
 
   it("liest die Sammlungen neu ein, wenn das andere Fenster sie ändert", () => {
