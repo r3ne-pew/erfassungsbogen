@@ -807,14 +807,21 @@
       padding: max(var(--r-1), env(safe-area-inset-top)) max(var(--r-3), env(safe-area-inset-right)) var(--r-1) max(var(--r-3), env(safe-area-inset-left));
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
     }
-    .fest-warnung .fest-kurz { margin: 0; flex: 1 1 11rem; min-width: 0; line-height: 1.25; }
-    .fest-warnung .fest-details { flex: 1 1 100%; font-weight: 400; }
+    /* Kurztext und Schalter in einer Zeile, darunter Einzelheiten und Knöpfe
+       nebeneinander — zwei Zeilen Text und eine Knopfreihe statt eines
+       Absatzes mit gestapelten Knöpfen (R5-S4: 240 px, jetzt rund die Hälfte). */
+    .fest-warnung .fest-kurz { order: 0; margin: 0; flex: 1 1 11rem; min-width: 0; line-height: 1.25; font-size: var(--t-xs); }
+    .fest-warnung .fest-schalter { order: 1; flex: 0 0 auto; }
+    .fest-warnung .fest-details { order: 2; flex: 1 1 100%; font-weight: 400; font-size: var(--t-xs); }
     .fest-warnung .fest-details p { margin: 0 0 var(--r-1); }
-    .fest-warnung .aktionen { flex: 1 1 100%; margin: 0; font-weight: 400; }
-    .fest-warnung .fest-schalter { flex: 0 0 auto; }
+    .fest-warnung .aktionen {
+      order: 2; flex: 1 1 100%; margin: 0; font-weight: 400;
+      display: flex; flex-direction: row; flex-wrap: wrap; align-items: stretch; gap: var(--r-2);
+    }
+    .fest-warnung .aktionen > button { flex: 1 1 9rem; padding: 0.25rem 0.6rem; font-size: var(--t-s); }
     /* Bei knapper Bildhöhe (Tastatur, quer) nur der Kurztext in einer Zeile. */
     .fest-warnung.knapp .fest-kurz {
-      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden;
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
     }
     /* Fehlerseite des Fehlerfängers (fehlerfaenger.tsx, R5-E1): hängt an keiner
        Komponente der App, nur an diesen Regeln. */

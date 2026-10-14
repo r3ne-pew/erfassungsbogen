@@ -206,7 +206,7 @@ export function FensterKonflikt({ abgleich }: { abgleich: FensterAbgleich }) {
       aktionen={
         entfernt ? (
           <>
-            <button type="button" onClick={abgleich.neuLaden}>Neu laden (Eingaben hier verwerfen)</button>
+            <button type="button" onClick={abgleich.neuLaden}>Neu laden, hier verwerfen</button>
             <button type="button" onClick={() => void abgleich.behalten()}>Bogen hier wieder speichern</button>
           </>
         ) : (

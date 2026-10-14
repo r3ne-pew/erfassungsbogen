@@ -32,6 +32,24 @@ export function fehlerSatz(fehler: Error): string {
   return text.length > 300 ? `${text.slice(0, 300)} …` : text;
 }
 
+/**
+ * Merker, die die App beim Start wieder in dieselbe Ansicht führen — bei einem
+ * Absturz der Ansicht würden sie ihn wiederholen. Die App startet nach „Neu
+ * laden" und „Zur Startseite" deshalb auf der Startseite; Daten bleiben.
+ */
+function ansichtVergessen(): void {
+  try {
+    localStorage.removeItem("eeb.letzterEinsatz.v1"); // zuletzt geöffnete Sammlung (app.tsx)
+  } catch {
+    /* gesperrt — dann eben nicht */
+  }
+  try {
+    sessionStorage.removeItem("eeb.abgleich.fortsetzen"); // „Stand aus dem anderen Fenster laden" (fenster-abgleich.tsx)
+  } catch {
+    /* gesperrt */
+  }
+}
+
 export class Fehlerfaenger extends Component<{ children: ReactNode }, Zustand> {
   state: Zustand = { fehler: null, gesichert: null, loeschenOffen: false, loeschenVerstanden: false, meldung: "" };
 
@@ -78,8 +96,8 @@ export class Fehlerfaenger extends Component<{ children: ReactNode }, Zustand> {
         </p>
         <p>Zuerst neu laden; hilft das nicht, zur Startseite. Wer sicher gehen will, sichert vorher alles in eine Datei.</p>
         <div className="aktionen">
-          <button type="button" className="primaer" onClick={() => window.location.reload()}>Neu laden</button>
-          <button type="button" onClick={() => window.location.assign(window.location.pathname)}>Zur Startseite</button>
+          <button type="button" className="primaer" onClick={() => { ansichtVergessen(); window.location.reload(); }}>Neu laden</button>
+          <button type="button" onClick={() => { ansichtVergessen(); window.location.assign(window.location.pathname); }}>Zur Startseite</button>
           <button type="button" onClick={this.sichern}>Daten sichern</button>
         </div>
         {meldung && (

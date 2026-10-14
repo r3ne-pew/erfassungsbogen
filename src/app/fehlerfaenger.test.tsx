@@ -42,6 +42,23 @@ describe("Fehlerfaenger", () => {
     expect(localStorage.getItem("eeb.vorlagen.v1")).toBe("[1]");
   });
 
+  it("Neu laden und Zur Startseite vergessen die zuletzt geöffnete Sammlung, damit der Absturz sich nicht wiederholt", () => {
+    localStorage.setItem("eeb.letzterEinsatz.v1", JSON.stringify({ id: "s1", um: Date.now() }));
+    localStorage.setItem("eeb.einsaetze.v1", "[]");
+    const reload = vi.fn();
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload, assign, pathname: "/" });
+    render(<Fehlerfaenger><Bombe /></Fehlerfaenger>);
+    fireEvent.click(screen.getByRole("button", { name: "Zur Startseite" }));
+    expect(localStorage.getItem("eeb.letzterEinsatz.v1")).toBeNull();
+    expect(assign).toHaveBeenCalledWith("/");
+    localStorage.setItem("eeb.letzterEinsatz.v1", "{}");
+    fireEvent.click(screen.getByRole("button", { name: "Neu laden" }));
+    expect(localStorage.getItem("eeb.letzterEinsatz.v1")).toBeNull();
+    expect(reload).toHaveBeenCalled();
+    expect(localStorage.getItem("eeb.einsaetze.v1")).toBe("[]"); // Daten unberührt
+  });
+
   it("„Daten sichern“ erzeugt eine Sicherungsdatei mit allen eeb.-Einträgen", () => {
     localStorage.setItem("eeb.vorlagen.v1", "[1]");
     render(<Fehlerfaenger><Bombe /></Fehlerfaenger>);
