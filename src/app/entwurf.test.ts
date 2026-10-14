@@ -18,6 +18,9 @@ import {
 import { ANONYM_BEZEICHNUNG } from "@bos/eeb-format/datenschutzfrist";
 import { neuerBogen } from "./hilfen";
 import {
+  beschaedigtenEntwurfVerwerfen,
+  beschaedigterEntwurf,
+  entwurfPruefen,
   entwurfAusJson,
   entwurfZuJson,
   entwurfLaden,
@@ -207,5 +210,51 @@ describe("Wiedereinstieg (R2-N7, R2-O3)", () => {
     expect(e.gespeichert).toBe(1234);
     // Unsinniger Schritt fällt weg, statt die App in einen leeren Schritt zu führen.
     expect(entwurfAusJson(JSON.stringify({ gespeichert: 1, bogen: neuerBogen(), schritt: 17 }))?.schritt).toBeUndefined();
+  });
+});
+
+describe("Entwurf mit fehlenden Pflichtfeldern (R5-E1)", () => {
+  function ohne(feld: string, unter?: "einheit" | "einsatz") {
+    const b = JSON.parse(JSON.stringify(neuerBogen())) as Record<string, Record<string, unknown> & unknown>;
+    if (unter) delete (b[unter] as Record<string, unknown>)[feld];
+    else delete b[feld];
+    return JSON.stringify({ gespeichert: 5, bogen: b });
+  }
+
+  it("ergänzt einen fehlenden Einheitstyp, Fortsetzen öffnet nicht weiß", () => {
+    const e = entwurfAusJson(ohne("einheitsTyp", "einheit"));
+    expect(e).not.toBeNull();
+    expect(e!.bogen.einheit.einheitsTyp).toEqual({});
+  });
+
+  it("nennt die Ursache, wenn ein Bogen nicht zu retten ist", () => {
+    expect(entwurfPruefen(ohne("einsatz"))).toEqual({ ursache: "die Angaben zum Einsatz fehlen" });
+    expect(entwurfPruefen("{kaputt")).toEqual({ ursache: "der gespeicherte Text ist abgebrochen oder beschädigt" });
+    expect(entwurfPruefen('{"x":1}')).toEqual({ ursache: "es ist kein Entwurf dieser App" });
+  });
+
+  it("legt einen unbrauchbaren Entwurf beiseite, statt ihn zu zerstören", () => {
+    const roh = ohne("einsatz");
+    localStorage.setItem("eeb.entwurf.v1", roh);
+    expect(entwurfLaden()).toBeNull();
+    // Hauptplatz frei, der Text liegt unverändert daneben
+    expect(localStorage.getItem("eeb.entwurf.v1")).toBeNull();
+    expect(beschaedigterEntwurf()).toMatchObject({ text: roh, ursache: "die Angaben zum Einsatz fehlen" });
+    // Ein neuer Entwurf überschreibt ihn nicht
+    entwurfSpeichern(neuerBogen());
+    expect(beschaedigterEntwurf()?.text).toBe(roh);
+    beschaedigtenEntwurfVerwerfen();
+    expect(beschaedigterEntwurf()).toBeNull();
+  });
+
+  it("ein zweiter beschädigter Text überschreibt den ersten nicht", () => {
+    const erster = ohne("einsatz");
+    localStorage.setItem("eeb.entwurf.v1", erster);
+    entwurfLaden();
+    const zweiter = ohne("personal");
+    localStorage.setItem("eeb.entwurf.v1", zweiter);
+    entwurfLaden();
+    expect(beschaedigterEntwurf()?.text).toBe(erster);
+    expect(localStorage.getItem("eeb.entwurf.v1")).toBe(zweiter); // bleibt, wo er ist
   });
 });

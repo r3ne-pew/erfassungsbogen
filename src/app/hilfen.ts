@@ -34,6 +34,7 @@ import {
   verpflegung,
 } from "@bos/eeb-format/model";
 import { stempelZeitpunkt } from "./datenschutz-uhr";
+import { bogenBefund } from "./bogen-pruefung";
 import {
   EEB_URL_PREFIX,
   EEB_VORLAGE_MARKER,
@@ -536,7 +537,11 @@ export function bogenPruefen(daten: unknown): Erfassungsbogen {
   if (typeof b?.schemaVersion !== "number" || b.schemaVersion < 2 || b.schemaVersion > SCHEMA_VERSION || !b.einheit || !b.einsatz || !Array.isArray(b.personal)) {
     throw new Error(`Keine gültige Erfassungsbogen-Datei (Schema-Version 2–${SCHEMA_VERSION} erwartet).`);
   }
-  return migriereBogen(b);
+  // Pflichtfelder: Ein Bogen ohne Einheitstyp ließ die Ansicht weiß werden
+  // (Audit Runde 5, R5-E1). Harmloses wird ergänzt, sonst nennt die Meldung die Ursache.
+  const befund = bogenBefund(b);
+  if (!befund.ok) throw new Error(`Der Bogen ist unvollständig: ${befund.ursache}. Beim Absender neu anfordern oder den QR-Code des Bogens scannen.`);
+  return migriereBogen(befund.bogen);
 }
 
 // ------------------------------------------------------ Plausibilitätsprüfung

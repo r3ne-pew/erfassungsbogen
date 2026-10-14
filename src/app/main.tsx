@@ -11,6 +11,7 @@ import "@fontsource-variable/archivo";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app";
+import { Fehlerfaenger } from "./fehlerfaenger";
 import { DebugLeiste, debugAktiv, wendePlattformKlasseAn, wendeRahmenAn } from "./debug-plattform";
 import { wendeAnzeigeModusAn } from "./anzeige-modus";
 import { tastaturWaechterStarten } from "./tastatur";
@@ -34,10 +35,10 @@ tastaturWaechterStarten();
 // Im Debug-Modus eine schwebende Leiste zum Umschalten der Vorschau zeigen.
 function Wurzel() {
   return (
-    <>
+    <Fehlerfaenger>
       <App />
       {debugAktiv() && <DebugLeiste />}
-    </>
+    </Fehlerfaenger>
   );
 }
 

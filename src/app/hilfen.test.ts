@@ -952,3 +952,15 @@ describe("pruefpunkte: Schnellerfassung (R2-H9)", () => {
     expect(pruefpunkte(schnell).some((p) => p.text === "Ort/Auftrag ist noch leer.")).toBe(false);
   });
 });
+
+describe("bogenPruefen() — Pflichtfelder (R5-E1)", () => {
+  it("ergänzt einen fehlenden Einheitstyp und nennt bei Unbrauchbarem die Ursache", async () => {
+    const { bogenPruefen, neuerBogen } = await import("./hilfen");
+    const b = JSON.parse(JSON.stringify(neuerBogen())) as Record<string, Record<string, unknown>>;
+    delete b.einheit!.einheitsTyp;
+    expect(bogenPruefen(b).einheit.einheitsTyp).toEqual({});
+    const c = JSON.parse(JSON.stringify(neuerBogen())) as Record<string, unknown>;
+    delete c.stand;
+    expect(() => bogenPruefen(c)).toThrow(/Der Bogen ist unvollständig: der Stand/);
+  });
+});

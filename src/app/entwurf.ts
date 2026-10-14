@@ -16,6 +16,7 @@
 import type { EebZeitpunkt, Erfassungsbogen } from "@bos/eeb-format/model";
 import { bogenAnonymisiert, datenschutzfristAbgelaufen } from "@bos/eeb-format/datenschutzfrist";
 import { migriereBogen } from "./hilfen";
+import { bogenBefund } from "./bogen-pruefung";
 import { datenschutzZeitpunkt } from "./datenschutz-uhr";
 import type { UebergabeStand } from "./uebergabe-stand";
 
@@ -71,19 +72,35 @@ export type EntwurfZusatz = Pick<Entwurf, "vorlageId" | "fremd" | "schritt" | "u
 
 /** JSON-String → Entwurf. Defensiv: Müll oder fremdes Format ergibt null. */
 export function entwurfAusJson(text: string | null): Entwurf | null {
-  if (!text) return null;
+  const r = entwurfPruefen(text);
+  return "entwurf" in r ? r.entwurf : null;
+}
+
+/**
+ * Wie {@link entwurfAusJson}, nennt aber die Ursache, wenn der Text kein
+ * brauchbarer Entwurf ist. Die Pflichtfelder des Bogens werden geprüft
+ * (bogen-pruefung.ts): Ein Entwurf ohne `einheitsTyp` ließ „Fortsetzen" ins
+ * Weiße laufen, und die Karte stand nach dem Neuladen wieder da (Audit
+ * Runde 5, R5-E1). Ergänzbares wird ergänzt, Unbrauchbares abgelehnt.
+ */
+export function entwurfPruefen(text: string | null): { entwurf: Entwurf | null } | { ursache: string } {
+  if (!text) return { entwurf: null };
   let roh: unknown;
   try {
     roh = JSON.parse(text);
   } catch {
-    return null;
+    return { ursache: "der gespeicherte Text ist abgebrochen oder beschädigt" };
   }
   const e = roh as Entwurf;
-  if (!e || typeof e.gespeichert !== "number" || !e.bogen || !Array.isArray(e.bogen.personal)) return null;
+  if (!e || typeof e.gespeichert !== "number" || !e.bogen || !Array.isArray(e.bogen.personal)) {
+    return { ursache: "es ist kein Entwurf dieser App" };
+  }
+  const befund = bogenBefund(e.bogen);
+  if (!befund.ok) return { ursache: befund.ursache };
   try {
-    e.bogen = migriereBogen(e.bogen);
+    e.bogen = migriereBogen(befund.bogen);
   } catch {
-    return null;
+    return { ursache: "die Schema-Version des Bogens ist nicht lesbar" };
   }
   if (typeof e.vorlageId !== "string" || !e.vorlageId) delete e.vorlageId;
   if (typeof e.schritt !== "number" || !Number.isInteger(e.schritt) || e.schritt < 0 || e.schritt > 5) delete e.schritt;
@@ -103,7 +120,7 @@ export function entwurfAusJson(text: string | null): Entwurf | null {
       ...(typeof beginn === "number" && Number.isFinite(beginn) ? { beginn } : {}),
     };
   }
-  return e;
+  return { entwurf: e };
 }
 
 export function entwurfZuJson(bogen: Erfassungsbogen, gespeichert = Date.now(), zusatz: EntwurfZusatz = {}): string {
@@ -151,7 +168,14 @@ function ausSpeicherLaden(schluessel: string, jetzt: EebZeitpunkt): Entwurf | nu
   const s = speicher();
   if (!s) return null;
   const roh = s.getItem(schluessel);
-  const e = entwurfAusJson(roh);
+  const befund = entwurfPruefen(roh);
+  if (!("entwurf" in befund)) {
+    // Unbrauchbar, aber nicht löschen: erst beiseitelegen, damit der nächste
+    // Entwurf ihn nicht überschreibt; die Startseite sagt es (R5-E1).
+    if (schluessel === SPEICHER_SCHLUESSEL && roh) beschaedigtBeiseite(s, roh, befund.ursache);
+    return null;
+  }
+  const e = befund.entwurf;
   if (!e) return null;
   const nachFrist = entwurfNachFrist(e, jetzt);
   if (nachFrist !== e) {
@@ -167,6 +191,53 @@ function ausSpeicherLaden(schluessel: string, jetzt: EebZeitpunkt): Entwurf | nu
     }
   }
   return nachFrist;
+}
+
+// --------------------------------------------- Beschädigter Entwurf (R5-E1)
+
+/** Hier liegt ein Entwurf, den die App nicht lesen kann — beiseitegelegt statt gelöscht. */
+const BESCHAEDIGT_SCHLUESSEL = "eeb.entwurf.beschaedigt.v1";
+
+export interface BeschaedigterEntwurf {
+  /** Der gespeicherte Text, unverändert. */
+  text: string;
+  ursache: string;
+  /** Wann beiseitegelegt (Date.now()). */
+  am: number;
+}
+
+function beschaedigtBeiseite(s: Storage, roh: string, ursache: string): void {
+  try {
+    // Ein früher beiseitegelegter Text bleibt (die Karte nennt ihn zuerst); der
+    // neue wird erst entfernt, wenn er sicher irgendwo liegt.
+    if (s.getItem(BESCHAEDIGT_SCHLUESSEL) == null) {
+      s.setItem(BESCHAEDIGT_SCHLUESSEL, JSON.stringify({ text: roh, ursache, am: Date.now() } satisfies BeschaedigterEntwurf));
+    }
+    if (beschaedigterEntwurf()?.text === roh) s.removeItem(SPEICHER_SCHLUESSEL);
+  } catch {
+    /* Speicher voll o. ä. — dann bleibt der Text, wo er ist, und die Karte fehlt weiter */
+  }
+}
+
+/** Der beiseitegelegte Entwurf, oder null. */
+export function beschaedigterEntwurf(): BeschaedigterEntwurf | null {
+  try {
+    const roh = speicher()?.getItem(BESCHAEDIGT_SCHLUESSEL);
+    if (!roh) return null;
+    const x = JSON.parse(roh) as Partial<BeschaedigterEntwurf>;
+    return typeof x.text === "string" ? { text: x.text, ursache: typeof x.ursache === "string" ? x.ursache : "unlesbar", am: typeof x.am === "number" ? x.am : 0 } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Den beiseitegelegten Entwurf endgültig entfernen (nach „Als Datei sichern" oder auf Wunsch). */
+export function beschaedigtenEntwurfVerwerfen(): void {
+  try {
+    speicher()?.removeItem(BESCHAEDIGT_SCHLUESSEL);
+  } catch {
+    /* nichts zu tun */
+  }
 }
 
 /**

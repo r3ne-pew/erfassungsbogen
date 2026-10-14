@@ -95,7 +95,7 @@ import { letzteMeldung, meldungsNummern } from "./einheiten-tabelle";
 import { exportSammlung, exportStaendeLaden, exportVermerken, weitergabeUmImportErgaenzen, type ExportStand, type ExportUmfang, type ExportZiel } from "./export-stand";
 import { abgleichText, einsatzAbgleichen, sammlungFuerZiel } from "./einsatz-abgleich";
 import { aktuelleMeldungen } from "./auswertung";
-import { boegenAusJsonText, boegenAusPdfBytes, einsatzAusDatei, einsatzAusPdfBytes, einsatzDateiInhalt, istPdfDatei, pdfInhaltArt } from "./einsatz-transport";
+import { ablehnungsSatz, abgelehnteBoegen, boegenAusJsonTextMitUrsachen, boegenAusPdfBytes, einsatzAusDatei, einsatzAusPdfBytes, einsatzDateiInhalt, istPdfDatei, pdfInhaltArt } from "./einsatz-transport";
 import type { QrBogen } from "./qr-boegen";
 import { einsatzCsvInhalt } from "./einsatz-csv";
 import { einsatzDetailCsvInhalt } from "./bogen-csv";
@@ -120,6 +120,8 @@ import { DaumenQuittung } from "./daumen-quittung";
 import {
   entwurfAusAnderemFenster,
   entwurfLaden,
+  beschaedigterEntwurf,
+  beschaedigtenEntwurfVerwerfen,
   entwurfSpeichern,
   entwurfVerwerfen,
   ersetztenEntwurfLaden,
@@ -808,6 +810,10 @@ function AppInhalt() {
   // Zuletzt verdrängter Arbeitsbogen (entwurf.ts): Solange er hier steht,
   // bietet die Startseite ihn zum Zurückholen an.
   const [ersetzterEntwurf, setErsetzterEntwurf] = useState<Entwurf | null>(() => ersetztenEntwurfLaden());
+  // Ein gespeicherter Bogen, den die App nicht lesen kann, liegt beiseite und
+  // wird auf der Startseite genannt, statt zu verschwinden oder die Ansicht
+  // weiß zu machen (Audit Runde 5, R5-E1).
+  const [beschaedigt, setBeschaedigt] = useState(() => beschaedigterEntwurf());
   // Zeigt den Startbildschirm, ohne den aktuellen Bogen zu verwerfen –
   // er lässt sich von dort per „Aktuellen Bogen fortsetzen“ wieder öffnen.
   // Eine angefangene Erfassung für eine Sammlung (Meldekopf) öffnet nach dem
@@ -2904,16 +2910,25 @@ function AppInhalt() {
    * reist beim QR-Weg mit, damit der Meldekopf die fremde Meldung später mit
    * erhaltener Original-Signatur weiterreichen kann.
    */
-  async function boegenAusDatei(datei: File): Promise<QrBogen[]> {
+  async function boegenAusDatei(datei: File, abgelehnt?: string[]): Promise<QrBogen[]> {
     const ohneNachweis = (boegen: Erfassungsbogen[]): QrBogen[] =>
       boegen.map((bogen) => ({ bogen, signatur: { zustand: "unsigniert" } as SignaturStatus, herkunft: null }));
     if (!istPdfDatei(datei)) {
       // Nur echte Bögen weiterreichen: Vorher wanderte jedes JSON-Objekt als
       // „Bogen" weiter — eine Sicherung fragte dann „1 Bogen gefunden, Einsatz
       // anlegen?". Was keiner ist, erklärt dateiFehlerMeldung (R2-E5).
-      const boegen = boegenAusJsonText(await datei.text());
-      if (boegen.length === 0) throw new Error("In der Datei steht kein lesbarer Erfassungsbogen.");
-      return ohneNachweis(boegen);
+      const gelesen = boegenAusJsonTextMitUrsachen(await datei.text());
+      // Unvollständige Bögen werden mit Ursache abgelehnt, nicht still verworfen
+      // und nicht in die App gelassen, wo sie die Ansicht zum Absturz brächten (R5-E1).
+      if (gelesen.boegen.length === 0) {
+        throw new Error(
+          gelesen.abgelehnt.length > 0
+            ? `In der Datei ist kein Bogen lesbar — ${ablehnungsSatz(gelesen.abgelehnt, gelesen.gesamt)}`
+            : "In der Datei steht kein lesbarer Erfassungsbogen.",
+        );
+      }
+      if (gelesen.abgelehnt.length > 0) abgelehnt?.push(ablehnungsSatz(gelesen.abgelehnt, gelesen.gesamt));
+      return ohneNachweis(gelesen.boegen);
     }
     const bytes = new Uint8Array(await datei.arrayBuffer());
     const eingebettet = boegenAusPdfBytes(bytes);
@@ -3059,7 +3074,9 @@ function AppInhalt() {
           zusatz.sammlungInPdf = true;
         }
         if (art === "nur-qr") zusatz.lage = true;
-        const r = boegenAufnehmen(zielId, await boegenAusDatei(datei), art === "nur-qr");
+        const abgelehnt: string[] = [];
+        const r = boegenAufnehmen(zielId, await boegenAusDatei(datei, abgelehnt), art === "nur-qr");
+        for (const satz of abgelehnt) kaputt.push(`„${datei.name}“: ${satz}`);
         neu += r.neu;
         uebersprungen += r.uebersprungen;
         speicherVoll += r.speicherVoll;
@@ -3303,7 +3320,12 @@ function AppInhalt() {
           s = einsatzAusDatei(await datei.text());
         } catch (err) {
           // Keine Sammlung, aber vielleicht ein Bogen (oder mehrere) als JSON.
-          if (await boegenAlsNeuerEinsatz(datei)) return;
+          // Findet sich keiner, gilt die Ursache der Sammlung (etwa „Einheitstyp fehlt").
+          try {
+            if (await boegenAlsNeuerEinsatz(datei)) return;
+          } catch {
+            /* die eigene Meldung unten */
+          }
           throw err;
         }
       }
@@ -3313,6 +3335,9 @@ function AppInhalt() {
       // nie in den Speicher.
       const nachtragSeit = s.nachtragSeit;
       delete s.nachtragSeit;
+      // Unvollständige Bögen blieben draußen (R5-E1); der Satz kommt in die Quittung.
+      const abgelehnt = abgelehnteBoegen(s);
+      const abgelehntGesamt = s.eintraege.length + abgelehnt.length;
       if (nachtragSeit != null && ![...einsaetzeLaden(), ...einsaetzePapierkorb()].some((x) => x.id === s.id)) {
         const n = geltendeJeEinheit(s.eintraege).length;
         const anlegen = await frageJaNein({
@@ -3361,7 +3386,8 @@ function AppInhalt() {
           // Wie aktuell die übernommene Lage ist: Kam auf dem alten Gerät
           // danach noch etwas, fehlt es hier (Audit Runde 3, R3-K5).
           (letzteImImport != null ? ` Stand der Datei: letzte Meldung ${zeitLang(letzteImImport)}.` : "") +
-          geklaert.hinweis,
+          geklaert.hinweis +
+          (abgelehnt.length > 0 ? ` ${ablehnungsSatz(abgelehnt, abgelehntGesamt)}` : ""),
       });
       setOffenerEinsatzId(s.id);
     } catch (err) {
@@ -3615,6 +3641,42 @@ function AppInhalt() {
             </section>
           );
         })()}
+        {beschaedigt && (
+          <section className="entwurf-karte verdraengt beschaedigt" role="alert">
+            <span className="entwurf-text">
+              <strong>Ein gespeicherter Bogen ließ sich nicht öffnen</strong>
+              <span className="hinweis warnung-text">
+                Ursache: {beschaedigt.ursache}. Er ist nicht gelöscht, sondern beiseitegelegt — als Datei sichern, dann
+                lässt er sich später prüfen oder reparieren.
+              </span>
+            </span>
+            <span className="entwurf-aktionen">
+              <button
+                type="button"
+                onClick={() => blobAlsDownload("eeb-beschaedigter-entwurf.json", new Blob([beschaedigt.text], { type: "application/json" }))}
+              >
+                Als Datei sichern
+              </button>
+              <button
+                type="button"
+                className="gefahr"
+                onClick={async () => {
+                  const ja = await frageJaNein({
+                    titel: "Beschädigten Bogen entfernen?",
+                    text: "Der beiseitegelegte Bogen wird endgültig gelöscht. Wenn du ihn noch prüfen willst, vorher „Als Datei sichern“.",
+                    ok: "Endgültig entfernen",
+                    gefahr: true,
+                  });
+                  if (!ja) return;
+                  beschaedigtenEntwurfVerwerfen();
+                  setBeschaedigt(null);
+                }}
+              >
+                Entfernen…
+              </button>
+            </span>
+          </section>
+        )}
         {/* Rückholung: Was ein anderer Bogen verdrängt hat, ist nicht verloren.
             Die Zeile steht unter der Entwurfskarte, damit der aktuelle Bogen
             zuerst kommt — sie ist der Ausweg, nicht das Angebot. */}

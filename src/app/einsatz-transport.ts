@@ -12,6 +12,7 @@
 
 import { SCHEMA_VERSION, mitTransportVersion, type Erfassungsbogen } from "@bos/eeb-format/model";
 import { migriereBogen } from "./hilfen";
+import { bogenBefund } from "./bogen-pruefung";
 import type { Einsatzsammlung } from "@bos/meldekopf/einsaetze";
 import { entpackt, pdfStroeme } from "./pdf-stroeme";
 
@@ -47,17 +48,39 @@ export function einsatzDateiInhalt(s: Einsatzsammlung): string {
   return JSON.stringify(datei, null, 2);
 }
 
-function istBogen(x: unknown): x is Erfassungsbogen {
-  const b = x as Erfassungsbogen;
-  return (
-    !!b &&
-    typeof b.schemaVersion === "number" &&
-    b.schemaVersion >= 2 &&
-    b.schemaVersion <= SCHEMA_VERSION &&
-    !!b.einheit &&
-    !!b.einsatz &&
-    Array.isArray(b.personal)
-  );
+/**
+ * Ist `x` ein Bogen, den die App lesen kann? Prüft Schema-Version und
+ * Pflichtfelder (bogen-pruefung.ts, R5-E1), ergänzt Harmloses und nennt sonst
+ * die Ursache in Alltagssprache.
+ */
+function bogenAufnehmbar(x: unknown): { bogen: Erfassungsbogen | null; ursache?: string; ergaenzt?: string[] } {
+  const v = (x as { schemaVersion?: unknown } | null)?.schemaVersion;
+  if (typeof v === "number" && v > SCHEMA_VERSION) return { bogen: null, ursache: "stammt aus einer neueren Version der App" };
+  if (typeof v !== "number" || v < 2) return { bogen: null, ursache: "ist kein Bogen dieser App" };
+  const r = bogenBefund(x);
+  return r.ok ? { bogen: r.bogen, ergaenzt: r.ergaenzt } : { bogen: null, ursache: r.ursache };
+}
+
+/**
+ * Ursachen der Bögen, die beim Einlesen einer Datei nicht übernommen wurden —
+ * neben der Sammlung gemerkt, nicht an ihr: Sie gehört nie in den Speicher
+ * (Audit Runde 5, R5-E1).
+ */
+const ablehnungen = new WeakMap<object, string[]>();
+
+/** Ursachen der beim Einlesen von `s` abgelehnten Bögen („der Einheitstyp fehlt" …); leer, wenn alle lesbar waren. */
+export function abgelehnteBoegen(s: Einsatzsammlung): string[] {
+  return ablehnungen.get(s) ?? [];
+}
+
+/** Satz für abgelehnte Bögen: „1 von 3 Bögen ist unvollständig (der Einheitstyp fehlt) und wurde nicht übernommen." */
+export function ablehnungsSatz(abgelehnt: readonly string[], gesamt: number): string {
+  if (abgelehnt.length === 0) return "";
+  const ursachen = [...new Set(abgelehnt)];
+  const nenner = `${abgelehnt.length} von ${gesamt} ${gesamt === 1 ? "Bogen" : "Bögen"}`;
+  const ist = abgelehnt.length === 1 ? "ist" : "sind";
+  const grund = ursachen.length <= 2 ? ursachen.join(" bzw. ") : `${ursachen.slice(0, 2).join(" bzw. ")} u. a.`;
+  return `${nenner} ${ist} unvollständig (${grund}) und wurde${abgelehnt.length === 1 ? "" : "n"} nicht übernommen.`;
 }
 
 /** Geparster JSON-Wert → Einsatz-Sammlung (Umschlag oder bloße Sammlung); wirft bei Ungültigem. */
@@ -67,7 +90,21 @@ function einsatzAusRoh(roh: unknown): Einsatzsammlung {
   if (!s || typeof s.id !== "string" || !Array.isArray(s.eintraege)) {
     throw new Error("Keine gültige Einsatz-Datei.");
   }
-  s.eintraege = s.eintraege.filter((e) => e && istBogen(e.bogen)).map((e) => ({ ...e, bogen: migriereBogen(e.bogen) }));
+  const gesamt = s.eintraege.length;
+  const abgelehnt: string[] = [];
+  const angenommen: typeof s.eintraege = [];
+  for (const e of s.eintraege) {
+    const r = e ? bogenAufnehmbar(e.bogen) : { bogen: null, ursache: "ist kein Bogen dieser App" };
+    if (r.bogen) angenommen.push({ ...e, bogen: migriereBogen(r.bogen) });
+    else abgelehnt.push(r.ursache ?? "unlesbar");
+  }
+  // Nichts Lesbares in einer Datei, die Bögen enthielt: ablehnen, statt eine
+  // leere Sammlung anzulegen (R5-E1).
+  if (gesamt > 0 && angenommen.length === 0) {
+    throw new Error(`Kein Bogen in der Datei ist lesbar — ${ablehnungsSatz(abgelehnt, gesamt)}`);
+  }
+  s.eintraege = angenommen;
+  if (abgelehnt.length > 0) ablehnungen.set(s, abgelehnt);
   return s;
 }
 
@@ -102,15 +139,36 @@ export function boegenAusJsonText(text: string): Erfassungsbogen[] {
   return boegenAusText(text);
 }
 
-function boegenAusText(text: string): Erfassungsbogen[] {
+/** Wie {@link boegenAusJsonText}, dazu die Ursachen der abgelehnten Bögen (R5-E1). */
+export function boegenAusJsonTextMitUrsachen(text: string): { boegen: Erfassungsbogen[]; abgelehnt: string[]; gesamt: number } {
+  const alle = rohBoegen(text);
+  const boegen: Erfassungsbogen[] = [];
+  const abgelehnt: string[] = [];
+  for (const k of alle) {
+    // Was gar keinen Bogen andeutet (Sicherung, Vorlage …), zählt nicht als abgelehnter Bogen.
+    if (!(k && typeof k === "object" && "schemaVersion" in k && "einheit" in k)) continue;
+    const r = bogenAufnehmbar(k);
+    if (r.bogen) boegen.push(migriereBogen(r.bogen));
+    else abgelehnt.push(r.ursache ?? "unlesbar");
+  }
+  return { boegen, abgelehnt, gesamt: boegen.length + abgelehnt.length };
+}
+
+function rohBoegen(text: string): unknown[] {
   let daten: unknown;
   try {
     daten = JSON.parse(text);
   } catch {
     return [];
   }
-  const kandidaten = Array.isArray(daten) ? daten : [daten];
-  return kandidaten.filter(istBogen).map((b) => migriereBogen(b as Erfassungsbogen));
+  return Array.isArray(daten) ? daten : [daten];
+}
+
+function boegenAusText(text: string): Erfassungsbogen[] {
+  return rohBoegen(text)
+    .map((k) => bogenAufnehmbar(k).bogen)
+    .filter((b): b is Erfassungsbogen => b != null)
+    .map((b) => migriereBogen(b));
 }
 
 /**

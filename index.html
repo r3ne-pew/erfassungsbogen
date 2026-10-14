@@ -816,6 +816,12 @@
     .fest-warnung.knapp .fest-kurz {
       display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden;
     }
+    /* Fehlerseite des Fehlerfängers (fehlerfaenger.tsx, R5-E1): hängt an keiner
+       Komponente der App, nur an diesen Regeln. */
+    .fehlerseite { max-width: 40rem; margin: 0 auto; padding: var(--r-5, 1.5rem) var(--r-4, 1rem); }
+    .fehlerseite h1 { font-size: var(--t-xl); margin: 0 0 var(--r-3, 0.75rem); }
+    .fehlerseite details { margin-top: var(--r-4, 1rem); }
+    .fehlerseite summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
     html:has(.fest-warnung) #app { padding-top: var(--fest-warnung-hoehe, 0px); }
     html:has(.fest-warnung) { scroll-padding-top: calc(var(--fest-warnung-hoehe, 0px) + 8px); }
     .seiten-kopf.assistent-kopf .titelzeile { order: 1; }
