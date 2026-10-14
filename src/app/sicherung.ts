@@ -405,5 +405,20 @@ export function alleDatenLoeschen(): number {
   if (!s) throw new Error("Lokaler Speicher ist nicht verfügbar (Privatmodus?).");
   const schluessel = alleEebSchluessel(s);
   for (const k of schluessel) s.removeItem(k);
+  // Auch die Merker im Sitzungsspeicher dieses Tabs (wartender Link, Rückweg
+  // von „Vorbelegung entfernen"): Sie können Personendaten tragen (R5-S6, R5-D5).
+  try {
+    const sitzung = globalThis.sessionStorage;
+    if (sitzung) {
+      const sitzungsSchluessel: string[] = [];
+      for (let i = 0; i < sitzung.length; i++) {
+        const k = sitzung.key(i);
+        if (k?.startsWith(PRAEFIX)) sitzungsSchluessel.push(k);
+      }
+      for (const k of sitzungsSchluessel) sitzung.removeItem(k);
+    }
+  } catch {
+    /* Sitzungsspeicher gesperrt — dort liegt dann auch nichts */
+  }
   return schluessel.length;
 }

@@ -254,6 +254,25 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > Der Papier-Abgleich verändert nichts an den Daten. Keine neue
 > Datenkategorie, kein neuer Empfänger, kein neuer Speicherort, keine neuen
 > Netzverbindungen. Geändert: 5.5.
+>
+> **Nachgezogen 2026-10-14 — Uhr, Löschfristen, Fehlerfänger, Speicher,
+> Offline (Audit Runde 5, Paket 1):** Ein Uhrsprung (60 Tage und mehr, vor oder
+> zurück) wird nie durch Zeitablauf bestätigt: Bis dahin übernahm die App ihn
+> einen Tag später selbst und löschte dann alle ruhenden Sammlungen
+> endgültig und anonymisierte den Entwurf (R5-D1). Jetzt entscheidet der
+> Helfer („Geräteuhr stimmt" mit Rückfrage, die die Folgen in Zahlen nennt);
+> bis dahin löscht und anonymisiert die App nichts (5.7, R10). „Wiederherstellen"
+> aus dem Papierkorb setzt die Aufräumfrist neu (R5-D2). Ein in einem anderen
+> Fenster gelöschter Entwurf wird nicht zurückgeschrieben (R5-D3) — ein
+> Datenschutz-Löschen bleibt damit gelöscht. **Neu ist ein Speicherort mit
+> Personendaten:** ein Entwurf, den die App nicht lesen kann, wird
+> beiseitegelegt statt überschrieben (`eeb.entwurf.beschaedigt.v1`, R5-E1);
+> er kann Namen enthalten, die die Datenschutzfrist nicht erreicht, und fällt
+> deshalb nach 90 Tagen selbst weg (auf Wunsch früher). Dazu zwei Merker im
+> `sessionStorage` des Tabs (der Link einer Meldung, auf deren „Wohin damit?"
+> gewartet wird, bis zur Antwort; der Rückweg von „Vorbelegung entfernen",
+> 15 Minuten; R5-S6, R5-D5). Keine neue Datenkategorie, kein neuer
+> Empfänger, keine neuen Netzverbindungen. Geändert: 5.4, 5.7, R10.
 
 ## Hinweis zu diesem Dokument
 
@@ -463,6 +482,12 @@ definieren.
 | Einsatzkontext | Einsatzort/-auftrag, Zeitraum | Pflicht | `Einsatz` — kann in Verbindung mit Personaldaten mittelbar Rückschlüsse auf Aufenthaltsorte erlauben |
 | Führungsstellen-Zusatz je Meldung (Einsatz-Sammlung) | Eintreffzeit, Abrückzeit, Auftrag/Notiz der Führungsstelle (Freitext) | Optional, nur am Meldekopf-Gerät | `MeldeEintrag` (App-seitige Erweiterung `src/app/eintrag-zeiten.ts`, seit 2026-09-27) — die Zeiten sind Einsatzdokumentation ohne eigenen Personenbezug; der Freitext kann Namen enthalten (z. B. Rückruf-Vermerk) und unterliegt derselben Löschung wie die Meldung (Papierkorb, Aufräumfrist); die 90-Tage-Anonymisierung erfasst ihn nicht |
 
+*Nachgezogen 2026-10-14 (R5-E1):* Dieselben Kategorien können auch im
+beiseitegelegten, unlesbaren Entwurf (`eeb.entwurf.beschaedigt.v1`) und im
+Merker für eine wartende Meldung (`sessionStorage`, `eeb.wartet.fragment`)
+stehen — es ist derselbe Bogen, nur in einem Zustand, den die App nicht lesen
+oder noch nicht ablegen kann (5.7).
+
 **Nicht enthalten:** Gesundheitsdaten, besondere Kategorien nach Art. 9 DSGVO,
 biometrische Daten, strafrechtliche Daten.
 
@@ -542,11 +567,21 @@ Kapitel 6 der [Arc42-Dokumentation](arc42-architektur.md).
     eigenen Einheit. Beide bleiben unbefristet gespeichert, bis sie manuell
     gelöscht werden.
   - **Uhr (seit 2026-10-06, R4-D1):** Die Frist rechnet mit einer geprüften
-    Geräteuhr. Liegt die Uhr mehr als 60 Tage vor dem letzten Start (vorher
-    366 Tage), gilt weiter der letzte akzeptierte Zeitpunkt, bis sich der
-    Sprung einen Tag später bestätigt; die App löscht und anonymisiert dann
-    nichts und warnt „Geräteuhr prüfen". Dieselbe Uhr gilt für Aufräum- und
-    Papierkorbfrist (siehe unten). Ein kleinerer Sprung gilt als echte Zeit.
+    Geräteuhr. Weicht die Uhr um mehr als 60 Tage vom letzten Start ab (vorher
+    366 Tage), gilt weiter der letzte akzeptierte Zeitpunkt; die App löscht
+    und anonymisiert dann nichts und fragt „Geräteuhr prüfen". Dieselbe Uhr
+    gilt für Aufräum- und Papierkorbfrist (siehe unten). Ein kleinerer Sprung
+    gilt als echte Zeit.
+    *Nachgezogen 2026-10-14 (R5-D1, R5-O5):* Der Sprung wird **nicht mehr durch
+    Zeitablauf bestätigt** — die Runde-4-Fassung übernahm ihn einen Tag später
+    selbst, und eine falsch gestellte Uhr leerte dann alle Sammlungen
+    (einschließlich der von vor einer Stunde) und anonymisierte den Entwurf.
+    Jetzt bestätigt nur der Helfer („Geräteuhr stimmt", nach einer Rückfrage,
+    die nennt, was endgültig gelöscht wird) oder die Uhr stimmt wieder zum
+    letzten Start. Ein Sprung nach vorn, der nichts fällig macht (echte Pause),
+    wird ohne Frage übernommen; eine weit zurückgestellte Uhr wird festgehalten.
+    Die Warnung nennt beide Möglichkeiten („stimmt das heutige Datum?"), nicht
+    nur „Datum falsch".
   - **Grenze:** Der QR-Code selbst, das eingebettete JSON im PDF und
     CSV-/Excel-Exporte bleiben unverändert und unverschlüsselt. Ein fremder
     Decoder oder eine ältere App-Version liest sie vollständig. Die Frist ist
@@ -565,6 +600,12 @@ Kapitel 6 der [Arc42-Dokumentation](arc42-architektur.md).
   Ablage-Hülle (`src/app/uhr-korrektur.ts`) schiebt dem Kern bei
   zurückgehaltener Uhr die Zeitstempel zurecht, damit eine falsch
   vorgestellte Uhr beim Start keine laufende Sammlung endgültig löscht.
+  *Nachgezogen 2026-10-14 (R5-D1, R5-D2):* Der Versatz gilt bis zur
+  Bestätigung durch den Helfer (nicht nur einen Tag) und auch für eine
+  nachgehende Uhr; „Wiederherstellen" im Papierkorb setzt die Ruhefrist neu
+  (`src/app/einsatz-wiederherstellen.ts`) — vorher fiel eine vor dem Löschen
+  länger als 90 Tage ruhende Sammlung beim nächsten Lesen endgültig, obwohl
+  der Papierkorb 30 Tage Rückholung zusagte.
 - **Lageblatt-Stand (seit 2026-09-29, R2-A3):** Zeitpunkt des zuletzt
   erzeugten Lageblatts, die Kennungen der Meldungen darauf und seit
   2026-10-06 (R4-K1) der Zustand je Einheit als Prüfsummen
@@ -618,7 +659,28 @@ Kapitel 6 der [Arc42-Dokumentation](arc42-architektur.md).
   Seit 2026-10-05 (R4-D2) nennt sie auch den Bogen auf dem Rückholplatz, die
   Absenderkarte (Kontaktdaten der meldenden Person) und den Geräteschlüssel
   mit Kurzform und verlangt den Haken, sobald auf dem Gerät überhaupt etwas
-  ersetzt wird.
+  ersetzt wird. Seit 2026-10-14 (R5-D4) übernimmt sie den Uhrstand der Datei
+  nicht und nennt, welche Sammlungen, Papierkorb-Einträge und Namen der Datei
+  sofort wieder unter die Fristen fallen — eine alte Sicherung bringt nicht,
+  was in ihr steht, sondern was nach den Fristen übrig bleibt.
+- **Beiseitegelegter, unlesbarer Entwurf (seit 2026-10-14, R5-E1):** Liegt im
+  Speicher ein Entwurf, den die App nicht lesen kann (abgeschnitten,
+  Pflichtfeld des Bogens fehlt), legt sie den Text unverändert unter
+  `eeb.entwurf.beschaedigt.v1` beiseite, statt ihn beim nächsten Speichern zu
+  überschreiben; die Startseite nennt die Ursache und bietet „Als Datei
+  sichern" und „Entfernen…" an. Weil die App ihn nicht lesen und damit nicht
+  anonymisieren kann, erreicht ihn die Datenschutzfrist nicht — er fällt
+  deshalb nach 90 Tagen (ab dem Beiseitelegen) selbst weg, mit „Alle Daten
+  löschen" sofort. Er gehört zur Datensicherung (`eeb.`-Präfix).
+- **Merker im Sitzungsspeicher (seit 2026-10-14, R5-S6, R5-D5):** Der Link
+  einer Meldung, auf deren „Wohin damit?" noch gewartet wird
+  (`eeb.wartet.fragment`), liegt bis zur Antwort im `sessionStorage` des Tabs,
+  damit ein Neuladen erneut fragt, statt die Meldung zu verlieren; er enthält
+  den Bogen wie der Link selbst, steht nicht im `localStorage` und nicht in der
+  Datensicherung und endet mit der Antwort, mit „Alle Daten löschen" oder dem
+  Schließen des Tabs. Der
+  Rückweg von „Vorbelegung entfernen" (`eeb.vorbelegung.rueckweg`) trägt nur
+  unbenannte Sollplätze und gilt 15 Minuten.
 - **Verfügbarkeit (seit 2026-09-29, R2-O6):** Der Browser darf den lokalen
   Speicher einer Website räumen; dann wären auch fremde Meldungen verloren,
   bevor sie weitergegeben sind. Die Web-App bittet deshalb um dauerhaften
@@ -793,7 +855,7 @@ Schutzziele in Anlehnung an das Standard-Datenschutzmodell (SDM): Vertraulichkei
 | R7 | Fehlende eigene Zugriffssperre der App (verlässt sich auf Betriebssystem-/Gerätesperre) | V | Mittel | Niedrig-Mittel | Niedrig-Mittel |
 | R8 | Strukturelle Grenze der Betroffenenrechte bei bereits weitergereichten Kopien (6.3) | Iv | Hoch (systembedingt) | Niedrig-Mittel | ~~Mittel~~ → Niedrig-Mittel: digitale Kopien in anderen App-Installationen (ab dem Stand mit Datenschutzfrist) verfallen nach 90 Tagen von selbst; Papier, Exporte und der QR-Inhalt selbst nicht |
 | R9 | GoatCounter/Update-Check als einzige Netzwerkkontaktpunkte — technische Metadaten (IP-Adresse) fallen bei einem Dritten an | T | Hoch (jeder Aufruf) | Sehr niedrig | Niedrig |
-| R10 | **Neu mit der Datenschutzfrist:** unumkehrbarer Verlust der Personaldaten im laufenden Einsatz — durch eine falsch vorgehende Geräteuhr oder eine Lage, die länger als 90 Tage ohne Bearbeitung des Bogens läuft | Vf | Niedrig (Uhrsprünge über 60 Tage — bis 2026-10-05 über 366 Tage, dabei löschte ein falsches Jahr beim Start die laufende Sammlung — werden erst nach Bestätigung einen Tag später übernommen, ebenso für Aufräum- und Papierkorbfrist (R4-D1); Ankündigung 14 Tage vor Ablauf; jede Bearbeitung startet die Frist neu) | Niedrig-Mittel (Stärke und Summen bleiben erhalten, Namen fehlen) | Niedrig |
+| R10 | **Neu mit der Datenschutzfrist:** unumkehrbarer Verlust der Personaldaten im laufenden Einsatz — durch eine falsch vorgehende Geräteuhr oder eine Lage, die länger als 90 Tage ohne Bearbeitung des Bogens läuft | Vf | Niedrig (Uhrsprünge über 60 Tage — bis 2026-10-05 über 366 Tage, dabei löschte ein falsches Jahr beim Start die laufende Sammlung — werden seit 2026-10-14 nie mehr durch Zeitablauf übernommen, sondern erst nach ausdrücklicher Bestätigung durch den Helfer mit Rückfrage, ebenso für Aufräum- und Papierkorbfrist (R4-D1, R5-D1); die Runde-4-Fassung übernahm den Sprung einen Tag später selbst und löschte dann alles; „Wiederherstellen" setzt die Aufräumfrist neu (R5-D2); Ankündigung 14 Tage vor Ablauf; jede Bearbeitung startet die Frist neu) | Niedrig-Mittel (Stärke und Summen bleiben erhalten, Namen fehlen) | Niedrig |
 | R11 | **Neu mit der Datenschutzfrist:** Übungsbögen sind von der Frist ausgenommen — enthalten sie echte Personaldaten, liegen diese unbefristet auf den Geräten | V | Mittel (Übungen mit echtem Personal sind üblich) | Niedrig-Mittel | Niedrig-Mittel |
 
 **Höchste Einzelrisiken:** R1 (Geräteverlust), R2 (Papier-/Exportverlust) und R8

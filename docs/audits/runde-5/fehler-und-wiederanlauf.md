@@ -556,3 +556,18 @@ durch den zweiten, anders wirkenden Link im Kasten einen Weg, die neue
 Erfassung zu verlieren (R5-E3). Neu sind R5-E1 (kein Fangnetz bei fehlerhaften
 Daten) und R5-E2 (Stempel der Geräteuhr); R5-E2 ist die Folge von R4-D1 und
 R4-E4 zusammen.
+
+## Stand der Behebung
+
+Stand 14.10.2026, Paket 1 „Uhr, Löschfristen, Fehlerfänger, Speicher, Offline".
+Geprüft mit Typprüfung, Unit-Tests (2 734 grün), Verhaltenstests (137 Szenarien, 1 749 Schritte) und
+Nachmessung im Browser (360 × 640, `isMobile`/`hasTouch`, de-DE; Dev-Server
+Port 5180, für Service Worker und Vorrat Produktionsbuild mit `vite preview`
+Port 4174; Uhrsprünge mit `page.clock`, zwei Fenster als zwei Seiten im selben
+Kontext). Aufgeführt sind nur die Befunde dieses Pakets.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-E1 Unvollständiger Bogen macht die App dauerhaft weiß | behoben | (a) Fehlerfänger um die ganze App (`src/app/fehlerfaenger.tsx`): deutsche Meldung „Hier ist etwas schiefgelaufen … Deine Daten liegen weiter auf diesem Gerät", Neu laden, Zur Startseite (beide vergessen die zuletzt geöffnete Sammlung, damit der Absturz sich nicht wiederholt), „Daten sichern" (Sicherungsdatei), mit Haken „Alle Daten löschen", technische Angabe eingeklappt. (b) Pflichtfeldprüfung (`src/app/bogen-pruefung.ts`): Harmloses wird ergänzt (fehlender Einheitstyp, Listen, Namen), Unbrauchbares mit Ursache abgelehnt (Einheit, Stand, Einsatzzeitraum, Personenliste, Erfassungsart). Eingänge: Einsatz-Datei („1 von 3 Bögen ist unvollständig (die Angaben zum Einsatz fehlen) und wurde nicht übernommen", keine leere Sammlung bei lauter unlesbaren Bögen), „Bögen einlesen…", „Aus Datei laden…" und Entwurf. Ein unlesbarer Entwurf wird beiseitegelegt (`eeb.entwurf.beschaedigt.v1`) statt überschrieben; die Startseite nennt die Ursache und bietet „Als Datei sichern" und „Entfernen…"; nach 90 Tagen fällt er selbst weg. Nachlauf: Einsatz-Datei mit je einem Bogen ohne Einheitstyp und ohne Einsatz — Quittung nennt den abgelehnten, zwei Einheiten übernommen, Startseite nach Neuladen benutzbar; ein schon gespeicherter Bogen ohne Einheitstyp, den die Ansicht nicht aufbaut, zeigt die Fehlerseite statt des weißen Bildschirms. |
+| R5-E2 Nach zurückgestellter Uhr gilt „Stärke ändern…" nicht | behoben | Neue Stände (Bogen, Vorlage, „Stärke ändern…") nehmen bei gehaltener Uhr die geprüfte Zeit (`stempelZeitpunkt`); außerdem rückt die Empfangszeit der neuen Fassung hinter die jüngste der Einheit (`fassungObenauf`, `src/app/fassung-vorrang.ts`), sodass die eigene Handlung bei gleichem Stand vorn liegt. Unit-Tests: Uhr 5 und 30 Minuten vor, dann zurück, zweite Änderung gilt; ohne die Schicht bliebe die alte Zahl obenauf. Im Browser nicht nachgestellt. |
+| R5-E7 „Stärke ändern…" bei vollem Speicher: Eingabe weg | behoben | Der Hinweis nennt die gewünschte und die bisherige Stärke („Gewünscht war für „…": Stärke 0 / 0 / 2 / 2 (bisher 0 / 0 / 3 / 3). Bitte auf dem Meldeblock notieren, Platz schaffen und noch einmal eingeben."). Test mit abgelehnten Schreibungen; keine Phantom-Fassung. |

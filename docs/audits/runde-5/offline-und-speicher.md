@@ -315,3 +315,22 @@ Bilanz: Keine Behebung hat sich ins Gegenteil verkehrt. Zwei wirken mit einem Re
 halten. Neu sind R5-O1 bis R5-O7. Nur als Verweis geführt (nicht gezählt): R5-H4, R5-L4 (gleiche Ursache wie R5-O3 an
 anderen Knöpfen), R5-D1, R5-D4 (Uhr und Sicherung), R5-L2 (Speicherzeile abgeschnitten), R5-S4 (Konfliktwarnung
 verdeckt das Feld), R5-E7 (Stärke ändern bei vollem Speicher).
+
+## Stand der Behebung
+
+Stand 14.10.2026, Paket 1 „Uhr, Löschfristen, Fehlerfänger, Speicher, Offline".
+Geprüft mit Typprüfung, Unit-Tests (2 734 grün), Verhaltenstests (137 Szenarien, 1 749 Schritte) und
+Nachmessung im Browser (360 × 640, `isMobile`/`hasTouch`, de-DE; Dev-Server
+Port 5180, für Service Worker und Vorrat Produktionsbuild mit `vite preview`
+Port 4174; Uhrsprünge mit `page.clock`, zwei Fenster als zwei Seiten im selben
+Kontext). Aufgeführt sind nur die Befunde dieses Pakets.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-O1 „Nicht gespeichert" steht im wegscrollenden Kopf | behoben | Feste Leiste am oberen Bildrand (`src/app/feste-warnung.tsx`), zwei Zeilen („⚠ Nicht gespeichert — der Speicher dieses Geräts ist voll. Jetzt „Bogen übergeben" (PDF)."), Einzelheiten hinter „Was tun?"; die Seite rückt um die Leistenhöhe nach unten. Nachlauf (Stub auf `eeb.entwurf.v1`, Schritt „Personal", `scrollY` 552, Tippen in „Nachname"): Leiste bei `top` 0, 58 px, sichtbar; „Was tun?" nennt Papierkorb leeren und den letzten gesicherten Stand. |
+| R5-O2 Nachladen gibt beim ersten Fehler auf | behoben | `zusatzNachladen` wiederholt mit Pause 2, 4, 8, 16, 30, dann 60 s, ein Fehlschlag hält die übrigen Dateien nicht auf, jeder Abruf hat 20 s Zeitgrenze, eine Datei wird nach acht Versuchen aufgegeben; hakt es, sagt die Zeile „… 446 von 508 da, das Netz hakt — der nächste Versuch läuft von selbst". Nachlauf im Produktionsbuild (60 abgewiesene und zwei hängende Abrufe): Zähler 446 von 508 bis zur Zeitgrenze, dann Hinweis, Pause und „✓ Funktioniert komplett offline" nach 24 s ohne Neuladen. |
+| R5-O3 „Einsatz weitergeben / sichern": 18 s ohne Rückmeldung, zwei Dateien | behoben | Eine Sperre für alle PDF-Wege (`src/app/arbeitet.ts`, mit R5-H4 und R5-L4): höchstens eine Erzeugung zugleich, ein zweiter Tipp tut nichts, die Oberfläche bekommt vor der Arbeit ein Bild. Der Knopf zeigt „Einsatz wird erzeugt…" (`aria-busy`, gesperrt), darunter „… bis zu einer halben Minute. Bitte nicht noch einmal tippen."; Lageblatt, Blanko-Vordruck (Einsatzansicht, Startseite, Fußzeile) und Bogen-PDF ebenso; die Bestätigung steht danach direkt unter den Knöpfen. Nachlauf mit 30 Bögen: Zustand nach unter 0,4 s sichtbar, zwei weitere Tipps während der Arbeit — ein Download. |
+| R5-O4 Fotos der Themenseiten fehlen offline | behoben | Die WebP-Fassungen von `bilder/**` und `screenshots/**` (34 Dateien, 3,4 MB) gehören zur zweiten Stufe (`scripts/precache-aufteilung.ts`, `vite.config.ts`, Laufzeit-Route `StaleWhileRevalidate`); JPG/PNG-Rückfälle bleiben draußen, der Kern bleibt unverändert (69 Dateien, 6,8 MiB), die Zusatzstufe wächst von 4,2 auf 7,5 MB. Nachlauf: vollständig geladen, Server aus — `thw.html` zeigt das Foto (701 px breit), `anleitung.html` den Bildschirm `start-breit.webp`. |
+| R5-O5 „Geräteuhr prüfen" warnt bei echter Pause und nach zuvor zurückgestellter Uhr | behoben | Siehe R5-D1: Eine Pause, die nichts fällig macht, wird ohne Frage übernommen (100 Tage, leeres Gerät: keine Warnung); eine weit zurückgestellte Uhr wird festgehalten und dreht den Stand nicht zurück, Stempel der Sammlungen bleiben in der echten Zeitlinie; die Meldung fragt „stimmt das heutige Datum?" statt „Datum falsch". Unit-Tests für beide Richtungen; die Pause im Browser nachgestellt. |
+| R5-O6 Sammlung im anderen Fenster in den Papierkorb: wortloser Sprung | behoben | Die Startseite sagt „Die Sammlung „…" wurde in einem anderen Fenster in den Papierkorb gelegt. Sie lässt sich dort 30 Tage lang zurückholen …" (bzw. „gelöscht"), nur wenn dieses Fenster die Sammlung vorher gesehen hat. Test mit `storage`-Ereignis; im Browser nicht nachgestellt. |
+| R5-O7 Gesperrter Speicher: Warnung erst im Bogen | behoben | Die Startseite warnt („Dieser Browser lässt die App gerade nichts speichern …"), und die Offline-Zeile endet auf „dieser Browser speichert nichts, Eingaben gehen beim Schließen verloren" statt „Alle Daten bleiben auf diesem Gerät". Nachlauf (Zugriff auf `localStorage` wirft `SecurityError`): beide Zeilen stehen auf der Startseite, keine Seitenfehler. |

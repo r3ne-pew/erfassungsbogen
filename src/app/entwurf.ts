@@ -14,10 +14,10 @@
  */
 
 import type { EebZeitpunkt, Erfassungsbogen } from "@bos/eeb-format/model";
-import { bogenAnonymisiert, datenschutzfristAbgelaufen } from "@bos/eeb-format/datenschutzfrist";
+import { DATENSCHUTZFRIST_TAGE, bogenAnonymisiert, datenschutzfristAbgelaufen } from "@bos/eeb-format/datenschutzfrist";
 import { migriereBogen } from "./hilfen";
 import { bogenBefund } from "./bogen-pruefung";
-import { datenschutzZeitpunkt } from "./datenschutz-uhr";
+import { datenschutzZeitpunkt, geprueftesJetztMs } from "./datenschutz-uhr";
 import type { UebergabeStand } from "./uebergabe-stand";
 
 const SPEICHER_SCHLUESSEL = "eeb.entwurf.v1";
@@ -219,13 +219,24 @@ function beschaedigtBeiseite(s: Storage, roh: string, ursache: string): void {
   }
 }
 
-/** Der beiseitegelegte Entwurf, oder null. */
+/**
+ * Der beiseitegelegte Entwurf, oder null. Er kann Personendaten tragen, die die
+ * Datenschutzfrist nicht erreicht (die App kann den Bogen nicht lesen, also
+ * nicht anonymisieren): Darum fällt er nach derselben Frist von 90 Tagen
+ * selbst weg, gerechnet ab dem Beiseitelegen mit der geprüften Uhr.
+ */
 export function beschaedigterEntwurf(): BeschaedigterEntwurf | null {
   try {
     const roh = speicher()?.getItem(BESCHAEDIGT_SCHLUESSEL);
     if (!roh) return null;
     const x = JSON.parse(roh) as Partial<BeschaedigterEntwurf>;
-    return typeof x.text === "string" ? { text: x.text, ursache: typeof x.ursache === "string" ? x.ursache : "unlesbar", am: typeof x.am === "number" ? x.am : 0 } : null;
+    if (typeof x.text !== "string") return null;
+    const am = typeof x.am === "number" ? x.am : 0;
+    if (geprueftesJetztMs() - am > DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000) {
+      beschaedigtenEntwurfVerwerfen();
+      return null;
+    }
+    return { text: x.text, ursache: typeof x.ursache === "string" ? x.ursache : "unlesbar", am };
   } catch {
     return null;
   }

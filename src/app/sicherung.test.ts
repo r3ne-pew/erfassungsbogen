@@ -208,6 +208,20 @@ describe("datenUmfang()", () => {
 });
 
 describe("alleDatenLoeschen()", () => {
+  it("räumt auch die Merker im Sitzungsspeicher des Tabs ab (R5-S6, R5-D5)", () => {
+    const sitzung = new Map<string, string>([["eeb.wartet.fragment", "abc"], ["eeb.vorbelegung.rueckweg", "{}"], ["fremd", "bleibt"]]);
+    (globalThis as { sessionStorage?: unknown }).sessionStorage = {
+      get length() { return sitzung.size; },
+      key: (i: number) => [...sitzung.keys()][i] ?? null,
+      getItem: (k: string) => sitzung.get(k) ?? null,
+      setItem: (k: string, v: string) => void sitzung.set(k, v),
+      removeItem: (k: string) => void sitzung.delete(k),
+    };
+    localStorage.setItem("eeb.vorlagen.v1", "[]");
+    alleDatenLoeschen();
+    expect([...sitzung.keys()]).toEqual(["fremd"]);
+  });
+
   it("entfernt alle eeb.*-Einträge und lässt fremde Schlüssel stehen", () => {
     vorlageAnlegen("Basis", bogen());
     entwurfSpeichern(bogen());

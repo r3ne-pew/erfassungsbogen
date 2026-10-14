@@ -499,3 +499,17 @@ Arbeitsnotizen von [feldtauglichkeit.md](feldtauglichkeit.md); das schwebende
 „◐" der Einsatzansicht (R5-L1 in [nacht-und-sicht.md](nacht-und-sicht.md))
 und der unbeschriftete Vierer-Schalter dort (Runde-5-Bericht „Helfer ohne
 Einweisung") sind hier nicht doppelt gezählt.
+
+## Stand der Behebung
+
+Stand 14.10.2026, Paket 1 „Uhr, Löschfristen, Fehlerfänger, Speicher, Offline".
+Geprüft mit Typprüfung, Unit-Tests (2 734 grün), Verhaltenstests (137 Szenarien, 1 749 Schritte) und
+Nachmessung im Browser (360 × 640, `isMobile`/`hasTouch`, de-DE; Dev-Server
+Port 5180, für Service Worker und Vorrat Produktionsbuild mit `vite preview`
+Port 4174; Uhrsprünge mit `page.clock`, zwei Fenster als zwei Seiten im selben
+Kontext). Aufgeführt sind nur die Befunde dieses Pakets.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-S4 Konfliktwarnung zweier Fenster verdeckt das Eingabefeld | behoben | Die Warnung ist auf zwei Zeilen und eine Knopfreihe gekürzt (feste Leiste, `src/app/feste-warnung.tsx`); der Hinweis auf den Rückholplatz steht in der Rückfrage hinter „Meine Fassung behalten". Bei knapper Bildhöhe (Tastatur) beginnt sie eingeklappt auf zwei Zeilen mit „Entscheiden"; die Seite rückt um die Leistenhöhe nach unten, das Scrollen zu einem Feld hält sie frei. Gemessen: 130 statt 240 px bei 360 × 640, 53 px bei 360 × 380; das fokussierte Feld liegt bei y 154 unter der Leiste statt hinter ihr. |
+| R5-S6 Wartende Meldung ist nach Neuladen weg | behoben | Der Link liegt bis zur Antwort im Sitzungsspeicher des Tabs (`src/app/wartender-link.ts`, nicht in `localStorage`, nicht in der Sicherung); nach dem Neuladen fragt die App erneut „Wohin damit?", jede Antwort — aufnehmen, öffnen, abbrechen — löscht ihn. Test mit zwei frischen Modulen (Neuladen bei offener Rückfrage), im Browser nicht nachgestellt. |

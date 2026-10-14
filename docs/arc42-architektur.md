@@ -93,6 +93,22 @@
 > gleichem Speichertext innerhalb einer Minute), Revisionen je Karte über
 > `src/app/einheiten-index.ts`. Der Kern bleibt unverändert (R3-O2) —
 > Kapitel 5, 8.2, 11.
+>
+> **Nachgezogen 2026-10-14:** Audit Runde 5, Paket 1 „Uhr, Löschfristen,
+> Fehlerfänger, Speicher, Offline" — Die geprüfte Geräteuhr bestätigt einen
+> Sprung nie durch Zeitablauf (`geraeteuhrPruefen` mit „was würde fällig",
+> `src/app/uhr-folgen.ts`; „Geräteuhr stimmt" über `uhrBestaetigen`, R5-D1,
+> R5-O5); die Uhrkorrektur-Hülle kennt einen negativen Versatz, neue Stände
+> tragen die geprüfte Zeit (`stempelZeitpunkt`, R5-E2). Über dem Kern liegen
+> zwei weitere App-Schichten: `einsatz-wiederherstellen.ts` (setzt die
+> Aufräumfrist beim Wiederherstellen neu, R5-D2) und `fassungObenauf` in
+> `fassung-vorrang.ts` (eine Handänderung gilt vor der geltenden Fassung,
+> R5-E2); `vendor/` bleibt unverändert (ADR-003). Neu: `bogen-pruefung.ts`
+> (Pflichtfelder), `fehlerfaenger.tsx` (Fangnetz um die ganze App),
+> `feste-warnung.tsx`, `arbeitet.ts` (eine Sperre für alle PDF-Wege),
+> `wartender-link.ts` und `vorbelegung-rueckweg.ts` (Merker im
+> `sessionStorage`), Speicherort `eeb.entwurf.beschaedigt.v1` — Kapitel 6.4,
+> 8.2, 8.3, 8.8.
 
 ---
 
@@ -970,6 +986,26 @@ im Gerät bleibt, es wird nur der Rest geholt. Fehlt die Registrierung, steht
 Gemessen mit einem drosselnden Reverse-Proxy (Verbindung abgewiesen, mit und
 ohne `setOffline`): Nach Netzrückkehr erreicht die Zeile „offline bereit"
 ohne Neuladen.
+*Nachgezogen 2026-10-14 (Audit Runde 5, R5-O2, R5-O4, R5-O7):* Das Nachladen
+der zweiten Stufe (`zusatzNachladen`, `src/app/offline-vorrat.ts`) gab beim
+ersten Fehlschlag auf, und der Zähler stand minutenlang. Jetzt geht jede Runde
+über alle offenen Dateien (ein Fehlschlag hält die übrigen nicht auf), danach
+folgt die Pause 2, 4, 8, 16, 30, dann 60 s, solange die Seite offen ist; jeder
+Abruf hat eine Zeitgrenze von 20 s (`AbortController`), eine Datei, die achtmal
+scheitert (dauerhaftes 404), wird aufgegeben. Hakt es, sagt die Zeile es („das
+Netz hakt — der nächste Versuch läuft von selbst"). Gemessen im
+Produktionsbuild mit eingeschleusten Fehlschlägen (60 abgewiesene und zwei
+hängende Abrufe): Der Zähler steht bis zur Zeitgrenze bei 446 von 508, dann
+folgen Hinweis, Pause und Abschluss ohne Neuladen. Die Fotos und
+Bildschirmfotos der Themenseiten (nur die WebP-Fassung, `bilder/**`,
+`screenshots/**`) gehören jetzt zur zweiten Stufe (`istZusatz`,
+`scripts/precache-aufteilung.ts`): Sie standen vorher als leere Flächen da
+(gemessen: 34 Dateien, 3,4 MB). Die Zusatzstufe umfasst damit 508
+Dateien und 7,5 MB (vorher 4,2 MB), der Kern (69 Dateien, 6,8 MiB) wird nicht
+größer; eine weitere Laufzeit-Route `StaleWhileRevalidate` im Cache
+`eeb-zusatz` hält die Fotos frisch. Blockiert der Browser den Speicher ganz,
+sagt die Offline-Zeile „dieser Browser speichert nichts" statt „Alle Daten
+bleiben auf diesem Gerät", und die Startseite warnt (`speicherGesperrt`).
 
 Die Offline-Zeile zeigt beim Laden den Fortschritt des Kerns in MB und danach
 „offline bereit für Bogen, PDF, QR-Code und Empfang … (120 von 474)". Keine
@@ -1249,6 +1285,24 @@ flowchart TB
     Uhrkorrektur → schonende Hülle. Vorlagen (`vorlagen.ts`) und Papierkorb-
     Anzeige (`papierkorb-frist.ts`) nutzen `geprueftesJetztMs()`. Die
     Oberfläche warnt „Geräteuhr prüfen" (`uhr-warnung.tsx`).
+    *Nachgezogen 2026-10-14 (Audit Runde 5, R5-D1, R5-O5, R5-E2):* Die
+    Runde-4-Fassung übernahm einen Sprung einen Tag später selbst
+    (`SPRUNG_FENSTER_TAGE`) und löschte dann alle Sammlungen endgültig; sie ist
+    ersetzt. `geraeteuhrPruefen(jetzt, bisher, faelligWuerde)` hält einen
+    Abstand über 60 Tagen fest (`gehalten`, `richtung` vor oder zurück) und
+    bestätigt ihn nie durch Zeitablauf: weiter nur durch `uhrBestaetigen()`
+    („Geräteuhr stimmt" mit Rückfrage, die `uhrFolgen()` in Zahlen nennt) oder
+    wenn die Uhr wieder innerhalb von 60 Tagen zum letzten Start passt. Ein
+    Sprung nach vorn, bei dem `faelligWuerde()` nichts findet (`uhr-folgen.ts`
+    liest die rohen Einträge ohne die Hüllen: ruhende Sammlungen, Papierkorb,
+    abgelaufene Bögen, Entwurf), ist eine echte Pause und wird ohne Frage
+    übernommen. `uhrVersatzMs()` ist bei einer nachgehenden Uhr negativ: Stempel
+    der Sammlungen liegen während der falschen Uhr in der echten Zeitlinie und
+    sehen nach dem Richtigstellen nicht uralt aus. Neue Stände (Bogen, Vorlage,
+    „Stärke ändern…") nehmen `stempelZeitpunkt()`. Dass die neuere Handlung
+    gilt, sichert `fassungObenauf` (`fassung-vorrang.ts`): Die Empfangszeit der
+    neuen Fassung rückt hinter die jüngste der Einheit, denn der Kern wertet bei
+    gleichem Stand die Empfangszeit (`istNeuer`).
   - **Kein Schemafeld:** Die Frist leitet sich aus `stand` und `uebung` ab und
     gilt so auch für schon verteilte QR-Codes.
 - **Papierkorb statt endgültigem Löschen** – Prinzip „Nichts geht verloren"
@@ -1268,6 +1322,31 @@ flowchart TB
   ihn und legt sofort ein neues Paar an, ohne die Bogendaten anzufassen — der
   technische Teil von Maßnahme M3 des
   [Informationssicherheitskonzepts](informationssicherheitskonzept.md).
+
+*Nachgezogen 2026-10-14 (Audit Runde 5, Paket 1):* Neue und geänderte
+Speicherorte und Löschwege. (1) Ein Entwurf, den die App nicht lesen kann
+(abgeschnitten, Pflichtfeld des Bogens fehlt, `entwurfPruefen`), wird
+unverändert unter `eeb.entwurf.beschaedigt.v1` beiseitegelegt, statt vom
+nächsten Autosave überschrieben zu werden; die Startseite nennt die Ursache und
+bietet „Als Datei sichern" an, nach 90 Tagen fällt er selbst weg
+(R5-E1). (2) Hat ein anderes Fenster den Entwurf **entfernt** („Alle Daten
+löschen", Bogen geschlossen), schreibt dieses Fenster ihn nicht zurück
+(`entwurfFremdEntfernt`, `KonfliktArt`), sondern zeigt die feste Warnleiste mit
+„Neu laden, hier verwerfen" und „Bogen hier wieder speichern" (R5-D3,
+`fenster-abgleich.tsx`). (3) Der Link einer Meldung, auf deren „Wohin damit?"
+gewartet wird, liegt bis zur Antwort im `sessionStorage` (`eeb.wartet.fragment`,
+`wartender-link.ts`); `startAusUrlFragment` liest ihn nach einem Neuladen
+wie ein Fragment der Adresszeile (R5-S6). (4) Der Rückweg von „Vorbelegung
+entfernen" liegt 15 Minuten im `sessionStorage` (`eeb.vorbelegung.rueckweg`),
+und nur solange Personal und Fahrzeuge noch gleich aussehen (R5-D5);
+„Alle Daten löschen" räumt beide Merker mit ab (`alleDatenLoeschen`).
+(5) „Wiederherstellen" aus dem Papierkorb läuft über
+`einsatz-wiederherstellen.ts` und setzt `geaendert` neu (R5-D2). (6) „Sicherung
+einspielen" lässt den Uhrstand des Geräts stehen und nennt, was einer alten
+Datei sofort wieder unter die Fristen fällt (`bestandUmfang().faellig`,
+R5-D4). (7) Legt ein anderes Fenster die offene Sammlung in den Papierkorb,
+sagt die Startseite es (R5-O6). Die Sammlung ist über „Papierkorb Einsätze"
+erreichbar (zuvor gleichlautend mit dem der Vorlagen, R5-D5).
 
 ### 8.3 Sicherheits- und Datenschutzkonzept
 
@@ -1425,6 +1504,42 @@ flowchart TB
 - Netzwerkfehler werden dort, wo sie nicht sicherheitsrelevant sind
   (Update-Check, Statistik-Zählpixel), bewusst still ignoriert, um den
   Offline-Grundsatz nicht zu verletzen – siehe Kapitel 6.5.
+- **Fehlerfänger** (seit 2026-10-14, Audit Runde 5, R5-E1,
+  `src/app/fehlerfaenger.tsx`): Eine React-Fehlergrenze um die ganze App.
+  Wirft ein Aufbau der Ansicht einen Fehler, erscheint statt eines weißen
+  Bildschirms eine deutsche Meldung („Deine Daten liegen weiter auf diesem
+  Gerät") mit Neu laden, Zur Startseite (beide vergessen die zuletzt geöffnete
+  Sammlung, damit der Absturz sich nicht wiederholt), „Daten sichern"
+  (Sicherungsdatei aus allen `eeb.`-Einträgen) und, mit Haken, „Alle Daten
+  löschen"; die technische Angabe ist eingeklappt. Die Seite hängt nur an
+  `sicherung.ts` und `hilfen.ts`, nicht an den Komponenten, die abgestürzt
+  sein können.
+- **Pflichtfeldprüfung** (`src/app/bogen-pruefung.ts`): `bogenBefund` ergänzt
+  Harmloses (fehlender Einheitstyp → leerer Wert, fehlende Listen, Namen) und
+  lehnt Unbrauchbares mit Ursache ab (Einheit, Organisation, Stand,
+  Einsatzzeitraum, Personenliste, Erfassungsart). Eingänge: Einsatz-Datei
+  (`einsatzAusRoh`: „1 von 3 Bögen ist unvollständig (…) und wurde nicht
+  übernommen", keine leere Sammlung bei lauter unlesbaren Bögen), „Bögen
+  einlesen…" (`boegenAusJsonTextMitUrsachen`), „Aus Datei laden…"
+  (`bogenPruefen`) und der Entwurf (`entwurfPruefen`). Der Kern (`einsaetzeAusJson`,
+  Submodul) prüft nur die Hülle des JSON; die Schicht sitzt vor ihm. Bereits
+  gespeicherte fehlerhafte Sammlungen fängt der Fehlerfänger ab.
+- **Eine Sperre für alle PDF-Wege** (`src/app/arbeitet.ts`, R5-O3, R5-H4,
+  R5-L4): Einsatz weitergeben / sichern, Sammel-PDF, Lageblatt, Blanko-Vordruck
+  (Start, Einsatzansicht, Fußzeile) und Bogen-PDF laufen über `arbeiten(name,
+  aktion)`: höchstens eine zugleich, der zweite Tipp tut nichts (eine Datei statt
+  zwei), die Oberfläche bekommt vor der schweren Arbeit ein Bild
+  (`naechstesBild`), der Knopf zeigt „… wird erzeugt…" (`aria-busy`), und die
+  Bestätigung steht unter den Knöpfen (`ausgabeQuittung`). Gemessen mit 30
+  Bögen: Zustand nach unter 0,4 s sichtbar, zwei weitere Tipps während der
+  Arbeit erzeugten keine zweite Datei.
+- **Feste Warnleiste** (`src/app/feste-warnung.tsx`, R5-O1, R5-S4): „Nicht
+  gespeichert" und die Konfliktwarnung der zwei Fenster sitzen am oberen
+  Bildrand (zwei Zeilen Kurztext, Einzelheiten hinter „Was tun?" bzw.
+  „Entscheiden", bei knapper Bildhöhe eingeklappt); die Seite rückt um die
+  Leistenhöhe nach unten (`--fest-warnung-hoehe`) und hält sie beim Scrollen zu
+  einem Feld frei. Gemessen bei 360 × 640: 130 statt 240 px, bei 360 × 380
+  (Tastatur) 53 px.
 
 ---
 

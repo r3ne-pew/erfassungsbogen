@@ -247,6 +247,15 @@ describe("Entwurf mit fehlenden Pflichtfeldern (R5-E1)", () => {
     expect(beschaedigterEntwurf()).toBeNull();
   });
 
+  it("der beiseitegelegte Text fällt nach 90 Tagen selbst weg — die Datenschutzfrist erreicht ihn sonst nicht", () => {
+    const TAG = 24 * 60 * 60 * 1000;
+    localStorage.setItem("eeb.entwurf.beschaedigt.v1", JSON.stringify({ text: "{}", ursache: "x", am: Date.now() - 89 * TAG }));
+    expect(beschaedigterEntwurf()).not.toBeNull();
+    localStorage.setItem("eeb.entwurf.beschaedigt.v1", JSON.stringify({ text: "{}", ursache: "x", am: Date.now() - 91 * TAG }));
+    expect(beschaedigterEntwurf()).toBeNull();
+    expect(localStorage.getItem("eeb.entwurf.beschaedigt.v1")).toBeNull();
+  });
+
   it("ein zweiter beschädigter Text überschreibt den ersten nicht", () => {
     const erster = ohne("einsatz");
     localStorage.setItem("eeb.entwurf.v1", erster);
