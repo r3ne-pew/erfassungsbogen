@@ -28,6 +28,15 @@ describe("Offline-Vorrat in zwei Stufen (R3-O3)", () => {
     }
   });
 
+  it("legt die WebP-Fotos der Seiten in die zweite Stufe, JPG/PNG und Logos nicht (R5-O4)", () => {
+    for (const u of ["bilder/thw-gkw-radolfzell.webp", "screenshots/start-breit.webp", "screenshots/thw-erfassungsbogen.webp"]) {
+      expect(istZusatz(u), u).toBe(true);
+    }
+    for (const u of ["bilder/thw-logo.svg", "bilder/handscanner/datalogic-belegung-deutschland.svg", "icons/icon-192.png"]) {
+      expect(istZusatz(u), u).toBe(false);
+    }
+  });
+
   it("teilt das Manifest und nennt beide Umfänge", () => {
     const { kern, umfang } = vorratAufteilen([
       { url: "index.html", revision: "1", size: 10 },

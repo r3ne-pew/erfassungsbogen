@@ -11,7 +11,8 @@
  *   Blanko-Vordruck und die Seiten, die die App selbst verlinkt (Anleitung,
  *   Vorlage, Datenschutz, Impressum).
  * - **Zusatz** (nach der Aktivierung von der Seite nachgeladen, Laufzeit-
- *   Cache `eeb-zusatz`): Beispielbögen und übrige Begleitseiten. Die Liste
+ *   Cache `eeb-zusatz`): Beispielbögen, übrige Begleitseiten und deren Fotos
+ *   (nur WebP, R5-O4). Die Liste
  *   schreibt der Build nach `offline-zusatz.json`; dort steht auch der Umfang
  *   des Kerns, damit die Startseite beim Laden einen Fortschritt zeigen kann.
  */
@@ -40,6 +41,9 @@ export function istZusatz(url: string): boolean {
   if (/^assets\/[^/]+\.json$/.test(url)) return true;
   // Themen- und Länderseiten im Wurzelverzeichnis.
   if (/^[^/]+\.html$/.test(url) && !KERN_SEITEN.has(url)) return true;
+  // Fotos und Bildschirmfotos der Seiten (nur WebP, R5-O4): Ohne sie standen
+  // die Themenseiten offline mit leeren Flächen da.
+  if (/^(?:bilder|screenshots)\/.+\.webp$/.test(url)) return true;
   return false;
 }
 

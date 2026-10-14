@@ -78,19 +78,69 @@ export async function kernFortschritt(umfang: OfflineUmfang): Promise<{ geladen:
   return { geladen: Math.min(geladen, gesamt), gesamt };
 }
 
+/** Pause vor dem n-ten erneuten Versuch (n ab 1): 2 s, 4 s, 8 s, 16 s, 30 s, dann je 60 s. */
+export function nachladePause(versuch: number): number {
+  return Math.min(60_000, [2_000, 4_000, 8_000, 16_000, 30_000][versuch - 1] ?? 60_000);
+}
+
+/** So oft wird eine einzelne Datei höchstens versucht, bevor sie aufgegeben wird (etwa ein dauerhaftes 404). */
+export const NACHLADE_VERSUCHE_JE_DATEI = 8;
+
+/** Ein Abruf ohne Antwort (Funkloch mit Balken) bricht nach so langer Zeit ab. */
+export const NACHLADE_ABRUF_MS = 20_000;
+
+export interface NachladeOptionen {
+  /** Pause zwischen den Runden (Test: sofort). */
+  schlafen?: (ms: number) => Promise<void>;
+  /** Zeitgrenze je Abruf in Millisekunden. */
+  abrufMs?: number;
+  /**
+   * Nach einer Runde mit Fehlschlägen, vor der Pause: die wievielte Wiederholung
+   * folgt und in wie vielen Millisekunden. Fortschritt meldet `beiStand`.
+   */
+  beiHakt?: (lage: { versuch: number; wartetMs: number }) => void;
+}
+
+function schlafenStandard(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Abruf mit Zeitgrenze: ein Funkloch, das Verbindungen annimmt und nie antwortet, hält nichts mehr fest. */
+async function abrufen(adresse: string, grenzeMs: number): Promise<Response> {
+  const regler = typeof AbortController === "function" ? new AbortController() : null;
+  const uhr = regler ? setTimeout(() => regler.abort(), grenzeMs) : null;
+  try {
+    return await fetch(adresse, regler ? { signal: regler.signal } : undefined);
+  } finally {
+    if (uhr) clearTimeout(uhr);
+  }
+}
+
 /**
  * Zweite Stufe nachladen. Ruft `beiStand` mit dem Fortschritt auf; endet,
- * wenn alles da ist, `abbruch()` wahr wird oder das Netz fehlt.
+ * wenn alles da ist, `abbruch()` wahr wird oder eine Datei aufgegeben wurde.
+ *
+ * Wiederholt mit Pause (Audit Runde 5, R5-O2): Vorher beendete der erste
+ * Fehlschlag alle vier Arbeiter, und der Zähler stand minutenlang bei „25 von
+ * 474", obwohl nichts mehr geladen wurde — ein neuer Versuch kam nur mit einem
+ * `online`-Ereignis oder einem Seitenaufruf. Jetzt geht eine Runde über alle
+ * offenen Dateien (ein Fehlschlag hält die übrigen nicht auf), danach folgt die
+ * Pause 2, 4, 8, 16, 30, dann 60 Sekunden, solange die Seite offen ist. Jeder
+ * Abruf hat eine Zeitgrenze. Eine Runde mit Fortschritt setzt die Pause
+ * zurück.
  */
 export async function zusatzNachladen(
   umfang: OfflineUmfang,
   beiStand: (fertig: number, gesamt: number) => void,
   abbruch: () => boolean = () => false,
-): Promise<{ fertig: number; gesamt: number }> {
+  opt: NachladeOptionen = {},
+): Promise<{ fertig: number; gesamt: number; aufgegeben: number }> {
   const c = cachesDa();
   const gesamt = umfang.zusatz.length;
-  if (!c) return { fertig: 0, gesamt };
-  const offen: string[] = [];
+  if (!c) return { fertig: 0, gesamt, aufgegeben: 0 };
+  const schlafen = opt.schlafen ?? schlafenStandard;
+  const grenze = opt.abrufMs ?? NACHLADE_ABRUF_MS;
+  let offen: string[] = [];
   let fertig = 0;
   for (const e of umfang.zusatz) {
     const adresse = new URL(e.url, basis()).href;
@@ -98,26 +148,43 @@ export async function zusatzNachladen(
     else offen.push(adresse);
   }
   beiStand(fertig, gesamt);
-  let netzWeg = false;
-  // Vier gleichzeitig: genug, um die Leitung zu füllen, ohne die laufende
-  // Seite auszubremsen.
-  const arbeiter = async () => {
-    while (offen.length > 0 && !netzWeg && !abbruch()) {
-      const adresse = offen.shift()!;
-      try {
-        const r = await fetch(adresse);
-        if (r.ok) {
+  const versuche = new Map<string, number>();
+  let aufgegeben = 0;
+  let runde = 0;
+  while (offen.length > 0 && !abbruch()) {
+    const warteschlange = [...offen];
+    const gescheitert: string[] = [];
+    const vorher = fertig;
+    // Vier gleichzeitig: genug, um die Leitung zu füllen, ohne die laufende
+    // Seite auszubremsen.
+    const arbeiter = async () => {
+      while (warteschlange.length > 0 && !abbruch()) {
+        const adresse = warteschlange.shift()!;
+        try {
+          const r = await abrufen(adresse, grenze);
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
           await r.arrayBuffer(); // erst vollständig gelesen liegt sie im Cache
           fertig++;
           beiStand(fertig, gesamt);
+        } catch {
+          const n = (versuche.get(adresse) ?? 0) + 1;
+          versuche.set(adresse, n);
+          if (n >= NACHLADE_VERSUCHE_JE_DATEI) aufgegeben++;
+          else gescheitert.push(adresse);
         }
-      } catch {
-        netzWeg = true;
       }
-    }
-  };
-  await Promise.all([arbeiter(), arbeiter(), arbeiter(), arbeiter()]);
-  return { fertig, gesamt };
+    };
+    await Promise.all([arbeiter(), arbeiter(), arbeiter(), arbeiter()]);
+    offen = gescheitert;
+    if (offen.length === 0 || abbruch()) break;
+    runde = fertig > vorher ? 1 : runde + 1;
+    const wartetMs = nachladePause(runde);
+    opt.beiHakt?.({ versuch: runde, wartetMs });
+    // In kleinen Schritten warten, damit ein Abbruch (Seite geschlossen,
+    // Netzwechsel) nicht minutenlang aufgehalten wird.
+    for (let gewartet = 0; gewartet < wartetMs && !abbruch(); gewartet += 500) await schlafen(Math.min(500, wartetMs - gewartet));
+  }
+  return { fertig, gesamt, aufgegeben };
 }
 
 /** „2,1" — Megabyte mit einer Nachkommastelle. */

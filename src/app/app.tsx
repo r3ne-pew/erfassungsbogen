@@ -935,6 +935,36 @@ function AppInhalt() {
     alt: string;
   } | null>(null);
 
+  // Legt ein anderes Fenster die offene Sammlung in den Papierkorb (oder löscht
+  // sie), sprang diese Ansicht wortlos auf die Startseite: Wer gerade Einheiten
+  // aufnahm, sah die Lage verschwinden und hielt die App für abgestürzt
+  // (Audit Runde 5, R5-O6). Jetzt sagt die Startseite, was geschah. Nur wenn
+  // dieses Fenster die Sammlung vorher gesehen hat — nicht bei einer
+  // Erinnerung an eine längst gelöschte.
+  const offenerBekannt = useRef<{ id: string; name: string } | null>(null);
+  useEffect(() => {
+    if (!offenerEinsatzId) {
+      offenerBekannt.current = null;
+      return;
+    }
+    const da = einsaetze.find((s) => s.id === offenerEinsatzId);
+    if (da) {
+      offenerBekannt.current = { id: da.id, name: da.name };
+      return;
+    }
+    const bekannt = offenerBekannt.current;
+    if (!bekannt || bekannt.id !== offenerEinsatzId) return;
+    offenerBekannt.current = null;
+    const imPapierkorb = einsaetzePapierkorb().some((s) => s.id === bekannt.id);
+    setMeldung(
+      imPapierkorb
+        ? `Die Sammlung „${bekannt.name}" wurde in einem anderen Fenster in den Papierkorb gelegt. Sie lässt sich dort 30 Tage lang zurückholen — unten auf der Startseite unter „Papierkorb".`
+        : `Die Sammlung „${bekannt.name}" gibt es nicht mehr — sie wurde in einem anderen Fenster gelöscht.`,
+    );
+    setOffenerEinsatzId(null);
+    setZeigeStart(true);
+  }, [einsaetze, offenerEinsatzId]);
+
   const vorlagenNeuLaden = () => setVorlagen(vorlagenLaden());
   const einsaetzeNeuLaden = () => setEinsaetze(einsaetzeLaden());
 

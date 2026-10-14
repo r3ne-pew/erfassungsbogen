@@ -493,6 +493,29 @@ export function speicherFehlerArt(): "voll" | "gesperrt" {
 
 const PROBE_SCHLUESSEL = "eeb.speicherprobe";
 
+/**
+ * Nimmt der Browser gar nichts zum Speichern an — Zugriff gesperrt (blockierte
+ * Website-Daten) oder Schreiben abgelehnt, ohne dass der Speicher voll wäre?
+ * Dann muss schon die Startseite es sagen, nicht erst der Bogen (Audit Runde 5,
+ * R5-O7). Ein voller Speicher zählt nicht: Dafür gibt es seine eigene Warnung.
+ */
+export function speicherGesperrt(): boolean {
+  let s: Storage | null;
+  try {
+    s = globalThis.localStorage ?? null;
+  } catch {
+    return true;
+  }
+  if (!s) return true;
+  try {
+    s.setItem(PROBE_SCHLUESSEL, "1");
+    s.removeItem(PROBE_SCHLUESSEL);
+    return false;
+  } catch {
+    return speicherFehlerArt() === "gesperrt";
+  }
+}
+
 /** „etwa 38 % (1,9 von 5 Mio. Zeichen)" — nie über 100 %. */
 export function speicherText(b: { belegt: number; grenze: number; anteil?: number }): string {
   const anteil = b.anteil ?? Math.min(1, b.belegt / b.grenze);

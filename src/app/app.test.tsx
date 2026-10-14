@@ -1430,6 +1430,25 @@ describe("Neuen Einsatz anlegen", () => {
     await waitFor(() => expect(akzent()).not.toBe(""));
   }, 20000);
 
+  /** Audit Runde 5, R5-O6: Das andere Fenster legt die offene Sammlung in den Papierkorb. */
+  it("sagt auf der Startseite, dass ein anderes Fenster die offene Sammlung in den Papierkorb gelegt hat (R5-O6)", async () => {
+    const nutzer = userEvent.setup();
+    const s = einsatzImSpeicherAnlegen("Hochwasser Neckar", EinsatzArt.EINSATZ);
+    render(<App />);
+    await nutzer.click(await screen.findByRole("button", { name: "Öffnen" }));
+    await screen.findByRole("heading", { level: 1, name: "Hochwasser Neckar" });
+
+    // Das andere Fenster löscht, dieses bekommt das Ereignis.
+    einsatzLoeschen(s.id);
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: "eeb.einsaetze.v1" }));
+    });
+
+    const hinweis = await screen.findByText(/wurde in einem anderen Fenster in den Papierkorb gelegt/);
+    expect(hinweis.textContent).toContain('„Hochwasser Neckar"');
+    expect(screen.queryByRole("heading", { level: 1, name: "Hochwasser Neckar" })).toBeNull();
+  }, 20000);
+
   it("legt von der Startseite aus einen Einsatz an und öffnet ihn", async () => {
     const nutzer = userEvent.setup();
     render(<App />);

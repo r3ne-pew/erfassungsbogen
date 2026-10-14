@@ -266,7 +266,16 @@ export default defineConfig({
         // wasm ebenso: der QR-Decoder (ZXing) liegt als WebAssembly-Datei im
         // Bundle — fehlte sie offline, fiele der Scanner auf jsQR mit
         // kleinerer Reichweite zurück.
-        globPatterns: ["**/*.{js,css,html,svg,png,webmanifest,woff2,wasm,json}", "downloads/*.pdf"],
+        globPatterns: [
+          "**/*.{js,css,html,svg,png,webmanifest,woff2,wasm,json}",
+          "downloads/*.pdf",
+          // Fotos und Bildschirmfotos der Themenseiten und der Anleitung: nur die
+          // WebP-Fassung (die JPG/PNG-Rückfälle braucht kein heutiger Browser) und
+          // nur in der zweiten Stufe (precache-aufteilung.ts) — der Kern bleibt
+          // so groß wie er war (Audit Runde 5, R5-O4).
+          "bilder/**/*.webp",
+          "screenshots/**/*.webp",
+        ],
         // downloads/*.pdf: der Blanko-Vordruck ist die Papier-Rückfallebene —
         // gebraucht genau dann, wenn Gerät oder Netz ausfallen. Offline gab
         // der direkte Aufruf ERR_INTERNET_DISCONNECTED (Audit Runde 2, R2-O7).
@@ -274,10 +283,12 @@ export default defineConfig({
         // werden erst beim Anklicken geladen — ohne Vorrat reagierte der
         // Beispiele-Dialog offline gar nicht (Audit „Offline und Speicher", O2).
         // Sie gehören seit R3-O3 zur zweiten Stufe (manifestTransforms unten).
-        // Die Manifest-Screenshots braucht nur der Installationsdialog des
+        // Die Manifest-Screenshots (PNG) braucht nur der Installationsdialog des
         // Browsers, nicht die laufende App — sie gehören nicht in den
-        // Offline-Vorrat, den jedes Gerät beim ersten Aufruf mitlädt.
-        globIgnores: ["screenshots/**"],
+        // Offline-Vorrat, den jedes Gerät beim ersten Aufruf mitlädt. Ihre
+        // WebP-Fassungen stehen auf den Themenseiten und kommen mit der zweiten
+        // Stufe (R5-O4).
+        globIgnores: ["screenshots/**/*.png"],
         // Zwei Stufen (Audit Runde 3, R3-O3): Beispielbögen und Themen-/
         // Länderseiten bleiben aus dem Precache, damit der Service Worker nach
         // dem Kern (Bogen, PDF, QR, Empfang) aktiv wird. Die Startseite lädt
@@ -297,6 +308,13 @@ export default defineConfig({
           {
             urlPattern: ({ url, sameOrigin }) => sameOrigin && /\/assets\/[^/]+\.json$/.test(url.pathname),
             handler: "CacheFirst",
+            options: { cacheName: "eeb-zusatz", expiration: { maxEntries: 1500 } },
+          },
+          {
+            // Fotos der Themenseiten: ohne Hash im Namen, darum im Hintergrund
+            // auffrischen statt für immer aus dem Cache (R5-O4).
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && /\/(?:bilder|screenshots)\/[^/]+\.(?:webp|jpg|png)$/.test(url.pathname),
+            handler: "StaleWhileRevalidate",
             options: { cacheName: "eeb-zusatz", expiration: { maxEntries: 1500 } },
           },
           {

@@ -16,6 +16,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { istNativ } from "./nativ";
+import { speicherGesperrt } from "./eintrag-zeiten";
 import { kernFortschritt, mb, umfangLaden, zusatzNachladen, type OfflineUmfang } from "./offline-vorrat";
 
 export type OfflineStand = "bereit" | "laedt" | "ohne";
@@ -83,6 +84,17 @@ export interface OfflineZustand {
   /** Zweite Stufe (Beispielbögen, Themenseiten): Dateien da / gesamt. */
   zusatz?: { fertig: number; gesamt: number } | null;
   /**
+   * Das Nachladen der zweiten Stufe hakt: Abrufe scheiterten, ein neuer Versuch
+   * folgt in `zusatzNaechsterVersuchMs`. Fortschritt hebt es auf (R5-O2).
+   */
+  zusatzHakt?: boolean;
+  zusatzVersuch?: number;
+  /**
+   * Der Browser nimmt gar nichts zum Speichern an (R5-O7): Die Zeile darf dann
+   * nicht „Alle Daten bleiben auf diesem Gerät" sagen.
+   */
+  speicherGesperrt?: boolean;
+  /**
    * Es gibt eine zweite Stufe (Web mit Service Worker, nicht nativ). Dann
    * heißt „bereit" nur: der Kern liegt im Vorrat. Solange `zusatz` noch nicht
    * gezählt ist, darf die Zeile nicht „komplett offline" sagen.
@@ -103,6 +115,9 @@ export function useOfflineStand(): OfflineZustand {
   const [kern, setKern] = useState<{ geladen: number; gesamt: number } | null>(null);
   const [zusatz, setZusatz] = useState<{ fertig: number; gesamt: number } | null>(null);
   const [abgebrochen, setAbgebrochen] = useState(false);
+  const [zusatzHakt, setZusatzHakt] = useState<{ versuch: number } | null>(null);
+  // Einmal je Aufruf geprüft: Zugriff auf den Speicher gesperrt oder Schreiben abgelehnt (R5-O7).
+  const [gesperrt] = useState(() => speicherGesperrt());
   // Letzte Bewegung des Zählers — steht er still, wird nachgesehen (R4-O1).
   const bewegung = useRef({ geladen: -1, seit: Date.now() });
 
@@ -143,9 +158,13 @@ export function useOfflineStand(): OfflineZustand {
     void zusatzNachladen(
       umfang,
       (fertig, gesamt) => {
-        if (!aus) setZusatz({ fertig, gesamt });
+        if (aus) return;
+        setZusatz({ fertig, gesamt });
+        // Es bewegt sich wieder: Das Haken ist vorbei.
+        setZusatzHakt((h) => (h ? null : h));
       },
       () => aus,
+      { beiHakt: ({ versuch }) => !aus && setZusatzHakt({ versuch }) },
     );
     return () => {
       aus = true;
@@ -221,17 +240,38 @@ export function useOfflineStand(): OfflineZustand {
     sw() !== null &&
     typeof window !== "undefined" &&
     /^https?:$/.test(window.location.protocol);
-  return { stand, frischBereit, online, kern, zusatz, zweiStufen, abgebrochen: stand === "laedt" && abgebrochen };
+  return {
+    stand,
+    frischBereit,
+    online,
+    kern,
+    zusatz,
+    zweiStufen,
+    abgebrochen: stand === "laedt" && abgebrochen,
+    zusatzHakt: zusatzHakt != null,
+    zusatzVersuch: zusatzHakt?.versuch,
+    speicherGesperrt: gesperrt,
+  };
 }
 
 /** Text der Offline-Zeile auf der Startseite. */
 export function offlineText(s: OfflineZustand): string {
-  const daten = "alle Daten bleiben auf diesem Gerät.";
+  // Sperrt der Browser den Speicher, bleibt nichts auf dem Gerät — die Zeile
+  // sagt es, statt das Gegenteil zu versprechen (Audit Runde 5, R5-O7).
+  const daten = s.speicherGesperrt
+    ? "dieser Browser speichert nichts, Eingaben gehen beim Schließen verloren."
+    : "alle Daten bleiben auf diesem Gerät.";
+  const Daten = daten.charAt(0).toUpperCase() + daten.slice(1);
   if (s.stand === "bereit") {
     // Zweite Stufe noch unvollständig: Bogen, PDF, QR und Empfang gehen
     // schon ohne Netz, Beispielbögen und Themenseiten folgen (R3-O3).
     if (s.zusatz && s.zusatz.fertig < s.zusatz.gesamt) {
       const kopf = s.frischBereit ? "✓ Jetzt offline bereit" : "✓ Offline bereit";
+      // Hakt das Nachladen, sagt die Zeile es und dass der Versuch weiterläuft
+      // (R5-O2) — „werden nachgeladen" bei stehendem Zähler war falsch.
+      if (s.online && s.zusatzHakt) {
+        return `${kopf} für Bogen, PDF, QR-Code und Empfang. Beispielbögen und Themenseiten: ${s.zusatz.fertig} von ${s.zusatz.gesamt} da, das Netz hakt — der nächste Versuch läuft von selbst — ${daten}`;
+      }
       return s.online
         ? `${kopf} für Bogen, PDF, QR-Code und Empfang. Beispielbögen und Themenseiten werden nachgeladen (${s.zusatz.fertig} von ${s.zusatz.gesamt}) — ${daten}`
         : `${kopf} für Bogen, PDF, QR-Code und Empfang. Beispielbögen und Themenseiten fehlen noch (${s.zusatz.fertig} von ${s.zusatz.gesamt}), sie folgen beim nächsten Netz — ${daten}`;
@@ -247,16 +287,16 @@ export function offlineText(s: OfflineZustand): string {
       : `✓ Funktioniert komplett offline — ${daten}`;
   }
   if (s.stand === "ohne") {
-    return `Offline-Vorrat ist in diesem Browser nicht möglich (etwa im Privatmodus) — ohne Netz lässt sich die Seite nicht neu laden. Alle Daten bleiben auf diesem Gerät.`;
+    return `Offline-Vorrat ist in diesem Browser nicht möglich (etwa im Privatmodus) — ohne Netz lässt sich die Seite nicht neu laden. ${Daten}`;
   }
   // Fortschritt der ersten Stufe in Megabyte (R3-O3).
   const stand = s.kern && s.kern.gesamt > 0 ? `${mb(s.kern.geladen)} von ${mb(s.kern.gesamt)} MB` : "";
   // Die Registrierung war weg und ist neu angelegt: Der Rest kommt, sobald
   // Netz da ist — wer nicht warten will, lädt neu (R4-O1).
   if (s.abgebrochen && s.online) {
-    return `⚠ Laden abgebrochen${stand ? ` bei ${stand}` : ""} — mit Netz einmal neu laden, dann geht es weiter. Bis dahin diese Seite ohne Netz nicht neu laden. Alle Daten bleiben auf diesem Gerät.`;
+    return `⚠ Laden abgebrochen${stand ? ` bei ${stand}` : ""} — mit Netz einmal neu laden, dann geht es weiter. Bis dahin diese Seite ohne Netz nicht neu laden. ${Daten}`;
   }
   return s.online
-    ? `⏳ Wird für den Offline-Betrieb geladen${stand ? `: ${stand}` : ""} — bitte mit Netz geöffnet lassen. Danach gehen Bogen, PDF, QR-Code und Empfang ohne Netz. Alle Daten bleiben auf diesem Gerät.`
-    : `⚠ Noch nicht offline bereit${stand ? ` (${stand} geladen)` : ""} — ohne Netz diese Seite nicht neu laden; beim nächsten Netz wird der Rest geladen. Alle Daten bleiben auf diesem Gerät.`;
+    ? `⏳ Wird für den Offline-Betrieb geladen${stand ? `: ${stand}` : ""} — bitte mit Netz geöffnet lassen. Danach gehen Bogen, PDF, QR-Code und Empfang ohne Netz. ${Daten}`
+    : `⚠ Noch nicht offline bereit${stand ? ` (${stand} geladen)` : ""} — ohne Netz diese Seite nicht neu laden; beim nächsten Netz wird der Rest geladen. ${Daten}`;
 }

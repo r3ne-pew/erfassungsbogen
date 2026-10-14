@@ -123,3 +123,24 @@ describe("offlineText bei abgebrochenem Laden (R4-O1)", () => {
     expect(offlineText({ stand: "laedt", frischBereit: false, online: false, abgebrochen: true })).toMatch(/Noch nicht offline bereit/);
   });
 });
+
+/** Audit Runde 5, R5-O2/R5-O7. */
+describe("offlineText — hakt und gesperrter Speicher (Runde 5)", () => {
+  it("sagt, dass das Nachladen hakt, statt weiter „werden nachgeladen“ zu behaupten (R5-O2)", () => {
+    const t = offlineText({ stand: "bereit", frischBereit: false, online: true, zusatz: { fertig: 25, gesamt: 474 }, zusatzHakt: true });
+    expect(t).toMatch(/25 von 474 da, das Netz hakt — der nächste Versuch läuft von selbst/);
+    expect(t).not.toMatch(/werden nachgeladen/);
+  });
+
+  it("verspricht bei gesperrtem Speicher nicht, dass alle Daten auf dem Gerät bleiben (R5-O7)", () => {
+    for (const z of [
+      { stand: "bereit" as const, frischBereit: false, online: true },
+      { stand: "laedt" as const, frischBereit: false, online: true },
+      { stand: "ohne" as const, frischBereit: false, online: true },
+    ]) {
+      const t = offlineText({ ...z, speicherGesperrt: true });
+      expect(t).toMatch(/dieser Browser speichert nichts, Eingaben gehen beim Schließen verloren/i);
+      expect(t).not.toMatch(/Daten bleiben auf diesem Gerät/);
+    }
+  });
+});

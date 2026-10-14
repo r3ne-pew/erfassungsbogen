@@ -58,3 +58,25 @@ describe("Speicheranzeige", () => {
     expect(text).not.toMatch(/Wird er voll/);
   });
 });
+
+describe("gesperrter Speicher schon auf der Startseite (R5-O7)", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("warnt, wenn der Browser nichts zum Speichern annimmt, auch ohne Entwurf", async () => {
+    const { vi } = await import("vitest");
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("gesperrt", "SecurityError");
+    });
+    try {
+      render(<SpeicherWarnung stand={3} />);
+      expect(screen.getByRole("alert").textContent).toMatch(/Dieser Browser lässt die App gerade nichts speichern/);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("schweigt, wenn gespeichert werden kann", () => {
+    render(<SpeicherWarnung stand={4} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});

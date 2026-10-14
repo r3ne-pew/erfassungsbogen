@@ -7,7 +7,7 @@
  * Platz steckt, und dass nur Löschen Platz schafft.
  */
 import { useMemo } from "react";
-import { speicherBelegung, speicherFehlerArt, speicherGroessteSammlungen, speicherText } from "./eintrag-zeiten";
+import { speicherBelegung, speicherFehlerArt, speicherGesperrt, speicherGroessteSammlungen, speicherText } from "./eintrag-zeiten";
 import { leseSchreibFehler } from "./speicher-schonend";
 
 /** Gilt als voll: auf ganze Prozent gerundet 100 % (R3-O4). */
@@ -33,12 +33,16 @@ export function groessteText(): string {
  */
 export function SpeicherWarnung({ stand }: { stand: unknown }) {
   const b = useMemo(() => speicherBelegung(), [stand]);
+  const gesperrt = useMemo(() => speicherGesperrt(), [stand]);
   // Je Sammlung einmal serialisieren kostet bei 5 Mio. Zeichen spürbar —
   // nur neu rechnen, wenn sich die Sammlungen geändert haben (R3-O2).
   const groesste = useMemo(() => (b && b.anteil >= SPEICHER_WARNSCHWELLE ? groessteText() : ""), [b]);
   // Beim Lesen ließ sich die Frist-Bereinigung nicht zurückschreiben: die
   // Liste steht trotzdem da, der Speicher nimmt aber nichts an (R3-O2).
   if (leseSchreibFehler()) return <SpeicherNimmtNichtsAn />;
+  // Blockiert der Browser den Speicher ganz, steht das schon auf der Startseite
+  // und nicht erst im Bogen (Audit Runde 5, R5-O7).
+  if (gesperrt) return <SpeicherNimmtNichtsAn />;
   if (!b || b.anteil < SPEICHER_WARNSCHWELLE) return null;
   return (
     <p className="warnung" role="status">
