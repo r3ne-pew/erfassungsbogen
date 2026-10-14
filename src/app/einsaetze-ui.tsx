@@ -42,7 +42,6 @@ import {
   MeldeStatus,
   einsatzEndgueltigLoeschen,
   einsatzLoeschen,
-  einsatzWiederherstellen,
   meldungAufteilen,
   meldungenZusammenfuehren,
   meldungEntfernen,
@@ -54,6 +53,7 @@ import {
   type MeldeEintrag,
   type ZusammenfuehrungOptionen,
 } from "@bos/meldekopf/einsaetze";
+import { einsatzWiederherstellen, ruhtSchonLange } from "./einsatz-wiederherstellen";
 import { fassungGiltSetzen, fassungenJeEinheit, geltendeJeEinheit, istVerdraengt, nachgereichterBogen } from "./fassung-vorrang";
 import { einsaetzeLaden, einsaetzePapierkorb } from "./einsaetze-lesen";
 import { koepfeJe, revisionenJe } from "./einheiten-index";
@@ -528,6 +528,12 @@ export function EinsatzListe(props: {
               {s.eintraege.length} Meldung(en) · gelöscht am {new Date(s.geloeschtAm!).toLocaleDateString("de-DE")} —{" "}
               {papierkorbRest(s.geloeschtAm!).text}
             </p>
+            {/* Wiederherstellen zählt als Änderung: Die Aufräumfrist ruhender
+                Sammlungen beginnt neu (R5-D2). Vorher löschte der Kern eine
+                länger als 90 Tage ruhende Sammlung im selben Augenblick. */}
+            {ruhtSchonLange(s) && (
+              <p className="hinweis">Beim Wiederherstellen beginnt die Aufräumfrist von 90 Tagen neu.</p>
+            )}
             <div className="papierkorb-endgueltig">
               <AbgangKnopf
                 className="entfernen"
