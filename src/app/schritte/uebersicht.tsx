@@ -933,26 +933,14 @@ export function Uebersicht(props: {
         {/* Alter Bogen: zuerst fragen, ob er noch gilt — drei Tipps nach
             „Fortsetzen" stand sonst der QR-Code eines Einsatzes vom Juli
             (Audit Runde 2, R2-S1). */}
+        {/* Nur die Zeile steht vor dem QR-Knopf (R5-M1): Davor standen die Zeile,
+            „Für neuen Einsatz vorbereiten" und dessen Erklärung — bei 200 %
+            Schrift lag „QR-Code im Vollbild zeigen" 1 044 bis 1 212 px tief,
+            hinter einer Textwand. Der Vorbereiten-Knopf folgt dem QR-Knopf. */}
         {zeitraumVorbei && props.onNeuerEinsatz && (
-          <div className="teilen-weg">
-            <p className="warnung" role="status">
-              Dieser Bogen gehört zum Einsatz {zeitraumDeutsch(bogen)}.
-            </p>
-            {/* Kein zweiter Primärknopf: Nachts standen zwei gleich
-                bernsteinfarbene Knöpfe untereinander, und der, der den Bogen
-                verändert, stand oben (Audit Runde 3, R3-L7). Er bleibt zuerst,
-                die Übergabe bleibt der eine Primärknopf. */}
-            <button
-              type="button"
-              onClick={() => {
-                teilenDialog.current?.close();
-                props.onNeuerEinsatz?.();
-              }}
-            >
-              Für neuen Einsatz vorbereiten
-            </button>
-            <p className="hinweis">Zeitraum heute, Ort/Auftrag und Sofortbedarf leer — Personal und Fahrzeuge bleiben.</p>
-          </div>
+          <p className="warnung" role="status">
+            Dieser Bogen gehört zum Einsatz {zeitraumDeutsch(bogen)} — gilt er noch?
+          </p>
         )}
         {/* Die Lücken stehen eingeklappt über den Wegen: Aufgeklappt schoben
             sechs Punkte „QR-Code" und „PDF" unter das erste Bild, und wer
@@ -998,6 +986,23 @@ export function Uebersicht(props: {
             {qr?.segmentiert ? ` — ${qr.teile.length} Teile nacheinander` : ""}.
           </p>
         </div>
+        {zeitraumVorbei && props.onNeuerEinsatz && (
+          <div className="teilen-weg">
+            {/* Kein zweiter Primärknopf: Nachts standen zwei gleich
+                bernsteinfarbene Knöpfe untereinander (Audit Runde 3, R3-L7);
+                die Übergabe bleibt der eine Primärknopf, er steht jetzt vorn. */}
+            <button
+              type="button"
+              onClick={() => {
+                teilenDialog.current?.close();
+                props.onNeuerEinsatz?.();
+              }}
+            >
+              Für neuen Einsatz vorbereiten
+            </button>
+            <p className="hinweis">Zeitraum heute, Ort/Auftrag und Sofortbedarf leer — Personal und Fahrzeuge bleiben.</p>
+          </div>
+        )}
         {/* Handy zu Handy ohne Papier und ohne Kamera. Nur dort anbieten, wo es
             ein Share-Sheet gibt — sonst zeigte der Knopf ins Leere. */}
         {shareSheetVerfuegbar() && (

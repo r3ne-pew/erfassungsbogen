@@ -3704,17 +3704,27 @@ function AppInhalt() {
             drängt sich nur noch vor die Karte, um die es jetzt geht — das
             Offline-Versprechen bleibt als schmales Badge stehen, der Satz
             entfällt (wie „So funktioniert's" unten). */}
+        {/* Am Telefon die kurze Fassung (R5-M2): Der vierzeilige Absatz und der
+            Offline-Hinweis schoben „Neuen Bogen erstellen" beim Erstbesuch unter
+            den Bildrand, bei 200 % Schrift auf den dritten Bildschirm. */}
         {erststart && (
-          <p>
-            Das kostenlose Online-Tool für BOS-Einheiten und Hilfsorganisationen:
-            Bogen digital erfassen, als PDF drucken, als Datei teilen – und per
-            QR-Code ohne Internetverbindung von Gerät zu Gerät übertragen.
+          <p className="start-intro">
+            <span className="start-intro-lang">
+              Das kostenlose Online-Tool für BOS-Einheiten und Hilfsorganisationen:
+              Bogen digital erfassen, als PDF drucken, als Datei teilen – und per
+              QR-Code ohne Internetverbindung von Gerät zu Gerät übertragen.
+            </span>
+            <span className="start-intro-kurz">
+              Kostenloses Online-Tool für BOS-Einheiten: Bogen erfassen, als PDF
+              drucken, per QR-Code ohne Internet übertragen.
+            </span>
           </p>
         )}
         {/* Die Zusage erst, wenn sie stimmt (R2-O1, offline-bereit.ts). Mit
             angefangenem Bogen steht sie unter dessen Karte: Sie schob
             „Fortsetzen" im Feld-Modus unter den Bildrand (Audit Runde 3, R3-H5). */}
-        {!bogen && offlineHinweis}
+        {/* Beim Erstbesuch steht die Zeile unter den Aktionen des ersten Wegs, nicht davor (R5-M2). */}
+        {!bogen && !erststart && offlineHinweis}
         <SpeicherWarnung stand={einsaetze} />
         <UhrWarnung />
         {/* „Weiter, wo du warst": der Entwurf als Karte mit taktischem Zeichen,
@@ -3961,6 +3971,7 @@ function AppInhalt() {
                 </span>
               </button>
             </div>
+            {erststart && offlineHinweis}
           </section>
           <section className="weiche-weg" aria-labelledby="weg-meldekopf">
             <h2 id="weg-meldekopf">Bögen sammeln (Meldekopf)</h2>

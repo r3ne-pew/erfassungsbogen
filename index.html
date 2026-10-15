@@ -437,6 +437,14 @@
     /* Das Offline-Versprechen ist ein Etikett, kein Fließtext — es bleibt auf
        breiten Fenstern einzeilig (max-content), darf aber nie über den Rand
        hinauslaufen: auf dem Telefon bricht es innerhalb der Fensterbreite um. */
+    /* Kurze Einleitung am Telefon (R5-M2). */
+    .start-intro-kurz { display: none; }
+    @media (max-width: 640px) {
+      .start-intro-lang { display: none; }
+      .start-intro-kurz { display: inline; }
+    }
+    .weiche-weg > p.offline-badge { max-width: 100%; width: max-content; font-size: var(--t-s); margin-top: var(--r-3); }
+    .weiche-weg > p.offline-badge.offline-laedt { color: var(--warn-text); border-color: currentColor; }
     .start > p.offline-badge { max-width: 100%; width: max-content; font-size: var(--t-s); }
     /* Noch nicht offline bereit (R2-O1): in Warnfarbe, damit die Zeile nicht wie die Zusage aussieht. */
     /* R3-L7: Rahmen in derselben Warnfarbe — der grüne Rahmen sagte „in
@@ -533,6 +541,18 @@
     /* margin-top:auto statt fixem Abstand: die Knopfreihen beider Wege stehen
        auf gleicher Höhe, auch wenn ein Hinweistext länger ist. */
     .weiche > .weiche-weg > .aktionen { margin-top: auto; padding-top: var(--r-3); }
+    /* R5-M2, Deckel-Regel (DESIGN.md): Auf der Startseite wuchsen Themenleiste,
+       Einleitung und Überschrift mit der Systemschrift auf den vierfachen
+       Platz — bei 200 % lag „Neuen Bogen erstellen" auf 2 136 px, dem dritten
+       Bildschirm. Die Bedienelemente der Leiste bleiben beim Handschuhmaß, die
+       Schrift der Einleitung, der Überschrift und der Zeile darunter ist nach
+       oben gedeckelt; bei normaler Schrift ändert sich nichts. */
+    .kopfnav-logo, .kopfnav-links a { min-height: min(var(--ziel-basis), 44px); }
+    .kopfnav-links a { min-width: min(var(--ziel-basis), 44px); font-size: min(var(--t-xs), 16px); }
+    .kopfnav-logo { font-size: min(var(--t-s), 18px); }
+    .start > p.start-intro { font-size: min(var(--t-l), 20px); }
+    .weiche > .weiche-weg > h2 { font-size: min(var(--t-xl), 28px); }
+    .weiche > .weiche-weg > .hinweis { font-size: min(var(--t-xs), 16px); }
     /* Die Hauptaktion belegt eine eigene Zeile über volle Kartenbreite. Sonst
        entscheidet die Textlänge über den Umbruch: „Neuen Bogen erstellen" ließ
        den Nachbarknopf neben sich, „Neuer Einsatz…" nicht — die beiden Wege
@@ -1477,8 +1497,12 @@
          Addition, damit der Knopf am Rechner nicht grundlos abrückt. */
       padding: min(0.7rem, 12.5px) min(1rem, 18px);
       padding-bottom: max(min(0.7rem, 12.5px), env(safe-area-inset-bottom));
-      padding-left: max(min(1rem, 18px), env(safe-area-inset-left));
-      padding-right: max(min(1rem, 18px), env(safe-area-inset-right));
+      /* R5-M7: Der Inhalt der Leiste steht auf der Spalte von main (60rem, mit
+         dessen Innenabstand), nicht am Fensterrand: Auf dem Tablet quer (1 180 px)
+         lag „Weiter →" 110 px neben der Spalte. Auf dem Telefon ist der
+         Randabstand der größere Wert, es ändert sich nichts. */
+      padding-left: max(min(1rem, 18px), env(safe-area-inset-left), calc((100% - 60rem) / 2 + min(var(--r-4), 18px)));
+      padding-right: max(min(1rem, 18px), env(safe-area-inset-right), calc((100% - 60rem) / 2 + min(var(--r-4), 18px)));
     }
     /* R4-G3: Bei offener Bildschirmtastatur (Fokus in einer Texteingabe UND
        deutlich kleinere sichtbare Höhe, src/app/tastatur.ts) weicht die feste
@@ -1651,6 +1675,51 @@
          Reiter seinen Namen, die übrigen Nummer und Status wie hochkant —
          so passt die Leiste ganz ins Bild. */
       .seiten-kopf.assistent-kopf .schritte button { white-space: nowrap; padding: 0.3rem 0.6rem; min-height: max(calc(2.25rem + var(--ziel)), 44px); }
+    }
+    /* R5-M3, R5-G6, Deckel-Regel (DESIGN.md): Quer bei 200 % Schrift füllte der
+       Kopf das Fenster — in der Erfassung 384 px bei 360 px Höhe, kein Feld im
+       ersten Bild; im Assistenten lag „6 . Übersicht" außerhalb der
+       Schrittleiste (656 px bei 640). Schrift und Zielhöhe der Kopf-
+       Bedienelemente bleiben hier beim Handschuhmaß stehen (px-Deckel auf dem
+       Maß des Feld-Modus), die Titelzeile trägt die Sammlungsmarke einzeilig
+       neben dem Zeichen, und die Bänder (Übung, Datenschutzfrist) schrumpfen
+       auf eine Zeile — ihr erstes Wort bleibt vorn stehen, der Satz dahinter
+       wird gekürzt und bleibt im Baum. Bei normaler Schrift ändert sich nichts. */
+    @media (orientation: landscape) and (max-height: 31.25rem) {
+      .seiten-kopf .zur-start { font-size: min(var(--t-m), 18px); min-height: calc(44px + var(--ziel)); }
+      .seiten-kopf h1, .seiten-kopf.assistent-kopf .titelzeile h1 { font-size: min(var(--t-s), 16px); }
+      .seiten-kopf .modus-marke { font-size: min(var(--t-xs), 14px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 100%; }
+      .seiten-kopf .anzeige-schalter button { font-size: min(var(--t-xs), 16px); min-height: calc(44px + var(--ziel)); min-width: calc(44px + var(--ziel)); padding-inline: min(0.7rem, 12px); }
+      .seiten-kopf .anzeige-schalter .anzeige-klappe { font-size: min(var(--t-s), 16px); }
+      .seiten-kopf.assistent-kopf .schritte button { font-size: min(var(--t-s), 16px); min-height: calc(44px + var(--ziel)); padding-block: 0.15rem; padding-inline: min(0.6rem, 10px); }
+      .seiten-kopf.assistent-kopf img.einheit-avatar { height: min(1.6rem, 28px); }
+      .uebungs-band, .frist-band { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-block: 0.15rem; font-size: min(var(--t-s), 16px); }
+      /* Das erste Feld soll im ersten Bild stehen, nicht Polster und Titel davor. */
+      main { padding-top: min(var(--r-3), 12px); }
+      main .karte { padding: min(var(--r-4), 16px); }
+      .schritt-inhalt h2 { font-size: min(var(--t-xl), 24px); }
+      .schritt-inhalt > p { font-size: min(var(--t-m), 18px); }
+      main .hinweis { font-size: min(var(--t-xs), 16px); }
+      main label.feld { font-size: min(var(--t-xs), 16px); margin-top: min(var(--r-2), 8px); }
+      main label.feld > input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), main label.feld > select { font-size: min(var(--t-m), 20px); min-height: calc(44px + var(--ziel)); padding-block: 0.25rem; }
+    }
+    /* Dasselbe bei großer Schrift im Hochformat (schrift-stufe.ts setzt die Klasse): 200 % auf 360 × 640 ließ im Kopf 260 px, das erste Feld lag zum Teil unter der Leiste. */
+    @media (max-height: 44rem) {
+      html.schrift-gross .seiten-kopf .zur-start { font-size: min(var(--t-m), 18px); min-height: calc(44px + var(--ziel)); }
+      html.schrift-gross .seiten-kopf h1, html.schrift-gross .seiten-kopf.assistent-kopf .titelzeile h1 { font-size: min(var(--t-s), 16px); }
+      html.schrift-gross .seiten-kopf .modus-marke { font-size: min(var(--t-xs), 14px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 100%; }
+      html.schrift-gross .seiten-kopf .anzeige-schalter button { font-size: min(var(--t-xs), 16px); min-height: calc(44px + var(--ziel)); min-width: calc(44px + var(--ziel)); padding-inline: min(0.7rem, 12px); }
+      html.schrift-gross .seiten-kopf .anzeige-schalter .anzeige-klappe { font-size: min(var(--t-s), 16px); }
+      html.schrift-gross .seiten-kopf.assistent-kopf .schritte button { font-size: min(var(--t-s), 16px); min-height: calc(44px + var(--ziel)); padding-block: 0.15rem; padding-inline: min(0.6rem, 10px); }
+      html.schrift-gross .seiten-kopf.assistent-kopf img.einheit-avatar { height: min(1.6rem, 28px); }
+      html.schrift-gross .uebungs-band, html.schrift-gross .frist-band { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-block: 0.15rem; font-size: min(var(--t-s), 16px); }
+      html.schrift-gross main { padding-top: min(var(--r-3), 12px); }
+      html.schrift-gross main .karte { padding: min(var(--r-4), 16px); }
+      html.schrift-gross .schritt-inhalt h2 { font-size: min(var(--t-xl), 24px); }
+      html.schrift-gross .schritt-inhalt > p { font-size: min(var(--t-m), 18px); }
+      html.schrift-gross main .hinweis { font-size: min(var(--t-xs), 16px); }
+      html.schrift-gross main label.feld { font-size: min(var(--t-xs), 16px); margin-top: min(var(--r-2), 8px); }
+      html.schrift-gross main label.feld > input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), html.schrift-gross main label.feld > select { font-size: min(var(--t-m), 20px); min-height: calc(44px + var(--ziel)); padding-block: 0.25rem; }
     }
     @media (orientation: landscape) and (max-height: 31.25rem) and (max-width: 48rem) {
       .seiten-kopf.assistent-kopf .schritte { position: relative; }
@@ -1971,6 +2040,17 @@
        Situationshilfe. Die drei Vor-Ort-Wege stehen als dichter Stapel
        (--r-2 statt 0.9rem Absatz): unter Stress wird der Text nicht gelesen,
        der zweite Knopf muss ohne Scrollen im Bild stehen. */
+    /* R5-M1, Deckel-Regel (DESIGN.md): Der Dialog wuchs mit der Systemschrift —
+       bei 200 % und 360 × 640 war er 1 901 px hoch, der QR-Knopf lag 1 170 px
+       tief. Schrift, Knopfmaß und Polster stehen in px gedeckelt wie im
+       QR-Vollbild und an den Leisten (Maß des Feld-Modus); bei normaler
+       Schrift ändert sich nichts. */
+    .teilen-dialog { font-size: min(var(--t-m), 18px); }
+    .teilen-dialog h2 { font-size: min(var(--t-xl), 24px); }
+    .teilen-dialog .hinweis { font-size: min(var(--t-xs), 15px); }
+    .teilen-dialog .warnung { font-size: min(var(--t-s), 16px); }
+    .teilen-dialog button, .teilen-dialog summary { font-size: min(var(--t-m), 18px); }
+    .teilen-dialog button { min-height: min(calc(var(--ziel-basis) + var(--ziel)), calc(44px + var(--ziel))); padding: min(0.55rem, 10px) min(1.1rem, 18px); }
     .teilen-dialog .teilen-weg { margin: var(--r-3) 0 0; }
     .teilen-dialog .teilen-weg + .teilen-weg { margin-top: var(--r-2); }
     /* Zweite Stufe des Übergeben-Dialogs: Link/CSV/Excel eingeklappt, damit am
@@ -2473,7 +2553,7 @@
       html:has(main.einsatz-detail) .kopfnav-inner { max-width: 84rem; }
       main.einsatz-detail {
         max-width: 84rem; display: grid;
-        grid-template-columns: minmax(20rem, 27rem) minmax(0, 1fr);
+        grid-template-columns: minmax(min(20rem, 320px), min(27rem, 432px)) minmax(0, 1fr);
         column-gap: var(--r-5); align-items: start;
       }
       main.einsatz-detail > * { grid-column: 1 / -1; }

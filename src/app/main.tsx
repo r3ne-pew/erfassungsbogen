@@ -15,6 +15,7 @@ import { Fehlerfaenger } from "./fehlerfaenger";
 import { DebugLeiste, debugAktiv, wendePlattformKlasseAn, wendeRahmenAn } from "./debug-plattform";
 import { wendeAnzeigeModusAn } from "./anzeige-modus";
 import { tastaturWaechterStarten } from "./tastatur";
+import { schriftStufeStarten } from "./schrift-stufe";
 import { statistikStarten } from "./statistik";
 import { dauerhaftWennWertvoll, speicherVerdrahten } from "./speicher-browser";
 
@@ -31,6 +32,8 @@ wendeRahmenAn();
 wendeAnzeigeModusAn();
 // Feste Leiste weicht der Bildschirmtastatur (R4-G3).
 tastaturWaechterStarten();
+// Große Systemschrift: Das Stylesheet verdichtet dann die niedrigen Fenster (R5-M3).
+schriftStufeStarten();
 
 // Im Debug-Modus eine schwebende Leiste zum Umschalten der Vorschau zeigen.
 function Wurzel() {
