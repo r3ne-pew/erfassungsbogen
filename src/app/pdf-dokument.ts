@@ -297,6 +297,8 @@ export interface UebersichtEintrag {
    * (R5-A1): Das Blatt kennzeichnet sie, statt eine Uhrzeit wie eine Angabe zu drucken.
    */
   zeitUnbestaetigt?: boolean;
+  /** Ort/Auftrag, den der Bogen nennt, obwohl er nicht zur Lage zu passen scheint (R5-K5). */
+  fremderOrt?: string;
 }
 
 /** Ein Bogen der Sammel-PDF samt QR — die Übersichtsangaben plus der Code für die Bogenseiten. */
@@ -535,6 +537,8 @@ function uebersichtsTabelle(
     if (teil) namensZeilen.push({ text: teil, italics: true });
     if (b.uebung) namensZeilen.push({ text: "ÜBUNG", bold: true, color: UEBUNG_FARBE });
     if (!e.abgerueckt && e.zaehlt === false) namensZeilen.push({ text: "zählt nicht in diese Lage", italics: true });
+    // Wie an der Karte: Der Bogen nennt einen anderen Einsatz, gezählt wird er trotzdem (R5-K5).
+    if (e.fremderOrt) namensZeilen.push({ text: `Anderer Einsatz? Bogen nennt: „${e.fremderOrt}“`, bold: true });
     // Nachtrag: der Grund je Zeile (R5-W7).
     if (e.nachtragGrund) {
       namensZeilen.push({

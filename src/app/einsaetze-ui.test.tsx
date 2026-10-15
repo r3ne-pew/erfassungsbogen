@@ -1486,7 +1486,8 @@ describe("Quittung nennt die zuletzt aufgenommenen Einheiten (R2-S4)", () => {
   });
 
   it("zeigt an Karte und Quittung, dass ein Bogen für eine andere Lage ausgefüllt scheint, ohne ihn auszunehmen (R4-K6)", () => {
-    const angelegt = einsatzAnlegen("Hochwasser Jagst", EinsatzArt.EINSATZ);
+    // Mit Ort der Sammlung: ohne ihn gäbe es für die ersten Bögen keine Vergleichsbasis (R5-N1).
+    const angelegt = einsatzAnlegen("Hochwasser Jagst", EinsatzArt.EINSATZ, "Jagst");
     const passend = bogenMitName("Albstadt");
     passend.einsatz = { ...passend.einsatz, ortAuftrag: "Deichverteidigung Jagst" };
     meldungHinzufuegen(angelegt.id, passend);

@@ -69,7 +69,7 @@ import { HERKUNFT_TEXT, eintreffzeit, zeitLang } from "./eintrag-zeiten";
 import { meldungsNummern } from "./einheiten-tabelle";
 import { MeldeStatus, type Einsatzsammlung, type MeldeEintrag, type MeldeQuelle } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit } from "./fassung-vorrang";
-import { nachtragGrundText } from "./export-stand";
+import { nachtragGrundText, ortHinweisText, ortHinweise } from "./export-stand";
 
 // ------------------------------------------------------------------ Spalten
 
@@ -134,6 +134,8 @@ const SPALTEN = [
   "Abgerückt",
   "Auftrag/Notiz (Führungsstelle)",
   "Signatur",
+  // „Anderer Einsatz?" wie an der Karte (R5-K5).
+  "Hinweis zur Meldung",
   // Satzart „Person"
   "Nachname",
   "Vorname",
@@ -234,6 +236,8 @@ interface Kontext {
   quelle?: string;
   status?: string;
   signatur?: string;
+  /** Ort, den der Bogen nennt, wenn er nicht zur Lage passt (R5-K5). */
+  fremderOrt?: string;
 }
 
 function kontextFelder(b: Erfassungsbogen, k: Kontext, satzart: string, nr?: number): Satz {
@@ -298,6 +302,7 @@ function einheitSatz(b: Erfassungsbogen, k: Kontext): Satz {
     "Abgerückt": k.abgerueckt ?? "",
     "Auftrag/Notiz (Führungsstelle)": k.notiz ?? "",
     Signatur: k.signatur ?? "",
+    "Hinweis zur Meldung": k.fremderOrt != null ? ortHinweisText(k.fremderOrt) : "",
   };
 }
 
@@ -360,8 +365,9 @@ export function bogenCsvInhalt(b: Erfassungsbogen): string {
   return zuDatei(bogenSaetze(b, {}));
 }
 
-function kontextAusMeldung(e: MeldeEintrag, einsatz: string, meldungNr?: number): Kontext {
+function kontextAusMeldung(e: MeldeEintrag, einsatz: string, meldungNr?: number, fremderOrt?: string): Kontext {
   return {
+    fremderOrt,
     einsatz,
     meldungNr,
     eingetroffen: zeitLang(eintreffzeit(e)),
@@ -395,10 +401,11 @@ export function einsatzDetailCsvInhalt(
       (a.teilEtikett ?? "").localeCompare(b.teilEtikett ?? "", "de"),
   );
   const gruende = s.nachtragGruende;
+  const orte = ortHinweise(s);
   // Je Satz die Einheit, zu der er gehört — für die Spalte „Im Nachtrag wegen" (R5-W7).
   const einheitJeSatz: string[] = [];
   const saetze = meldungen.flatMap((e) => {
-    const teil = bogenSaetze(e.bogen, kontextAusMeldung(e, s.name, nummern.get(e.einheitSchluessel)));
+    const teil = bogenSaetze(e.bogen, kontextAusMeldung(e, s.name, nummern.get(e.einheitSchluessel), orte[e.einheitSchluessel]));
     for (const _ of teil) einheitJeSatz.push(e.einheitSchluessel);
     return teil;
   });

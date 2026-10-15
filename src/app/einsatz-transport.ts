@@ -56,7 +56,7 @@ interface EinsatzDatei {
 export function einsatzDateiInhalt(s: Einsatzsammlung, staende?: Partial<Record<ExportZiel, ExportStand>>): string {
   // Jeder enthaltene Bogen mit seiner Transport-Version: nur Übungsbögen
   // fordern das neue Schema, alles andere bleibt für alte Stände lesbar.
-  const { nachtragGruende: _gruende, exportStaende: _staende, ...rest } = s;
+  const { nachtragGruende: _gruende, exportStaende: _staende, fremdeOrte: _orte, ...rest } = s;
   const einsatz: Einsatzsammlung = {
     ...rest,
     eintraege: s.eintraege.map((e) => ({ ...e, bogen: mitTransportVersion(e.bogen) })),
@@ -110,6 +110,7 @@ function einsatzAusRoh(roh: unknown): Einsatzsammlung {
   // Die Stände der Exporte aus dem Umschlag gehören nicht in die Sammlung: Sie
   // hängen bis zum Import an ihr und werden dort übernommen und entfernt (R5-W6).
   delete (s as { nachtragGruende?: unknown }).nachtragGruende;
+  delete (s as { fremdeOrte?: unknown }).fremdeOrte;
   if (alsDatei?.typ === "eeb-einsatz" && alsDatei.staende && typeof alsDatei.staende === "object") s.exportStaende = alsDatei.staende;
   else delete s.exportStaende;
   const gesamt = s.eintraege.length;

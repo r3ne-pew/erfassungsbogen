@@ -20,7 +20,7 @@ import { einheitAnzeigename, orgLabel, vokabText, vokabularFuer, zeitpunktDeutsc
 import { meldungsNummern, pruefpunkteEintrag } from "./einheiten-tabelle";
 import { aktuelleMeldungen, unterbringungLage, verpflegungLage, zaehltInLage } from "./auswertung";
 import { csvDatei, csvZeile } from "./csv";
-import { nachtragGrundText } from "./export-stand";
+import { nachtragGrundText, ortHinweisText, ortHinweise } from "./export-stand";
 import { HERKUNFT_TEXT, eintreffzeit, zeitLang } from "./eintrag-zeiten";
 import { MeldeStatus, type Einsatzsammlung, type MeldeEintrag, type MeldeQuelle } from "@bos/meldekopf/einsaetze";
 
@@ -123,7 +123,7 @@ function absenderText(e: MeldeEintrag): string {
   return [a.name, a.telefon, a.email].map((x) => x?.trim()).filter(Boolean).join(" · ");
 }
 
-function datenZeile(art: EinsatzArt, e: MeldeEintrag, nr: number | undefined, grund?: string): string {
+function datenZeile(art: EinsatzArt, e: MeldeEintrag, nr: number | undefined, grund?: string, fremderOrt?: string): string {
   const b = e.bogen;
   const st = staerke(b);
   // Wie Tabelle und Summen: Schnellerfassung zählt die Stärke (R2-N5).
@@ -166,7 +166,8 @@ function datenZeile(art: EinsatzArt, e: MeldeEintrag, nr: number | undefined, gr
     zaehlt(art, e) ? "ja" : "nein",
     b.uebung ? "ÜBUNG" : "",
     sofortbedarfText(b),
-    pruefpunkteEintrag(e).map((p) => p.text).join(" | "),
+    // Auch „Anderer Einsatz?": die Warnung der Karte gehört zu den offenen Punkten (R5-K5).
+    [...pruefpunkteEintrag(e).map((p) => p.text), ...(fremderOrt != null ? [ortHinweisText(fremderOrt)] : [])].join(" | "),
     signaturText(e),
     absenderText(e),
     e.notiz ?? "",
@@ -265,7 +266,8 @@ export function einsatzCsvInhalt(
   const gruende = s.nachtragGruende;
   const zaehlende = aktuelleMeldungen(s.eintraege, s.art);
   const kopf = csvZeile([...SPALTEN, ...(gruende ? ["Im Nachtrag wegen"] : [])]);
-  const zeilen = alle.map((e) => datenZeile(s.art, e, nummern.get(e.einheitSchluessel), gruende ? nachtragGrundText(gruende[e.einheitSchluessel]) : undefined));
+  const orte = ortHinweise(s);
+  const zeilen = alle.map((e) => datenZeile(s.art, e, nummern.get(e.einheitSchluessel), gruende ? nachtragGrundText(gruende[e.einheitSchluessel]) : undefined, orte[e.einheitSchluessel]));
   if (!gruende) {
     return csvDatei([kopf, ...zeilen, summenZeile(zaehlende, `${nachtrag ? "Summe Nachtrag" : "Summe"} (${zaehlende.length} Einheiten)`)]);
   }

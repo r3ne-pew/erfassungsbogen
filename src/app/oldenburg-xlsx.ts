@@ -88,7 +88,7 @@ import { geltendeJeEinheit } from "./fassung-vorrang";
 import { zaehltInLage } from "./auswertung";
 import { datumVonMs, lueckenAlle, pruefpunkteEintrag } from "./einheiten-tabelle";
 import { eintreffzeit, zeitLang } from "./eintrag-zeiten";
-import { nachtragGrundText, type NachtragGrund } from "./export-stand";
+import { nachtragGrundText, ortHinweisText, ortHinweise, type NachtragGrund } from "./export-stand";
 
 export { XLSX_MIME };
 
@@ -405,7 +405,7 @@ function zeileFuer(b: Erfassungsbogen, k: Kontext): Zeile {
     bemerkung: [
       k.status ?? "",
       k.nachtrag ? `Nachtrag: ${k.nachtrag}` : "",
-      k.fremderOrt ? `Anderer Einsatz? Bogen nennt: „${k.fremderOrt}“` : "",
+      k.fremderOrt ? ortHinweisText(k.fremderOrt) : "",
       b.uebung === true ? "ÜBUNG" : "",
       k.zaehltNicht ? "zählt nicht in der Lage" : "",
       zeitraumVorbei ? `Einsatzzeitraum im Bogen endete ${datumDeutsch(datumZuIso(b.einsatz.zeitraumBis))} — Bogen aus früherer Lage?` : "",
@@ -555,7 +555,8 @@ export function einsatzOldenburgXlsx(s: Einsatzsammlung): Uint8Array<ArrayBuffer
   // Dieselbe Regel wie aktuelleMeldungen (App-Summen, CSV, Sammel-PDF).
   const zaehlt = (e: MeldeEintrag) => e.status === MeldeStatus.ANWESEND && zaehltInLage(s.art, e.bogen);
   const gruende = s.nachtragGruende;
-  const zeile = (e: MeldeEintrag) => zeileFuer(e.bogen, kontextAus(s, e, zaehlt(e), gruende?.[e.einheitSchluessel]));
+  const orte = ortHinweise(s);
+  const zeile = (e: MeldeEintrag) => zeileFuer(e.bogen, kontextAus(s, e, zaehlt(e), gruende?.[e.einheitSchluessel], orte[e.einheitSchluessel]));
   const nichtGezaehlt = meldungen.filter((e) => !zaehlt(e));
   if (!gruende) return blattBauen(meldungen.filter(zaehlt).map(zeile), [{ kopf: blockKopfText(nichtGezaehlt.length), zeilen: nichtGezaehlt.map(zeile) }]);
   // Nachtrag (R5-K6, R5-W7): Die Summen in Zeile 1 gelten nur für die NEUEN
@@ -591,8 +592,9 @@ function statusVermerk(s: Einsatzsammlung, e: MeldeEintrag): string | undefined 
   return undefined;
 }
 
-function kontextAus(s: Einsatzsammlung, e: MeldeEintrag, zaehlt: boolean, grund?: NachtragGrund): Kontext {
+function kontextAus(s: Einsatzsammlung, e: MeldeEintrag, zaehlt: boolean, grund?: NachtragGrund, fremderOrt?: string): Kontext {
   return {
+    fremderOrt,
     nachtrag: grund ? nachtragGrundText(grund) : undefined,
     zug: e.zugEtikett,
     teil: e.teilEtikett,

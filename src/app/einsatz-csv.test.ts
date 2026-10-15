@@ -286,3 +286,26 @@ describe("Nachtrag-CSV (Audit Runde 5, R5-W7, R5-K6)", () => {
     expect(csv).toContain("NACHTRAG seit");
   });
 });
+
+describe("Anderer Einsatz? in den Exporten (Audit Runde 5, R5-K5)", () => {
+  it("trägt den Hinweis in CSV, Alle-Daten-CSV und Excel-Bemerkung, passende Einheiten nicht", async () => {
+    const { einsatzCsvInhalt } = await import("./einsatz-csv");
+    const { einsatzDetailCsvInhalt } = await import("./bogen-csv");
+    const { neuerBogen } = await import("./hilfen");
+    const { EinsatzArt, MeldeStatus, einheitSchluessel } = await import("@bos/meldekopf/einsaetze");
+    const mk = (id: string, name: string, ort: string) => {
+      const b = neuerBogen();
+      b.einheit.hierarchie[0]!.name = name;
+      b.einsatz = { ...b.einsatz, ortAuftrag: ort };
+      return { id, einheitSchluessel: einheitSchluessel(b.einheit), empfangenAm: 1, quelle: "scan" as const, status: MeldeStatus.ANWESEND, bogen: b };
+    };
+    const s = {
+      id: "e", name: "Hochwasser Jagst", ort: "Möckmühl", art: EinsatzArt.EINSATZ, angelegt: 1, geaendert: 1,
+      eintraege: [mk("a", "Albstadt", "Deichsicherung Möckmühl"), mk("n", "Neu-Ulm", "Brandeinsatz Lagerhalle Ulm")],
+    };
+    for (const csv of [einsatzCsvInhalt(s), einsatzDetailCsvInhalt(s)]) {
+      expect(csv).toContain("Anderer Einsatz? Bogen nennt: „Brandeinsatz Lagerhalle Ulm“");
+      expect(csv.match(/Anderer Einsatz\?/g)).toHaveLength(1);
+    }
+  });
+});

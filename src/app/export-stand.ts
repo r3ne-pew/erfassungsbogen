@@ -28,6 +28,7 @@ import { zeitLang } from "./eintrag-zeiten";
 import { FELDER, STAND_FELDER, standGleichheit, vermerkFeld, vermerkKennung, type Feld, type StandFeld } from "./einsatz-abgleich";
 import { MeldeStatus } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit } from "./fassung-vorrang";
+import { abweichenderOrt } from "./einheiten-tabelle";
 
 /**
  * Stände des Exports je Einsatz UND Format (R4-W2). Bis Runde 4 gab es einen
@@ -497,7 +498,34 @@ declare module "@bos/meldekopf/einsaetze" {
      * in die Sammel-PDF eingebettet.
      */
     nachtragGruende?: Record<string, NachtragGrund>;
+    /**
+     * Nur an einer zugeschnittenen Sammlung: Einheiten, deren Bogen einen anderen
+     * Einsatz nennt (R5-K5), auf Grundlage der GANZEN Sammlung gerechnet — ein
+     * Nachtrag mit zwei Einheiten hätte sonst keine Vergleichsbasis. Nie gespeichert.
+     */
+    fremdeOrte?: Record<string, string>;
   }
+}
+
+/**
+ * Einheiten, deren Bogen einen Ort/Auftrag nennt, der nicht zur Lage passt
+ * (R5-K5), als Schlüssel → Text des Bogens. Dieselbe Regel wie die Marke „Anderer
+ * Einsatz?" an der Karte; Lageblatt, Sammel-PDF, CSV und Excel tragen sie jetzt
+ * ebenfalls. `fremdeOrte` der zugeschnittenen Sammlung geht vor.
+ */
+export function ortHinweise(s: Einsatzsammlung, ganz: readonly MeldeEintrag[] = s.eintraege): Record<string, string> {
+  if (s.fremdeOrte) return s.fremdeOrte;
+  const aus: Record<string, string> = {};
+  for (const e of geltendeJeEinheit(s.eintraege)) {
+    const ort = abweichenderOrt(e, s, ganz);
+    if (ort != null) aus[e.einheitSchluessel] = ort;
+  }
+  return aus;
+}
+
+/** Der Hinweis in Worten, für Zellen und Zeilen der Ausgaben. */
+export function ortHinweisText(ort: string): string {
+  return `Anderer Einsatz? Bogen nennt: „${ort}“ – passt das zu dieser Lage? Zählt trotzdem mit.`;
 }
 
 /**
@@ -539,8 +567,9 @@ export function nachtragGrundText(g: NachtragGrund | undefined): string {
 export function exportSammlung(einsatz: Einsatzsammlung, umfang: ExportUmfang, stand: ExportStand | null): Einsatzsammlung {
   if (umfang === "alle") return einsatz;
   const eintraege = nachtragEintraege(einsatz.eintraege, stand);
-  if (!stand) return { ...einsatz, eintraege };
-  return { ...einsatz, eintraege, nachtragSeit: stand.zeitpunkt, nachtragGruende: nachtragGruende(einsatz.eintraege, stand) };
+  const fremdeOrte = ortHinweise({ ...einsatz, eintraege }, einsatz.eintraege);
+  if (!stand) return { ...einsatz, eintraege, fremdeOrte };
+  return { ...einsatz, eintraege, fremdeOrte, nachtragSeit: stand.zeitpunkt, nachtragGruende: nachtragGruende(einsatz.eintraege, stand) };
 }
 
 /**

@@ -418,11 +418,45 @@ describe("abweichenderOrt — Bogen einer anderen Lage (Audit Runde 4, R4-K6)", 
     const nurAllgemein = mit("Ulm", "Hochwasserlage", "u");
     expect(abweichenderOrt(nurAllgemein, lage, [nurAllgemein])).toBeNull(); // nichts Verortbares
     const fremdMitAllgemeinem = mit("Crailsheim", "Hochwasserlage Crailsheim — Bootsbetrieb", "c");
-    expect(abweichenderOrt(fremdMitAllgemeinem, { name: "Hochwasser Eyach 10/2026" }, [fremdMitAllgemeinem])).toBe(
+    expect(abweichenderOrt(fremdMitAllgemeinem, { name: "Hochwasser Eyach 10/2026", ort: "Eyach" }, [fremdMitAllgemeinem])).toBe(
       "Hochwasserlage Crailsheim — Bootsbetrieb",
     );
     const leer = mit("Ulm", "", "u2");
     expect(abweichenderOrt(leer, lage, [leer])).toBeNull();
+  });
+});
+
+describe("abweichenderOrt — Vergleichsbasis (Audit Runde 5, R5-N1, R5-K5)", () => {
+  const mit = (name: string, ort: string, schl: string) => {
+    const b = bogen(name, 3);
+    b.einsatz = { ...b.einsatz, ortAuftrag: ort };
+    return eintrag(`id-${schl}`, b, { einheitSchluessel: schl, empfangenAm: 1 });
+  };
+
+  it("markiert in einer Sammlung nur mit Namen weder die erste noch die zweite Einheit", () => {
+    const lage = { name: "Hochwasser Weser" };
+    const ulm = mit("Ulm", "Gebäudeschaden Ulm — Abstützen, Räumen", "u");
+    expect(abweichenderOrt(ulm, lage, [ulm])).toBeNull();
+    const neuUlm = mit("Neu-Ulm", "Gebäudeschaden Neu-Ulm", "n");
+    expect(abweichenderOrt(neuUlm, lage, [ulm, neuUlm])).toBeNull();
+    expect(abweichenderOrt(ulm, lage, [ulm, neuUlm])).toBeNull();
+  });
+
+  it("vergleicht ohne Ort der Sammlung erst ab mehreren Einheiten mit gemeinsamen Wörtern", () => {
+    const lage = { name: "Hochwasser Jagst" };
+    const a = mit("A", "Deichverteidigung Möckmühl", "a");
+    const b = mit("B", "Sandsäcke Möckmühl", "b");
+    const c = mit("C", "Pumpen Möckmühl Nord", "c");
+    const fremd = mit("Neu-Ulm", "Brandeinsatz Lagerhalle Ulm", "f");
+    expect(abweichenderOrt(fremd, lage, [a, b, fremd])).toBeNull(); // zu wenige Einheiten als Basis
+    expect(abweichenderOrt(fremd, lage, [a, b, c, fremd])).toBe("Brandeinsatz Lagerhalle Ulm");
+    expect(abweichenderOrt(a, lage, [a, b, c, fremd])).toBeNull();
+  });
+
+  it("erkennt „Neu-Ulm“ und „Ulm“ als denselben Ort", () => {
+    const lage = { name: "Gebäudeschaden", ort: "Ulm" };
+    const neuUlm = mit("Neu-Ulm", "Räumen in Neu-Ulm", "n");
+    expect(abweichenderOrt(neuUlm, lage, [neuUlm])).toBeNull();
   });
 });
 

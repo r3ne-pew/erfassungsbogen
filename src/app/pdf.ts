@@ -24,6 +24,7 @@ import { geltendeJeEinheit, fassungenJeEinheit } from "./fassung-vorrang";
 import { zaehltInLage } from "./auswertung";
 import { eintreffzeit } from "./eintrag-zeiten";
 import { exportStaendeLaden, lageblattVermerken, weitergabeVermerken } from "./export-stand";
+import { abweichenderOrt } from "./einheiten-tabelle";
 import { meldungsNummern } from "./einheiten-tabelle";
 
 interface FontContainer {
@@ -163,6 +164,7 @@ function uebersichtEintrag(
   const revs = fassungenJeEinheit(historie, m.einheitSchluessel);
   const idx = revs.findIndex((r) => r.id === m.id);
   const vorher = idx >= 0 ? revs[idx + 1]?.bogen : undefined;
+  const fremderOrt = einsatz.fremdeOrte ? einsatz.fremdeOrte[m.einheitSchluessel] : abweichenderOrt(m, einsatz, historie);
   return {
     bogen: m.bogen,
     vorher,
@@ -175,6 +177,8 @@ function uebersichtEintrag(
     notiz: m.notiz,
     ...(m.rueckkehr ? { rueckkehr: m.rueckkehr } : {}),
     ...(m.vomPapier != null ? { zeitUnbestaetigt: true } : {}),
+    // Anderer Einsatz? wie an der Karte (R5-K5); beim Nachtrag aus der ganzen Sammlung gerechnet.
+    ...(fremderOrt != null ? { fremderOrt } : {}),
     // Beim Nachtrag: warum die Einheit dabei ist, und ob ihre Kräfte zur Summe
     // der letzten Lieferung dazukommen oder die frühere Zeile ersetzen (R5-W7).
     ...(einsatz.nachtragGruende?.[m.einheitSchluessel]

@@ -218,7 +218,15 @@ export function nummernWechselText(wechsel: NummernWechsel[], nachher: MeldeEint
 /** Wörter, die eine Lage nur beschreiben, nicht verorten — zwei Lagen „Hochwasser…" sind noch nicht dieselbe. */
 const LAGE_ALLGEMEIN = /^(hochwasser|einsatz|uebung|lage|katastrophe|hilfe|unterstuetzung|bereitstellung|sturm|starkregen|ueberflutung)/;
 
-/** Bedeutungstragende Wörter eines Orts-/Auftragstexts: klein, ohne Umlaute, ab 4 Zeichen, ohne Allgemeines. */
+/** Füllwörter, die bei drei Buchstaben keinen Ort bezeichnen. */
+const ORT_FUELLWOERTER = new Set(["und", "der", "die", "das", "fuer", "mit", "bei", "von", "vom", "zur", "zum", "auf", "aus", "den", "dem", "des", "ein", "bau"]);
+
+/**
+ * Bedeutungstragende Wörter eines Orts-/Auftragstexts: klein, ohne Umlaute, ab
+ * drei Zeichen (Ortsnamen wie „Ulm"), ohne Allgemeines. Bindestrich-Namen
+ * zählen als ihre Teile — „Neu-Ulm" nennt auch „Ulm" (R5-K5, Ortsnamen-
+ * Normalisierung).
+ */
 function ortWoerter(text: string): string[] {
   return text
     .toLowerCase()
@@ -227,16 +235,23 @@ function ortWoerter(text: string): string[] {
     .replace(/ü/g, "ue")
     .replace(/ß/g, "ss")
     .split(/[^a-z0-9]+/)
-    .filter((w) => w.length >= 4 && !/^\d+$/.test(w) && !LAGE_ALLGEMEIN.test(w));
+    .filter((w) => w.length >= 3 && !/^\d+$/.test(w) && !LAGE_ALLGEMEIN.test(w) && !ORT_FUELLWOERTER.has(w));
 }
 
+/** So viele ANDERE Einheiten mit Ort/Auftrag braucht der Vergleich, wenn die Sammlung selbst keinen Ort hat (R5-N1). */
+const VERGLEICH_MIN_EINHEITEN = 3;
+
 /**
- * Nennt der Bogen einen Ort/Auftrag, der zu dieser Lage nicht passt? Verglichen
- * wird mit dem Namen und Ort der Sammlung und mit dem, was die übrigen Einheiten
- * als Ort/Auftrag melden: Teilt der Text des Bogens kein bedeutungstragendes Wort
- * damit, ist er vermutlich für eine andere Lage ausgefüllt (Audit Runde 4, R4-K6).
- * Rückgabe: der Text des Bogens, sonst null. Nur ein Hinweis — nichts wird
- * gesperrt, nichts anders gezählt.
+ * Nennt der Bogen einen Ort/Auftrag, der zu dieser Lage nicht passt? Nur ein
+ * Hinweis — nichts wird gesperrt, nichts anders gezählt (Audit Runde 4, R4-K6).
+ *
+ * Die Vergleichsbasis (R5-N1): Hat die Sammlung einen Ort/Auftrag, gilt er. Sonst
+ * zählt, was mehrere übrige Einheiten gemeinsam nennen — ein Wort in mindestens
+ * zwei Texten, und erst ab {@link VERGLEICH_MIN_EINHEITEN} anderen Einheiten mit
+ * Text. Der Sammlungsname allein ist keine Basis („Hochwasser Weser" gegen
+ * „Gebäudeschaden Ulm" ist kein Widerspruch, die erste Einheit einer Lage kann
+ * nichts anderes tragen als die Lage), er gilt nur zusätzlich als passend.
+ * Rückgabe: der Text des Bogens, sonst null.
  */
 export function abweichenderOrt(
   e: MeldeEintrag,
@@ -246,13 +261,22 @@ export function abweichenderOrt(
   const text = (e.bogen.einsatz.ortAuftrag ?? "").trim();
   const eigene = ortWoerter(text);
   if (eigene.length === 0) return null; // leer oder nur Allgemeines: nichts zu vergleichen
-  const bezug = new Set<string>(ortWoerter(`${sammlung.name} ${sammlung.ort ?? ""}`));
+  const bezug = new Set<string>(ortWoerter(sammlung.ort ?? ""));
+  const haeufigkeit = new Map<string, number>();
+  let mitText = 0;
   for (const x of alle) {
     if (x.einheitSchluessel === e.einheitSchluessel) continue;
-    for (const w of ortWoerter(x.bogen.einsatz.ortAuftrag ?? "")) bezug.add(w);
+    const woerter = new Set(ortWoerter(x.bogen.einsatz.ortAuftrag ?? ""));
+    if (woerter.size > 0) mitText++;
+    for (const w of woerter) haeufigkeit.set(w, (haeufigkeit.get(w) ?? 0) + 1);
   }
-  if (bezug.size === 0) return null;
-  const passt = eigene.some((w) => [...bezug].some((b) => b === w || (b.length >= 5 && w.length >= 5 && (b.includes(w) || w.includes(b)))));
+  if (bezug.size > 0) for (const w of haeufigkeit.keys()) bezug.add(w); // Ort bekannt: jedes Wort der Nachbarn zählt als passend
+  else if (mitText >= VERGLEICH_MIN_EINHEITEN) for (const [w, n] of haeufigkeit) if (n >= 2) bezug.add(w);
+  if (bezug.size === 0) return null; // keine Basis: lieber keine Marke als eine falsche
+  // Der Name der Sammlung macht einen Bogen zusätzlich „passend", begründet aber keinen Verdacht.
+  for (const w of ortWoerter(sammlung.name)) bezug.add(w);
+  const gleich = (b: string, w: string) => b === w || (b.length >= 5 && w.length >= 5 && (b.includes(w) || w.includes(b)));
+  const passt = eigene.some((w) => [...bezug].some((b) => gleich(b, w)));
   return passt ? null : text;
 }
 
