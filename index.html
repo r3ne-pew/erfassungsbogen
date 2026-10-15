@@ -2388,6 +2388,19 @@
     .quittung-daumen button { flex: none; }
     .quittung-daumen button:disabled { opacity: 1; }
     .quittung-daumen .quittung-schliessen { min-width: min(calc(var(--ziel-basis) + var(--ziel)), calc(44px + var(--ziel))); padding-inline: 0; }
+    /* Verworfener Tipp (tipp-schutz.ts, R5-S2, R5-G5): Der Knopf unter dem
+       Finger bekommt kurz einen Rahmen, über dem Finger steht „Einen Moment …".
+       Die Meldung fängt keinen Tipp ab, deckt den Finger nicht und bleibt unter
+       einer Sekunde. Maße in px gedeckelt (Deckel-Regel). */
+    .tipp-moment {
+      position: fixed; z-index: 60; transform: translateX(-50%);
+      pointer-events: none; padding: 6px 14px; border-radius: 999px;
+      background: var(--text); color: var(--flaeche);
+      font-size: min(var(--t-s), 18px); font-weight: 700; line-height: 1.2; white-space: nowrap;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    }
+    .tipp-moment[hidden] { display: none; }
+    [data-tipp-gesperrt] { outline: 3px dashed var(--text); outline-offset: 2px; }
     /* Übungshinweis der Einsatzansicht auf eine Zeile, die Namen auf Tipp
        (Audit Runde 2, R2-S3); die Zeile ist ein volles Tippziel. */
     details.uebung-ausgenommen > summary {

@@ -104,3 +104,91 @@ describe("Ortssperre beim Drücken und mit mitgegebener Stelle", () => {
     knopf.remove();
   });
 });
+
+// Audit Runde 5, R5-S3: Nach der bestätigten Rückfrage lag der Knopf der
+// nächsten Karte unter der Bestätigung; ein Tipp-Rhythmus von 0,5 bis 1 s
+// bestätigte sie. Beide Stellen sind gesperrt, und jeder dort verworfene Tipp
+// verlängert die Sperre (bis zur Kappe).
+describe("Mehrere gesperrte Stellen und verlängerte Sperre (R5-S3)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function aufbau() {
+    tippSchutzZuruecksetzen();
+    const getroffen = vi.fn<(e: Event) => void>();
+    const knopf = document.createElement("button");
+    knopf.addEventListener("click", getroffen);
+    document.body.appendChild(knopf);
+    return { knopf, getroffen };
+  }
+
+  it("sperrt die Stelle des auslösenden Knopfs und die der Bestätigung gleichzeitig", () => {
+    const { knopf, getroffen } = aufbau();
+    ortSperren(undefined, { x: 100, y: 250 });
+    tipp(knopf, 180, 500); // Bestätigung
+    ortSperren();
+    tipp(knopf, 102, 252);
+    tipp(knopf, 182, 498);
+    expect(getroffen).toHaveBeenCalledTimes(1);
+    knopf.remove();
+  });
+
+  it("ein Tipp-Rhythmus von 0,7 s gegen die verlängerte Sperre wird bis zur Kappe verworfen, danach nicht mehr", () => {
+    const { knopf, getroffen } = aufbau();
+    const echt = Date.now();
+    const uhr = vi.spyOn(Date, "now").mockReturnValue(echt);
+    tipp(knopf, 180, 500);
+    ortSperren(undefined, undefined, { verlaengern: true });
+    for (let t = 700; t <= 3500; t += 700) {
+      uhr.mockReturnValue(echt + t);
+      tipp(knopf, 180, 500);
+    }
+    expect(getroffen).toHaveBeenCalledTimes(1);
+    // Nach der Kappe von 4 s kommt der Tipp wieder durch.
+    uhr.mockReturnValue(echt + 4200);
+    tipp(knopf, 180, 500);
+    expect(getroffen).toHaveBeenCalledTimes(2);
+    knopf.remove();
+  });
+
+  it("eine gewöhnliche Sperre verlängert sich nicht (R5-S2: zügiges Durchgehen bleibt möglich)", () => {
+    const { knopf, getroffen } = aufbau();
+    const echt = Date.now();
+    const uhr = vi.spyOn(Date, "now").mockReturnValue(echt);
+    tipp(knopf, 180, 500);
+    ortSperren();
+    uhr.mockReturnValue(echt + 700);
+    tipp(knopf, 180, 500); // verworfen
+    uhr.mockReturnValue(echt + ORTSSPERRE_MS + 50);
+    tipp(knopf, 180, 500);
+    expect(getroffen).toHaveBeenCalledTimes(2);
+    knopf.remove();
+  });
+});
+
+describe("Ein verworfener Tipp zeigt sich (R5-S2, R5-G5)", () => {
+  afterEach(() => {
+    tippSchutzZuruecksetzen();
+    vi.useRealTimers();
+  });
+
+  it("der Knopf trägt kurz eine Marke, über dem Finger steht „Einen Moment …“, beides verschwindet wieder", () => {
+    vi.useFakeTimers();
+    tippSchutzZuruecksetzen();
+    const knopf = document.createElement("button");
+    document.body.appendChild(knopf);
+    tipp(knopf, 100, 300);
+    ortSperren();
+    tipp(knopf, 102, 302);
+    expect(knopf.hasAttribute("data-tipp-gesperrt")).toBe(true);
+    const pille = document.getElementById("tipp-moment")!;
+    expect(pille.textContent).toBe("Einen Moment …");
+    expect(pille.hidden).toBe(false);
+    expect(pille.getAttribute("role")).toBe("status");
+    // Über dem Finger, nicht darunter.
+    expect(parseInt(pille.style.top)).toBeLessThan(300);
+    vi.advanceTimersByTime(1000);
+    expect(knopf.hasAttribute("data-tipp-gesperrt")).toBe(false);
+    expect(pille.hidden).toBe(true);
+    knopf.remove();
+  });
+});

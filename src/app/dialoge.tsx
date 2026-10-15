@@ -314,6 +314,12 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
     if (abfrage.art === "hinweis") {
       beantworten(undefined);
     } else if (abfrage.art === "wahl") {
+      // Nach einer bestätigten zerstörenden Antwort rückt oft die nächste
+      // Karte unter den Finger (Person entfernen: ihr Knopf liegt dort, wo
+      // eben die Bestätigung lag). Auch die Stelle der Bestätigung bleibt
+      // gesperrt, und jeder dort verworfene Nachtipp verlängert die Sperre
+      // (R5-S3).
+      if (wert && abfrage.wege.some((w) => w.gefahr)) ortSperren(undefined, undefined, { verlaengern: true });
       beantworten(wert || null);
     } else {
       beantworten(

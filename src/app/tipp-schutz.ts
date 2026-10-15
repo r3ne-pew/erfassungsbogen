@@ -52,32 +52,90 @@ interface Punkt {
   zeit: number;
 }
 
+/**
+ * Eine gesperrte Stelle. `verlaengern`: Jeder dort verworfene Tipp schiebt das
+ * Ende hinaus (höchstens bis `kappe`) — nach einer bestätigten Rückfrage hält
+ * ein Tipp-Rhythmus von 0,5 bis 1 s sonst länger an, als die Sperre trägt
+ * (R5-S3).
+ */
+interface Sperre {
+  x: number;
+  y: number;
+  bis: number;
+  kappe: number;
+  verlaengern: boolean;
+}
+
+/** Obergrenze einer verlängerten Sperre, vom Beginn an gerechnet. */
+const VERLAENGERN_KAPPE_MS = 4000;
+
 let letzterTipp: Punkt | null = null;
-let sperre: { x: number; y: number; bis: number } | null = null;
+let sperren: Sperre[] = [];
 
 function mitOrt(e: MouseEvent): boolean {
   return e.detail > 0 && !(e.clientX === 0 && e.clientY === 0);
 }
 
+function sperreAn(x: number, y: number, jetzt: number): Sperre | undefined {
+  sperren = sperren.filter((s) => s.bis >= jetzt);
+  return sperren.find((s) => Math.hypot(x - s.x, y - s.y) <= ORTSSPERRE_RADIUS_PX);
+}
+
+/**
+ * Ein verworfener Tipp zeigt sich: Der Knopf darunter bekommt kurz einen
+ * Rahmen, und über dem Finger steht „Einen Moment …". Vorher sah ein
+ * verworfener Tipp aus wie ein hängender Knopf, und wer im Takt von einer
+ * Sekunde tippte, lernte nur, dass jeder zweite Tipp nichts tut (R5-S2,
+ * R5-G5). Die Meldung fängt keinen Tipp ab und liegt nie unter dem Finger.
+ */
+const VERWORFEN_ANZEIGE_MS = 900;
+let verworfenUhr: ReturnType<typeof setTimeout> | undefined;
+let verworfenKnopf: Element | null = null;
+function verworfenZeigen(e: MouseEvent): void {
+  if (typeof document === "undefined") return;
+  verworfenKnopf?.removeAttribute("data-tipp-gesperrt");
+  const ziel = (e.target as Element | null)?.closest?.("button, a[href], summary, label, [role='button']") ?? null;
+  ziel?.setAttribute("data-tipp-gesperrt", "");
+  verworfenKnopf = ziel;
+  let pille = document.getElementById("tipp-moment");
+  if (!pille) {
+    pille = document.createElement("div");
+    pille.id = "tipp-moment";
+    pille.className = "tipp-moment";
+    pille.setAttribute("role", "status");
+    pille.textContent = "Einen Moment …";
+    document.body.appendChild(pille);
+  }
+  const breite = window.innerWidth || 360;
+  pille.style.left = `${Math.round(Math.min(Math.max(e.clientX, 72), Math.max(72, breite - 72)))}px`;
+  pille.style.top = `${Math.round(Math.max(8, e.clientY - 72))}px`;
+  pille.hidden = false;
+  clearTimeout(verworfenUhr);
+  verworfenUhr = setTimeout(() => {
+    verworfenKnopf?.removeAttribute("data-tipp-gesperrt");
+    verworfenKnopf = null;
+    if (pille) pille.hidden = true;
+  }, VERWORFEN_ANZEIGE_MS);
+}
+
 function klickPruefen(e: MouseEvent) {
   if (!mitOrt(e)) return;
   const jetzt = Date.now();
-  if (sperre) {
-    if (jetzt > sperre.bis) {
-      sperre = null;
-    } else if (Math.hypot(e.clientX - sperre.x, e.clientY - sperre.y) <= ORTSSPERRE_RADIUS_PX) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      return;
-    }
+  const s = sperreAn(e.clientX, e.clientY, jetzt);
+  if (s) {
+    if (s.verlaengern) s.bis = Math.min(Math.max(s.bis, jetzt + ORTSSPERRE_MS), s.kappe);
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    verworfenZeigen(e);
+    return;
   }
   letzterTipp = { x: e.clientX, y: e.clientY, zeit: jetzt };
 }
 
 /** Ein Feld nimmt den Fokus schon beim Drücken — auch das an der gesperrten Stelle abfangen. */
 function druckPruefen(e: MouseEvent) {
-  if (!mitOrt(e) || !sperre || Date.now() > sperre.bis) return;
-  if (Math.hypot(e.clientX - sperre.x, e.clientY - sperre.y) <= ORTSSPERRE_RADIUS_PX) {
+  if (!mitOrt(e) || sperren.length === 0) return;
+  if (sperreAn(e.clientX, e.clientY, Date.now())) {
     e.preventDefault();
     e.stopImmediatePropagation();
   }
@@ -98,8 +156,14 @@ tippSchutzInstallieren();
  * nach der unter dem Finger etwas anderes liegt — auch nach einer Rückfrage:
  * dann gilt der Ort des bestätigenden Tipps, oder `ort`, wenn die Handlung
  * die Stelle des auslösenden Knopfs selbst mitgibt (Person entfernen).
+ * Mehrere Stellen können gleichzeitig gesperrt sein (auslösender Knopf und
+ * Bestätigung der Rückfrage, R5-S3).
  */
-export function ortSperren(ms: number = ORTSSPERRE_MS, ort?: { x: number; y: number }): void {
+export function ortSperren(
+  ms: number = ORTSSPERRE_MS,
+  ort?: { x: number; y: number },
+  optionen: { verlaengern?: boolean } = {},
+): void {
   if (ms <= 0) return;
   let stelle = ort;
   if (!stelle) {
@@ -107,8 +171,16 @@ export function ortSperren(ms: number = ORTSSPERRE_MS, ort?: { x: number; y: num
     if (!t || Date.now() - t.zeit > TIPP_FRISCH_MS) return;
     stelle = t;
   }
-  const bis = Date.now() + ms;
-  sperre = { x: stelle.x, y: stelle.y, bis: Math.max(bis, sperre?.bis ?? 0) };
+  const jetzt = Date.now();
+  const bis = jetzt + ms;
+  const vorhanden = sperreAn(stelle.x, stelle.y, jetzt);
+  if (vorhanden && Math.hypot(stelle.x - vorhanden.x, stelle.y - vorhanden.y) < 4) {
+    vorhanden.bis = Math.max(vorhanden.bis, bis);
+    vorhanden.verlaengern ||= optionen.verlaengern === true;
+    vorhanden.kappe = Math.max(vorhanden.kappe, jetzt + VERLAENGERN_KAPPE_MS);
+    return;
+  }
+  sperren.push({ x: stelle.x, y: stelle.y, bis, kappe: jetzt + VERLAENGERN_KAPPE_MS, verlaengern: optionen.verlaengern === true });
 }
 
 /** Ort des letzten Tipps (Bildschirmkoordinaten), solange er frisch ist. */
@@ -121,5 +193,26 @@ export function letzterTippOrt(): { x: number; y: number } | null {
 /** Nur für Tests: Zustand zurücksetzen. */
 export function tippSchutzZuruecksetzen(): void {
   letzterTipp = null;
-  sperre = null;
+  sperren = [];
+  verworfenKnopf?.removeAttribute("data-tipp-gesperrt");
+  verworfenKnopf = null;
+  clearTimeout(verworfenUhr);
+  if (typeof document !== "undefined") document.getElementById("tipp-moment")?.remove();
+}
+
+/**
+ * Wie lange ein Teil des QR-Vollbilds im Bild stehen muss, bevor er als
+ * „gezeigt" zählt (R5-S1): Ein Teil, der nur zwischen zwei Tipps aufblitzte,
+ * kann die Gegenstelle nicht scannen. Mit abgeschaltetem Prellschutz
+ * (Prüfstand) 0.
+ */
+let mindestzeigeMs: number = ORTSSPERRE_MS;
+export function mindestzeigeDauer(): number {
+  return mindestzeigeMs;
+}
+/** Für Tests: Mindestanzeigedauer setzen. Gibt den alten Wert zurück. */
+export function mindestzeigeSetzen(ms: number): number {
+  const alt = mindestzeigeMs;
+  mindestzeigeMs = ms;
+  return alt;
 }

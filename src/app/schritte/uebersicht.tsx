@@ -57,6 +57,7 @@ import { geraeteKurzform, geraeteSchluesselNurSitzung, geraeteOeffentlichHex } f
 import { istNativ, linkTeilen, nahbereichDienst, pdfEinbettbar, shareSheetVerfuegbar, textTeilen } from "../nativ";
 import { fehlerText, istNachladeFehler } from "../nachladen";
 import { frageJaNein, frageText, zeigeHinweis } from "../dialoge";
+import { mindestzeigeDauer, ortSperren } from "../tipp-schutz";
 import { arbeiten, useArbeitet } from "../arbeitet";
 import { SpeicherVollFehler, istSpeicherVoll } from "../eintrag-zeiten";
 import { uebergabeText, type UebergabeStand, type UebergabeWeg } from "../uebergabe-stand";
@@ -1137,11 +1138,14 @@ export function QrVollbild(props: {
   const index = Math.min(teilIndex, anzahl - 1);
   const teil = qr.teile[index]!;
   // Welche Teile schon auf dem Bildschirm standen: „gezeigt" gilt erst, wenn
-  // es alle waren — vorher hieß schon Teil 1 von 2 „Übergeben" (R3-H3).
-  const [gezeigt, setGezeigt] = useState<ReadonlySet<number>>(() => new Set([...(props.bereitsGezeigt ?? []), index]));
-  useEffect(() => {
-    setGezeigt((g) => (g.has(index) ? g : new Set([...g, index])));
-  }, [index]);
+  // es alle waren — vorher hieß schon Teil 1 von 2 „Übergeben" (R3-H3). Ein
+  // Teil von mehreren zählt zudem erst, wenn er die Mindestzeit im Bild stand
+  // (R5-S1): Ein Doppeltipp ließ Teil 2 150 ms aufblitzen, und er galt als
+  // gezeigt, ohne dass die Kamera ihn je hatte. Ein einzelner Code zählt sofort.
+  const sofortGezeigt = !qr.segmentiert || mindestzeigeDauer() <= 0;
+  const [gezeigt, setGezeigt] = useState<ReadonlySet<number>>(
+    () => new Set([...(props.bereitsGezeigt ?? []), ...(sofortGezeigt ? [index] : [])]),
+  );
   const onGezeigt = useRef(props.onGezeigt);
   onGezeigt.current = props.onGezeigt;
   useEffect(() => onGezeigt.current?.(gezeigt), [gezeigt]);
@@ -1152,6 +1156,21 @@ export function QrVollbild(props: {
   // „zeigen" = Code; „frage" = Wurde gescannt?; „fehlt" = ein Teil fehlt noch.
   const [phase, setPhase] = useState<"zeigen" | "frage" | "fehlt">("zeigen");
   const ohneFrage = (): VollbildErgebnis => (alleGezeigt ? "gezeigt" : undefined);
+  useEffect(() => {
+    if (phase !== "zeigen") return;
+    const mark = () => setGezeigt((g) => (g.has(index) ? g : new Set([...g, index])));
+    if (sofortGezeigt) {
+      mark();
+      return;
+    }
+    const uhr = setTimeout(mark, mindestzeigeDauer());
+    return () => clearTimeout(uhr);
+  }, [index, phase, sofortGezeigt]);
+  /** Teilwechsel: Die Fingerstelle bleibt kurz gesperrt, der Nachtipp überspringt keinen Teil (R5-S1, R5-G1). */
+  const wechseln = (i: number) => {
+    ortSperren();
+    props.onTeil(i);
+  };
   /**
    * Zurück-Geste und Escape wie „Schließen", solange Teile fehlen: Sie
    * schlossen das Vollbild sonst mitten in der Übergabe ohne Hinweis, und
@@ -1219,7 +1238,7 @@ export function QrVollbild(props: {
               Ja, gescannt — übergeben
             </button>
             <button type="button" onClick={() => props.onSchliessen("gezeigt")}>Nicht sicher</button>
-            <button type="button" onClick={() => setPhase("zeigen")}>← Code wieder zeigen</button>
+            <button type="button" onClick={() => { ortSperren(); setPhase("zeigen"); }}>← Code wieder zeigen</button>
           </div>
         </div>
       )}
@@ -1233,6 +1252,7 @@ export function QrVollbild(props: {
               type="button"
               className="primaer"
               onClick={() => {
+                ortSperren();
                 props.onTeil(fehlend);
                 setPhase("zeigen");
               }}
@@ -1250,7 +1270,7 @@ export function QrVollbild(props: {
               type="button"
               disabled={index === 0}
               aria-label={index === 0 ? "Voriger Teil" : `Voriger Teil (${index} von ${anzahl})`}
-              onClick={() => props.onTeil(index - 1)}
+              onClick={() => wechseln(index - 1)}
             >
               {index === 0 ? "←" : `← Teil ${index}`}
             </button>
@@ -1262,7 +1282,7 @@ export function QrVollbild(props: {
               className={weiterIstHaupt ? "haupt" : undefined}
               disabled={index >= anzahl - 1}
               aria-label={index >= anzahl - 1 ? "Nächster Teil" : `Nächster Teil (${index + 2} von ${anzahl})`}
-              onClick={() => props.onTeil(index + 1)}
+              onClick={() => wechseln(index + 1)}
             >
               {/* Die Teilzahl auch im Knopf — er bleibt im Bild, wenn der Text darüber es nicht ist (R3-H2). */}
               {index >= anzahl - 1 ? `${teilText(index)} ist der letzte` : `Weiter zu Teil ${index + 2} →`}
@@ -1274,7 +1294,11 @@ export function QrVollbild(props: {
             // zum dunklen Knopf, und die Rückfrage musste den Fehlgriff abfangen
             // (Audit Runde 4, R4-H5). Platz und Maß bleiben (Klasse „primaer").
             className={weiterIstHaupt ? "primaer zurueck" : "primaer"}
-            onClick={() => setPhase(alleGezeigt ? "frage" : "fehlt")}
+            onClick={() => {
+              // Darunter erscheint die Rückfrage: ein Nachtipp bestätigt sie nicht (R5-S1).
+              ortSperren();
+              setPhase(alleGezeigt ? "frage" : "fehlt");
+            }}
           >
             Schließen
           </button>

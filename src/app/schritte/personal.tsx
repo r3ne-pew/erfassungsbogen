@@ -715,7 +715,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
    */
   type Rueckweg =
     | { art: "liste"; text: string; personal: Person[] }
-    | { art: "person"; name: string; person: Person; index: number; nonce: number };
+    | { art: "person"; entfernte: { person: Person; index: number; name: string }[]; nonce: number };
   const [rueckweg, setRueckweg] = useState<Rueckweg | null>(null);
   // Quittung des Zurückholens (ohne weiteren Rückweg, wie in der Einsatzansicht).
   const [zurueckgeholt, setZurueckgeholt] = useState<{ text: string; nonce: number } | null>(null);
@@ -732,23 +732,46 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
     setZurueckgeholt(null);
     setRueckweg({ art: "liste", text, personal: vorher });
   };
-  /** Eine Person ist weg: Rückweg in der Daumenleiste. */
+  /**
+   * Eine Person ist weg: Rückweg in der Daumenleiste. Wird in einer Reihe eine
+   * zweite entfernt, bleibt die erste mit im Rückweg: „Rückgängig" holt alle
+   * zurück, die seit der Leiste entfernt wurden (R5-S3). Vorher gab es nur die
+   * letzte zurück, und die zuerst entfernte war verloren.
+   */
   const personEntfernt = (person: Person, index: number, bezeichnung: string) => {
     setZurueckgeholt(null);
-    setRueckweg({ art: "person", name: bezeichnung, person, index, nonce: Date.now() });
+    setRueckweg((r) => {
+      const vorige = r?.art === "person" ? r.entfernte : [];
+      return { art: "person", entfernte: [...vorige, { person, index, name: bezeichnung }], nonce: Date.now() };
+    });
   };
+  /** „Entfernt: Name" bzw. „2 Personen (Name, Name)". */
+  const entferntText = (entfernte: { name: string }[]) =>
+    entfernte.length === 1 ? entfernte[0]!.name : `${entfernte.length} Personen (${entfernte.map((e) => e.name).join(", ")})`;
   const rueckgaengig = () => {
     if (!rueckweg) return;
     if (rueckweg.art === "liste") {
       aendern({ personal: rueckweg.personal });
       return;
     }
+    // In umgekehrter Reihenfolge einsetzen: Jeder Index galt für die Liste
+    // zum Zeitpunkt seiner Entfernung.
     const liste = [...bogen.personal];
-    const stelle = Math.min(rueckweg.index, liste.length);
-    liste.splice(stelle, 0, rueckweg.person);
+    let letzteStelle = 0;
+    for (const { person, index } of [...rueckweg.entfernte].reverse()) {
+      letzteStelle = Math.min(index, liste.length);
+      liste.splice(letzteStelle, 0, person);
+    }
+    const erste = rueckweg.entfernte[0]!;
     setRueckweg(null);
-    setFrischeKarte(rueckweg.person);
-    setZurueckgeholt({ text: `Zurückgeholt: ${rueckweg.name} (wieder Person ${stelle + 1})`, nonce: Date.now() });
+    setFrischeKarte(erste.person);
+    setZurueckgeholt({
+      text:
+        rueckweg.entfernte.length === 1
+          ? `Zurückgeholt: ${erste.name} (wieder Person ${letzteStelle + 1})`
+          : `Zurückgeholt: ${entferntText(rueckweg.entfernte)}`,
+      nonce: Date.now(),
+    });
     aendernRoh(verpflegungMitziehen(bogen, { personal: liste }));
   };
   const quittung = rueckweg?.art === "liste" && (
@@ -1193,7 +1216,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
       )}
       {rueckweg?.art === "person" && (
         <DaumenQuittung key={`person:${rueckweg.nonce}`} onRueckgaengig={rueckgaengig} onSchliessen={() => setRueckweg(null)}>
-          <strong>Entfernt:</strong> {rueckweg.name}
+          <strong>Entfernt:</strong> {entferntText(rueckweg.entfernte)}
         </DaumenQuittung>
       )}
       {zurueckgeholt && !rueckweg && (

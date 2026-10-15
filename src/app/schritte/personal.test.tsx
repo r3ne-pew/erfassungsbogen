@@ -452,6 +452,37 @@ describe("Schritt Personal", () => {
     expect(within(zurueck).queryByRole("button", { name: "Rückgängig" })).toBeNull();
   });
 
+  // Audit Runde 5, R5-S3: Wer in einer Reihe zwei Personen entfernt, konnte nur
+  // die zweite zurückholen.
+  it("„Rückgängig“ holt alle in einer Reihe entfernten Personen zurück, an ihre Stellen (R5-S3)", async () => {
+    const nutzer = userEvent.setup();
+    render(
+      <SchrittBuehne
+        komponente={SchrittPersonal}
+        bogen={{
+          ...neuerBogen(),
+          personal: [
+            { ...neuePerson(), vorname: "Paul", nachname: "Stein" },
+            { ...neuePerson(), vorname: "Eva", nachname: "Berg" },
+            { ...neuePerson(), vorname: "Sabine", nachname: "Lang" },
+          ],
+        }}
+      />,
+    );
+    for (const name of ["Berg, Eva", "Stein, Paul"]) {
+      await nutzer.click(screen.getByRole("button", { name: `${name} entfernen` }));
+      const frage = document.querySelector<HTMLDialogElement>(`dialog[aria-label='${name} entfernen?']`)!;
+      await nutzer.click(within(frage).getByRole("button", { name: "Person entfernen" }));
+      await waitFor(() => expect(screen.queryByDisplayValue(name.split(", ")[1]!)).toBeNull());
+    }
+    const leiste = () => document.querySelector<HTMLElement>(".quittung-daumen")!;
+    expect(leiste().textContent).toMatch(/^Entfernt: 2 Personen \(Berg, Eva, Stein, Paul\)/);
+    await nutzer.click(within(leiste()).getByRole("button", { name: "Rückgängig" }));
+    const vornamen = screen.getAllByLabelText("Vorname").map((f) => (f as HTMLInputElement).value);
+    expect(vornamen).toEqual(["Paul", "Eva", "Sabine"]);
+    expect(leiste().textContent).toMatch(/^Zurückgeholt: 2 Personen/);
+  });
+
   it("bietet „+ Person hinzufügen“ auch über der Liste an, die neue Person bekommt den Cursor (R3-H6)", async () => {
     const nutzer = userEvent.setup();
     render(

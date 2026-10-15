@@ -4,11 +4,12 @@
  * „übergeben" nur nach ausdrücklicher Bestätigung (Audit Runde 3, R3-H2,
  * R3-H3).
  */
-import { describe, expect, it, vi } from "vitest";
-import { act, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import type { QrSatz } from "../hilfen";
+import { mindestzeigeSetzen, ORTSSPERRE_MS } from "../tipp-schutz";
 
 vi.mock("../pdf", () => ({ pdfErzeugen: async () => {}, pdfBlobUrl: async () => "blob:x", einsatzPdfErzeugen: async () => {} }));
 
@@ -40,6 +41,16 @@ function Rahmen(props: { n: number; onSchliessen: (e: unknown) => void; onZuruec
     />
   );
 }
+
+// Die Mindestanzeigedauer (R5-S1) ist hier aus: Die Tests dieser Gruppe prüfen
+// Wortlaut und Ablauf, nicht die Zeit. Die Zeit prüft die Gruppe darunter.
+let mindestAlt = 0;
+beforeEach(() => {
+  mindestAlt = mindestzeigeSetzen(0);
+});
+afterEach(() => {
+  mindestzeigeSetzen(mindestAlt);
+});
 
 describe("QR-Vollbild (R3-H2, R3-H3)", () => {
   it("nennt den Teil über dem Code und im Knopf", async () => {
@@ -159,5 +170,83 @@ describe("QR-Vollbild (R3-H2, R3-H3)", () => {
     );
     expect(screen.getByRole("dialog").querySelector(".qr-vollbild-teil")!.textContent).toContain("Teil 4 von 7");
     expect([...(gemeldet.mock.lastCall![0] as Set<number>)].sort()).toEqual([0, 1, 2, 3]);
+  });
+});
+
+// Audit Runde 5, R5-S1: Ein Doppeltipp auf „Weiter zu Teil n →" ließ Teil n
+// 150 ms aufblitzen, und er zählte als gezeigt. Am Ende fragte die App ohne
+// Warnung „alle 7 Teile gescannt?".
+describe("QR-Vollbild: ein Teil zählt erst nach der Mindestzeit (R5-S1)", () => {
+  beforeEach(() => {
+    mindestzeigeSetzen(1500);
+    vi.useFakeTimers({ shouldAdvanceTime: false });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  const tippen = () => ({ click: async (el: HTMLElement) => { fireEvent.click(el); } });
+
+  it("ein Teil, der nur kurz im Bild stand, gilt nicht als gezeigt: Schließen nennt ihn", async () => {
+    const nutzer = tippen();
+    render(<Rahmen n={3} onSchliessen={() => {}} />);
+    await act(async () => { vi.advanceTimersByTime(ORTSSPERRE_MS + 10); });
+    // Teil 1 stand lange genug. Zwei schnelle Tipps: Teil 2 blitzt nur auf.
+    await nutzer.click(screen.getByRole("button", { name: /Nächster Teil \(2 von 3\)/ }));
+    await act(async () => { vi.advanceTimersByTime(150); });
+    await nutzer.click(screen.getByRole("button", { name: /Nächster Teil \(3 von 3\)/ }));
+    await act(async () => { vi.advanceTimersByTime(ORTSSPERRE_MS + 10); });
+    await nutzer.click(screen.getByRole("button", { name: "Schließen" }));
+    expect(screen.getByText(/Teil 2 von 3 wurde noch nicht gezeigt/)).toBeDefined();
+  });
+
+  it("alle Teile je 1,5 s im Bild: Schließen fragt nach dem Scan", async () => {
+    const nutzer = tippen();
+    render(<Rahmen n={3} onSchliessen={() => {}} />);
+    for (let i = 0; i < 2; i++) {
+      await act(async () => { vi.advanceTimersByTime(ORTSSPERRE_MS + 10); });
+      await nutzer.click(screen.getByRole("button", { name: /Nächster Teil/ }));
+    }
+    await act(async () => { vi.advanceTimersByTime(ORTSSPERRE_MS + 10); });
+    await nutzer.click(screen.getByRole("button", { name: "Schließen" }));
+    expect(screen.getByText("Hat die Gegenstelle alle 3 Teile gescannt?")).toBeDefined();
+  });
+
+  it("ein einzelner Code zählt sofort", async () => {
+    const nutzer = tippen();
+    render(<Rahmen n={1} onSchliessen={() => {}} />);
+    await nutzer.click(screen.getByRole("button", { name: "Schließen" }));
+    expect(screen.getByText("Hat die Gegenstelle den Code gescannt?")).toBeDefined();
+  });
+
+  it("ein Nachtipp an derselben Stelle (150 bis 1 400 ms) überspringt keinen Teil, ab 1,6 s darf er weiter", async () => {
+    const { tippSchutzZuruecksetzen } = await import("../tipp-schutz");
+    tippSchutzZuruecksetzen();
+    render(<Rahmen n={7} onSchliessen={() => {}} />);
+    const teilNr = () => /Teil (\d) von 7/.exec(screen.getByRole("dialog").querySelector(".qr-vollbild-teil")!.textContent!)![1];
+    const tipp = () => {
+      const knopf = screen.getByRole("button", { name: /Nächster Teil/ });
+      act(() => {
+        knopf.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: 300, clientY: 500, detail: 1 }));
+      });
+    };
+    for (const abstand of [150, 600, 1200, 1400]) {
+      tippSchutzZuruecksetzen();
+      cleanup();
+      render(<Rahmen n={7} onSchliessen={() => {}} />);
+      tipp();
+      expect(teilNr()).toBe("2");
+      act(() => { vi.advanceTimersByTime(abstand); });
+      tipp();
+      expect(teilNr()).toBe("2");
+      // Der verworfene Tipp zeigt sich.
+      expect(document.getElementById("tipp-moment")?.hidden).toBe(false);
+    }
+    cleanup();
+    tippSchutzZuruecksetzen();
+    render(<Rahmen n={7} onSchliessen={() => {}} />);
+    tipp();
+    act(() => { vi.advanceTimersByTime(1600); });
+    tipp();
+    expect(teilNr()).toBe("3");
   });
 });
