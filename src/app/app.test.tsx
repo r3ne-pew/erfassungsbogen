@@ -923,6 +923,36 @@ describe("Assistenten-Durchlauf", () => {
     expect(Math.abs(neu.eingetroffenAm! - beginn)).toBeLessThan(60_000);
   }, 20000);
 
+  // Audit Runde 5, R5-E5: Der dunkel hervorgehobene erste Knopf war die Zeit in
+  // der Zukunft, die der Text eben als unmöglich bezeichnet hatte.
+  it("„Stimmt die Zeit?“ stellt „Zeit korrigieren“ vorn und hervorgehoben, nicht die Zeit in der Zukunft (R5-E5)", async () => {
+    const einsatz = einsatzImSpeicherAnlegen("Sammelhausen", EinsatzArt.EINSATZ);
+    const mittag = new Date();
+    mittag.setHours(12, 0, 0, 0);
+    const uhr = vi.spyOn(Date, "now").mockImplementation(() => mittag.getTime());
+    try {
+      const nutzer = userEvent.setup();
+      render(<App />);
+      await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
+      await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
+      await nutzer.type(screen.getByLabelText("Eingetroffen um (vom Meldeblock)"), "12:30");
+      await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Zeithausen");
+      await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
+      await nutzer.click(within(await screen.findByRole("dialog", { name: "Stärke fehlt" })).getByRole("button", { name: "Trotzdem mit Stärke 0 übernehmen" }));
+      const frage = await screen.findByRole("dialog", { name: "Stimmt die Zeit?" });
+      const knoepfe = within(frage).getAllByRole("button");
+      expect(knoepfe[0]!.textContent).toBe("Zeit korrigieren");
+      expect(knoepfe[0]!.className).toContain("primaer");
+      expect(knoepfe.map((k) => k.className).filter((c) => c.includes("primaer"))).toHaveLength(1);
+      await nutzer.click(knoepfe[0]!);
+      // Nichts übernommen, das Feld bleibt zum Korrigieren stehen.
+      expect(einsaetzeLaden().find((x) => x.id === einsatz.id)!.eintraege).toHaveLength(0);
+      expect((screen.getByLabelText("Eingetroffen um (vom Meldeblock)") as HTMLInputElement).value).toBe("12:30");
+    } finally {
+      uhr.mockRestore();
+    }
+  }, 20000);
+
   it("fragt bei einem alten Bogen vor der Übergabe nach und bereitet ihn für den neuen Einsatz vor (R2-S1)", async () => {
     const nutzer = userEvent.setup();
     const alt = bogenMitName("Althausen");
@@ -1799,7 +1829,11 @@ describe("Neuen Einsatz anlegen", () => {
     await nutzer.click(within(frage).getByRole("button", { name: /^Ja — als neue Fassung/ }));
     expect(neuesteJeEinheit(einsaetzeLaden().find((s) => s.id === einsatz.id)!.eintraege)).toHaveLength(1);
 
-    const quittung = (await screen.findByText(/als Fassung von „THW Papierhausen" aufgenommen/)).closest(".quittung-daumen") as HTMLElement;
+    const quittung = (await screen.findByText(/als Fassung von „THW Papierhausen"/)).closest(".quittung-daumen") as HTMLElement;
+    // Handlung und Rückweg stehen vorn, die Namen hinten (R5-E4) …
+    expect(quittung.textContent).toMatch(/^Zusammengelegt \(Rückgängig = eigene Einheit\):/);
+    // … und es gibt genau einen Rückweg, nicht zusätzlich den Link im Kasten „Zuletzt eingelesen", der die Erfassung entfernt (R5-E3).
+    expect(screen.getAllByRole("button", { name: "Rückgängig" })).toHaveLength(1);
     await nutzer.click(within(quittung).getByRole("button", { name: "Rückgängig" }));
     const eintraege = einsaetzeLaden().find((s) => s.id === einsatz.id)!.eintraege;
     expect(eintraege).toHaveLength(2);
@@ -2350,6 +2384,28 @@ describe("Bogen aus einer PDF laden (Startseite, „Aus Datei laden“)", () => 
     expect(screen.queryByRole("dialog", { name: "Bogen aus Datei öffnen?" })).toBeNull();
     expect(localStorage.getItem("eeb.entwurf.v1")).toContain("Mühldorf");
     expect(localStorage.getItem("eeb.entwurf.ersetzt.v1")).toBeNull();
+  });
+
+  // Audit Runde 5, R5-S7: „Bogen öffnen" bei eigenem Bogen löste zwei
+  // gleichlautende Rückfragen hintereinander aus.
+  it("„Bogen öffnen“ bei eigenem Bogen nennt die Folge schon in der Wahl und fragt kein zweites Mal (R5-S7)", async () => {
+    einsatzImSpeicherAnlegen("Hochwasser Donau", EinsatzArt.EINSATZ);
+    const nutzer = userEvent.setup();
+    render(<App />);
+    await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
+    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Mühldorf");
+    await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
+
+    await nutzer.upload(screen.getByLabelText("Aus Datei laden…"), pdfDatei(bogenMitName("Bamberg")));
+    const frage = await screen.findByRole("dialog", { name: 'Bogen von „THW Bamberg" aus der Datei' });
+    const offen = within(frage).getByRole("button", { name: "Bogen öffnen (ansehen oder bearbeiten)" });
+    expect(offen.closest(".abfrage-weg")!.textContent).toMatch(/Ersetzt deinen angefangenen Bogen „THW Mühldorf"/);
+    await nutzer.click(offen);
+    // Der Bogen ist offen, ohne dass „Bogen aus Datei öffnen?" dazwischen gefragt hätte.
+    expect(await screen.findByRole("heading", { name: "Gesamtübersicht" })).toBeDefined();
+    expect(screen.queryByRole("dialog", { name: "Bogen aus Datei öffnen?" })).toBeNull();
+    // Der eigene Bogen liegt auf dem Rückholplatz.
+    expect(localStorage.getItem("eeb.entwurf.ersetzt.v1")).toContain("Mühldorf");
   });
 
   it("erklärt verständlich, wenn in der PDF weder Daten noch ein QR-Code stecken", async () => {

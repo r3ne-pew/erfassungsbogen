@@ -998,7 +998,11 @@ function AppInhalt() {
     ansichtRef.current = jetzt;
     if (typeof history === "undefined") return;
     if (!vorher) {
-      history.replaceState({ ...(history.state ?? {}), eeb: jetzt }, "");
+      // Der erste Eintrag der App trägt eine Marke: Rückfragen legen dort einen
+      // eigenen Eintrag an, damit Zurück sie schließt statt die App zu verlassen
+      // (R5-S5, modal-overlay.ts). Nach dem Neuladen ist `eeb` schon da.
+      const roh = (history.state ?? {}) as { eeb?: Ansicht };
+      history.replaceState({ ...roh, eeb: jetzt, ...(roh.eeb ? {} : { eebErste: true }) }, "");
       return;
     }
     if (ansichtGleich(vorher, jetzt)) return;
@@ -1036,6 +1040,9 @@ function AppInhalt() {
         return;
       }
       if (!ziel) return;
+      // Der Eintrag einer Rückfrage auf dem ersten Eintrag (R5-S5) führt auf
+      // dieselbe Ansicht: nichts umzustellen, und das Ziel nicht merken.
+      if (ansichtRef.current && ansichtGleich(ziel, ansichtRef.current)) return;
       verlaufZielRef.current = ziel;
       setSchritt(ziel.schritt);
       setZeigeStart(ziel.zeigeStart);
@@ -1220,8 +1227,10 @@ function AppInhalt() {
     // und der eigene Entwurf lag auf dem Rückholplatz (Audit Runde 4, R4-N2).
     const mehrere =
       anzahl > 1 ? `Die PDF enthält ${anzahl} Bögen — aufgenommen ist „${einheitAnzeigename(geladen.bogen.einheit)}". Alle auf einmal: in der Sammlung „Bögen einlesen…".` : "";
+    const bereitsGefragtVorab = oeffnenErsetztEigenenBogen(geladen.bogen);
     const wohin = await empfangsZielWaehlen(geladen.bogen, "Datei");
     if (wohin == null) return; // abgebrochen — nichts verändert
+    const bereitsGefragt = wohin === "oeffnen" && bereitsGefragtVorab;
     let nichtAbgelegt: string | null = null;
     if (wohin !== "oeffnen") {
       const ok = await bogenInSammlung(wohin, geladen.bogen, "pdf-import", undefined, false, mehrere);
@@ -1235,7 +1244,7 @@ function AppInhalt() {
       schonOffenenBogenZeigen(geladen.bogen);
       return;
     }
-    if (!(await darfBogenErsetzen({ titel: "Bogen aus Datei öffnen?", was: "den Bogen aus der Datei", ok: "Datei öffnen" }))) return;
+    if (!(await darfBogenErsetzen({ titel: "Bogen aus Datei öffnen?", was: "den Bogen aus der Datei", ok: "Datei öffnen", ohneFrage: bereitsGefragt }))) return;
     const b = geladen.bogen;
     setBogen(b);
     setzeEmpfang(null); // Datei-Import: kein signierter Transport
@@ -2141,20 +2150,36 @@ function AppInhalt() {
    *
    * Rückgabe: Einsatz-ID, "oeffnen" oder null (abgebrochen).
    */
+  /**
+   * „Bogen öffnen" in der Wahl „Wohin damit?" würde einen eigenen, angefangenen
+   * Bogen verdrängen (und nicht denselben Bogen zeigen). Ohne Sammlung gibt es
+   * die Wahl nicht; dann fragt `darfBogenErsetzen` wie bisher.
+   */
+  function oeffnenErsetztEigenenBogen(b: Erfassungsbogen): boolean {
+    return einsaetzeLaden().length > 0 && !!bogen && bogenHatInhalt(bogen) && !bogenSchonOffen(b) && !bogenSchonOffen(bogenNachFrist(b).bogen);
+  }
+
   async function empfangsZielWaehlen(b: Erfassungsbogen, herkunft: "Meldung" | "Datei" = "Meldung"): Promise<string | null> {
     const sammlungen = einsaetzeLaden();
     if (sammlungen.length === 0) return "oeffnen";
     const letzte = letztenEinsatzLaden() ?? offenerEinsatzId;
     const sortiert = [...sammlungen].sort((x, y) => (x.id === letzte ? -1 : y.id === letzte ? 1 : y.geaendert - x.geaendert));
-    const wege = sortiert.slice(0, 4).map((s) => ({
+    const wege: { wert: string; label: string; hinweis: string; gefahr?: boolean }[] = sortiert.slice(0, 4).map((s) => ({
       wert: s.id,
       label: `In „${s.name}" aufnehmen`,
       hinweis: `${ART_LABEL[s.art]}${s.ort ? ` · ${s.ort}` : ""} · ${aktuelleMeldungen(s.eintraege, s.art).length} Einheit(en) anwesend`,
     }));
+    // Steht ein eigener Bogen im Weg, nennt schon diese Zeile die Folge samt
+    // Rückholplatz — „Bogen öffnen" gilt dann als Zustimmung, die zweite,
+    // gleichlautende Rückfrage entfällt (R5-S7; wie bei „Einheit erfassen").
+    const folgen = oeffnenErsetztEigenenBogen(b) ? folgenFuerOffenenBogen() : null;
     wege.push({
       wert: "oeffnen",
       label: "Bogen öffnen (ansehen oder bearbeiten)",
-      hinweis: "Für die Einheit selbst — der eigene angefangene Bogen bleibt über die Startseite zurückholbar.",
+      hinweis: folgen
+        ? `Ersetzt deinen angefangenen Bogen „${einheitAnzeigename(bogen!.einheit)}". ${folgen.satz}`
+        : "Für die Einheit selbst — der eigene angefangene Bogen bleibt über die Startseite zurückholbar.",
+      gefahr: folgen?.verlust,
     });
     return frageWahl({
       titel:
@@ -2195,8 +2220,10 @@ function AppInhalt() {
       await bogenInSammlung(ziel, b, "scan", { signatur: alsEintragSignatur(signatur), herkunft: payload }, true);
       return false; // Kiosk: weiter scannen, bis abgebrochen wird
     }
+    const bereitsGefragtVorab = oeffnenErsetztEigenenBogen(b);
     const wohin = await empfangsZielWaehlen(b);
     if (wohin == null) return true; // abgebrochen — nichts verändert
+    const bereitsGefragt = wohin === "oeffnen" && bereitsGefragtVorab;
     let nichtAbgelegt: string | null = null;
     if (wohin !== "oeffnen") {
       const ok = await bogenInSammlung(wohin, b, "scan", { signatur: alsEintragSignatur(signatur), herkunft: payload });
@@ -2215,7 +2242,7 @@ function AppInhalt() {
       schonOffenenBogenZeigen(b);
       return true;
     }
-    if (!(await darfBogenErsetzen({ titel: "Empfangenen Bogen öffnen?", was: "die empfangene Meldung", ok: "Meldung öffnen" }))) {
+    if (!(await darfBogenErsetzen({ titel: "Empfangenen Bogen öffnen?", was: "die empfangene Meldung", ok: "Meldung öffnen", ohneFrage: bereitsGefragt }))) {
       return true; // Scan beendet, der eigene Bogen bleibt stehen
     }
     // Wo der eigene Bogen jetzt liegt — derselbe Hinweis wie früher beim
@@ -2683,13 +2710,17 @@ function AppInhalt() {
       const wahl = await frageWahl({
         titel: "Stimmt die Zeit?",
         text: `„Eingetroffen um" ${nachEintreffzeit} liegt in der Zukunft — Stunde oder Tag vertauscht? Jetzt ist es ${zeitKurz(Date.now())} Uhr.`,
+        // Der sichere Weg steht vorn und ist hervorgehoben: Der dunkle erste
+        // Knopf war „Heute 21:12", genau die Zeit, die der Text eben als
+        // unmöglich bezeichnet hatte (R5-E5). Bei einem Stundendreher stimmt
+        // weder „Heute" noch „Gestern".
         wege: [
-          { wert: "heute", label: `Heute ${zeitLang(gelesen.heute)}` },
+          { wert: "korrigieren", label: "Zeit korrigieren", hinweis: "Das Feld „Eingetroffen um“ bleibt offen, der Wert steht zum Ändern darin." },
+          { wert: "heute", label: `Trotzdem heute ${zeitLang(gelesen.heute)}` },
           { wert: "gestern", label: `Gestern ${zeitLang(gelesen.gestern)}` },
         ],
-        abbruch: "Zeit korrigieren",
       });
-      if (!wahl) return; // Das Feld bleibt, der Wert steht zum Korrigieren drin.
+      if (!wahl || wahl === "korrigieren") return; // Das Feld bleibt, der Wert steht zum Korrigieren drin.
       zeit = wahl === "gestern" ? gelesen.gestern : gelesen.heute;
     }
     // Kein Blatt-Wert und eine Unterbrechung dazwischen: fragen statt die
@@ -3596,6 +3627,7 @@ function AppInhalt() {
           onWeitergeben={() => sammelPdf(offenerEinsatz, "alle", true)}
           onLageblatt={() => lageblatt(offenerEinsatz)}
           onBlanko={() => void blankoVordruck()}
+          zusammenlegungEintragId={zusammenlegung?.einsatzId === offenerEinsatz.id ? zusammenlegung.eintragId : null}
           ausgabeQuittung={ausgabeQuittung}
           eingang={eingang}
           onGeloescht={() => { setOffenerEinsatzId(null); einsaetzeNeuLaden(); setMeldung(""); /* Quittung mit Rückweg: Startseite (R2-D6) */ }}
@@ -3607,7 +3639,8 @@ function AppInhalt() {
         )}
         {zusammenlegung && zusammenlegung.einsatzId === offenerEinsatz.id && (
           <DaumenQuittung onRueckgaengig={zusammenlegungZuruecknehmen} onSchliessen={() => setZusammenlegung(null)}>
-            „{zusammenlegung.neu}" als Fassung von „{zusammenlegung.alt}" aufgenommen
+            {/* Handlung und Rückweg vorn, Namen hinten (R5-E4); ein einziges „Rückgängig" (R5-E3). */}
+            <strong>Zusammengelegt (Rückgängig = eigene Einheit):</strong> „{zusammenlegung.neu}" als Fassung von „{zusammenlegung.alt}"
           </DaumenQuittung>
         )}
         {/* Kiosk-Scan: die aufgenommenen Bögen bleiben im Einsatz — der Knopf

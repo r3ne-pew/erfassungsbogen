@@ -111,7 +111,10 @@ function ebeneImVerlauf(): unknown {
 
 export function ebeneBetreten(kennung: string): void {
   try {
-    history.pushState({ ...((history.state as object | null) ?? {}), [EBENE]: kennung }, "");
+    // „eebErste" markiert nur den ersten Eintrag der App (siehe unten) und wandert nicht mit.
+    const { eebErste: _erste, ...darunter } = ((history.state as Record<string, unknown> | null) ?? {}) as Record<string, unknown>;
+    void _erste;
+    history.pushState({ ...darunter, [EBENE]: kennung }, "");
   } catch {
     /* ohne Verlauf (eingebettet, file://) schließt eben nur der Knopf */
   }
@@ -134,4 +137,38 @@ export function useEbeneZurueck(kennung: string, schliessen: () => void): void {
     window.addEventListener("popstate", beiZurueck);
     return () => window.removeEventListener("popstate", beiZurueck);
   }, [kennung]);
+}
+
+/**
+ * Rückfrage auf dem ersten Verlaufseintrag der App (Link, Startbildschirm):
+ * Dort hat „Zurück" keinen App-Eintrag unter sich und verließ die Seite, die
+ * Rückfrage mit ihr (Audit Runde 5, R5-S5). Solange die Rückfrage offen ist,
+ * liegt darum ein eigener Eintrag über dem ersten; Zurück schließt dann die
+ * Rückfrage. Gibt zurück, ob ein Eintrag angelegt wurde.
+ */
+export const RUECKFRAGE_EBENE = "rueckfrage";
+export function ersteEbeneBetreten(): boolean {
+  try {
+    if (!(history.state as { eebErste?: boolean } | null)?.eebErste || ebeneImVerlauf()) return false;
+    ebeneBetreten(RUECKFRAGE_EBENE);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Den Eintrag der Rückfrage wieder verbrauchen, wenn sie per Knopf zu ist und
+ * er noch obenauf liegt. Verzögert: Löst die Antwort einen Ansichtswechsel aus,
+ * legt die App dessen Verlaufseintrag an; ein `back()` davor risse ihn mit
+ * (dann bleibt der Eintrag stehen, und ein Zurück mehr führt auf dieselbe Seite).
+ */
+export function ersteEbeneVerlassen(): void {
+  setTimeout(() => {
+    try {
+      if (ebeneImVerlauf() === RUECKFRAGE_EBENE) history.back();
+    } catch {
+      /* ohne Verlauf */
+    }
+  }, 80);
 }

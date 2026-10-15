@@ -185,8 +185,10 @@ describe("Einsatz löschen quittiert mit Rückgängig (R2-D6)", () => {
     const erste = liste();
     // Die Startseite beginnt oben; die Quittung steht deshalb in der
     // Daumenleiste, mit „Rückgängig" im ersten Bild (R4-G1).
-    const quittung = screen.getByText(/Einsatz „Übungslage Nord" in den Papierkorb gelegt/);
+    const quittung = screen.getByText(/Einsatz „Übungslage Nord"/);
     expect(quittung.closest(".quittung-daumen")).not.toBeNull();
+    // Die Folge steht vor dem Namen: Die Leiste kürzt hinten (R5-E4).
+    expect(quittung.closest(".quittung-daumen")!.textContent).toMatch(/^In den Papierkorb gelegt \(30 Tage rückholbar\): Einsatz „Übungslage Nord"/);
     expect(within(quittung.closest(".quittung-daumen") as HTMLElement).getByRole("button", { name: "Rückgängig" })).toBeTruthy();
     expect(einsaetzePapierkorb().map((e) => e.id)).toEqual([s.id]);
     erste.unmount();

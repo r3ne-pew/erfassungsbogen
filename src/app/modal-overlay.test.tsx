@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
-import { useModalesOverlay } from "./modal-overlay";
+import { ersteEbeneBetreten, ersteEbeneVerlassen, useModalesOverlay } from "./modal-overlay";
 
 function Overlay(props: { onSchliessen: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -66,5 +66,35 @@ describe("useModalesOverlay", () => {
     expect(ereignis.defaultPrevented).toBe(true);
     expect(beiEscape).toHaveBeenCalledOnce();
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+// Audit Runde 5, R5-S5: Auf dem ersten Verlaufseintrag der App verließ Zurück
+// bei offener Rückfrage die Seite.
+describe("Rückfrage auf dem ersten Verlaufseintrag (R5-S5)", () => {
+  it("legt nur auf dem markierten ersten Eintrag einen eigenen an und verbraucht ihn wieder", async () => {
+    vi.useFakeTimers();
+    try {
+      history.replaceState({ eeb: { schritt: 0 } }, "");
+      expect(ersteEbeneBetreten()).toBe(false); // später Eintrag: Zurück bleibt in der App
+      history.replaceState({ eeb: { schritt: 0 }, eebErste: true }, "");
+      const vorher = history.length;
+      expect(ersteEbeneBetreten()).toBe(true);
+      expect(history.length).toBe(vorher + 1);
+      const zustand = history.state as Record<string, unknown>;
+      expect(zustand.eebEbene).toBe("rueckfrage");
+      expect(zustand.eebErste).toBeUndefined(); // die Marke wandert nicht mit
+      expect(zustand.eeb).toEqual({ schritt: 0 });
+      expect(ersteEbeneBetreten()).toBe(false); // nicht doppelt
+      const zurueck = vi.spyOn(history, "back").mockImplementation(() => {});
+      ersteEbeneVerlassen();
+      expect(zurueck).not.toHaveBeenCalled(); // verzögert: erst die Antwort wirken lassen
+      vi.advanceTimersByTime(100);
+      expect(zurueck).toHaveBeenCalledTimes(1);
+      zurueck.mockRestore();
+    } finally {
+      vi.useRealTimers();
+      history.replaceState(null, "");
+    }
   });
 });

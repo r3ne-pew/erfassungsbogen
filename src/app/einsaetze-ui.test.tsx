@@ -1761,12 +1761,33 @@ describe("Stärke ändern mit Prüfung und Rückweg (R4-E4)", () => {
 
     expect(einsaetzeLaden().find((s) => s.id === einsatzId)!.eintraege).toHaveLength(2);
     const quittung = document.querySelector<HTMLElement>(".quittung-daumen")!;
-    expect(quittung.textContent).toMatch(/^Stärke geändert: „.*Wardenburg" 3 → 66/);
+    expect(quittung.textContent).toMatch(/^Stärke geändert 3 → 66: „.*Wardenburg"/);
 
     await nutzer.click(within(quittung).getByRole("button", { name: "Rückgängig" }));
     neuLaden();
     expect(einsaetzeLaden().find((s) => s.id === einsatzId)!.eintraege).toHaveLength(1);
     expect(document.querySelector(".quittung-daumen")!.textContent).toMatch(/^Stärke zurückgenommen: „.*Wardenburg" gilt wieder mit 3\./);
+  });
+
+  // Audit Runde 5, R5-E6: 0 / 0 / 0 nahm eine Einheit ohne Rückfrage aus der Stärke.
+  it("fragt bei 0 / 0 / 0 und bei einem Absturz unter ein Viertel nach, bei einer kleinen Korrektur nicht (R5-E6)", async () => {
+    const nutzer = userEvent.setup();
+    const { einsatzId } = einsatzMitDreiPersonen();
+    const dialog = await dialogOeffnen(nutzer);
+    for (const feld of ["Führer", "Unterführer", "Mannschaft"]) await eintragen(nutzer, dialog, feld, "0");
+    await nutzer.click(within(dialog).getByRole("button", { name: "Stärke übernehmen" }));
+    const frage = document.querySelector<HTMLDialogElement>("dialog[aria-label='Stimmt die Stärke?']")!;
+    expect(frage.textContent).toContain("0 / 0 / 3 / 3 → 0 / 0 / 0 / 0");
+    expect(frage.textContent).toMatch(/Gesamt 3 → 0: Die Einheit zählt dann weder in der Stärke noch in der Verpflegung — stimmt das\? Ist die Einheit gar nicht mehr da, bleibt „Abrücken"/);
+    expect(einsaetzeLaden().find((s) => s.id === einsatzId)!.eintraege).toHaveLength(1);
+    await nutzer.click(within(frage).getByRole("button", { name: "Zahlen korrigieren" }));
+
+    // Eine kleine Korrektur (3 → 2) fragt nicht.
+    const wieder = document.querySelector<HTMLDialogElement>("dialog[aria-label='Stärke ändern']")!;
+    await eintragen(nutzer, wieder, "Mannschaft", "2");
+    await nutzer.click(within(wieder).getByRole("button", { name: "Stärke übernehmen" }));
+    expect(document.querySelector("dialog[aria-label='Stimmt die Stärke?']")).toBeNull();
+    expect(einsaetzeLaden().find((s) => s.id === einsatzId)!.eintraege).toHaveLength(2);
   });
 
   it("„Zahlen korrigieren“ geht zurück in den Dialog mit den eingegebenen Werten", async () => {

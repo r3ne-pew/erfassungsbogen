@@ -465,7 +465,8 @@ export function EinsatzListe(props: {
       )}
       {geloescht && uebergeben && (
         <DaumenQuittung onRueckgaengig={loeschenRueckgaengig} onSchliessen={() => setGeloescht(null)}>
-          Einsatz „{geloescht.name}" in den Papierkorb gelegt (30 Tage rückholbar).
+          {/* Die Folge vorn, der Name hinten: Die Leiste kürzt auf zwei Zeilen am Ende (R5-E4). */}
+          <strong>In den Papierkorb gelegt (30 Tage rückholbar):</strong> Einsatz „{geloescht.name}"
         </DaumenQuittung>
       )}
       {geloescht && !uebergeben && (
@@ -825,6 +826,13 @@ export function EinsatzDetail(props: {
   onGeloescht: () => void;
   /** Die gerade eingegangene Meldung — sie quittiert in der Liste. */
   eingang?: Eingang | null;
+  /**
+   * Die zuletzt eingelesene Meldung wurde mit „Ja — dieselbe Einheit"
+   * zusammengelegt: Ihren Rückweg führt die Daumenleiste (als eigene Einheit).
+   * Der Link im Kasten „Zuletzt eingelesen" entfernte sie samt Erfassung — zwei
+   * „Rückgängig" mit gegensätzlicher Wirkung (Audit Runde 5, R5-E3).
+   */
+  zusammenlegungEintragId?: string | null;
   /**
    * Stand des letzten Exports dieses Einsatzes je Format (export-stand.ts,
    * R4-W2); fehlendes Format oder weggelassen: noch kein Export in diesem Format.
@@ -1374,7 +1382,7 @@ export function EinsatzDetail(props: {
           {/* Eine falsch aufgenommene Folgemeldung (Zahlendreher, falsche
               Einheit) mit einem Tipp zurücknehmen statt über „Historie →
               Fassung verwerfen…" (Audit Runde 4, R4-E4). */}
-          {eingangFolge && (
+          {eingangFolge && props.zusammenlegungEintragId !== eingegangen.id && (
             <>
               {" "}
               <button type="button" className="link" onClick={() => void folgemeldungZurueckNehmen()}>Rückgängig</button>
@@ -2052,7 +2060,7 @@ export function EinsatzDetail(props: {
           onRueckgaengig={() => void staerkeZurueckNehmen()}
           onSchliessen={() => setStaerkeGeaendert(null)}
         >
-          <strong>Stärke geändert:</strong> „{staerkeGeaendert.name}" {staerkeGeaendert.vorher} → {staerkeGeaendert.nachher}
+          <strong>Stärke geändert {staerkeGeaendert.vorher} → {staerkeGeaendert.nachher}:</strong> „{staerkeGeaendert.name}"
         </DaumenQuittung>
       )}
       {zusammengefuehrt && (
@@ -2970,6 +2978,14 @@ function EinheitKarte(props: {
       const warnungen = staerkePlausibilitaet({ fuehrer: f, unterfuehrer: u, mannschaft: m, gesamt });
       if (gesamt >= 20 && gesamt >= 3 * Math.max(1, alt.gesamt)) {
         warnungen.push(`Gesamt ${alt.gesamt} → ${gesamt}: mehr als das Dreifache der bisherigen Stärke — stimmt das?`);
+      }
+      // Die Plausibilität galt nur nach oben: 0 / 0 / 0 nahm eine Einheit mit 8
+      // Personen ohne Frage aus Stärke und Verpflegung (R5-E6). Bei Null oder
+      // einem Absturz auf unter ein Viertel fragt sie jetzt auch.
+      if (alt.gesamt > 0 && (gesamt === 0 || (alt.gesamt >= 4 && gesamt * 4 < alt.gesamt))) {
+        warnungen.push(
+          `Gesamt ${alt.gesamt} → ${gesamt}: ${gesamt === 0 ? "Die Einheit zählt dann weder in der Stärke noch in der Verpflegung" : "weniger als ein Viertel der bisherigen Stärke"} — stimmt das? Ist die Einheit gar nicht mehr da, bleibt „Abrücken".`,
+        );
       }
       if (warnungen.length === 0) break;
       const ja = await frageJaNein({

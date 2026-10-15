@@ -19,6 +19,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { ortSperren } from "./tipp-schutz";
+import { ersteEbeneBetreten, ersteEbeneVerlassen } from "./modal-overlay";
 
 /** Ein Eingabefeld einer Abfrage. `name` ist der Schlüssel im Ergebnis. */
 export type Eingabefeld = {
@@ -248,6 +249,7 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
   const erstes = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const abbruchKnopf = useRef<HTMLButtonElement>(null);
   const geoeffnetUm = useRef(Date.now());
+  const eigeneEbene = useRef(false);
 
   /** Zeiger-Klicks kurz nach dem Öffnen verschlucken (siehe `prellschutzMs`). */
   function prellschutz(e: MouseEvent<HTMLFormElement>) {
@@ -270,6 +272,8 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
   useEffect(() => {
     dialog.current?.showModal();
     geoeffnetUm.current = Date.now();
+    // Auf dem ersten Verlaufseintrag verließe Zurück sonst die App (R5-S5).
+    eigeneEbene.current = ersteEbeneBetreten() || eigeneEbene.current; // StrictMode ruft den Effekt zweimal auf
     // Die Fingerstelle des Auslösers: Dort liegt jetzt womöglich der
     // bestätigende Knopf (R4-G1).
     ortSperren();
@@ -310,6 +314,10 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
    * `close()` und damit hier vorbei — die Zusage wird genau einmal eingelöst.
    */
   function beiSchluss() {
+    if (eigeneEbene.current) {
+      eigeneEbene.current = false;
+      ersteEbeneVerlassen();
+    }
     const wert = dialog.current?.returnValue ?? "";
     if (abfrage.art === "hinweis") {
       beantworten(undefined);
