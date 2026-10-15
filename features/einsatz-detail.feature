@@ -131,16 +131,19 @@ Funktionalität: Einsatz-Sammlung führen (Meldekopf)
     Und ich im Dialog auf "Als eigene Einheit führen" klicke
     Dann sehe ich die Überschrift "Einheiten (2 gemeldet"
 
-  Szenario: Ein Bogen-Link fragt vor dem Ersetzen des eigenen angefangenen Bogens
+  # R5-S7: Die Wahl „Wohin damit?" nennt die Folge schon unter „Bogen öffnen"
+  # (der eigene Bogen wird ersetzt, samt Rückholplatz); eine zweite, gleichlautende
+  # Rückfrage „Empfangenen Bogen öffnen?" folgt nicht mehr.
+  Szenario: Ein Bogen-Link nennt vor dem Ersetzen des eigenen angefangenen Bogens die Folge und fragt einmal
     Wenn ich auf "‹ Startseite" klicke
     Und ich auf "Neuen Bogen erstellen" klicke
     Und ich das Feld "Name (Pflicht)" mit "Eigenstadt" fülle
     Und ich denselben Bogen-Link erneut öffne
-    Und ich im Dialog auf "Bogen öffnen (ansehen oder bearbeiten)" klicke
-    Dann sehe ich den Dialog "Empfangenen Bogen öffnen?"
+    Dann sehe ich den Hinweis "Ersetzt deinen angefangenen Bogen"
     Und sehe ich den Hinweis "Eigenstadt"
-    Wenn ich im Dialog auf "Meldung öffnen" klicke
-    Dann sehe ich die Übersicht mit dem Standort "Oldenburg - Ni"
+    Wenn ich im Dialog auf "Bogen öffnen (ansehen oder bearbeiten)" klicke
+    Dann ist kein Dialog offen
+    Und sehe ich die Übersicht mit dem Standort "Oldenburg - Ni"
 
   Szenario: Einheit manuell in den Einsatz erfassen
     Wenn ich auf "Einheit manuell erfassen…" klicke
