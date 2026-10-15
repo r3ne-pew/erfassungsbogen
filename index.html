@@ -956,7 +956,11 @@
       }
       .seiten-kopf.assistent-kopf .titelzeile .modus-marke:not(:last-child) { flex-shrink: 0; }
       .seiten-kopf.assistent-kopf .autosave { order: 2; flex: 1 1 100%; padding-bottom: var(--r-1); }
-      .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      /* R5-L2: Die Zeile bricht um statt mit Auslassungspunkten zu enden. Im
+         Feld-Modus fehlten ihr 9 bis 50 px, und abgeschnitten wurde „nur auf
+         diesem Gerät" — der Teil, der sagt, dass die Daten nicht woanders
+         liegen; in den übrigen Modi passte sie ohne jede Reserve. */
+      .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler) { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
       /* position: relative hält die ausgeblendeten Namen (absolut) im Rahmen
          der Leiste — sonst lägen sie bei rollender Leiste (große Schrift)
          außerhalb und verbreiterten die Seite, vgl. R2-G2. */
@@ -4412,6 +4416,15 @@
        nichts läuft über Transparenz oder Grauwerte. Die Nebenzeilen brauchen
        hier keinen eigenen Block mehr — sie treten seit dem Typografie-Pass
        ohnehin über --text-2 zurück, und der ist im Feld-Modus fast schwarz. */
+    /* R5-L3: Der Kopfbalken des Feld-Modus ist die abgedunkelte Kennfarbe
+       (org-farben.ts `kopfFeld`): Weiß darauf, die Zweitschrift und der Haken
+       erreichen mindestens 7:1 — vorher 4,53 bis 4,63:1 auf der Vollfarbe, der
+       niedrigste Wert der Seite. In den Apps bleibt die Plattform-Kopfzeile. */
+    html.feld-modus:not(.platform-ios):not(.platform-android) {
+      --kopf-fond: var(--org-kopf-feld, var(--akzent));
+      --kopf-auf-2: var(--org-kopf-auf-2-feld, var(--org-kopf-auf-2, #cbcfdc));
+      --gut-auf-kopf: var(--org-kopf-gut-feld, var(--org-kopf-gut, #8fe0ab));
+    }
     .feld-modus label.feld { color: var(--text); font-weight: 700; }
     .feld-modus input[type="checkbox"], .feld-modus input[type="radio"] { width: 1.7rem; height: 1.7rem; }
     .feld-modus .stepper button { width: 3.75rem; min-height: 3.75rem; }

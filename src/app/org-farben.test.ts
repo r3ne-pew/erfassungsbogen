@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { OrganisationsTyp } from "@bos/eeb-format/model";
-import { kontrast, kopfDunkel, orgAkzentPalette, orgFarbe } from "./org-farben";
+import { KOPF_FELD_KONTRAST, kontrast, kopfDunkel, kopfFeld, orgAkzentPalette, orgFarbe } from "./org-farben";
+import { NACHT_KOPF_FOND } from "./anzeige-modus";
 
 const HEX = /^#[0-9a-f]{6}$/;
 
@@ -166,5 +167,56 @@ describe("Speicherzeile im Kopf (R4-L1)", () => {
       // Das war der Fehler: die Seitenfarbe auf der Kennfarbe.
       expect(kontrast(GUT_DUNKEL, orgAkzentPalette(org).akzent)).toBeLessThan(4.5);
     }
+  });
+});
+
+/**
+ * Audit Runde 5, R5-L3: Kopfbalken und seine Schrift je Organisation in allen
+ * vier Modi, gerechnet statt geschätzt. Standard und Dunkel stehen auf AA
+ * (4,5:1), Feld auf AAA (7:1 — „maximaler Kontrast"), Nacht auf den festen
+ * Tönen des Stylesheets (index.html, `.nacht-modus`).
+ */
+describe("Kopfbalken je Organisation in allen vier Modi (R5-L3)", () => {
+  const orgs = Object.values(OrganisationsTyp).filter((v): v is OrganisationsTyp => typeof v === "number");
+  const WEISS = "#ffffff";
+
+  it("Standard: Weiß, Zweitschrift und Haken tragen mindestens 4,5:1 auf der Kennfarbe", () => {
+    for (const org of orgs) {
+      const p = orgAkzentPalette(org);
+      expect(kontrast(WEISS, p.akzent), `${OrganisationsTyp[org]} Weiß`).toBeGreaterThanOrEqual(4.5);
+      expect(kontrast(p.kopfAuf2, p.akzent), `${OrganisationsTyp[org]} Zweitschrift`).toBeGreaterThanOrEqual(4.5);
+      expect(kontrast(p.kopfGut, p.akzent), `${OrganisationsTyp[org]} Haken`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("Dunkel: dieselben Töne auf dem abgedunkelten Balken, mindestens 4,5:1", () => {
+    for (const org of orgs) {
+      const p = orgAkzentPalette(org);
+      expect(kontrast(WEISS, p.kopfDunkel), `${OrganisationsTyp[org]} Weiß`).toBeGreaterThanOrEqual(4.5);
+      expect(kontrast(p.kopfAuf2, p.kopfDunkel), `${OrganisationsTyp[org]} Zweitschrift`).toBeGreaterThanOrEqual(4.5);
+      expect(kontrast(p.kopfGut, p.kopfDunkel), `${OrganisationsTyp[org]} Haken`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("Feld: Weiß, Zweitschrift und Haken auf dem Kopfbalken mindestens 7:1 (vorher 4,53 bis 4,63:1)", () => {
+    for (const org of orgs) {
+      const p = orgAkzentPalette(org);
+      expect(p.kopfFeld).toMatch(HEX);
+      expect(kontrast(WEISS, p.kopfFeld), `${OrganisationsTyp[org]} Weiß`).toBeGreaterThanOrEqual(KOPF_FELD_KONTRAST);
+      expect(kontrast(p.kopfAuf2Feld, p.kopfFeld), `${OrganisationsTyp[org]} Zweitschrift`).toBeGreaterThanOrEqual(KOPF_FELD_KONTRAST);
+      expect(kontrast(p.kopfGutFeld, p.kopfFeld), `${OrganisationsTyp[org]} Haken`).toBeGreaterThanOrEqual(KOPF_FELD_KONTRAST);
+    }
+  });
+
+  it("Feld: dunkle Kennfarben bleiben, wie sie sind; die hellen werden dunkler, nicht anders getönt", () => {
+    expect(kopfFeld("#20214f")).toBe("#20214f"); // THW
+    const drk = orgAkzentPalette(OrganisationsTyp.DRK);
+    expect(helligkeit(drk.kopfFeld)).toBeLessThan(helligkeit(drk.akzent));
+    expect(drk.kopfFeld.startsWith("#b")).toBe(true); // weiter ein Rot
+  });
+
+  it("Nacht: die festen Töne tragen mindestens 4,5:1", () => {
+    expect(kontrast("#d9cdb6", NACHT_KOPF_FOND)).toBeGreaterThanOrEqual(4.5);
+    expect(kontrast("#a2977e", NACHT_KOPF_FOND)).toBeGreaterThanOrEqual(4.5);
   });
 });

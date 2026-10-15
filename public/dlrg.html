@@ -295,11 +295,15 @@
     /* Fotos und Bildschirmfotos sind in Dunkel und Nacht helle Flächen —
        gedimmt, aber erkennbar. Im Dunkel-Modus (auch bei System-dunkel ohne
        gespeicherte Wahl) waren sie ungedimmt; ein weißer App-Screenshot
-       blendete über eine halbe Bildschirmhöhe (Audit Runde 3, R3-L4). 0,7
-       drückt Weiß unter die Hell-Schwelle (Luminanz 0,46). Die Strichcodes
-       (.scancodes) bleiben ungedimmt: sie werden vom Bildschirm abgescannt. */
-    html.dunkel-modus figure:not(.scancodes figure) img,
-    html.nacht-modus figure:not(.scancodes figure) img { filter: brightness(0.7); }
+       blendete über eine halbe Bildschirmhöhe (Audit Runde 3, R3-L4). Mit 0,7
+       blieb die Aufnahme „Startseite" nachts bei Luma 137 die hellste Fläche
+       der Seite (Seitengrund 12; Audit Runde 5, R5-L6): Dunkel dimmt auf 0,45
+       (Luma 88), Nacht auf 0,4 (Luma 78) — die Schrift in den Aufnahmen ist
+       ohnehin zu klein zum Lesen, sie zeigen, wie die App aussieht. Die
+       Strichcodes (.scancodes) bleiben ungedimmt: sie werden vom Bildschirm
+       abgescannt. */
+    html.dunkel-modus figure:not(.scancodes figure) img { filter: brightness(0.45); }
+    html.nacht-modus figure:not(.scancodes figure) img { filter: brightness(0.4); }
     /* THEMA:CSS:END */
     /* UMBRUCH:CSS:START */
     /* Große Systemschrift (Umbruch-Regel, scripts/content-stil.mts; Audit

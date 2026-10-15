@@ -116,7 +116,11 @@ describe("theme-color im Dunkel-Modus folgt dem abgedunkelten Kopfbalken (R4-L2)
     // Ein später geöffneter Bogen folgt dem Modus, in dem das Gerät steht.
     wendeOrgAkzentAn(OrganisationsTyp.FEUERWEHR);
     expect(metaFarbe()).toBe(orgAkzentPalette(OrganisationsTyp.FEUERWEHR).kopfDunkel);
+    // Feld: die Statusleiste folgt dem auf 7:1 abgedunkelten Kopfbalken, nicht mehr der Vollfarbe (R5-L3).
     await u.click(screen.getByRole("button", { name: "Feld" }));
+    expect(metaFarbe()).toBe(orgAkzentPalette(OrganisationsTyp.FEUERWEHR).kopfFeld);
+    expect(metaFarbe()).not.toBe(orgAkzentPalette(OrganisationsTyp.FEUERWEHR).akzent);
+    await u.click(screen.getByRole("button", { name: "Standard" }));
     expect(metaFarbe()).toBe(orgAkzentPalette(OrganisationsTyp.FEUERWEHR).akzent);
   });
 });

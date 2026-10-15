@@ -225,6 +225,35 @@ export function kopfDunkel(akzent: string): string {
 }
 
 /**
+ * Kopfbalken im Feld-Modus (Audit Runde 5, R5-L3): Der Modus steht für „große
+ * Tippziele und maximaler Kontrast" (Schwarz auf Hellgrau, 21:1), der Balken
+ * behielt aber die Kennfarbe — und Weiß darauf hatte bei sieben Organisationen
+ * nur 4,53 bis 4,63:1, der niedrigste Wert der Seite. Jetzt wird die Kennfarbe
+ * (Ton und Sättigung bleiben) so weit abgedunkelt, bis Weiß mindestens 7:1
+ * erreicht (WCAG AAA); dunkle Kennfarben (THW, Polizei) bleiben, wie sie sind.
+ */
+export const KOPF_FELD_KONTRAST = 7;
+
+export function kopfFeld(akzent: string): string {
+  if (kontrast(FLAECHE, akzent) >= KOPF_FELD_KONTRAST) return akzent;
+  const basis = hexZuHsl(akzent);
+  for (let l = basis.l; l > 0.02; l -= 0.01) {
+    const ton = hslZuHex({ ...basis, l });
+    if (kontrast(FLAECHE, ton) >= KOPF_FELD_KONTRAST) return ton;
+  }
+  return "#000000";
+}
+
+/** Zweitschrift im Kopfbalken des Feld-Modus: Weiß, soweit abgesenkt, wie 7:1 es zulässt. */
+export function kopfZweitschriftFeld(fond: string): string {
+  for (let anteil = 0.78; anteil < 1; anteil += 0.02) {
+    const ton = mische(FLAECHE, anteil, fond);
+    if (kontrast(ton, fond) >= KOPF_FELD_KONTRAST) return ton;
+  }
+  return FLAECHE;
+}
+
+/**
  * Der Ton für Links und Hover: so weit aufgehellt wie möglich, ohne unter
  * 4,5:1 auf der weißen Fläche zu fallen.
  *
@@ -257,6 +286,8 @@ function linkTon(basis: Hsl): string {
  * - `kopfAuf2`   Zweitschrift IM Kopfbalken (inaktiver Schritt, Nebenzeilen)
  * - `kopfGut`    der Erledigt-Haken IM Kopfbalken
  * - `kopfDunkel` Füllung des Kopfbalkens im Dunkel-Modus (abgedunkelte Kennfarbe)
+ * - `kopfFeld`   Füllung des Kopfbalkens im Feld-Modus (Weiß darauf mindestens 7:1),
+ *                dazu `kopfAuf2Feld` (Zweitschrift) und `kopfGutFeld` (Haken), ebenfalls 7:1
  *
  * `hell`, `kopfAuf2` und `kopfGut` sind auf 4,5:1 gerechnet, nicht geschätzt:
  * `hell` gegen die weiße Fläche, die beiden Kopf-Töne gegen die Kennfarbe.
@@ -270,10 +301,14 @@ export function orgAkzentPalette(org: OrganisationsTyp): {
   kopfAuf2: string;
   kopfGut: string;
   kopfDunkel: string;
+  kopfFeld: string;
+  kopfAuf2Feld: string;
+  kopfGutFeld: string;
 } {
   const akzent = orgFarbe(org).akzent;
   const basis = hexZuHsl(akzent);
   const hell = linkTon(basis);
+  const feld = kopfFeld(akzent);
   return {
     akzent: hslZuHex(basis),
     hell,
@@ -282,6 +317,9 @@ export function orgAkzentPalette(org: OrganisationsTyp): {
     kopfAuf2: kopfZweitschrift(akzent),
     kopfGut: bisKontrast(hexZuHsl(GUT_AUF_KOPF), akzent, AA_TEXT, 1, { grenze: GUT_GRENZE }),
     kopfDunkel: kopfDunkel(akzent),
+    kopfFeld: feld,
+    kopfAuf2Feld: kopfZweitschriftFeld(feld),
+    kopfGutFeld: bisKontrast(hexZuHsl(GUT_AUF_KOPF), feld, KOPF_FELD_KONTRAST, 1, { grenze: GUT_GRENZE }),
   };
 }
 
@@ -295,7 +333,9 @@ export function wendeOrgAkzentAn(org: OrganisationsTyp | undefined): void {
   const wurzel = document.documentElement;
   if (org === undefined) {
     for (const suffix of ["", "-hell", "-dunkel", "-tief"]) wurzel.style.removeProperty(`--org-akzent${suffix}`);
-    for (const name of ["--org-kopf-auf-2", "--org-kopf-gut", "--org-kopf-dunkel"]) wurzel.style.removeProperty(name);
+    for (const name of ["--org-kopf-auf-2", "--org-kopf-gut", "--org-kopf-dunkel", "--org-kopf-feld", "--org-kopf-auf-2-feld", "--org-kopf-gut-feld"]) {
+      wurzel.style.removeProperty(name);
+    }
     themeFarbeAbgleichen();
     return;
   }
@@ -310,6 +350,9 @@ export function wendeOrgAkzentAn(org: OrganisationsTyp | undefined): void {
   wurzel.style.setProperty("--org-kopf-auf-2", p.kopfAuf2);
   wurzel.style.setProperty("--org-kopf-gut", p.kopfGut);
   wurzel.style.setProperty("--org-kopf-dunkel", p.kopfDunkel);
+  wurzel.style.setProperty("--org-kopf-feld", p.kopfFeld);
+  wurzel.style.setProperty("--org-kopf-auf-2-feld", p.kopfAuf2Feld);
+  wurzel.style.setProperty("--org-kopf-gut-feld", p.kopfGutFeld);
   // Die Browserleiste folgt der Kennfarbe — außer nachts (R2-L6).
   themeFarbeAbgleichen();
 }

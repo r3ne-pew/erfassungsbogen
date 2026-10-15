@@ -91,7 +91,7 @@ const STANDARD_THEME_FARBE = "#12275e";
  * Status- und Adressleiste ein, bei roter Kennfarbe rot, über dem warm
  * gedimmten Bild (Audit Runde 2, R2-L6). Nachts nimmt sie deshalb den
  * dunklen Kopf-Ton; Standard, Feld und Dunkel behalten die Kennfarbe, wie
- * ihr Kopfbalken. Die Kennfarbe steht, sobald ein Bogen offen ist, als
+ * ihr Kopfbalken (im Feld-Modus der auf 7:1 abgedunkelte, R5-L3). Die Kennfarbe steht, sobald ein Bogen offen ist, als
  * `--org-akzent` auf `<html>` (org-farben.ts ruft hierher zurück).
  */
 export function themeFarbeAbgleichen(): void {
@@ -102,7 +102,10 @@ export function themeFarbeAbgleichen(): void {
   // Im Dunkel-Modus trägt der Kopfbalken die abgedunkelte Kennfarbe (R4-L2);
   // die Statusleiste folgt ihm.
   const dunkel = wurzel.classList.contains("dunkel-modus") ? wurzel.style.getPropertyValue("--org-kopf-dunkel").trim() : "";
-  meta.content = wurzel.classList.contains("nacht-modus") ? NACHT_KOPF_FOND : dunkel || kennfarbe;
+  // Im Feld-Modus trägt der Kopfbalken den auf 7:1 abgedunkelten Ton (R5-L3);
+  // die Statusleiste blieb in Vollfarbe.
+  const feld = wurzel.classList.contains("feld-modus") ? wurzel.style.getPropertyValue("--org-kopf-feld").trim() : "";
+  meta.content = wurzel.classList.contains("nacht-modus") ? NACHT_KOPF_FOND : dunkel || feld || kennfarbe;
 }
 
 /** Eigenes Event, damit mehrere Schalter-Instanzen (Kopf + Fußzeile) synchron bleiben. */
