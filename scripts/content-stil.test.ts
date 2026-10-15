@@ -90,9 +90,8 @@ describe("scripts/content-stil.mts: Modus-Blöcke (R2-L1)", () => {
   });
 
   it("dimmt Fotos und Bildschirmfotos in Dunkel und Nacht, die Strichcodes nicht (R3-L4)", () => {
-    // R5-L6: Mit 0,7 blieb die Aufnahme nachts bei Luma 137 die hellste Fläche der Seite; jetzt 0,45 (Dunkel) und 0,4 (Nacht).
-    expect(THEMA_CSS).toMatch(/html\.dunkel-modus figure:not\(\.scancodes figure\) img \{ filter: brightness\(0\.45\); \}/);
-    expect(THEMA_CSS).toMatch(/html\.nacht-modus figure:not\(\.scancodes figure\) img \{ filter: brightness\(0\.4\); \}/);
+    // R5-L6: Mit 0,7 blieb die Aufnahme nachts bei Luma 137 die hellste Fläche der Seite; jetzt 0,4 (Luma 78).
+    expect(THEMA_CSS).toMatch(/html\.dunkel-modus figure:not\(\.scancodes figure\) img,\s*html\.nacht-modus figure:not\(\.scancodes figure\) img \{ filter: brightness\(0\.4\); \}/);
     for (const datei of SEITEN) {
       const css = lies(datei).match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? "";
       if (/<img/.test(lies(datei))) expect(css, datei).toContain("html.dunkel-modus figure:not(.scancodes figure) img");

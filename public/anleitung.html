@@ -327,12 +327,12 @@
        gespeicherte Wahl) waren sie ungedimmt; ein weißer App-Screenshot
        blendete über eine halbe Bildschirmhöhe (Audit Runde 3, R3-L4). Mit 0,7
        blieb die Aufnahme „Startseite" nachts bei Luma 137 die hellste Fläche
-       der Seite (Seitengrund 12; Audit Runde 5, R5-L6): Dunkel dimmt auf 0,45
-       (Luma 88), Nacht auf 0,4 (Luma 78) — die Schrift in den Aufnahmen ist
-       ohnehin zu klein zum Lesen, sie zeigen, wie die App aussieht. Die
-       Strichcodes (.scancodes) bleiben ungedimmt: sie werden vom Bildschirm
-       abgescannt. */
-    html.dunkel-modus figure:not(.scancodes figure) img { filter: brightness(0.45); }
+       der Seite (Seitengrund 12; Audit Runde 5, R5-L6): 0,4 bringt sie auf
+       Luma 78 (gemessen am Prüfer-Maß; PNG-Mittel 84) — die Schrift in den
+       Aufnahmen ist ohnehin zu klein zum Lesen, sie zeigen, wie die App
+       aussieht. Die Strichcodes (.scancodes) bleiben ungedimmt: sie werden vom
+       Bildschirm abgescannt. */
+    html.dunkel-modus figure:not(.scancodes figure) img,
     html.nacht-modus figure:not(.scancodes figure) img { filter: brightness(0.4); }
     /* THEMA:CSS:END */
     /* UMBRUCH:CSS:START */
