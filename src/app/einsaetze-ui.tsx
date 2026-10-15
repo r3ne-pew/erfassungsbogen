@@ -2097,12 +2097,14 @@ export function EinsatzDetail(props: {
       )}
       {/* Moduswechsel von unten (Audit Runde 4, R4-L3): Die Einsatzansicht hat
           keine feste Leiste, der Umschalter im Kopf lag mitten in der Liste
-          rund 2 000 px entfernt. Ein kleiner fester Knopf am unteren Rand —
-          dort, wo der Daumen ist; zwei Tipps (öffnen, wählen) genügen, ohne zu
-          rollen. Die Quittung mit „Rückgängig" geht vor (index.html blendet ihn
-          dann aus), ebenso die Bildschirmtastatur. */}
-      <div className="anzeige-schwebe">
-        <AnzeigeLeistenKnopf />
+          rund 2 000 px entfernt. Der Knopf stand zuerst schwebend über dem
+          Inhalt und deckte Text und Bedienelemente ab (R5-L1); jetzt steht er
+          in einer festen Leiste am unteren Rand, die ihre Höhe selbst
+          freihält. Zwei Tipps (öffnen, wählen) genügen, ohne zu rollen. Die
+          Quittung mit „Rückgängig" steht über der Leiste, die
+          Bildschirmtastatur blendet sie aus. */}
+      <div className="anzeige-balken">
+        <AnzeigeLeistenKnopf mitText />
       </div>
     </main>
     </>

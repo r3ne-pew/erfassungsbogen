@@ -128,7 +128,7 @@ describe("Startseite bei großer Schrift (R4-M6)", () => {
 
 describe("Moduswahl (R4-M7, R4-G5)", () => {
   it("die Segmente der aufgeklappten Wahl haben das Grundmaß, nicht 42 px", () => {
-    expect(bloecke("footer.nav .anzeige-leiste-wahl button, .anzeige-schwebe .anzeige-leiste-wahl button").join("\n")).toMatch(/min-height:\s*calc\(44px \+ var\(--ziel\)\)/);
+    expect(bloecke("footer.nav .anzeige-leiste-wahl button, .anzeige-balken .anzeige-leiste-wahl button").join("\n")).toMatch(/min-height:\s*calc\(44px \+ var\(--ziel\)\)/);
   });
 
   it("jeder Modus nennt seinen Zweck in einer Zeile, „Feld“ die großen Tasten", () => {
@@ -278,8 +278,12 @@ describe("Kleinere Sichtreste (R4-L4)", () => {
 });
 
 describe("Moduswechsel von unten (R4-L3)", () => {
-  it("die Einsatzansicht hat einen festen Knopf unten links, der der Quittung und der Tastatur weicht", () => {
-    expect(bloecke(".anzeige-schwebe").join("\n")).toMatch(/position:\s*fixed/);
-    expect(css).toMatch(/html:has\(\.quittung-daumen\) \.anzeige-schwebe, html\.tastatur-offen \.anzeige-schwebe\s*\{\s*display:\s*none/);
+  it("die Einsatzansicht hat eine feste Leiste unten, die ihre Höhe freihält und der Tastatur weicht (R5-L1)", () => {
+    expect(bloecke(".anzeige-balken").join("\n")).toMatch(/position:\s*fixed/);
+    expect(bloecke(".anzeige-balken").join("\n")).toMatch(/left:\s*0;\s*right:\s*0;\s*bottom:\s*0/);
+    expect(css).toMatch(/html\.tastatur-offen \.anzeige-balken\s*\{\s*display:\s*none/);
+    // Sie schwebt nicht mehr über dem Inhalt: Die Seite hält die Leistenhöhe frei, die Quittung steht darüber.
+    expect(css).toMatch(/html:has\(\.anzeige-balken\) main\s*\{\s*padding-bottom:[^}]*var\(--balken-hoehe/);
+    expect(css).toMatch(/html:has\(\.anzeige-balken\) \.quittung-daumen\s*\{\s*bottom:[^}]*var\(--balken-hoehe/);
   });
 });

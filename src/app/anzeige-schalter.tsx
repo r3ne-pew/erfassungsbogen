@@ -125,8 +125,11 @@ function festPositioniert(el: Element, fenster: Window): boolean {
  * Tipp klappt die vier Modi darüber auf, der zweite wählt. Die Stelle im
  * Formular bleibt: Was vorher in der Bildmitte stand, steht danach wieder
  * dort, auch wenn der Feld-Modus die Schrift vergrößert.
+ *
+ * `mitText`: der Knopf nennt den gewählten Modus („Ansicht: Standard") — so
+ * steht er in der festen Leiste der Einsatzansicht (R5-L1).
  */
-export function AnzeigeLeistenKnopf() {
+export function AnzeigeLeistenKnopf({ mitText = false }: { mitText?: boolean } = {}) {
   const [modus, setModus] = useState<AnzeigeModus>(() => anzeigeModus());
   const [offen, setOffen] = useState(false);
   const huelle = useRef<HTMLSpanElement>(null);
@@ -178,7 +181,10 @@ export function AnzeigeLeistenKnopf() {
         title="Ansicht (Standard, Dunkel, Feld, Nacht)"
         onClick={() => setOffen((o) => !o)}
       >
-        <span aria-hidden="true">◐</span>
+        <span aria-hidden="true" className="anzeige-leiste-zeichen">◐</span>
+        {/* In der festen Leiste der Einsatzansicht mit Text: „◐" allein sagte
+            nicht, was es schaltet (R5-L1; „◐ ohne Text", Runde 5). */}
+        {mitText && <span className="anzeige-leiste-text">Ansicht: {aktuell}</span>}
       </button>
       {offen && (
         <span className="anzeige-leiste-wahl" role="group" aria-label="Anzeigemodus">

@@ -2141,7 +2141,7 @@ describe("Moduswechsel von unten in der Einsatzansicht (R4-L3)", () => {
   it("hat einen festen „◐“-Knopf, dessen Wahl mit zwei Tipps erreichbar ist", async () => {
     buehne();
     const nutzer = userEvent.setup();
-    const fest = document.querySelector(".anzeige-schwebe");
+    const fest = document.querySelector(".anzeige-balken");
     expect(fest).not.toBeNull();
     const knopf = within(fest as HTMLElement).getByRole("button", { name: /Ansicht: .* ändern/ });
     await nutzer.click(knopf);
