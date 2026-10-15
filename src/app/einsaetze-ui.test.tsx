@@ -1313,12 +1313,17 @@ describe("Kompakte Einheiten auf dem Telefon (R2-K7)", () => {
     expect(summen.open).toBe(false);
   });
 
-  it("Telefon, lange Liste: die Suchleiste steht offen (R4-K5)", () => {
+  it("Telefon, lange Liste: die Suchleiste steht hinter einer Zeile, damit die erste Karte höchstens zwei Bildschirme tief liegt (R5-K4)", () => {
     const angelegt = einsatzAnlegen("Grosslage", EinsatzArt.EINSATZ);
     for (let i = 0; i < 10; i++) meldungHinzufuegen(angelegt.id, bogenMitName(`Ortsverband ${i + 1}`));
     ansicht(angelegt.id);
-    expect(document.querySelector("details.einheiten-filter-wahl")).toBeNull();
-    expect(document.querySelector(".einheiten-filter")).not.toBeNull();
+    const wahl = document.querySelector<HTMLDetailsElement>("details.einheiten-filter-wahl")!;
+    expect(wahl).not.toBeNull();
+    expect(wahl.open).toBe(false);
+    // Der Bedarf ist am Telefon eine Zeile mit Summen und klappt auf.
+    const bedarf = document.querySelector<HTMLDetailsElement>("details.bedarf-block")!;
+    expect(bedarf.open).toBe(false);
+    expect(bedarf.querySelector("summary")!.textContent).toMatch(/^Bedarf: Verpflegung/);
   });
 
   it("zeigt zugeklappt nur Name, Stärke und Bedarf und klappt auf Tipp auf", async () => {

@@ -160,9 +160,6 @@ export const ART_LABEL: Record<EinsatzArt, string> = {
   [EinsatzArt.VERANSTALTUNG]: "Veranstaltung",
 };
 
-/** Ab so vielen Einheiten steht die Suchleiste am Telefon offen (R4-K5). */
-const FILTER_OFFEN_AB = 10;
-
 /**
  * Herkunft der Meldung an der Karte, in Worten, die ohne Einweisung tragen:
  * „Empfangen“ allein sagte nicht, von wem und wie (Audit Runde 4, R4-N4). Die
@@ -1036,8 +1033,8 @@ export function EinsatzDetail(props: {
   // Gesamtzahl; `kopf` ist davon nur der gerade angezeigte Ausschnitt. Suche,
   // Filter und Sortierung ändern die Summen oben bewusst nicht.
   const alleEinheiten = geltendeJeEinheit(einsatz.eintraege);
-  /** Eine kurze Liste braucht am Telefon keine offene Suchleiste: sie stand 320 px hoch vor der ersten Karte (R4-K5). */
-  const filterEingeklappt = kompakt && alleEinheiten.length < FILTER_OFFEN_AB;
+  /** Am Telefon steht die Suchleiste hinter einer Zeile, auch bei langer Liste: offen war sie 321 px hoch vor der ersten Karte (R4-K5, R5-K4); Suche oder Filter öffnen sie. */
+  const filterEingeklappt = kompakt;
   const letzte = letzteMeldung(einsatz.eintraege);
   // Laufende Nummer je Meldung — dieselbe wie auf dem Lageblatt (R2-A6).
   const nummern = meldungsNummern(einsatz.eintraege);
@@ -1493,6 +1490,75 @@ export function EinsatzDetail(props: {
       )}
 
 
+      {/* Am Telefon eingeklappt, mit einer Summenzeile: Der Block war 346 px hoch und
+          schob die erste Einheitenkarte auf 2,6 Bildschirme (R5-K4). Am Laptop steht
+          er wie bisher offen in der linken Spalte. */}
+      {kompakt ? (
+        <details className="karte bedarf-block">
+          <summary>
+            <strong>Bedarf:</strong> Verpflegung {sum.verpflegung.gesamt}
+            {sum.unterbringungBenoetigt > 0 ? ` · Unterbringung ${sum.unterbringungAngefordert.personen}` : ""}
+            {` · Diesel ${sum.kraftstoff.dieselLiter} l`}
+            {sum.ruhezeitErforderlich > 0 ? ` · Ruhezeit ${sum.ruhezeitErforderlich}×` : ""}
+          </summary>
+          {/* Vier Bedarfsarten als beschriftete Paare statt als zwei Sätze: nach
+            diesen Zahlen wird gezielt gesucht („wie viel Diesel?"), nicht
+            gelesen. Im Fließtext lag jede Zahl an einer anderen Stelle der
+            Zeile und war nur über den davorstehenden Begriff zu finden. */}
+        <dl className="paare">
+          <dt>Verpflegung</dt>
+          <dd>
+            <strong>{sum.verpflegung.gesamt}</strong>
+            {" "}({sum.verpflegung.vegetarisch} vegetarisch / {sum.verpflegung.vegan} vegan)
+          </dd>
+          {/* Zwei Zahlen, zwei Fragen (Audit Runde 3, R3-K4): Quartier
+              brauchen nur die Einheiten, die Unterbringung angefordert haben —
+              „M 71 / W 30" daneben zählte alle 101 Anwesenden, angefordert
+              hatten sechs Einheiten mit 66 Personen. Die Zahl aller
+              Anwesenden bleibt, beschriftet, für WC und Duschen. */}
+          <dt>Unterbringung angefordert</dt>
+          <dd className="unterbringung-angefordert">
+            {sum.unterbringungBenoetigt > 0 ? (
+              <>
+                {/* Sprung in den passenden Filter: „wer braucht ein Quartier?"
+                    ist genau die Frage hinter der Zahl (R2-K4). */}
+                <button type="button" className="link" onClick={() => aufBedarfFiltern("unterbringung")}>
+                  {sum.unterbringungBenoetigt} {sum.unterbringungBenoetigt === 1 ? "Einheit" : "Einheiten"}
+                </button>
+                {", "}
+                <strong>{sum.unterbringungAngefordert.personen} {sum.unterbringungAngefordert.personen === 1 ? "Person" : "Personen"}</strong>
+                {` (${mwdText(sum.unterbringungAngefordert)})`}
+              </>
+            ) : (
+              "keine"
+            )}
+          </dd>
+          <dt>WC/Dusche (alle Anwesenden)</dt>
+          <dd>
+            {/* Schnellerfassungen ohne M/W/D-Aufteilung benennen statt als 0
+                zu verschweigen (Audit Runde 2, R2-N5). */}
+            {mwdText({ ...sum.unterbringung, ohneAngabe: sum.unterbringungOhneAngabe })}
+          </dd>
+          <dt>Kraftstoff</dt>
+          <dd>
+            Diesel {sum.kraftstoff.dieselLiter} l · Benzin {sum.kraftstoff.benzinLiter} l
+            {sum.kraftstoff.gemischLiter > 0 ? ` · Gemisch ${sum.kraftstoff.gemischLiter} l` : ""}
+          </dd>
+          <dt>Fahrzeuge</dt>
+          <dd>
+            {sum.fahrzeuge}
+            {sum.ruhezeitErforderlich > 0 && (
+              <>
+                {" · "}
+                <button type="button" className="link" onClick={() => aufBedarfFiltern("ruhezeit")}>
+                  Ruhezeit: {sum.ruhezeitErforderlich}×
+                </button>
+              </>
+            )}
+          </dd>
+        </dl>
+        </details>
+      ) : (
       <section className="karte">
         <h2>Bedarf (anwesende Einheiten)</h2>
         {/* Vier Bedarfsarten als beschriftete Paare statt als zwei Sätze: nach
@@ -1552,6 +1618,7 @@ export function EinsatzDetail(props: {
           </dd>
         </dl>
       </section>
+      )}
 
       {/* Ab drei Zügen zugeklappt: der Block schob auf dem Tablet den Einstieg
           in die Einheitenliste unter den Falz (K6). Die Zusammenfassung nennt

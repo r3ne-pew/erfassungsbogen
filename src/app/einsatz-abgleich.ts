@@ -439,6 +439,47 @@ export function abgleichText(r: Pick<AbgleichErgebnis, "aktualisiert" | "widersp
   return teile.join(" ");
 }
 
+/** Ein eingeklappter Abschnitt einer Quittung. */
+export interface Einzelheit {
+  titel: string;
+  zeilen: string[];
+}
+
+/**
+ * Die Quittung des Abgleichs gegliedert (Audit Runde 5, R5-K3): oben das, was
+ * eine Entscheidung verlangt — aktualisierte Meldungen (Abrücken, Zug, Fassung)
+ * und inhaltliche Widersprüche, jeweils die ersten drei —, dahinter eingeklappt
+ * alles Übrige und die kleinen Abweichungen der Eintreffzeit, die zwei Geräte
+ * beim Empfang je selbst vergeben. Vorher war es ein Absatz von 14 Widersprüchen,
+ * in dem „Cottbus abgerückt" unterging.
+ */
+export function abgleichGliederung(r: Pick<AbgleichErgebnis, "aktualisiert" | "widersprueche">): { kurz: string[]; einzelheiten: Einzelheit[] } {
+  const kurz: string[] = [];
+  const einzelheiten: Einzelheit[] = [];
+  const BIS = 3;
+  if (r.aktualisiert.length > 0) {
+    const n = r.aktualisiert.length;
+    const zeile = (a: AbgleichAenderung) => `${a.einheit} ${a.was.join(", ")}`;
+    kurz.push(`${n === 1 ? "1 Meldung" : `${n} Meldungen`} aktualisiert: ${r.aktualisiert.slice(0, BIS).map(zeile).join("; ")}${n > BIS ? ` und ${n - BIS} weitere` : ""}.`);
+    if (n > BIS) einzelheiten.push({ titel: `Alle ${n} aktualisierten Meldungen`, zeilen: r.aktualisiert.map(zeile) });
+  }
+  const wid = (w: AbgleichWiderspruch) =>
+    `${w.einheit} ${w.feld} — hier ${w.hier}, in der Datei ${w.datei}; ` +
+    (w.gilt === "datei" ? "der jüngere Stand aus der Datei gilt" : "der Stand dieses Geräts bleibt");
+  const wichtig = r.widersprueche.filter((w) => w.feld !== FELD_NAME.eintreffzeit);
+  const klein = r.widersprueche.filter((w) => w.feld === FELD_NAME.eintreffzeit);
+  if (wichtig.length > 0) {
+    const n = wichtig.length;
+    kurz.push(`${n === 1 ? "1 Widerspruch" : `${n} Widersprüche`} zwischen den Geräten: ${wichtig.slice(0, BIS).map(wid).join("; ")}${n > BIS ? ` und ${n - BIS} weitere` : ""}.`);
+    if (n > BIS) einzelheiten.push({ titel: `Alle ${n} Widersprüche`, zeilen: wichtig.map(wid) });
+  }
+  if (klein.length > 0) {
+    kurz.push(`${klein.length === 1 ? "1 kleine Abweichung" : `${klein.length} kleine Abweichungen`} bei der Eintreffzeit (Minuten, weil beide Geräte sie beim Empfang selbst vergeben).`);
+    einzelheiten.push({ titel: `Eintreffzeit: ${klein.length} Abweichungen`, zeilen: klein.map(wid) });
+  }
+  return { kurz, einzelheiten };
+}
+
 /**
  * Sammlung eines anderen Geräts (z. B. die Sammel-PDF des Zugführers) für die
  * Übernahme in eine ANDERE, laufende Sammlung vorbereiten: dieselben

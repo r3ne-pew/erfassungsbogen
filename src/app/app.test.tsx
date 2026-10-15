@@ -2509,7 +2509,7 @@ describe("Einsatz importieren: Quittung oben, nach Einheiten gezählt (R4-K2)", 
       expect(q).not.toBeNull();
       return q as HTMLElement;
     });
-    expect(quittung.textContent).toContain('Einsatz „Hochwasser Jagst" übernommen: 2 Einheiten, davon 2 anwesend, 1 Folgemeldung.');
+    expect(quittung.textContent).toContain('Einsatz „Hochwasser Jagst" übernommen: 2 Einheiten, davon 2 anwesend.');
     expect(quittung.textContent).not.toContain("Meldung(en)");
     expect(quittung.textContent).toMatch(/Stand der Datei: letzte Meldung /);
     // Oben in der Ansicht, nicht hinter „Einsatz löschen…“.

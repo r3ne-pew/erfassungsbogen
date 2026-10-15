@@ -2601,6 +2601,11 @@
     details.zug-summen > summary::before { content: "▸"; margin-right: var(--r-2); color: var(--text-2); }
     details.zug-summen[open] > summary::before { content: "▾"; }
     details.zug-summen > summary h2 { margin: 0; }
+    /* Bedarf am Telefon eingeklappt, mit Summenzeile (R5-K4). */
+    details.bedarf-block > summary { cursor: pointer; list-style: none; display: flex; align-items: center; min-height: calc(var(--ziel-basis) + var(--ziel)); }
+    details.bedarf-block > summary::-webkit-details-marker { display: none; }
+    details.bedarf-block > summary::before { content: "▸"; margin-right: var(--r-2); color: var(--text-2); flex: none; }
+    details.bedarf-block[open] > summary::before { content: "▾"; }
     .einsatz-ausgaben-hinweis { flex-basis: 100%; margin: var(--r-1) 0 var(--r-2); }
     /* Umschalter Karten/Tabelle im Kartenkopf. Zwei aneinanderliegende
        Knöpfe statt einer Auswahlliste: es sind genau zwei Zustände, und der

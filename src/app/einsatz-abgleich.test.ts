@@ -395,3 +395,23 @@ describe("sammlungFuerZiel — Sammlung des Zugführers in die laufende Lage (R3
     expect(ohne.eintraege.every((e) => !e.zugEtikett)).toBe(true);
   });
 });
+
+describe("abgleichGliederung (Audit Runde 5, R5-K3)", () => {
+  it("stellt Abrücken und inhaltliche Widersprüche voran und klappt die Eintreffzeit-Abweichungen ein", async () => {
+    const { abgleichGliederung } = await import("./einsatz-abgleich");
+    const wid = (einheit: string, feld: string) => ({
+      einheitSchluessel: einheit, einheit, feld, hier: "a", datei: "b", gilt: "hier" as const,
+    });
+    const r = {
+      aktualisiert: [{ einheitSchluessel: "c", einheit: "Cottbus", was: ["abgerückt 13:37"] }],
+      widersprueche: [...Array.from({ length: 13 }, (_, i) => wid(`E${i}`, "Eintreffzeit")), wid("Füssen", "Status")],
+    };
+    const g = abgleichGliederung(r);
+    expect(g.kurz[0]).toBe("1 Meldung aktualisiert: Cottbus abgerückt 13:37.");
+    expect(g.kurz.join(" ")).toContain("1 Widerspruch zwischen den Geräten: Füssen Status");
+    expect(g.kurz.join(" ")).toContain("13 kleine Abweichungen bei der Eintreffzeit");
+    expect(g.kurz.join(" ")).not.toContain("E5");
+    expect(g.einzelheiten).toHaveLength(1);
+    expect(g.einzelheiten[0]!.zeilen).toHaveLength(13);
+  });
+});

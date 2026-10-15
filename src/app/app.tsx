@@ -93,7 +93,7 @@ import { uebergabeBestaetigen, uebergabeNachWeg, uebergabeText, type UebergabeSt
 import { ART_LABEL, EinsatzDetail, EinsatzListe, letzteMeldungText, type Eingang } from "./einsaetze-ui";
 import { anzahlEinheiten, letzteMeldung, meldungsNummern, nummernWechsel, nummernWechselText, rueckkehrText } from "./einheiten-tabelle";
 import { exportSammlung, exportStaendeLaden, exportStaendeUebernehmen, exportStandAusWeitergabe, exportVermerken, lieferungsMarke, weitergabeUmImportErgaenzen, type ExportStand, type ExportUmfang, type ExportZiel } from "./export-stand";
-import { abgleichText, einsatzAbgleichen, sammlungFuerZiel } from "./einsatz-abgleich";
+import { abgleichGliederung, abgleichText, einsatzAbgleichen, sammlungFuerZiel, type Einzelheit } from "./einsatz-abgleich";
 import { aktuelleMeldungen } from "./auswertung";
 import { ablehnungsSatz, abgelehnteBoegen, boegenAusJsonTextMitUrsachen, boegenAusPdfBytes, einsatzAusDatei, einsatzAusPdfBytes, einsatzDateiInhalt, istPdfDatei, pdfInhaltArt } from "./einsatz-transport";
 import type { QrBogen } from "./qr-boegen";
@@ -914,7 +914,7 @@ function AppInhalt() {
   // Der Knopf im Bericht öffnet den Abgleich vom Papier (R4-A6).
   const [abgleichAnstoss, setAbgleichAnstoss] = useState(0);
   // Rückmeldung von „Bögen einlesen…" (Dateien) unter den Aufnahme-Knöpfen (R3-L1, R3-E4).
-  const [einlese, setEinlese] = useState<{ fehler: string; meldung: string } | null>(null);
+  const [einlese, setEinlese] = useState<{ fehler: string; meldung: string; einzelheiten?: Einzelheit[] } | null>(null);
   const stapelAbbruchRef = useRef(false);
   // Kiosk-Scan (Meldekopf): Zähler der in diesem Durchgang aufgenommenen Bögen.
   const kioskZaehlerRef = useRef(0);
@@ -3476,37 +3476,38 @@ function AppInhalt() {
       const letzteImImport = letzteMeldung(geklaert.sammlung.eintraege);
       einsaetzeNeuLaden();
       setFehler("");
-      const abgleich = abgleichText(r);
-      // Einheiten statt Fassungen zählen, wie die Liste darunter (R4-K2): „18
-      // Meldung(en)" neben „Einheiten (14 gemeldet)" führte zu Rückfragen beim
-      // Übergebenden.
+      // Gegliedert statt ein Absatz (R5-K3): oben Einheiten, Aktualisierungen und
+      // inhaltliche Widersprüche, die kleinen Abweichungen eingeklappt dahinter.
+      const gliederung = abgleichGliederung(r);
+      // Einheiten statt Fassungen zählen, wie die Liste darunter (R4-K2).
       const jetzt = einsaetzeLaden().find((x) => x.id === s.id);
       const koepfe = geltendeJeEinheit(jetzt?.eintraege ?? []);
       const anwesend = koepfe.filter((e) => e.status === MeldeStatus.ANWESEND).length;
-      const folgen = (jetzt?.eintraege ?? []).filter((e) => e.quelle !== "aufteilung" && e.quelle !== "zusammenfuehrung").length - koepfe.length;
+      const vorherEinheiten = new Set(eintraegeVorher.map((e) => e.einheitSchluessel));
+      const neueEinheiten = koepfe.filter((e) => !vorherEinheiten.has(e.einheitSchluessel)).length;
       // Nummern, die sich beim Zusammenführen verschoben haben (R5-W3).
       const nummernHinweis = nummernWechselText(nummernWechsel(eintraegeVorher, jetzt?.eintraege ?? []), jetzt?.eintraege ?? []);
-      const einheitenText = `${koepfe.length === 1 ? "1 Einheit" : `${koepfe.length} Einheiten`}, davon ${anwesend} anwesend${
-        folgen > 0 ? `, ${folgen === 1 ? "1 Folgemeldung" : `${folgen} Folgemeldungen`}` : ""
-      }`;
+      const einheitenText = `${koepfe.length === 1 ? "1 Einheit" : `${koepfe.length} Einheiten`}, davon ${anwesend} anwesend`;
+      const kopfSatz = r.neuerEinsatz
+        ? `Einsatz „${s.name}" übernommen: ${einheitenText}.`
+        : `Einsatz „${s.name}": ${neueEinheiten === 0 ? "keine neue Einheit" : neueEinheiten === 1 ? "1 neue Einheit" : `${neueEinheiten} neue Einheiten`}` +
+          `${r.hinzugefuegt > neueEinheiten ? `, ${r.hinzugefuegt - neueEinheiten} Folgemeldung(en)` : ""}. Jetzt ${einheitenText}.`;
       // Die Quittung steht oben in der Einsatzansicht, bei den Aufnahmeknöpfen —
       // als `meldung` stand sie hinter „Einsatz löschen…", vier Bildschirme
       // unter dem sichtbaren Bereich (R4-K2).
       setMeldung("");
       setEinlese({
         fehler: "",
-        meldung:
-          (r.neuerEinsatz
-            ? `Einsatz „${s.name}" übernommen: ${einheitenText}.`
-            : `Einsatz „${s.name}": ${r.hinzugefuegt} neue Meldung(en) ergänzt` +
-              (abgleich ? `. ${abgleich}` : r.hinzugefuegt === 0 ? " — die Datei enthält nichts, was hier fehlte." : ".") +
-              ` Jetzt ${einheitenText}.`) +
-          // Wie aktuell die übernommene Lage ist: Kam auf dem alten Gerät
-          // danach noch etwas, fehlt es hier (Audit Runde 3, R3-K5).
-          (letzteImImport != null ? ` Stand der Datei: letzte Meldung ${zeitLang(letzteImImport)}.` : "") +
-          (nummernHinweis ? ` ${nummernHinweis}` : "") +
-          geklaert.hinweis +
-          (abgelehnt.length > 0 ? ` ${ablehnungsSatz(abgelehnt, abgelehntGesamt)}` : ""),
+        meldung: [
+          kopfSatz,
+          ...(r.neuerEinsatz ? [] : gliederung.kurz),
+          // Wie aktuell die übernommene Lage ist (Audit Runde 3, R3-K5).
+          ...(letzteImImport != null ? [`Stand der Datei: letzte Meldung ${zeitLang(letzteImImport)}.`] : []),
+          ...(nummernHinweis ? [nummernHinweis] : []),
+          ...(geklaert.hinweis ? [geklaert.hinweis.trim()] : []),
+          ...(abgelehnt.length > 0 ? [ablehnungsSatz(abgelehnt, abgelehntGesamt)] : []),
+        ].join(" "),
+        einzelheiten: r.neuerEinsatz ? [] : gliederung.einzelheiten,
       });
       setOffenerEinsatzId(s.id);
     } catch (err) {
@@ -3557,7 +3558,7 @@ function AppInhalt() {
           abgleichAnstoss={abgleichAnstoss}
           einleseQuittung={
             <>
-              <EinleseQuittung fehler={einlese?.fehler ?? ""} meldung={einlese?.meldung ?? ""} />
+              <EinleseQuittung fehler={einlese?.fehler ?? ""} meldung={einlese?.meldung ?? ""} einzelheiten={einlese?.einzelheiten} />
               {/* Eine angefangene Erfassung für diesen Einsatz liegt im Assistenten:
                   Wer mit „‹ Einsatz" zurückkam, findet sie hier wieder — nicht als
                   fremden „eigenen Bogen" auf der Startseite (Audit „Neuer Nutzer", F2).

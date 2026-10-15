@@ -13,15 +13,38 @@
 
 import { useEffect, useRef } from "react";
 
-export function EinleseQuittung({ fehler, meldung }: { fehler: string; meldung: string }) {
+export interface QuittungsEinzelheit {
+  titel: string;
+  zeilen: string[];
+}
+
+export function EinleseQuittung({ fehler, meldung, einzelheiten = [] }: { fehler: string; meldung: string; einzelheiten?: QuittungsEinzelheit[] }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    // Nach dem Aufbau der Ansicht: Deren eigener Sprung an den Anfang läuft nach
+    // den Effekten der Kinder und nahm der Quittung nach „Einsatz importieren…"
+    // das Scrollen (R5-K3).
+    const rahmen = requestAnimationFrame?.(() => ref.current?.scrollIntoView?.({ block: "nearest" }));
     ref.current?.scrollIntoView?.({ block: "nearest" });
+    return () => {
+      if (rahmen != null) cancelAnimationFrame?.(rahmen);
+    };
   }, [fehler, meldung]);
   if (!fehler && !meldung) return null;
   return (
     <div ref={ref} className="einlese-quittung" role={fehler ? "alert" : "status"}>
       {meldung && <p className="meldung">{meldung}</p>}
+      {/* Das Kleine eingeklappt: die Kurzfassung oben bleibt ohne Scrollen lesbar (R5-K3). */}
+      {einzelheiten.map((e) => (
+        <details className="einlese-einzelheit" key={e.titel}>
+          <summary>{e.titel}</summary>
+          <ul>
+            {e.zeilen.map((z, i) => (
+              <li key={i}>{z}</li>
+            ))}
+          </ul>
+        </details>
+      ))}
       {/* Mit Zeichen und Rahmen wie die Erfolgsmeldung daneben (R4-L4): als
           Fließtext im Alarmton war die Fehlerzeile unter Rot-Grün-Schwäche nur
           noch ein beiger Satz. Das Zeichen ist für Vorleser versteckt, der
