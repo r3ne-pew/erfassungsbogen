@@ -492,3 +492,20 @@ den Statuswechsel in beiden Richtungen „Abrücken" nennt.
 
 Die anderen Runde-5-Berichte lagen bei Abschluss nur als Entwürfe vor; die
 Verweise oben stammen daraus.
+
+## Stand der Behebung
+
+Stand 15.10.2026, Paket 2 „Fassungen, Exportstand, Abgleich, Führungssicht".
+Geprüft mit Typprüfung, Unit-Tests (2 761 grün), Verhaltenstests (137
+Szenarien, 1 749 Schritte grün) und Nachmessung im Dev-Server (360 × 640,
+`isMobile`/`hasTouch`, de-DE, Port 5180). Aufgeführt sind nur die Befunde
+dieses Pakets.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-K1 Folgemeldung holt Abgerückte still zurück | behoben, Entscheidung begründet | Entscheidung: Die Folgemeldung holt die Einheit zurück, aber gekennzeichnet — keine Rückfrage, weil Kiosk-Stapel und Massen-Check-in keine stellen können und der Meldekopf nicht pro Bogen entscheiden soll; das Gegenmittel ist ein Tipp („Wieder abrücken“ mit früherer Zeit). Umsetzung: `rueckkehr` am Eintrag, Vermerk im Verlauf, Quittung (Einzel, Sammel, Kiosk), Karte, Lageblatt/Sammel-PDF („WIEDER ANWESEND — war abgerückt seit …“), Exportzeile „Wieder anwesend“ statt „Abrücken“, Nachtrag-Grund. Der Dialog „Zwei Fassungen mit demselben Stand“ nennt den Abrückzeitpunkt und die Folge der Wahl; eine ältere Fassung lässt die Einheit abgerückt. |
+| R5-K3 Import-Quittung: ein Absatz, Statuswechsel geht unter | behoben | Gegliedert: Kopfsatz (Einheiten neu/anwesend, ohne Fassungszählung), aktualisierte Meldungen (Cottbus abgerückt) und inhaltliche Widersprüche je die ersten drei, die Eintreffzeit-Abweichungen als eine Zeile, Einzelheiten eingeklappt. Die Quittung rollt nach dem Aufbau der Ansicht ins Bild. |
+| R5-K4 Erste Karte bei 2,6 Bildschirmen | behoben | Am Telefon: Bedarf als Summenzeile hinter einem Aufklapper, Suchleiste immer hinter einer Zeile. Gemessen (11 Einheiten, 3 Züge, 360 × 640): erste Karte bei 1 121 px statt 1 649 px (1,75 statt 2,58 Bildschirme). Die Stärkeleiste (229 px) blieb unverändert. |
+| R5-K5 „Anderer Einsatz?“ nur in der App | behoben | Lageblatt und Sammel-PDF (Zeile der Einheit), Übersichts-CSV (Rückfrage), Alle-Daten-CSV (Spalte „Hinweis zur Meldung“) und Excel (Bemerkung) tragen den Hinweis; beim Nachtrag aus der ganzen Sammlung gerechnet. Heuristik siehe R5-N1. |
+| R5-K6 Nachtrag-Excel und Alle-Daten-CSV nur im Dateinamen | behoben | Excel: Hinweisleiste „NACHTRAG – Teil der Lage“ (A1) und Schlusszeile mit „seit …“; CSV und Alle-Daten-CSV: Schlusszeile „NACHTRAG seit … — nicht die ganze Lage“; Summen „Summe Nachtrag — nur neue Einheiten“. Die Kopfzeilen der Excel-Vorlage blieben unverändert (Einfügen in die Stabsliste). |
+| R5-K7 Lageblatt: „… und 4 weitere Änderungen“ | behoben | Die Spalte „Veränderung“ ordnet: Gesamtstärke, „Bedarf/Auftrag“ (Unterbringung, Ruhezeit, Verpflegung, Kraftstoff, Ort/Auftrag), dann „weitere: Personal (n), Fahrzeuge (n) …“. Nachmessung der Seitenzahl großer Lagen steht aus. |

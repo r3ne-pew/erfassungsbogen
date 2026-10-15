@@ -568,3 +568,15 @@ R5-K4, R5-A9.
 Bilanz: Von den sechs Runde-4-Befunden meiner Rolle halten fünf (R4-N1 bis
 R4-N5), einer hält teilweise (R4-N6). Neu sind keine P0 und keine P1, ein P2
 (R5-N1) und acht P3.
+
+## Stand der Behebung
+
+Stand 15.10.2026, Paket 2 „Fassungen, Exportstand, Abgleich, Führungssicht".
+Geprüft mit Typprüfung, Unit-Tests (2 761 grün), Verhaltenstests (137
+Szenarien, 1 749 Schritte grün) und Nachmessung im Dev-Server (360 × 640,
+`isMobile`/`hasTouch`, de-DE, Port 5180). Aufgeführt sind nur die Befunde
+dieses Pakets.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-N1 „Anderer Einsatz?“ bei den ersten Bögen einer frischen Sammlung | behoben | Der Sammlungsname allein ist keine Vergleichsbasis mehr. Hat die Sammlung einen Ort/Auftrag, gilt er; sonst zählen nur Wörter, die mindestens zwei von mindestens drei anderen Einheiten gemeinsam nennen. Ortsnamen ab drei Buchstaben, „Neu-Ulm“ zählt auch als „Ulm“. Tests: erste und zweite Einheit einer Sammlung nur mit Namen ohne Marke; mit Ort bzw. vier Einheiten bleibt die Marke. |

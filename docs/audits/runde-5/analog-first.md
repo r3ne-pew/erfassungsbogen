@@ -537,3 +537,15 @@ abfragbar, die Zeit ist es nicht, und die Marke fällt trotzdem. Die Lageblatt-
 Behebung (R4-A3) hat den Preis, den die Tabelle nannte: 6 bis 10 Einheiten ergeben
 zwei Seiten, davon eine zum Ausfüllen. Das trägt sich gut, die Wand bleibt
 Seite 1.
+
+## Stand der Behebung
+
+Stand 15.10.2026, Paket 2 „Fassungen, Exportstand, Abgleich, Führungssicht".
+Geprüft mit Typprüfung, Unit-Tests (2 761 grün), Verhaltenstests (137
+Szenarien, 1 749 Schritte grün) und Nachmessung im Dev-Server (360 × 640,
+`isMobile`/`hasTouch`, de-DE, Port 5180). Aufgeführt sind nur die Befunde
+dieses Pakets.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-A1 Papier-Abgleich schreibt die Einlesezeit als Eintreffzeit fort | behoben | „Eingetroffen am“ ist nicht mehr vorbelegt. Ohne Zeit vom Blatt übernimmt der Abgleich Nr., Zug, Auftrag und Status, lässt die Einlesezeit stehen und die Marke „vom Papier, Zeiten prüfen“ an der Karte bestehen; das Lageblatt druckt „Zeit nicht bestätigt (vom Papier)“. Ein Hinweis nennt die Zahl der Einheiten ohne Zeit. Die Marke fällt erst mit der Zeit vom Blatt (oder der Korrektur an der Karte). |

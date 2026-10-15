@@ -94,6 +94,16 @@
 > `src/app/einheiten-index.ts`. Der Kern bleibt unverändert (R3-O2) —
 > Kapitel 5, 8.2, 11.
 >
+> **Nachgezogen 2026-10-14:** Audit Runde 5, Paket 2 „Fassungen, Exportstand,
+> Abgleich, Führungssicht" — Die Stände des Exports führen die Kennung der
+> geltenden Fassung (Feld `fassung`, `export-stand.ts`/`einsatz-abgleich.ts`,
+> R5-W1/W4) und reisen im Umschlag der Sammel-PDF und Einsatz-Datei mit
+> (`staende`, nicht im QR-Transportformat, `vendor/` unverändert, R5-W6; Kapitel
+> 5.2, 8.4, ADR-004 bleibt unberührt). Ein Nachtrag trägt je Einheit den Grund
+> (`nachtragGruende`, nie gespeichert, R5-W7). Eine Folgemeldung holt eine
+> abgerückte Einheit gekennzeichnet zurück (`rueckkehr`, `eintrag-zeiten.ts`,
+> R5-K1); „Anderer Einsatz?" steht in allen Exporten (R5-K5).
+>
 > **Nachgezogen 2026-10-14:** Audit Runde 5, Paket 1 „Uhr, Löschfristen,
 > Fehlerfänger, Speicher, Offline" — Die geprüfte Geräteuhr bestätigt einen
 > Sprung nie durch Zeitablauf (`geraeteuhrPruefen` mit „was würde fällig",

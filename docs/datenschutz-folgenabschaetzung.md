@@ -517,6 +517,16 @@ biometrische Daten, strafrechtliche Daten.
   Personenbezug haben); der QR-Code enthält davon nichts. Wird ein Ausdruck
   über die QR-Codes wieder eingelesen, kommen nur die Bögen zurück; die App
   weist auf das Nachtragen von Hand hin (seit 2026-09-29, R2-A1).
+  *Nachgezogen 2026-10-14 (Audit Runde 5, Paket 2):* Jede Zeile eines Nachtrags
+  nennt ihren Grund („neu", „geändert: Zug …"), die „Summe Nachtrag" zählt nur
+  neue Einheiten (R5-W7), CSV, Alle-Daten-CSV und Excel tragen eine Schlusszeile
+  „NACHTRAG seit … — nicht die ganze Lage" (R5-K6). Neu in allen Ausgaben ist
+  der Hinweis „Anderer Einsatz?" mit dem Ort/Auftrag aus dem Bogen (Freitext
+  der Einheit, bisher nur auf der Karte, R5-K5), im Lageblatt die Kennzeichnung
+  einer unbestätigten Eintreffzeit (R5-A1) und die Bedarfsänderungen der Spalte
+  „Veränderung" (R5-K7). Die Sammel-PDF bettet den Stand der Exporte je Format
+  ein (Kennungen, Prüfsummen, Zeitpunkt; R5-W6, siehe 5.7). Es kommen keine
+  Datenkategorien und keine Empfänger hinzu.
   Seit 2026-10-05 (R3-A6) steht im Bogen-PDF je Person auch die Zählrolle
   (F/UF/M); Lageblatt und Bogen-PDF lassen Platz für Nachträge von Hand.
   Seit 2026-10-06 (R4-A3 bis R4-A8) trägt das Lageblatt mindestens fünf
@@ -713,6 +723,14 @@ Kapitel 6 der [Arc42-Dokumentation](arc42-architektur.md).
   nächsten Export um Stände endgültig gelöschter Sammlungen bereinigt. Er
   verkleinert die Zahl der weitergegebenen Kopien (Datenminimierung beim
   Empfänger), ersetzt aber keine Löschregel dort.
+  *Nachgezogen 2026-10-14 (R5-W1, R5-W6):* Der Zustand je Einheit enthält die
+  Prüfsumme der Kennung der geltenden Fassung. Der Stand je Format wird jetzt
+  auch in die Sammel-PDF und die Einsatz-Datei eingebettet (Umschlag `staende`,
+  nicht im QR-Transportformat): Kennungen, Prüfsummen und Zeitpunkt, **keine
+  Personendaten**; er wandert damit zur Ablösung und verlässt das Gerät wie die
+  Sammlung selbst. Das erweitert die Datenkategorien nicht und verlängert keine
+  Speicherdauer; „Alle Daten löschen" entfernt ihn auf dem Gerät weiter, die
+  weitergegebene Datei liegt außerhalb des Zugriffs der App (siehe 5.5).
 - **Rückholplatz des Entwurfs (seit 2026-09-28 mit Vorrang für den eigenen
   Bogen):** Ein verdrängter oder verworfener Bogen liegt auf genau einem
   Rückholplatz (`eeb.entwurf.ersetzt.v1`, dieselbe Datenschutzfrist wie der

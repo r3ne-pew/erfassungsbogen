@@ -570,3 +570,23 @@ Schichtwechsel (R5-W6).
 - **Top-Priorität für die nächste Iteration:** Den Wechsel der geltenden
   Fassung in Exportstand, Nachtrag und Abgleich-Quittung als Änderung führen
   (R5-W1, R5-W4).
+
+## Stand der Behebung
+
+Stand 15.10.2026, Paket 2 „Fassungen, Exportstand, Abgleich, Führungssicht".
+Geprüft mit Typprüfung, Unit-Tests (2 761 grün), Verhaltenstests (137
+Szenarien, 1 749 Schritte grün) und Nachmessung im Dev-Server (360 × 640,
+`isMobile`/`hasTouch`, de-DE, Port 5180). Aufgeführt sind nur die Befunde
+dieses Pakets.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-W1 Fassungsentscheidung nach Export: „keine neuen Bögen“, Nachtrag gesperrt | behoben | Die Stände (`export-stand.ts`) führen die Kennung der geltenden Fassung als eigenes Feld (`StandFeld "fassung"`). „Diese Fassung gilt“ nach einem Export zählt als „1 Änderung (Fassung)“, der Nachtrag enthält die Einheit mit der jetzt geltenden Fassung, der Knopf bleibt bedienbar. Eine neue Fassung zählt weiter nur als neue Meldung; ältere Stände ohne das Feld erfinden keinen Wechsel (Tests). Gilt für alle vier Formate. |
+| R5-W2 Import legt still eine zweite gleichnamige Sammlung an | behoben | „Einsatz importieren…“ fragt bei unbekannter Kennung und gleichnamiger eigener Sammlung: „In die vorhandene Sammlung übernehmen“ (Abgleich über `sammlungFuerZiel`, ohne Zug-Zuordnung) oder „Als eigene Sammlung“. Startseiten-Karten gleichen Namens nennen die Anlagezeit. |
+| R5-W3 Nr. ändern sich still beim Zusammenführen | behoben | `nummernWechsel` vergleicht die Nummern vor und nach der Übernahme; die Quittung (Import und „Bögen einlesen…“ derselben Sammlung) nennt: „Nr. 5 gehört jetzt THW Erlangen (vorher THW Kassel), THW Kassel hat Nr. 6 — … Lageblatt neu drucken.“ Die Vergabe der Nummern selbst bleibt unverändert (Nummern vom Papier sind fest, R4-A1). |
+| R5-W4 Quittung: „enthält nichts, was hier fehlte“ | behoben | Der Abgleich nennt den Wechsel der geltenden Fassung: „Crailsheim Bogen der Einheit gilt, ersetzt die Schnellerfassung (Stärke 2 → 6)“; er zählt für das andere Gerät als bekannt, nicht als „hier“ geändert (Tests, zwei Geräte). |
+| R5-W5 Sammel-PDF-Nachtrag ignoriert die Weitergabe, „Sammel-PDF“ meint zwei Dinge | behoben, Entscheidung R4-W2 bleibt | Die Weitergabe zählt weiter nicht als Lieferung an den Stab. Die Zeile heißt „Sammel-PDF an den Stab: noch nie als Nachtrag geliefert — alle Bögen sind neu. Die Weitergabe vom … zählt hier nicht“ und bietet „Ab dieser Weitergabe rechnen“ (Stand mit `herkunft: weitergabe`, Anzeige „ab der Weitergabe gerechnet“). Die erste Lieferung heißt `erste-lieferung-…`. |
+| R5-W6 Exportstand wandert nicht mit der Lage | behoben | Ohne Änderung am QR-Transportformat und ohne Eingriff in `vendor/`: Die Stände je Format (Kennungen, Prüfsummen, Zeitpunkt) liegen im Umschlag der Sammel-PDF und der Einsatz-Datei (`staende`, nie in der Sammlung gespeichert). Der Import vereinigt sie mit den eigenen, die Zeile sagt „zuletzt … (vom anderen Gerät)“. Speicherort und Datenfluss in ISK 3.3 D2b/5.4 und DSFA 5.5/5.7 nachgetragen. |
+| R5-W7 Nachtrag: Zeile ohne Grund, volle Stärke in „Summe Nachtrag“ | behoben | Jede Nachtragszeile nennt ihren Grund („neu“, „geändert: Zug, Auftrag, Wieder anwesend, Fassung …“): CSV-Spalte „Im Nachtrag wegen“, Alle-Daten-CSV, Excel-Bemerkung, Sammel-PDF-Zeile. „Summe Nachtrag“ zählt nur neue Einheiten; geänderte stehen in eigener Zeile (CSV), eigenem Block (Excel) bzw. „n geändert, nicht mitgezählt“ (PDF) und ersetzen ihre frühere Zeile. |
+| R5-W8 Drei Namensschemata | behoben | Ein Schema für alle Formate: `nachtrag-seit-<Zeitpunkt>-…` (PDF, CSV, Alle-Daten-CSV, Excel); „nur neue“ ohne Bezugspunkt heißt `erste-lieferung-…`; die Gesamtdatei trägt nichts. Der Seitenkopf der ersten Lieferung bleibt der der ganzen Lage (sie ist es). |
+| R5-W9 „3 Fahrzeuge abgemeldet“ an der Schnellerfassung | behoben | Der Vergleich gegen eine Schnellerfassung nennt „Fahrzeuge, Personal und Sofortbedarf nicht erfasst“ statt „abgemeldet“ (Karte und Quittung). |
