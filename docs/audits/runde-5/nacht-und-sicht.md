@@ -455,3 +455,23 @@ Nebenwirkung (R4-L1: Zeile jetzt abgeschnitten im Feld-Modus), einer wirkt
 nur teilweise (R4-L3: Stelle hält, aber der neue feste Knopf deckt Inhalt ab).
 Neu in Runde 5: R5-L1 (P2), R5-L2 bis R5-L7 (P3). Zusammen: 0 × P0, 0 × P1,
 1 × P2, 6 × P3.
+
+## Stand der Behebung
+
+Stand 15.10.2026, Paket 3 „Touch, Tipp-Sperre, QR-Vollbild, Layout, Sicht".
+Geprüft mit Typprüfung, Unit-Tests (2 844 grün), Verhaltenstests (137 Szenarien,
+1 749 Schritte) und Nachmessung im Browser (Dev-Server Port 5180, Produktionsbuild
+mit `vite preview` Port 4174; Playwright mit `isMobile`/`hasTouch`, de-DE;
+360 × 640, 320 × 568, 390 × 844, 640 × 360 und Tablet 1 180 × 820; 100 % und
+„200 %" als `html { font-size: 200% !important }`; Standard, Feld, Dunkel,
+Nacht; Positionen per `getBoundingClientRect`, Kontraste gerechnet,
+Doppeltipps mit 150 bis 1 700 ms Abstand). Aufgeführt sind nur die Befunde dieses
+Pakets; die Skripte liegen im Scratchpad unter `fix5/paket3/`.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-L1 Fester „◐“ der Einsatzansicht liegt über Text und Bedienelementen | behoben | Der Moduswechsel steht in einer festen Leiste am unteren Rand (`.anzeige-balken`, Knopf mit Text „Ansicht: Standard“ im Handschuhmaß): Die Seite hält ihre Höhe selbst frei (`--balken-hoehe` in `main`-Polster und `scroll-padding`), nichts schwebt mehr über dem Inhalt; die Quittung steht 12 px über der Leiste, die Bildschirmtastatur blendet sie aus, am Tablet steht sie auf dem Satzspiegel. Gemessen (Einsatzansicht, 360 × 640, Standard, Feld, Nacht): am Seitenende endet der letzte Inhalt bei 560 / 551 / 560 px, die Leiste beginnt bei 583 / 578 / 583; Quittung nach „Abrücken“ endet bei 571, Leiste ab 583. Kosten: 57 px (Feld 62) am unteren Bildrand. |
+| R5-L2 Feld-Modus: Speicherzeile im Kopf abgeschnitten | behoben | Die Zeile bricht um (zwei Zeilen) statt mit Auslassungspunkten zu enden; Feld, 360 × 640: „✓ gespeichert · 23:13 Uhr · nur auf diesem Gerät“ vollständig sichtbar (Bildschirmfoto `vis-feld-kopf`). |
+| R5-L3 Feld-Modus: Kopfbalken in voller Kennfarbe, Weiß nur 4,5 bis 4,6:1 | behoben | Im Feld-Modus trägt der Kopf die auf 7:1 abgedunkelte Kennfarbe (`kopfFeld()` in `org-farben.ts`, `--org-kopf-feld`; Ton und Sättigung bleiben), dazu gerechnete Zweitschrift und Haken; die Statusleiste (`theme-color`) folgt; in den Apps bleibt die Plattform-Kopfzeile. Gerechnet für alle zwölf Organisationen in vier Modi (Test `org-farben.test.ts`): Standard Weiß ≥ 4,65:1, Zweitschrift ≥ 4,53:1, Haken ≥ 4,54:1; Dunkel ≥ 6,77:1; Feld ≥ 7,02:1 (z. B. DRK #b1050f 7,25:1, Feuerwehr #b00e29 7,14:1, DLRG #734f00 7,38:1, THW unverändert 15,09:1); Nacht #d9cdb6 10,47:1 und #a2977e 5,69:1 auf #221f16. |
+| R5-L6 Anleitung: helle Aufnahmen nachts die hellsten Flächen | behoben | Aufnahmen in Dunkel und Nacht mit `brightness(0.4)` statt 0,7 (`scripts/content-stil.mts`, in alle 36 Seiten geschrieben, `.scancodes` bleiben ungedimmt). PNG-Mittel der Aufnahme „Startseite“: 148 → 84 (schmal 144 → 82); am Maß des Prüfers (137 bei 0,7) rund 78. |
+| R5-L7 Moduswechsel im Assistenten: Stelle springt aus dem Feld-Modus um 44 bis 49 px | nicht mehr reproduzierbar | Mit der Sonde des Prüfers (Skript `s5`, Schritt 3, `scrollY` 900, 1 800, 3 000 und 4 500, Feld → Standard, Dunkel, Nacht) beträgt der Versatz des Elements in der Bildmitte höchstens 27 px (vorher 44 bis 49); der Anker (`ankerInBildmitte`) hält ±1 px. Ursache des Restes ist die Zeilenhöhe der Kurz-Liste, die sich nach der Umgestaltung (R5-G2) geändert hat; der Code des Ankers ist unverändert. Mit der Einsatzansicht und kleinen Elementen als Sonde ±1 px. |

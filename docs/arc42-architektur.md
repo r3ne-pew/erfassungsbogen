@@ -119,6 +119,21 @@
 > `wartender-link.ts` und `vorbelegung-rueckweg.ts` (Merker im
 > `sessionStorage`), Speicherort `eeb.entwurf.beschaedigt.v1` — Kapitel 6.4,
 > 8.2, 8.3, 8.8.
+>
+> **Nachgezogen 2026-10-15:** Audit Runde 5, Paket 3 „Touch, Tipp-Sperre,
+> QR-Vollbild, Layout, Sicht" — reine Oberfläche, kein neuer Speicherort, kein
+> neuer Export, `vendor/` und Transportformat unverändert. `tipp-schutz.ts`
+> kennt mehrere gleichzeitig gesperrte Stellen (Auslöser und Bestätigung einer
+> Rückfrage, verlängernd bis 4 s) und zeigt einen verworfenen Tipp („Einen
+> Moment …", R5-S2/S3); das QR-Vollbild sperrt jeden Teilwechsel und zählt einen
+> Teil erst nach 1,5 s Anzeige als gezeigt (R5-S1). Neu: `schrift-stufe.ts`
+> (Klasse `schrift-gross` auf `<html>`, wenn die tatsächliche Grundschrift ab 22 px
+> misst; das Stylesheet verdichtet damit bei niedrigem Fenster, R5-M3). Rückfragen
+> auf dem ersten Verlaufseintrag legen einen eigenen Eintrag an
+> (`ersteEbeneBetreten` in `modal-overlay.ts`, R5-S5). Der Moduswechsel der
+> Einsatzansicht steht in einer festen Leiste statt schwebend (R5-L1). Der
+> Kopfbalken im Feld-Modus ist die auf 7:1 abgedunkelte Kennfarbe (`kopfFeld()`
+> in `org-farben.ts`, R5-L3) — Kapitel 5.2.
 
 ---
 
@@ -648,7 +663,9 @@ flowchart TB
 | `bogen-csv.ts` / `einsatz-csv.ts` / `oldenburg-xlsx.ts` / `xlsx.ts` / `csv.ts` | Datenexporte: vollständiges CSV je Bogen/Einsatz (Langformat mit Satzart-Spalte), CSV-Übersicht für die Lagekarte, XLSX im „Oldenburg"-Format, gemeinsame CSV-Formatgrundlagen (Semikolon, UTF-8-BOM, Dezimalkomma). |
 | `entwurf.ts` / `speicher-browser.ts` / `speicher-schonend.ts` / `einsaetze-lesen.ts` / `sicherung.ts` / `absenderkarte.ts` / `export-stand.ts` | Lokale Persistenz: Entwurfswiederherstellung, `localStorage`-Anbindung der Einsatz-Sammlung (seit 2026-10-05, R3-O2, mit schonender Hülle: kein Schreiben unveränderten Textes, Lesen scheitert nicht an einem gesperrten Speicher, Lese-Ergebnis gemerkt solange der Speichertext gleich ist), Datensicherung/-Export, freiwillige Absenderkarte, Export-Stand je Einsatz **und Format** (Sammel-PDF, Übersichts-CSV, Alle-Daten-CSV, Excel; welche Meldungen und welchen Zustand je Einheit der Stab in diesem Format schon bekommen hat — Grundlage des Teilexports „nur neue Bögen", `eeb.export-stand.v2`, nachgezogen 2026-10-06, R4-W2/K1), dazu Lageblatt- und Weitergabe-Stand (wann zuletzt ein Lageblatt bzw. die ganze Sammlung herausging; Übergabevermerk, nachgezogen 2026-09-29, R2-W5; beide führen seit 2026-10-06 den Zustand je Einheit, R4-K1) und Kenntnis-Stand (welche Meldungen an diesem Gerät zuletzt „zur Kenntnis genommen" wurden — Grundlage der Sammelquittung und der Marke „neue Fassung", `eeb.kenntnis-stand.v1`, nachgezogen 2026-10-04, R3-K1). |
 | `nativ.ts` / `hilfen.ts` / `geraete-schluessel.ts` | Abstraktion nativer Fähigkeiten über Capacitor; Anzeige-/Migrations-Helfer (`bogenLaden`, `migriereBogen`, `einheitAnzeigename`); Erzeugung/Verwaltung des geräteeigenen Ed25519-Schlüssels. |
-| `anzeige-modus.ts` / `org-farben.ts` | Dunkel-/Feld-/Nacht-Modus als Design-Token-Umschaltung; organisationsspezifische Akzentfarben, dazu je Kennfarbe die auf 4,5:1 gerechneten Kopf-Töne und im Dunkel-Modus der abgedunkelte Kopfbalken (`kopfDunkel()`, seit 2026-10-06, R4-L2). |
+| `anzeige-modus.ts` / `org-farben.ts` | Dunkel-/Feld-/Nacht-Modus als Design-Token-Umschaltung; organisationsspezifische Akzentfarben, dazu je Kennfarbe die auf 4,5:1 gerechneten Kopf-Töne und im Dunkel-Modus der abgedunkelte Kopfbalken (`kopfDunkel()`, seit 2026-10-06, R4-L2). Im Feld-Modus trägt der Kopfbalken die auf 7:1 abgedunkelte Kennfarbe (`kopfFeld()`, Statusleiste folgt, seit 2026-10-15, R5-L3). |
+| `tipp-schutz.ts` | Fingerstellen-Sperre nach Handlungen, die unter dem Finger etwas austauschen (1,5 s, mehrere Stellen, nach bestätigter zerstörender Rückfrage verlängernd bis 4 s); ein verworfener Tipp zeigt „Einen Moment …" und einen Rahmen am Knopf (R5-S2); Mindestanzeigedauer der QR-Teile (R5-S1). |
+| `schrift-stufe.ts` | Setzt die Klasse `schrift-gross` auf `<html>`, solange die tatsächliche Grundschrift mindestens 22 px misst (Systemschrift ab etwa 137 %); das Stylesheet verdichtet Kopf und Formular bei niedrigem Fenster (seit 2026-10-15, R5-M3). |
 | `tastatur.ts` | Setzt die Klasse `tastatur-offen` auf `<html>`, solange ein Texteingabefeld den Fokus hat und die sichtbare Höhe deutlich unter der gewohnten liegt (Bildschirmtastatur); das Stylesheet blendet dann die feste Fußleiste aus, damit sie nicht über der Vorschlagsliste liegt (seit 2026-10-06, R4-G3). Reine Darstellung: liest nur Fenstergröße und Fokus, speichert nichts, spricht kein Netz an. |
 | `aktualisierung.tsx` | Update-Hinweise: Service-Worker-Banner im Web, Electron-Auto-Update-Status im Desktop. |
 

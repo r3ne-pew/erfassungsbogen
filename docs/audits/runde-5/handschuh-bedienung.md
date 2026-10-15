@@ -460,3 +460,25 @@ mit „Stand der Behebung“ und
 | R4-H2 / R4-N3 Kurz-Liste rollt seitlich (Verweis in R4-G) | im Paket „Layout“ behoben | **hält, im Detail ins Gegenteil verkehrt** | Kein seitliches Rollen mehr (Tabelle gestapelt, `scrollWidth` gleich Bildbreite). Dafür überlappt „✕“ das „⇑“ bei 320 px/Feld und bei 200 % (R5-G2), und die Sortierknöpfe wechseln je Zeile ihre Stelle (R5-G4). |
 | Feld-Modus „Ziele 54 px“ (Bestätigtes Runde 4) | – | **hält mit Abweichung** | Kurz-Liste und Karten im Feld 54 px; die Fußleiste misst im Feld 51 px („◐“ 48 × 54), im Standard 44 px („◐“ 47). In Runde 4 stand 54 px. Kein Befund, aber der Feld-Modus bringt in der Fußleiste nur 7 px Zuwachs. |
 | Stärke-Zähler 67 × 67 px (Bestätigtes Runde 4) | – | **nicht nachgemessen** | Der Weg über „Einheit schnell erfassen“ blieb unter Last ohne Wirkung. |
+
+## Stand der Behebung
+
+Stand 15.10.2026, Paket 3 „Touch, Tipp-Sperre, QR-Vollbild, Layout, Sicht".
+Geprüft mit Typprüfung, Unit-Tests (2 844 grün), Verhaltenstests (137 Szenarien,
+1 749 Schritte) und Nachmessung im Browser (Dev-Server Port 5180, Produktionsbuild
+mit `vite preview` Port 4174; Playwright mit `isMobile`/`hasTouch`, de-DE;
+360 × 640, 320 × 568, 390 × 844, 640 × 360 und Tablet 1 180 × 820; 100 % und
+„200 %" als `html { font-size: 200% !important }`; Standard, Feld, Dunkel,
+Nacht; Positionen per `getBoundingClientRect`, Kontraste gerechnet,
+Doppeltipps mit 150 bis 1 700 ms Abstand). Aufgeführt sind nur die Befunde dieses
+Pakets; die Skripte liegen im Scratchpad unter `fix5/paket3/`.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-G1 QR-Vollbild: Doppeltipp überspringt einen Teil | behoben | Wie R5-S1 (Ortssperre je Teilwechsel, Mindestzeit 1,5 s je Teil). Gemessen: 150, 600, 1 200, 1 400 ms → „Teil 2 von 3“, ab 1 700 ms „Teil 3“. |
+| R5-G2 Kurz-Liste: „✕“ liegt über „⇑“ | behoben | Neues Raster der Zeile (`index.html`, `@container (max-width: 44rem)`): Stelle in eigener Zeile; Pfeile links, „✕“ rechts in derselben Zeile, die Pfeile geben nach (Umbruch, `max-width` = Rest minus „✕“ minus 12 px). Abstand der Pfeile 12 px (`calc(12px + var(--ziel))`), „✕“ in px gedeckelt (vorher 88 bis 96 px bei 200 %). Gemessen an 360 × 640 und 320 × 568, Standard und Feld, 100 % und 200 %: kleinster Abstand zwischen allen Knöpfen der Zeile 12 px, keine Überlappung, `scrollWidth` = Fensterbreite. Zeilenhöhe Standard 168 → 197 px; bei 320 px Feld bricht „⇑“ in die nächste Zeile (301 px). |
+| R5-G3 „In Einsatz übernehmen“ nur 10 px über „Weiter →“ | behoben | Zeilenabstand der Erfassungsleiste `max(12px, min(0.9rem, 14px))`. Gemessen: 16 px (360 × 640 und 320 × 568 Standard), 15 px (360 × 640 Feld), 14 px (320 × 568 Feld 200 %); quer unverändert nebeneinander (85 px). |
+| R5-G4 Sortierknöpfe wechseln je Zeile die Stelle, Doppeltipp auf „▼“ schiebt zurück | behoben | „▲ ▼ ⇑“ stehen in jeder Zeile an denselben Plätzen, „⇑“ in der ersten Person gesperrt statt weggelassen (`SortierKnoepfe`, auch in den Karten). Nach dem Verschieben sperrt die Fingerstelle 1,5 s (`ortSperren` in `personVerschieben`), der Nachtipp zeigt „Einen Moment …“. Tests: `personal.test.tsx` (Plätze je Zeile, gesperrtes „⇑“ tut nichts). |
+| R5-G5 Zweiter Tipp binnen 1,5 s verfällt ohne Rückmeldung | behoben | Wie R5-S2: Pille „Einen Moment …“ über dem Finger und gestrichelter Rahmen am Knopf, auch bei „Abrücken“. |
+| R5-G6 Quer bei 200 %: kein Formularfeld im Bild, „6 . Übersicht“ außerhalb | teilweise behoben | Bei niedrigem Fenster quer (`@media (orientation: landscape) and (max-height: 31.25rem)`) und bei großer Schrift im Hochformat (Klasse `schrift-gross`, `src/app/schrift-stufe.ts`, ab 22 px Grundschrift) deckeln Kopf, Bänder, Polster, Überschrift, Hinweise und Felder in px; die Bänder (Übung, Datenschutzfrist) sind eine Zeile. Gemessen 640 × 360, 200 %: Kopf der Erfassung 423 → 143 px, des Assistenten 234 → 101 px; letzter Reiter der Schrittleiste rechts bei 474 px (vorher 752, Fenster 640); das erste Feld der Erfassung liegt bei y 212–262 über der Leiste (291). Rest: In Schritt 3 liegt das erste Eingabefeld bei y 338 unter der Leiste (291); Überschrift und Hinweis des Schritts stehen im Bild. |
+| R5-G7 Schalterreihen ohne Lücke | teilweise behoben | Zwischen den Reitern der Schrittleiste, den Segmenten der Moduswahl (Kopf, Fußleiste, Leiste der Einsatzansicht) und bei „Karten“/„Tabelle“ liegt eine Trennlinie von mindestens 2 px (kein Überdecken mehr, vorher −1 px); die Moduswahl der Einsatzansicht trägt die Zweckzeile („große Tasten“, „abends“, „gedimmt“). Eine Lücke von 8 px ist mit Rücksicht auf 320 px Breite nicht untergebracht (sechs Reiter zu je 44 px belegen die Zeile); die Boxen der Ziele berühren sich weiter (gemessen 0 px), die 2 px liegen innerhalb. |

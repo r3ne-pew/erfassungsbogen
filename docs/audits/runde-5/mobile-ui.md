@@ -467,3 +467,25 @@ Legende: **hält**, **teilweise**, **ins Gegenteil verkehrt**.
   Erfassung ist die zweite, wo sie bei kleinen Fenstern nicht reicht (R5-M3).
 - **Nicht ins Gegenteil verkehrt:** Keine Behebung aus Runde 4 hat sich ins
   Gegenteil verkehrt. Die Rückschritte sind Ränder, keine Umkehrungen.
+
+## Stand der Behebung
+
+Stand 15.10.2026, Paket 3 „Touch, Tipp-Sperre, QR-Vollbild, Layout, Sicht".
+Geprüft mit Typprüfung, Unit-Tests (2 844 grün), Verhaltenstests (137 Szenarien,
+1 749 Schritte) und Nachmessung im Browser (Dev-Server Port 5180, Produktionsbuild
+mit `vite preview` Port 4174; Playwright mit `isMobile`/`hasTouch`, de-DE;
+360 × 640, 320 × 568, 390 × 844, 640 × 360 und Tablet 1 180 × 820; 100 % und
+„200 %" als `html { font-size: 200% !important }`; Standard, Feld, Dunkel,
+Nacht; Positionen per `getBoundingClientRect`, Kontraste gerechnet,
+Doppeltipps mit 150 bis 1 700 ms Abstand). Aufgeführt sind nur die Befunde dieses
+Pakets; die Skripte liegen im Scratchpad unter `fix5/paket3/`.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-M1 Übergabe-Dialog bei 200 % nicht gedeckelt | behoben | Schrift, Knopfmaß und Polster des Dialogs in px gedeckelt (Deckel-Regel, DESIGN.md); die Zeile zum Einsatzzeitraum steht als einzige vor „QR-Code im Vollbild zeigen“, „Für neuen Einsatz vorbereiten“ folgt danach. Gemessen mit dem Großbogen: Unterkante des QR-Knopfs 314 (360 × 640), 335 (320 × 568), 401 (390 × 844), 239 (640 × 360) bei 100 % und 441, 492, 417, 327 bei 200 % — in allen acht Lagen im Bild (vorher bis 1 212 px). |
+| R5-M2 Startseite: beim Erstbesuch keine Aktion im ersten Bild | teilweise behoben | Themenleiste, Einleitung, Überschrift und Hinweis des Wegs in px gedeckelt, Einleitung am Telefon in der Kurzfassung, der Offline-Hinweis beim Erstbesuch unter den Aktionen des ersten Wegs. „Neuen Bogen erstellen“ liegt bei 360 × 640 auf 469 px (Feld 489), bei 320 × 568 auf 479 px (vorher 655 und 692); bei 200 % auf 878 bis 913 px (1,4 Bildschirme, vorher 2 136). Rest: bei 320 × 568 im Feld-Modus liegt er mit 606 px unter dem Bild (568). |
+| R5-M3 Erfassung bei 200 % auf kleinen Fenstern: Kopf und Leiste lassen kaum Formular | behoben | Kopf, Titelzeile, Marke, Bänder, Polster und Felder in px gedeckelt bei niedrigem Fenster quer und bei großer Schrift im Hochformat (`schrift-gross`, `schrift-stufe.ts`). Gemessen: Das erste Eingabefeld liegt ganz über der Leiste bei 640 × 360 (Feld 212–262, Leiste ab 291; Kopf 143 statt 423 px), 360 × 640 (338–388, Leiste 504) und 320 × 568 (362–412, Leiste 432). |
+| R5-M4 Tabelle am Telefon: „Zug“ unter der klebenden Spalte, „ABGERÜCKT“ bricht | behoben | Die Zelle nach der klebenden Spalte beginnt mit 12 px Abstand (Text 12 px rechts der Spaltenkante statt darunter), Marken brechen nicht im Wort (`white-space: nowrap`, Badge 104 × 22 px, eine Zeile). „Materialwirtschaft“ trennt weiter an Silbengrenzen, sofern der Browser ein Trennwörterbuch hat (Chromium unter Linux hat keines, dort bleibt der Bruch). |
+| R5-M5 Kurz-Liste: neue Person mit zwei Feldern ohne Beschriftung | behoben | Platzhalter „Vorname“ und „Nachname“ in den Feldern der Kurz-Liste (verschwinden beim Tippen). Test in `personal.test.tsx`. |
+| R5-M6 Tablet quer bei 200 %: Zwei-Spalten-Ansicht kippt | behoben (Risiko ausgeräumt) | Die linke Spalte ist in px gedeckelt (`minmax(min(20rem, 320px), min(27rem, 432px))`). Gemessen 1 180 × 820 bei 200 %-Nachstellung: Spalten 432 und 664 px (20,75 rem), `scrollWidth` 1 180, kein Überlauf; bei 100 % unverändert 432 und 692 px. Mit echter Systemschrift nicht geprüft. |
+| R5-M7 Tablet quer: Leiste des Assistenten 110 px neben der Spalte | behoben | Das seitliche Polster der Leiste folgt dem Satzspiegel von `main` (`calc((100% - 60rem) / 2 + min(var(--r-4), 18px))`). Gemessen 1 180 × 820: „← Zurück“ bei 126 px, „Weiter →“ endet bei 1 054 px, wie der Inhalt (126 bis 1 054); auf dem Telefon unverändert. |

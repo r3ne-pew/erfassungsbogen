@@ -418,3 +418,21 @@ auf „Weiter →“ ist eine neue lautlose Nebenwirkung.
 - Feldtauglichkeit: **geeignet, nicht vollständig geprüft**. Handschuhe,
   Sonnenlicht, Kamera-Scan mehrteiliger Codes, Bildschirmtastatur und
   native Builds gehören in einen Praxistest.
+
+## Stand der Behebung
+
+Stand 15.10.2026, Paket 3 „Touch, Tipp-Sperre, QR-Vollbild, Layout, Sicht".
+Geprüft mit Typprüfung, Unit-Tests (2 844 grün), Verhaltenstests (137 Szenarien,
+1 749 Schritte) und Nachmessung im Browser (Dev-Server Port 5180, Produktionsbuild
+mit `vite preview` Port 4174; Playwright mit `isMobile`/`hasTouch`, de-DE;
+360 × 640, 320 × 568, 390 × 844, 640 × 360 und Tablet 1 180 × 820; 100 % und
+„200 %" als `html { font-size: 200% !important }`; Standard, Feld, Dunkel,
+Nacht; Positionen per `getBoundingClientRect`, Kontraste gerechnet,
+Doppeltipps mit 150 bis 1 700 ms Abstand). Aufgeführt sind nur die Befunde dieses
+Pakets; die Skripte liegen im Scratchpad unter `fix5/paket3/`.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-H1 Musterung kennt nur „Alle anhaken“ | behoben | Der Knopf je Gruppe ist ein Umschalter: „Alle abwählen“, solange alle angehakt sind (so beim Öffnen), sonst „Alle anhaken“. Bei mehr als zehn Zeilen bleibt die Kopfzeile mit Zähler und Knopf beim Rollen stehen („Personal (8/43)“, `position: sticky`, unter der festen Warnleiste). Test in `vorlagen-ui.test.tsx` mit 43 Personen: ein Tipp → 0/43, acht anhaken → „Bogen anlegen · 8 Pers“, „Alle anhaken“ → 43/43. |
+| R5-H2 Personal als „Karten“ beim Großbogen 88 Bildschirme hoch | behoben | Ab 13 Personen beginnt Schritt 3 mit der Kurz-Liste (`SchrittPersonal`, `VIELE_PERSONEN = 12`); wer die Karten wählt, liest „Viele Personen — die Kurz-Liste (eine Zeile je Person) zeigt mehr auf einmal.“. Die Bezeichnung „Kurz-Liste (Tabelle)“ bleibt (Gherkin und Tests). Die Zeile der Kurz-Liste ist durch R5-G2 197 statt 168 px hoch. Tests in `personal.test.tsx`. |
+| R5-H3 „+ Person hinzufügen“ unter der Liste setzt den Fokus nicht auf die neue Karte | behoben | Beide Knöpfe rufen dieselbe Handlung (`personObenHinzufuegen`): neue Karte, Ansicht springt dorthin, Cursor im Vornamen. Test in `personal.test.tsx` (unterer Knopf, `activeElement` ist der Vorname der neuen Karte). |
