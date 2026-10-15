@@ -2060,7 +2060,7 @@ export function EinsatzDetail(props: {
           onRueckgaengig={() => void staerkeZurueckNehmen()}
           onSchliessen={() => setStaerkeGeaendert(null)}
         >
-          <strong>Stärke geändert {staerkeGeaendert.vorher} → {staerkeGeaendert.nachher}:</strong> „{staerkeGeaendert.name}"
+          <strong>Stärke {staerkeGeaendert.vorher} → {staerkeGeaendert.nachher}</strong> geändert: „{staerkeGeaendert.name}"
         </DaumenQuittung>
       )}
       {zusammengefuehrt && (

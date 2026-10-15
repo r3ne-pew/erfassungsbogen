@@ -1761,7 +1761,7 @@ describe("Stärke ändern mit Prüfung und Rückweg (R4-E4)", () => {
 
     expect(einsaetzeLaden().find((s) => s.id === einsatzId)!.eintraege).toHaveLength(2);
     const quittung = document.querySelector<HTMLElement>(".quittung-daumen")!;
-    expect(quittung.textContent).toMatch(/^Stärke geändert 3 → 66: „.*Wardenburg"/);
+    expect(quittung.textContent).toMatch(/^Stärke 3 → 66 geändert: „.*Wardenburg"/);
 
     await nutzer.click(within(quittung).getByRole("button", { name: "Rückgängig" }));
     neuLaden();

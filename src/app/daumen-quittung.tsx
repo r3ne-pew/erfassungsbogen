@@ -33,10 +33,12 @@ function darunterLiegendeKarte(tipp: { x: number; y: number }, leiste: HTMLEleme
   return null;
 }
 
-export function DaumenQuittung({ children, prellschutz = false, onRueckgaengig, onSchliessen }: {
+export function DaumenQuittung({ children, prellschutz = false, onRueckgaengig, rueckgaengigName, onSchliessen }: {
   children: ReactNode;
   prellschutz?: boolean;
   onRueckgaengig?: () => void;
+  /** Voller Name des Rückgängig-Knopfs für Vorlesesoftware und Tooltip, wenn „Rückgängig" allein zu wenig sagt (R5-E3). */
+  rueckgaengigName?: string;
   onSchliessen: () => void;
 }) {
   const [bereit, setBereit] = useState(!prellschutz);
@@ -122,7 +124,7 @@ export function DaumenQuittung({ children, prellschutz = false, onRueckgaengig, 
           steht nie allein in einer Zeile. */}
       <span className="quittung-knoepfe">
         {onRueckgaengig && (
-          <button type="button" className="quittung-rueckgaengig" disabled={!bereit} onClick={onRueckgaengig}>
+          <button type="button" className="quittung-rueckgaengig" disabled={!bereit} onClick={onRueckgaengig} aria-label={rueckgaengigName} title={rueckgaengigName}>
             Rückgängig
           </button>
         )}

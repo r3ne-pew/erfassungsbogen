@@ -3638,9 +3638,13 @@ function AppInhalt() {
           </p>
         )}
         {zusammenlegung && zusammenlegung.einsatzId === offenerEinsatz.id && (
-          <DaumenQuittung onRueckgaengig={zusammenlegungZuruecknehmen} onSchliessen={() => setZusammenlegung(null)}>
+          <DaumenQuittung
+            onRueckgaengig={zusammenlegungZuruecknehmen}
+            rueckgaengigName="Rückgängig — Meldung als eigene Einheit führen"
+            onSchliessen={() => setZusammenlegung(null)}
+          >
             {/* Handlung und Rückweg vorn, Namen hinten (R5-E4); ein einziges „Rückgängig" (R5-E3). */}
-            <strong>Zusammengelegt (Rückgängig = eigene Einheit):</strong> „{zusammenlegung.neu}" als Fassung von „{zusammenlegung.alt}"
+            <strong>Zusammengelegt:</strong> „{zusammenlegung.neu}" als Fassung von „{zusammenlegung.alt}" — „Rückgängig" führt sie als eigene Einheit.
           </DaumenQuittung>
         )}
         {/* Kiosk-Scan: die aufgenommenen Bögen bleiben im Einsatz — der Knopf

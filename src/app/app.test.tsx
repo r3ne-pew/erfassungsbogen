@@ -1831,10 +1831,10 @@ describe("Neuen Einsatz anlegen", () => {
 
     const quittung = (await screen.findByText(/als Fassung von „THW Papierhausen"/)).closest(".quittung-daumen") as HTMLElement;
     // Handlung und Rückweg stehen vorn, die Namen hinten (R5-E4) …
-    expect(quittung.textContent).toMatch(/^Zusammengelegt \(Rückgängig = eigene Einheit\):/);
+    expect(quittung.textContent).toMatch(/^Zusammengelegt: „.*" als Fassung von „THW Papierhausen" — „Rückgängig" führt sie als eigene Einheit\./);
     // … und es gibt genau einen Rückweg, nicht zusätzlich den Link im Kasten „Zuletzt eingelesen", der die Erfassung entfernt (R5-E3).
-    expect(screen.getAllByRole("button", { name: "Rückgängig" })).toHaveLength(1);
-    await nutzer.click(within(quittung).getByRole("button", { name: "Rückgängig" }));
+    expect(screen.getAllByRole("button", { name: /^Rückgängig/ })).toHaveLength(1);
+    await nutzer.click(within(quittung).getByRole("button", { name: "Rückgängig — Meldung als eigene Einheit führen" }));
     const eintraege = einsaetzeLaden().find((s) => s.id === einsatz.id)!.eintraege;
     expect(eintraege).toHaveLength(2);
     expect(neuesteJeEinheit(eintraege)).toHaveLength(2); // zwei Einheiten, keine Historie
