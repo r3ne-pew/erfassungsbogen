@@ -309,6 +309,9 @@ export function VorlageTeilen(props: { vorlage: Vorlage; onSchliessen: () => voi
 
 // --------------------------------------------------------------- Musterung
 
+/** Ab dieser Zeilenzahl bleibt die Kopfzeile einer Gruppe beim Rollen stehen (R5-H1). */
+const VIELE_ZEILEN = 10;
+
 export function Musterung(props: {
   vorlage: Vorlage;
   /** `abgewaehlt`: die Personen, die nicht mitgehen — als Nachzügler später ergänzbar (R4-W8). */
@@ -456,9 +459,17 @@ export function Musterung(props: {
       </section>
 
       <section className="karte">
-        <div className="kopfzeile">
+        {/* Bei vielen Personen bleibt die Zeile mit Zähler und „Alle abwählen"
+            beim Rollen stehen: Wer aus 43 Personen acht anhakt, sieht, wie viele
+            noch gelten (R5-H1). */}
+        <div className={`kopfzeile${b.personal.length > VIELE_ZEILEN ? " klebend" : ""}`}>
           <h2>Personal ({anwesendePersonen.length}/{b.personal.length})</h2>
-          <button type="button" onClick={() => setPAn(b.personal.map(() => true))}>Alle anhaken</button>
+          {/* Umschalter statt „Alle anhaken" allein: Nach dem Öffnen sind alle
+              angehakt, der Knopf tat sichtbar nichts, und wer nur eine Gruppe
+              mitnimmt, wählte 35 Zeilen einzeln ab (R5-H1). */}
+          <button type="button" onClick={() => setPAn(b.personal.map(() => !pAn.every(Boolean)))}>
+            {pAn.every(Boolean) && b.personal.length > 0 ? "Alle abwählen" : "Alle anhaken"}
+          </button>
         </div>
         {b.personal.length === 0 && <p className="hinweis">Kein Personal in der Vorlage.</p>}
         {b.personal.map((p, i) => (
@@ -476,9 +487,11 @@ export function Musterung(props: {
       </section>
 
       <section className="karte">
-        <div className="kopfzeile">
+        <div className={`kopfzeile${b.fahrzeuge.length > VIELE_ZEILEN ? " klebend" : ""}`}>
           <h2>Fahrzeuge ({anzahlFz}/{b.fahrzeuge.length})</h2>
-          <button type="button" onClick={() => setVAn(b.fahrzeuge.map(() => true))}>Alle anhaken</button>
+          <button type="button" onClick={() => setVAn(b.fahrzeuge.map(() => !vAn.every(Boolean)))}>
+            {vAn.every(Boolean) && b.fahrzeuge.length > 0 ? "Alle abwählen" : "Alle anhaken"}
+          </button>
         </div>
         {b.fahrzeuge.length === 0 && <p className="hinweis">Keine Fahrzeuge in der Vorlage.</p>}
         {b.fahrzeuge.map((f, i) => (

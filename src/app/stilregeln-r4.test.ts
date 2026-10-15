@@ -225,8 +225,9 @@ describe("Kurz-Liste am Telefon (R4-H2, R4-N3)", () => {
   });
 
   it("Geschlecht steht direkt unter dem Namen, in derselben Karte (kein Schieben nötig)", () => {
-    expect(bloecke("table.uebersicht.schnell-tabelle td:nth-child(5)").join("\n")).toMatch(/grid-row:\s*3/);
-    expect(bloecke("table.uebersicht.schnell-tabelle td:nth-child(2)").join("\n")).toMatch(/grid-row:\s*2/);
+    // Seit R5-G2 trägt die Stelle eine eigene Zeile, die Pfeile und das ✕ die zweite.
+    expect(bloecke("table.uebersicht.schnell-tabelle td:nth-child(5)").join("\n")).toMatch(/grid-row:\s*4/);
+    expect(bloecke("table.uebersicht.schnell-tabelle td:nth-child(2)").join("\n")).toMatch(/grid-row:\s*3/);
   });
 
   it("die Tabelle behält ihre Semantik über ausdrückliche Rollen", () => {

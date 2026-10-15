@@ -502,6 +502,45 @@ describe("Schritt Personal", () => {
     expect(vornamen[2]!.value).toBe("Jan");
   });
 
+  // Audit Runde 5, R5-H3: Der untere Knopf sprang zur neuen Karte, ließ den Fokus aber auf sich.
+  it("der „+ Person hinzufügen“ unter der Liste setzt den Cursor wie der obere in den Vornamen der neuen Karte (R5-H3)", async () => {
+    const nutzer = userEvent.setup();
+    render(
+      <SchrittBuehne
+        komponente={SchrittPersonal}
+        bogen={{ ...neuerBogen(), personal: [{ ...neuePerson(), vorname: "Paul", nachname: "Stein" }, { ...neuePerson(), vorname: "Eva", nachname: "Berg" }] }}
+      />,
+    );
+    const knoepfe = screen.getAllByRole("button", { name: /^\+ Person hinzufügen/ });
+    const unten = knoepfe[knoepfe.length - 1]!;
+    expect(unten.className).toContain("primaer");
+    await nutzer.click(unten);
+    const vornamen = screen.getAllByLabelText("Vorname") as HTMLInputElement[];
+    expect(vornamen).toHaveLength(3);
+    await waitFor(() => expect(document.activeElement).toBe(vornamen[2]));
+  });
+
+  // Audit Runde 5, R5-H2: 38 Personen als Karten waren 88 Bildschirme hoch.
+  it("beginnt ab 13 Personen mit der Kurz-Liste, bei weniger mit den Karten samt Hinweis erst ab 13 (R5-H2)", () => {
+    const viele = Array.from({ length: 13 }, (_, i) => ({ ...neuePerson(), vorname: `V${i}`, nachname: "Zug" }));
+    const { unmount } = render(<SchrittBuehne komponente={SchrittPersonal} bogen={{ ...neuerBogen(), personal: viele }} />);
+    expect((screen.getByLabelText("Kurz-Liste (Tabelle)") as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole("table")).toBeDefined();
+    unmount();
+    const zwoelf = viele.slice(0, 12);
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={{ ...neuerBogen(), personal: zwoelf }} />);
+    expect((screen.getByLabelText("Alle Angaben (Karten)") as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByText(/Viele Personen — die Kurz-Liste/)).toBeNull();
+  });
+
+  it("die Karten nennen bei vielen Personen den kürzeren Weg (R5-H2)", async () => {
+    const nutzer = userEvent.setup();
+    const viele = Array.from({ length: 14 }, (_, i) => ({ ...neuePerson(), vorname: `V${i}`, nachname: "Zug" }));
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={{ ...neuerBogen(), personal: viele }} />);
+    await nutzer.click(screen.getByLabelText("Alle Angaben (Karten)"));
+    expect(screen.getByText(/Viele Personen — die Kurz-Liste \(eine Zeile je Person\) zeigt mehr auf einmal/)).toBeDefined();
+  });
+
   it("versteckt den Beispielnamen-Weg bei echten Bögen vollständig", async () => {
     const nutzer = userEvent.setup();
     buehne(); // frischer Bogen ohne Übungs-Flag
@@ -853,6 +892,33 @@ describe("Personal umsortieren", () => {
     const oberste = screen.getAllByLabelText("Vorname")[0]!.closest(".karte")!;
     expect(within(oberste as HTMLElement).getByText("Erreichbar für Rückfragen")).toBeDefined();
     expect(screen.getAllByText("Erreichbar für Rückfragen")).toHaveLength(1);
+  });
+
+  // Audit Runde 5, R5-G4: „⇑“ stand in der ersten Zeile nicht da, und „▼“ lag an seiner Stelle.
+  it("lässt „▲“, „▼“ und „⇑“ in jeder Zeile an derselben Stelle: in der ersten ist „⇑“ gesperrt statt weggelassen (R5-G4)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={drei()} />);
+    await nutzer.click(screen.getByLabelText("Kurz-Liste (Tabelle)"));
+    const reihe = (i: number) => within(screen.getByRole("table")).getAllByRole("row")[i + 1]!;
+    const namen = (i: number) => within(reihe(i)).getAllByRole("button").map((b) => b.getAttribute("aria-label")!.replace(/^Person \d+ /, ""));
+    expect(namen(0).slice(0, 3)).toEqual(["nach oben", "nach unten", "an die erste Stelle"]);
+    expect(namen(1).slice(0, 3)).toEqual(["nach oben", "nach unten", "an die erste Stelle"]);
+    expect(namen(2).slice(0, 3)).toEqual(["nach oben", "nach unten", "an die erste Stelle"]);
+    expect((within(reihe(0)).getByRole("button", { name: "Person 1 an die erste Stelle" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(reihe(0)).getByRole("button", { name: "Person 1 nach oben" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(reihe(2)).getByRole("button", { name: "Person 3 nach unten" }) as HTMLButtonElement).disabled).toBe(true);
+    // Ein gesperrtes „⇑“ tut nichts.
+    await nutzer.click(within(reihe(0)).getByRole("button", { name: "Person 1 an die erste Stelle" }));
+    expect((within(screen.getByRole("table")).getAllByRole("textbox") as HTMLInputElement[]).map((f) => f.value).slice(0, 2)).toEqual(["Anna", "Albers"]);
+  });
+
+  // Audit Runde 5, R5-M5: Die Felder einer neuen Person zeigten keine Bezeichnung.
+  it("trägt in den Feldern der Kurz-Liste die Bezeichnung als Platzhalter (R5-M5)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={drei()} />);
+    await nutzer.click(screen.getByLabelText("Kurz-Liste (Tabelle)"));
+    expect(screen.getByLabelText("Person 1: Vorname").getAttribute("placeholder")).toBe("Vorname");
+    expect(screen.getByLabelText("Person 1: Nachname").getAttribute("placeholder")).toBe("Nachname");
   });
 
   it("sortiert auch in der Schnelleingabe-Tabelle", async () => {

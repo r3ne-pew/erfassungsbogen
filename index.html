@@ -704,7 +704,8 @@
     }
     /* R3-L7: --linie-stark statt --linie — die Segmentgrenze war zwischen
        zwei weißen Feldern nicht zu sehen. */
-    .anzeige-schalter button + button { border-left: var(--strich) solid var(--linie-stark); }
+    /* R5-G7: mindestens 2 px zwischen den Segmenten (vorher 1 px im Standard-Modus). */
+    .anzeige-schalter button + button { border-left: max(var(--strich), 2px) solid var(--linie-stark); }
     .anzeige-schalter button.aktiv { background: var(--akzent); color: var(--auf-akzent); }
     /* Im Assistenten-Kopf sitzt der Umschalter rechts in der Titelzeile — auf
        der Kennfarbe trennt die Kopf-Linie statt des Inhalts-Graus. */
@@ -972,6 +973,10 @@
     /* Der (ausgeblendete) Klappknopf steht vor „Standard" — ohne dies bekäme
        „Standard" die Trennlinie eines Folgesegments. */
     .anzeige-schalter .anzeige-klappe + button { border-left: none; }
+    /* R5-G7: Die Moduswahl der Einsatzansicht trägt wie die der Fußleiste die
+       Zweckzeile („große Tasten", „abends", „gedimmt") unter dem Namen. */
+    .seiten-kopf.einsatz-kopf .anzeige-schalter button { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+    .seiten-kopf.einsatz-kopf .anzeige-schalter .modus-kurz { display: block; color: inherit; opacity: 0.8; font-size: min(var(--t-xs), 13px); }
     /* Große Systemschrift (Audit Runde 2, R2-M1): bei 200 % auf 360 × 640
        war der Kopf 1 155 px hoch, die Überschrift „1. Einheit" begann zweieinhalb
        Bildhöhen tiefer. Eine Medienabfrage sieht die Systemschrift nicht (rem
@@ -1097,6 +1102,10 @@
     }
     @media (hover: hover) { .schritte button:hover { background: none; color: var(--kopf-auf); border-bottom-color: var(--kopf-linie); } }
     .schritte button.aktiv { background: none; color: var(--kopf-auf); border-bottom-color: var(--kopf-auf); }
+    /* R5-G7: Die Reiter stießen ohne Lücke aneinander (44 × 44 bis 57 × 44 px);
+       ein Fehltipp sprang zu Schritt n ± 1. Eine Trennlinie von 2 px zwischen
+       den Reitern (die Leiste hat keinen Platz für 8 px Lücke je Reiter). */
+    .schritte button + button { border-left: 2px solid var(--kopf-linie); }
     .schritte button.status-ok:not(.aktiv) { background: none; border-bottom-color: transparent; }
     /* Dezenter Füllstand je Schritt: ✓ = ausgefüllt, • = begonnen. Reiner
        Orientierungshelfer, blockiert nichts. */
@@ -1339,7 +1348,9 @@
        beim Handschuhmaß stehen (Deckel knapp über dem Feld-Modus-Maß, das
        damit unverändert bleibt), und reicht auch das nicht, brechen sie um
        statt über den Rand zu ragen. */
-    .sortieren { flex-wrap: wrap; max-width: 100%; gap: min(calc(0.5rem + var(--ziel)), calc(9px + var(--ziel))); }
+    /* Mindestens 12 px zwischen den Pfeilen (R5-G2): Knöpfe mit verschiedener
+       Wirkung liegen nie dichter (Deckel-Regel, DESIGN.md). */
+    .sortieren { flex-wrap: wrap; max-width: 100%; gap: calc(12px + var(--ziel)); }
     /* Hinweis nach der StAN-Vorbelegung auf Schritt 1: sagt, was der
        Einheitstyp gerade angelegt hat, und trägt den Weg zurück (Audit
        „Fehler", E1). Knopf in eigener Zeile, damit er nicht am Satz klebt. */
@@ -1350,10 +1361,12 @@
        Zelle neben den Pfeilen — 17 px daneben. Der Löschknopf rückt um --r-3
        ab und bekommt selbst das Grundmaß; sein Zellen-Polster allein trug
        nur 41 px Breite. */
-    .schnell-tabelle td.sortier-spalte + td { padding-left: var(--r-3); }
-    .schnell-tabelle td.sortier-spalte + td > button { min-width: calc(var(--ziel-basis) + var(--ziel)); }
+    .schnell-tabelle td.sortier-spalte + td { padding-left: max(var(--r-3), 12px); }
+    /* Gedeckelt wie die Pfeile: bei 200 % wurde das ✕ 88–96 px breit und
+       überdeckte „⇑" um 38–53 px (R5-G2). */
+    .schnell-tabelle td.sortier-spalte + td > button { min-width: min(calc(var(--ziel-basis) + var(--ziel)), calc(50px + var(--ziel))); padding-inline: 0; }
     .eintrag-kopf > .sortieren { margin-left: auto; }
-    .eintrag-kopf > .sortieren + .entfernen { margin-left: var(--r-2); }
+    .eintrag-kopf > .sortieren + .entfernen { margin-left: max(var(--r-3), 12px); }
     .sortier-spalte { white-space: nowrap; }
     /* Wer der Empfänger anruft, steht nicht im Bogen, sondern in der
        Reihenfolge: die erste Person. Die Marke sagt das an der Karte, die es
@@ -1563,7 +1576,7 @@
        Die Knöpfe haben px-Maße und passen dann nicht mehr nebeneinander (der
        Primärknopf lag über „Zurück" und „◐"). Unter 260 px (Inhaltsbreite der Leiste) bekommt der
        Primärknopf eine eigene, volle Zeile am unteren Rand. */
-    footer.nav.assistent-nav { row-gap: min(0.9rem, 8px); }
+    footer.nav.assistent-nav { row-gap: max(12px, min(0.9rem, 14px)); }
     @container assistent-nav (max-width: 260px) {
       footer.nav.assistent-nav > .nav-zurueck { grid-area: auto; grid-row: 2; grid-column: 1; }
       footer.nav.assistent-nav > .anzeige-leiste { grid-area: auto; grid-row: 2; grid-column: 2; }
@@ -1668,7 +1681,8 @@
     @media (max-width: 35.99rem) {
       footer.nav.assistent-nav.mit-uebernehmen {
         grid-template-areas: "mitte mitte mitte mitte" "zurueck modus leer weiter";
-        row-gap: min(0.9rem, 8px);
+        /* R5-G3: mindestens 12 px zwischen „In Einsatz übernehmen" und „Weiter →" (gemessen: 10 px). */
+        row-gap: max(12px, min(0.9rem, 14px));
       }
       footer.nav.mit-uebernehmen .uebernehmen {
         justify-self: stretch; min-height: min(calc(var(--ziel-basis) + var(--ziel)), calc(44px + var(--ziel)));
@@ -1899,11 +1913,20 @@
        lagen außer Sicht, und jede Zeile war 160 px hoch, weil die drei Pfeile
        untereinander standen. Unter 44rem Rahmenbreite (in der tatsächlichen
        Schrift) wird jede Person eine Karte aus sechs Spalten:
-         Stelle · ▲ ▼ ⇑ ✕
+         Stelle (eine eigene Zeile)
+         ▲ ▼ ⇑ · · · ✕
          Vorname · Nachname
          Zählt als · Geschlecht
        Alles steht im Bild, die Pfeile nebeneinander. Die Spaltenköpfe bleiben
-       für Vorlesesoftware im Baum (die Rollen setzt personal.tsx). */
+       für Vorlesesoftware im Baum (die Rollen setzt personal.tsx).
+       R5-G2, R5-G4: Die Pfeile und das ✕ lagen in einer Zeile mit der Stelle
+       in drei Spalten, die für drei Knöpfe zu schmal waren — bei Feld-Modus und
+       320 px überlappten „⇑" und „✕" um bis zu 12 px, bei 200 % Schrift um 38 bis
+       53 px. Jetzt trägt die Stelle eine eigene Zeile; die Pfeile stehen links
+       an festen Plätzen (in der ersten Person „⇑" gesperrt statt weggelassen),
+       das ✕ am rechten Rand, und die Zeile wächst in der Höhe statt dass Knöpfe
+       übereinander liegen. Die Pfeile geben nach (Umbruch), nie das ✕ den
+       Mindestabstand von 12 px. */
     @container (max-width: 44rem) {
       table.uebersicht.schnell-tabelle, table.uebersicht.schnell-tabelle tbody { display: block; width: 100%; }
       table.uebersicht.schnell-tabelle thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -1915,14 +1938,18 @@
       table.uebersicht.schnell-tabelle td { padding: 0; min-width: 0; border: none; }
       table.uebersicht.schnell-tabelle td input, table.uebersicht.schnell-tabelle td select { min-width: 0; display: block; }
       table.uebersicht.schnell-tabelle td > *, table.uebersicht.schnell-tabelle td label.feld { margin-top: 0; margin-bottom: 0; }
-      table.uebersicht.schnell-tabelle td.stelle { grid-column: 1 / span 2; grid-row: 1; font-size: var(--t-s); color: var(--text-2); overflow-wrap: anywhere; }
-      table.uebersicht.schnell-tabelle td.sortier-spalte { grid-column: 3 / span 3; grid-row: 1; justify-self: end; padding: 0; }
-      table.uebersicht.schnell-tabelle td.sortier-spalte + td { grid-column: 6; grid-row: 1; justify-self: end; padding: 0; }
-      table.uebersicht.schnell-tabelle td:nth-child(2) { grid-column: 1 / span 3; grid-row: 2; }
-      table.uebersicht.schnell-tabelle td:nth-child(3) { grid-column: 4 / span 3; grid-row: 2; }
-      table.uebersicht.schnell-tabelle td:nth-child(4) { grid-column: 1 / span 3; grid-row: 3; }
-      table.uebersicht.schnell-tabelle td:nth-child(5) { grid-column: 4 / span 3; grid-row: 3; }
-      table.uebersicht.schnell-tabelle .sortieren { gap: 4px; flex-wrap: nowrap; }
+      table.uebersicht.schnell-tabelle td.stelle { grid-column: 1 / -1; grid-row: 1; font-size: var(--t-s); color: var(--text-2); overflow-wrap: anywhere; }
+      /* Pfeile und ✕ teilen sich die Zeile 2: die Pfeile links (höchstens bis vor das ✕ plus 12 px, sonst Umbruch), das ✕ rechts. */
+      table.uebersicht.schnell-tabelle td.sortier-spalte {
+        grid-column: 1 / -1; grid-row: 2; justify-self: start; padding: 0;
+        max-width: calc(100% - min(calc(var(--ziel-basis) + var(--ziel)), calc(50px + var(--ziel))) - 12px);
+      }
+      table.uebersicht.schnell-tabelle td.sortier-spalte + td { grid-column: 1 / -1; grid-row: 2; justify-self: end; padding: 0; }
+      table.uebersicht.schnell-tabelle td:nth-child(2) { grid-column: 1 / span 3; grid-row: 3; }
+      table.uebersicht.schnell-tabelle td:nth-child(3) { grid-column: 4 / span 3; grid-row: 3; }
+      table.uebersicht.schnell-tabelle td:nth-child(4) { grid-column: 1 / span 3; grid-row: 4; }
+      table.uebersicht.schnell-tabelle td:nth-child(5) { grid-column: 4 / span 3; grid-row: 4; }
+      table.uebersicht.schnell-tabelle .sortieren { gap: 12px; flex-wrap: wrap; }
     }
     /* Eingebettete PDF-Vorschau (Übersicht, nur Browser/Desktop). */
     .pdf-rahmen { width: 100%; height: 32rem; border: 1px solid var(--rand); border-radius: var(--radius); margin-top: 0.6rem; }
@@ -2087,6 +2114,12 @@
        was die Einheit damit meldet (Audit Runde 3, R3-H1). Dafür eine Zeile
        mit vier Feldern statt des Zweierrasters, sonst klebten oben drei
        Zeilen Zahlen. */
+    /* R5-H1: Bei vielen Zeilen (mehr als zehn) bleibt die Kopfzeile einer Gruppe —
+       „Personal (8/43)" samt „Alle abwählen" — beim Rollen oben stehen. */
+    .musterung .kopfzeile.klebend {
+      position: sticky; top: var(--fest-warnung-hoehe, 0px); z-index: 3;
+      background: var(--flaeche); padding-block: var(--r-2); box-shadow: 0 1px 0 var(--linie-fein);
+    }
     .musterung .staerke-leiste {
       position: sticky; top: 0; z-index: 3;
       display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2624,7 +2657,7 @@
        Knöpfe statt einer Auswahlliste: es sind genau zwei Zustände, und der
        gewählte muss ohne Aufklappen sichtbar sein. */
     .ansicht-umschalter { gap: 0 !important; }
-    .ansicht-umschalter button { border-radius: 0; margin-left: -1px; }
+    .ansicht-umschalter button { border-radius: 0; margin-left: 0; } /* R5-G7: kein Überdecken (vorher −1 px); die beiden Rahmen ergeben mindestens 2 px Trennlinie */
     .ansicht-umschalter button:first-child { border-start-start-radius: var(--radius); border-end-start-radius: var(--radius); margin-left: 0; }
     .ansicht-umschalter button:last-child { border-start-end-radius: var(--radius); border-end-end-radius: var(--radius); }
     .ansicht-umschalter button[aria-pressed="true"] {
@@ -2703,6 +2736,12 @@
     }
     table.einheiten-tabelle > thead > tr > :first-child,
     table.einheiten-tabelle > tfoot > tr > :first-child { background: var(--flaeche-2); z-index: 2; }
+    /* R5-M4: Die Zelle nach der klebenden Spalte beginnt mit Abstand — die Spalte
+       „Zug" fing unter deren Kante an, der Text stand angeschnitten („. TZ
+       Albstadt"). Und „ABGERÜCKT" bricht nicht mitten im Wort („ABGERÜCK/T"):
+       Marken sind unteilbar, nur Namen trennen. */
+    table.einheiten-tabelle > * > tr > :nth-child(2) { padding-left: max(var(--r-3), 12px); }
+    table.einheiten-tabelle .status-badge { white-space: nowrap; overflow-wrap: normal; word-break: keep-all; hyphens: none; -webkit-hyphens: none; }
     /* Aufteilen-Feld in der Einheitenkarte: gleiche Handschrift wie die
        ausklappbare Vollansicht, damit die Karte nicht in Kästen zerfällt. */
     .aufteilen-panel { margin-top: 0.6rem; border-top: 1px solid var(--rand); padding-top: 0.4rem; }

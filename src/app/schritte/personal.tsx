@@ -304,18 +304,21 @@ function SortierKnoepfe(props: {
       >
         ▼
       </button>
-      {index > 0 && (
-        /* Ohne diesen Weg braucht die zwölfte Person elf Klicks nach oben —
-           und genau die zuletzt angelegte Vertretung gehört dorthin. */
-        <button
-          type="button"
-          aria-label={`Person ${index + 1} an die erste Stelle`}
-          title="An die erste Stelle — gilt im PDF und in der Meldung als erreichbar für Rückfragen"
-          onClick={() => verschieben(index, 0, gruppe, "hoch")}
-        >
-          ⇑
-        </button>
-      )}
+      {/* Feste Plätze (R5-G4): „⇑" steht in jeder Zeile an derselben Stelle,
+          in der ersten gesperrt statt weggelassen. Vorher stand dort bei
+          x 233 „▼" und in den Zeilen darunter „⇑" — ein Tipp auf die Stelle
+          des eben gedrückten Knopfs tat etwas anderes. Ohne diesen Weg braucht
+          die zwölfte Person elf Klicks nach oben — und genau die zuletzt
+          angelegte Vertretung gehört dorthin. */}
+      <button
+        type="button"
+        disabled={index === 0}
+        aria-label={`Person ${index + 1} an die erste Stelle`}
+        title={index === 0 ? "Steht schon an erster Stelle" : "An die erste Stelle — gilt im PDF und in der Meldung als erreichbar für Rückfragen"}
+        onClick={() => verschieben(index, 0, gruppe, "hoch")}
+      >
+        ⇑
+      </button>
     </span>
   );
 }
@@ -608,6 +611,7 @@ function PersonalSchnellTabelle(props: {
                     auf den Bogen (Audit Runde 2, R2-M5). */}
                 <input
                   aria-label={`Person ${i + 1}: Vorname`}
+                  placeholder="Vorname"
                   {...FREMDE_DATEN}
                   value={p.vorname}
                   autoFocus={fokusNeue && i === personal.length - 1}
@@ -618,6 +622,7 @@ function PersonalSchnellTabelle(props: {
               <td role="cell">
                 <input
                   aria-label={`Person ${i + 1}: Nachname`}
+                  placeholder="Nachname"
                   {...FREMDE_DATEN}
                   value={p.nachname}
                   onChange={(e) => set(i, { nachname: e.target.value })}
@@ -692,6 +697,9 @@ function platzText(p: Person, org: OrganisationsTyp): string {
   return funktion || ROLLE_LABEL[p.staerkeRolle];
 }
 
+
+/** Ab dieser Personenzahl beginnt die Liste als Kurz-Liste statt als Karten (R5-H2). */
+const VIELE_PERSONEN = 12;
 
 export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
   /**
@@ -847,7 +855,9 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
   const unbenannte = bogen.personal.filter(personUnbenannt).length;
   // Schnelleingabe: Tabellenansicht statt Detail-Karten; `fokusNeue` lässt den
   // Fokus beim Anlegen per Enter in die neue Zeile springen.
-  const [schnell, setSchnell] = useState(false);
+  // Ab 13 Personen beginnt die Liste mit der Kurz-Liste: Als Karten sind 38
+  // Personen 88 Bildschirme hoch (R5-H2), als Zeilen rund ein Siebtel davon.
+  const [schnell, setSchnell] = useState(() => bogen.personal.length > VIELE_PERSONEN && bogen.personalErfassung !== PersonalErfassung.NUR_STAERKE);
   const [fokusNeue, setFokusNeue] = useState(false);
   // Objektidentität statt Index — siehe fahrzeuge.tsx: ein Index rutscht beim
   // Löschen einer anderen Karte auf eine bestehende.
@@ -950,6 +960,10 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
    */
   function personVerschieben(von: number, nach: number, gruppe: "karte" | "zeile", art: "hoch" | "runter") {
     if (nach < 0 || nach >= bogen.personal.length) return;
+    // Nach dem Tausch liegt unter dem Finger oft der Knopf der Nachbarperson;
+    // ein Nachtipp schob sie zurück, und die Reihenfolge war wieder die alte
+    // (R5-G4). Die Stelle nimmt kurz nichts an, der Tipp zeigt „Einen Moment …".
+    ortSperren();
     aendern({ personal: verschoben(bogen.personal, von, nach) });
     setFokusSortierung(`${gruppe}-${nach}-${art}`);
   }
@@ -1171,6 +1185,13 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
           )}
         </p>
       )}
+      {/* Die Karten sind die lange Wahl: Wer viele Personen hat und in den Karten
+          steht, bekommt den kürzeren Weg genannt (R5-H2). */}
+      {!nurStaerke && !schnell && bogen.personal.length > VIELE_PERSONEN && (
+        <p className="hinweis viele-personen">
+          Viele Personen — die Kurz-Liste (eine Zeile je Person) zeigt mehr auf einmal.
+        </p>
+      )}
       {quittung}
       {!nurStaerke && schnell ? (
         bogen.personal.length > 0 && (
@@ -1227,15 +1248,11 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
       <button
         type="button"
         className="primaer"
-        onClick={() => {
-          setFokusNeue(true);
-          // Die neue Karte erscheint ÜBER dem Knopf, den man gerade gedrückt
-          // hat — der Blick liegt unten. Der Stempel sagt, wohin er soll.
-          const neu = neuePerson();
-          setFrischeKarte(neu);
-          setVorgabeKarte(neu);
-          aendern({ personal: [...bogen.personal, neu] });
-        }}
+        // Wie der Knopf über der Liste (R5-H3): Die neue Karte erscheint ÜBER dem
+        // Knopf, den man gerade gedrückt hat — der Blick liegt unten. Die Ansicht
+        // springt zu ihr, und der Cursor steht im Vornamen; vorher blieb der
+        // Fokus auf diesem Knopf, 700 px unter dem Bild.
+        onClick={personObenHinzufuegen}
       >
         + Person hinzufügen
       </button>

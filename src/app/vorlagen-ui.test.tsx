@@ -195,3 +195,44 @@ describe("Musterung nach dem Neuladen (R4-E7)", () => {
     expect(localStorage.getItem("eeb.musterung.v1")).toBeNull();
   });
 });
+
+// Audit Runde 5, R5-H1: „Alle anhaken" war nach dem Öffnen wirkungslos; wer nur
+// eine Gruppe mitnahm, wählte 35 von 43 Zeilen einzeln ab.
+describe("Musterung: „Alle abwählen“ (R5-H1)", () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => cleanup());
+
+  function grosseVorlage(n: number): Vorlage {
+    const b = neuerBogen();
+    b.einheit.hierarchie[0]!.name = "Grossstadt";
+    b.personal = Array.from({ length: n }, (_, i) => ({ ...neuePerson(), vorname: "P", nachname: `Nr${String(i + 1).padStart(2, "0")}` }));
+    return vorlageAnlegen("Zug Grossstadt", b);
+  }
+
+  it("ein Tipp wählt alle ab, ein zweiter hakt alle wieder an; danach lassen sich wenige anhaken", async () => {
+    const nutzer = userEvent.setup();
+    const onStart = vi.fn();
+    render(<><Musterung vorlage={grosseVorlage(43)} onStart={onStart} onAbbrechen={() => {}} /><Dialogschicht /></>);
+    expect(screen.getByRole("heading", { name: "Personal (43/43)" })).toBeDefined();
+    const knopf = () => within(screen.getByRole("heading", { name: /^Personal/ }).parentElement!).getByRole("button");
+    expect(knopf().textContent).toBe("Alle abwählen");
+    await nutzer.click(knopf());
+    expect(screen.getByRole("heading", { name: "Personal (0/43)" })).toBeDefined();
+    expect(knopf().textContent).toBe("Alle anhaken");
+    for (let i = 1; i <= 8; i++) await nutzer.click(screen.getByRole("checkbox", { name: new RegExp(`Nr${String(i).padStart(2, "0")}`) }));
+    expect(screen.getByRole("heading", { name: "Personal (8/43)" })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Bogen anlegen · 8 Pers/ })).toBeDefined();
+    // Bei einer Teilmenge zeigt der Knopf „Alle anhaken"; er setzt alle.
+    await nutzer.click(knopf());
+    expect(screen.getByRole("heading", { name: "Personal (43/43)" })).toBeDefined();
+    expect(knopf().textContent).toBe("Alle abwählen");
+  });
+
+  it("die Kopfzeile bleibt bei mehr als zehn Zeilen beim Rollen stehen, bei wenigen nicht", () => {
+    const { unmount } = render(<><Musterung vorlage={grosseVorlage(43)} onStart={() => {}} onAbbrechen={() => {}} /><Dialogschicht /></>);
+    expect(screen.getByRole("heading", { name: /^Personal/ }).parentElement!.className).toContain("klebend");
+    unmount();
+    render(<><Musterung vorlage={grosseVorlage(5)} onStart={() => {}} onAbbrechen={() => {}} /><Dialogschicht /></>);
+    expect(screen.getByRole("heading", { name: /^Personal/ }).parentElement!.className).not.toContain("klebend");
+  });
+});
