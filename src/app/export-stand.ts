@@ -49,7 +49,9 @@ export const EXPORT_ZIELE: readonly ExportZiel[] = ["pdf", "csv", "csv-detail", 
 
 /** Wie das Format in der Zeile unter dem Kästchen heißt. */
 export const EXPORT_ZIEL_NAME: Record<ExportZiel, string> = {
-  pdf: "Sammel-PDF",
+  // „Sammel-PDF" meint auch die Datei von „Einsatz weitergeben / sichern" (an die
+  // Ablösung); die Zeile hier betrifft die Lieferung an den Stab (R5-W5).
+  pdf: "Sammel-PDF an den Stab",
   csv: "Übersicht als CSV",
   "csv-detail": "Alle Daten als CSV",
   xlsx: "Excel-Liste",
@@ -90,6 +92,13 @@ export interface ExportStand {
   zustand?: Record<string, Partial<Record<StandFeld, string>>>;
   /** Nur Weitergabe-Stand: wann zuletzt eine Sammlung von dort übernommen wurde. */
   uebernommenAm?: number;
+  /**
+   * Woher der Stand dieses Formats kommt, wenn nicht von einem Export an diesem
+   * Gerät: `geraet` = mit der Sammel-PDF vom anderen Gerät übernommen (R5-W6),
+   * `weitergabe` = auf Wunsch ab der Weitergabe gerechnet (R5-W5). Fehlt = hier
+   * exportiert.
+   */
+  herkunft?: "geraet" | "weitergabe";
   /**
    * Nur Kenntnis-Stand: durch „Zur Kenntnis genommen" gesetzt (nicht beim ersten
    * Öffnen). Was bis dahin einging, trägt keine „neu"-Marke mehr, auch wenn es
@@ -134,6 +143,7 @@ function standLesen(stand: unknown): ExportStand | null {
     ...(zustand ? { zustand } : {}),
     ...(typeof s.uebernommenAm === "number" ? { uebernommenAm: s.uebernommenAm } : {}),
     ...(s.bestaetigt === true ? { bestaetigt: true } : {}),
+    ...(s.herkunft === "geraet" || s.herkunft === "weitergabe" ? { herkunft: s.herkunft } : {}),
   };
 }
 
@@ -471,14 +481,145 @@ export function nachtragEintraege(eintraege: MeldeEintrag[], stand: ExportStand 
   return eintraege.filter((e) => ids.has(e.id));
 }
 
+/** Warum eine Einheit im Nachtrag steht (R5-W7). */
+export interface NachtragGrund {
+  /** Die Einheit war beim Stand noch nicht in der Sammlung — nur ihre Kräfte kommen zur Summe der letzten Lieferung dazu. */
+  neu: boolean;
+  /** „neu", „Folgemeldung", „Zug", „Auftrag", „Abrücken", „Wieder anwesend", „Eintreffzeit", „Fassung". */
+  gruende: string[];
+}
+
+declare module "@bos/meldekopf/einsaetze" {
+  interface Einsatzsammlung {
+    /**
+     * Nur an einer für den Export zugeschnittenen Sammlung (Nachtrag, „nur neue
+     * Bögen"): je Einheit, warum sie dabei ist. Wird nie gespeichert und nicht
+     * in die Sammel-PDF eingebettet.
+     */
+    nachtragGruende?: Record<string, NachtragGrund>;
+  }
+}
+
+/**
+ * Je Einheit des Nachtrags der Grund, warum sie dabei ist (R5-W7). Ohne den Grund
+ * sah eine Einheit mit bloßer Zugänderung wie eine neue Meldung aus, und wer die
+ * „Summe Nachtrag" auf die bisherige Summe addierte, zählte ihre Kräfte doppelt.
+ */
+export function nachtragGruende(eintraege: MeldeEintrag[], stand: ExportStand): Record<string, NachtragGrund> {
+  const bekannteIds = new Set(stand.eintragIds);
+  const bekannteEinheiten = new Set(eintraege.filter((e) => bekannteIds.has(e.id)).map((e) => e.einheitSchluessel));
+  const aend = aenderungenSeit(eintraege, stand);
+  const aus: Record<string, NachtragGrund> = {};
+  for (const k of geltendeJeEinheit(eintraege)) {
+    const schl = k.einheitSchluessel;
+    const arten = aend.jeEinheit[schl] ?? [];
+    if (!bekannteEinheiten.has(schl)) {
+      aus[schl] = { neu: true, gruende: ["neu"] };
+    } else if (!bekannteIds.has(k.id) || arten.length > 0) {
+      aus[schl] = { neu: false, gruende: [...(bekannteIds.has(k.id) ? [] : ["Folgemeldung"]), ...arten] };
+    }
+  }
+  return aus;
+}
+
+/** „neu" / „geändert: Zug, Auftrag" — der Grund als Wort für eine Zeile (R5-W7). */
+export function nachtragGrundText(g: NachtragGrund | undefined): string {
+  if (!g) return "";
+  return g.neu ? "neu" : `geändert: ${g.gruende.join(", ")}`;
+}
+
 /**
  * Die Sammlung auf den gewünschten Umfang zuschneiden. Die Exporte (CSV,
  * Excel, Sammel-PDF) rechnen alle auf einer `Einsatzsammlung`; sie bekommen
  * dieselbe Sammlung mit weniger Einträgen und müssen den Umfang nicht kennen.
+ * Beim Nachtrag trägt sie dazu den Bezugszeitpunkt (`nachtragSeit`) und je
+ * Einheit den Grund (`nachtragGruende`), damit jedes Format Zeilen und
+ * Summen gleich kennzeichnet (R5-W7, R5-K6).
  */
 export function exportSammlung(einsatz: Einsatzsammlung, umfang: ExportUmfang, stand: ExportStand | null): Einsatzsammlung {
   if (umfang === "alle") return einsatz;
-  return { ...einsatz, eintraege: nachtragEintraege(einsatz.eintraege, stand) };
+  const eintraege = nachtragEintraege(einsatz.eintraege, stand);
+  if (!stand) return { ...einsatz, eintraege };
+  return { ...einsatz, eintraege, nachtragSeit: stand.zeitpunkt, nachtragGruende: nachtragGruende(einsatz.eintraege, stand) };
+}
+
+/**
+ * Der Namensteil einer Lieferung — für alle Formate gleich (R5-W8):
+ * `nachtrag-seit-20261006-1147-` für einen Nachtrag, `erste-lieferung-` für
+ * „nur neue Bögen" ohne Bezugspunkt (das ist die ganze Lage und hieß bisher
+ * wie die Gesamtdatei), sonst nichts.
+ */
+export function lieferungsMarke(umfang: ExportUmfang, stand: ExportStand | null | undefined): string {
+  if (umfang !== "neue") return "";
+  if (!stand) return "erste-lieferung-";
+  const d = new Date(stand.zeitpunkt);
+  const z = (n: number) => String(n).padStart(2, "0");
+  return `nachtrag-seit-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}-`;
+}
+
+/**
+ * Stände vom anderen Gerät übernehmen (R5-W6): Die Sammel-PDF der Weitergabe
+ * trägt die Stände der Exporte mit (nur Kennungen, Prüfsummen und Zeitpunkt —
+ * keine Personendaten). Auf der Ablösung wüsste sonst der erste Nachtrag nicht,
+ * was der Stab schon hat, und lieferte die ganze Lage noch einmal. Je Format
+ * gilt die Vereinigung: Was eines der Geräte geliefert hat, hat der Stab; je
+ * Einheit zählt der Zustand des jüngeren Stands.
+ */
+export function exportStaendeUebernehmen(einsatzId: string, staende: unknown, behalten?: Iterable<string>): void {
+  if (!staende || typeof staende !== "object" || Array.isArray(staende)) return;
+  const alt = zielAblageLaden();
+  const je = { ...(alt[einsatzId] ?? {}) };
+  let geaendert = false;
+  for (const z of EXPORT_ZIELE) {
+    const eingang = standLesen((staende as Record<string, unknown>)[z]);
+    if (!eingang) continue;
+    const hier = je[z];
+    if (!hier) {
+      je[z] = { ...eingang, herkunft: "geraet" };
+    } else {
+      const juenger = eingang.zeitpunkt > hier.zeitpunkt;
+      const [spaeter, frueher] = juenger ? [eingang, hier] : [hier, eingang];
+      je[z] = {
+        ...hier,
+        zeitpunkt: spaeter.zeitpunkt,
+        eintragIds: [...new Set([...hier.eintragIds, ...eingang.eintragIds])],
+        ...(hier.zustand || eingang.zustand ? { zustand: { ...frueher.zustand, ...spaeter.zustand } } : {}),
+        ...(juenger ? { herkunft: "geraet" as const } : hier.herkunft ? { herkunft: hier.herkunft } : {}),
+      };
+    }
+    geaendert = true;
+  }
+  if (!geaendert) return;
+  const neu: ZielAblage = {};
+  if (behalten) {
+    for (const id of behalten) if (alt[id]) neu[id] = alt[id];
+  } else {
+    Object.assign(neu, alt);
+  }
+  neu[einsatzId] = je;
+  ablageSpeichern(neu, SPEICHER_SCHLUESSEL);
+}
+
+/**
+ * Das Format ab der letzten Weitergabe rechnen (R5-W5): Der Stab hat die
+ * Sammel-PDF der Weitergabe ebenfalls bekommen. Auf ausdrücklichen Wunsch — die
+ * Weitergabe zählt sonst nicht als Lieferung an den Stab (R4-W2). Null, wenn es
+ * keine Weitergabe gibt.
+ */
+export function exportStandAusWeitergabe(einsatzId: string, ziel: ExportZiel, behalten?: Iterable<string>): ExportStand | null {
+  const w = weitergabeStandLaden(einsatzId);
+  if (!w) return null;
+  const alt = zielAblageLaden();
+  const neu: ZielAblage = {};
+  if (behalten) {
+    for (const id of behalten) if (alt[id]) neu[id] = alt[id];
+  } else {
+    Object.assign(neu, alt);
+  }
+  const stand: ExportStand = { zeitpunkt: w.zeitpunkt, eintragIds: [...w.eintragIds], ...(w.zustand ? { zustand: w.zustand } : {}), herkunft: "weitergabe" };
+  neu[einsatzId] = { ...neu[einsatzId], [ziel]: stand };
+  ablageSpeichern(neu, SPEICHER_SCHLUESSEL);
+  return stand;
 }
 
 /**

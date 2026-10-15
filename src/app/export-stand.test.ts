@@ -16,6 +16,10 @@ import {
   exportSammlung,
   exportStandLaden,
   exportVermerken,
+  exportStaendeUebernehmen,
+  exportStandAusWeitergabe,
+  lieferungsMarke,
+  nachtragGruende,
   kenntnisStandLaden,
   kenntnisVermerken,
   lageblattStandLaden,
@@ -323,6 +327,53 @@ describe("Wechsel der geltenden Fassung und Richtung des Statuswechsels (Audit R
     const aend = aenderungenSeit([a], stand);
     expect(aend).toMatchObject({ anzahl: 1, arten: ["Wieder anwesend"] });
     expect(seitdemText(0, aend)).toBe("seitdem 1 Änderung (Wieder anwesend)");
+  });
+});
+
+describe("Nachtrag: Gründe, Namen, Stände vom anderen Gerät (Audit Runde 5, R5-W5 bis R5-W8)", () => {
+  it("nennt je Einheit den Grund: neu, Folgemeldung oder die Art der Änderung — und kennzeichnet Neues", () => {
+    const a = eintrag("m1", "Wardenburg", 1000);
+    const b = eintrag("m2", "Hatten", 2000);
+    const stand = exportVermerken(sammlung("e1", [a, b]), "csv", undefined, 3000);
+    a.zugEtikett = "1. TZ";
+    const c = eintrag("m3", "Ganderkesee", 5000);
+    const g = nachtragGruende([a, b, c], stand);
+    expect(g[a.einheitSchluessel]).toEqual({ neu: false, gruende: ["Zug"] });
+    expect(g[c.einheitSchluessel]).toEqual({ neu: true, gruende: ["neu"] });
+    expect(g[b.einheitSchluessel]).toBeUndefined();
+    const teil = exportSammlung(sammlung("e1", [a, b, c]), "neue", stand);
+    expect(teil.nachtragSeit).toBe(3000);
+    expect(teil.nachtragGruende).toEqual(g);
+  });
+
+  it("benennt Lieferungen in allen Formaten gleich", () => {
+    expect(lieferungsMarke("alle", null)).toBe("");
+    expect(lieferungsMarke("neue", null)).toBe("erste-lieferung-");
+    expect(lieferungsMarke("neue", { zeitpunkt: new Date(2026, 9, 6, 11, 47).getTime(), eintragIds: [] })).toBe("nachtrag-seit-20261006-1147-");
+  });
+
+  it("übernimmt Stände aus der Datei und vereinigt sie mit den eigenen", () => {
+    const a = eintrag("m1", "Wardenburg", 1000);
+    const b = eintrag("m2", "Hatten", 2000);
+    const dort = exportVermerken(sammlung("e1", [a]), "csv", undefined, 5000);
+    localStorage.clear();
+    expect(exportStandLaden("e1", "csv")).toBeNull();
+    exportStaendeUebernehmen("e1", { csv: dort });
+    expect(exportStandLaden("e1", "csv")).toMatchObject({ zeitpunkt: 5000, eintragIds: ["m1"], herkunft: "geraet" });
+    // Ein eigener, älterer Stand wird ergänzt, nicht verdrängt.
+    exportVermerken(sammlung("e1", [b]), "xlsx", undefined, 100);
+    exportStaendeUebernehmen("e1", { xlsx: { zeitpunkt: 200, eintragIds: ["m1"] } });
+    expect(exportStandLaden("e1", "xlsx")).toMatchObject({ zeitpunkt: 200, eintragIds: ["m2", "m1"] });
+    exportStaendeUebernehmen("e1", "kaputt");
+  });
+
+  it("rechnet auf Wunsch ab der Weitergabe", () => {
+    const a = eintrag("m1", "Wardenburg", 1000);
+    expect(exportStandAusWeitergabe("e1", "pdf")).toBeNull();
+    weitergabeVermerken(sammlung("e1", [a]), undefined, 4000);
+    expect(exportStandAusWeitergabe("e1", "pdf")).toMatchObject({ zeitpunkt: 4000, herkunft: "weitergabe" });
+    const b = eintrag("m2", "Hatten", 5000);
+    expect(neueEintraege([a, b], exportStandLaden("e1", "pdf")).map((e) => e.id)).toEqual(["m2"]);
   });
 });
 

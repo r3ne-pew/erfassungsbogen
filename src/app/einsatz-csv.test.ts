@@ -261,3 +261,28 @@ describe("einsatzCsvInhalt()", () => {
     expect(daten.split(";")).toContain("12,5"); // Diesel als deutsche Dezimalzahl
   });
 });
+
+describe("Nachtrag-CSV (Audit Runde 5, R5-W7, R5-K6)", () => {
+  it("nennt den Grund je Zeile, summiert nur neue Einheiten und kennzeichnet die Teilmenge", async () => {
+    const { einsatzCsvInhalt } = await import("./einsatz-csv");
+    const { neuerBogen } = await import("./hilfen");
+    const { EinsatzArt, MeldeStatus, einheitSchluessel } = await import("@bos/meldekopf/einsaetze");
+    const mk = (id: string, name: string) => {
+      const b = neuerBogen();
+      b.einheit.hierarchie[0]!.name = name;
+      return { id, einheitSchluessel: einheitSchluessel(b.einheit), empfangenAm: 1, quelle: "scan" as const, status: MeldeStatus.ANWESEND, bogen: b };
+    };
+    const alt = mk("a", "Crailsheim");
+    const neu = mk("b", "Bamberg");
+    const s = {
+      id: "e", name: "Lage", art: EinsatzArt.EINSATZ, angelegt: 1, geaendert: 1, eintraege: [alt, neu], nachtragSeit: 5000,
+      nachtragGruende: { [alt.einheitSchluessel]: { neu: false, gruende: ["Zug"] }, [neu.einheitSchluessel]: { neu: true, gruende: ["neu"] } },
+    };
+    const csv = einsatzCsvInhalt(s);
+    expect(csv).toContain("Im Nachtrag wegen");
+    expect(csv).toContain("geändert: Zug");
+    expect(csv).toContain("Summe Nachtrag — nur neue Einheiten (1)");
+    expect(csv).toContain("Geänderte Einheiten (1)");
+    expect(csv).toContain("NACHTRAG seit");
+  });
+});

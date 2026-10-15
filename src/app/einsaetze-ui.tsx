@@ -488,6 +488,8 @@ export function EinsatzListe(props: {
             <p>
               <strong>{ART_LABEL[s.art]}</strong>
               {s.ort ? ` · ${s.ort}` : ""}
+              {/* Zwei Sammlungen gleichen Namens (zwei Meldeköpfe, R5-W2) sind nur an der Anlagezeit zu unterscheiden. */}
+              {einsaetze.some((x) => x.id !== s.id && x.name.trim().toLowerCase() === s.name.trim().toLowerCase()) ? ` · angelegt ${zeitLang(s.angelegt)}` : ""}
             </p>
             <p className="hinweis">
               {sum.einheiten} Einheit(en) anwesend · Stärke {sum.staerke.fuehrer} / {sum.staerke.unterfuehrer} / {sum.staerke.mannschaft} / {sum.staerke.gesamt}
@@ -837,6 +839,12 @@ export function EinsatzDetail(props: {
    */
   exportUmfang?: ExportUmfang;
   onExportUmfang?: (umfang: ExportUmfang) => void;
+  /**
+   * Das Format ab der letzten Weitergabe rechnen (R5-W5): der Stab hat die
+   * Sammel-PDF der Weitergabe ebenfalls bekommen. Fehlt der Weg, bietet die
+   * Ansicht ihn nicht an.
+   */
+  onStandAusWeitergabe?: (ziel: ExportZiel) => void;
 }) {
   const { einsatz, onZurueck, onGeaendert, onScannen, onManuell, onDateiImport, onBilderImport, onExport, onCsvExport, onCsvDetailExport, onOldenburgExport, onSammelPdf, onWeitergeben, onLageblatt, onBlanko, onGeloescht, eingang, ausgabeQuittung } = props;
   // Läuft eine PDF-Erzeugung (arbeitet.ts), sperrt sie alle PDF-Knöpfe und beschriftet den eigenen (R5-O3).
@@ -1840,20 +1848,42 @@ export function EinsatzDetail(props: {
             Liste verbraucht den Nachtrag-PDF nicht, die Weitergabe an die
             Ablösung keines von beiden. Ohne Haken nur, was es gab. */}
         {EXPORT_ZIELE.every((z) => !exportStaende[z]) ? (
-          <span className="hinweis">Noch kein Export aus diesem Einsatz — alle Bögen sind neu.</span>
+          <span className="hinweis">
+            Noch kein Export aus diesem Einsatz — alle Bögen sind neu.
+            {weitergabeStand ? ` Die Weitergabe vom ${exportZeitKurz(weitergabeStand.zeitpunkt)} (an die Ablösung) zählt nicht als Lieferung an den Stab.` : ""}
+          </span>
         ) : null}
         {EXPORT_ZIELE.filter((z) => nurNeue || exportStaende[z]).map((z) => {
           const stand = exportStaende[z];
           if (!stand) {
-            return nurNeue && EXPORT_ZIELE.some((x) => exportStaende[x]) ? (
+            // Das Sammel-PDF gibt es auch als Weitergabe an die Ablösung; die zählt
+            // nicht als Lieferung an den Stab — die Zeile sagt es und bietet an,
+            // ab der Weitergabe zu rechnen (R5-W5).
+            const weitergabeZeigen = z === "pdf" && nurNeue && weitergabeStand != null;
+            return nurNeue && (EXPORT_ZIELE.some((x) => exportStaende[x]) || weitergabeZeigen) ? (
               <span className="hinweis export-stand-zeile" key={z}>
-                {EXPORT_ZIEL_NAME[z]}: noch nicht in diesem Format exportiert — alle Bögen sind neu.
+                {EXPORT_ZIEL_NAME[z]}: {weitergabeZeigen ? "noch nie als Nachtrag geliefert" : "noch nicht in diesem Format exportiert"} — alle Bögen sind neu.
+                {weitergabeZeigen && (
+                  <>
+                    {" "}Die Weitergabe vom {exportZeitKurz(weitergabeStand!.zeitpunkt)} zählt hier nicht (sie geht an die Ablösung oder ins Archiv).
+                    {props.onStandAusWeitergabe && (
+                      <>
+                        {" "}
+                        <button type="button" className="link" onClick={() => props.onStandAusWeitergabe!("pdf")}>
+                          Ab dieser Weitergabe rechnen
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
               </span>
             ) : null;
           }
           return (
             <span className="hinweis export-stand-zeile" key={z}>
-              {EXPORT_ZIEL_NAME[z]}: zuletzt {exportZeitKurz(stand.zeitpunkt)} · {seitdemBoegenText(einsatz.eintraege, stand)}
+              {EXPORT_ZIEL_NAME[z]}: zuletzt {exportZeitKurz(stand.zeitpunkt)}
+              {stand.herkunft === "geraet" ? " (vom anderen Gerät)" : stand.herkunft === "weitergabe" ? " (ab der Weitergabe gerechnet)" : ""} ·{" "}
+              {seitdemBoegenText(einsatz.eintraege, stand)}
             </span>
           );
         })}

@@ -425,3 +425,25 @@ describe("abweichenderOrt — Bogen einer anderen Lage (Audit Runde 4, R4-K6)", 
     expect(abweichenderOrt(leer, lage, [leer])).toBeNull();
   });
 });
+
+describe("nummernWechsel (Audit Runde 5, R5-W3)", () => {
+  it("nennt Einheiten, deren Nummer sich beim Zusammenführen verschiebt", async () => {
+    const { nummernWechsel, nummernWechselText } = await import("./einheiten-tabelle");
+    const { neuerBogen } = await import("./hilfen");
+    const { MeldeStatus, einheitSchluessel } = await import("@bos/meldekopf/einsaetze");
+    const mk = (id: string, name: string, am: number) => {
+      const b = neuerBogen();
+      b.einheit.hierarchie[0]!.name = name;
+      return { id, einheitSchluessel: einheitSchluessel(b.einheit), empfangenAm: am, quelle: "scan" as const, status: MeldeStatus.ANWESEND, bogen: b };
+    };
+    const kassel = mk("k", "Kassel", 200);
+    const erlangen = mk("e", "Erlangen", 100);
+    const w = nummernWechsel([kassel], [erlangen, kassel]);
+    expect(w).toHaveLength(1);
+    expect(w[0]).toMatchObject({ von: 1, nach: 2 });
+    const text = nummernWechselText(w, [erlangen, kassel]);
+    expect(text).toContain("Nr. 1 gehört jetzt");
+    expect(text).toContain("Lageblatt neu drucken");
+    expect(nummernWechselText(nummernWechsel([kassel], [kassel]), [kassel])).toBe("");
+  });
+});

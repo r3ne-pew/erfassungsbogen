@@ -91,8 +91,8 @@ import {
 import { offlineText, useOfflineStand } from "./offline-bereit";
 import { uebergabeBestaetigen, uebergabeNachWeg, uebergabeText, type UebergabeStand } from "./uebergabe-stand";
 import { ART_LABEL, EinsatzDetail, EinsatzListe, letzteMeldungText, type Eingang } from "./einsaetze-ui";
-import { letzteMeldung, meldungsNummern, rueckkehrText } from "./einheiten-tabelle";
-import { exportSammlung, exportStaendeLaden, exportVermerken, weitergabeUmImportErgaenzen, type ExportStand, type ExportUmfang, type ExportZiel } from "./export-stand";
+import { anzahlEinheiten, letzteMeldung, meldungsNummern, nummernWechsel, nummernWechselText, rueckkehrText } from "./einheiten-tabelle";
+import { exportSammlung, exportStaendeLaden, exportStaendeUebernehmen, exportStandAusWeitergabe, exportVermerken, lieferungsMarke, weitergabeUmImportErgaenzen, type ExportStand, type ExportUmfang, type ExportZiel } from "./export-stand";
 import { abgleichText, einsatzAbgleichen, sammlungFuerZiel } from "./einsatz-abgleich";
 import { aktuelleMeldungen } from "./auswertung";
 import { ablehnungsSatz, abgelehnteBoegen, boegenAusJsonTextMitUrsachen, boegenAusPdfBytes, einsatzAusDatei, einsatzAusPdfBytes, einsatzDateiInhalt, istPdfDatei, pdfInhaltArt } from "./einsatz-transport";
@@ -2853,17 +2853,13 @@ function AppInhalt() {
   }
 
   /**
-   * Ein Nachtrag („nur neue Bögen" mit Stand dieses Formats) heißt anders als
-   * die Gesamtdatei und trägt den Bezugszeitpunkt im Namen — zwei gleichnamige
-   * Dateien überschrieben sich im Download-Ordner (R4-W4). Ohne Stand ist
-   * „nur neue" die ganze Lage und heißt wie sie.
+   * Der Namensteil der Lieferung, für alle Formate gleich (R5-W8): ein Nachtrag
+   * trägt `nachtrag-seit-<Zeitpunkt>-` im Namen — zwei gleichnamige Dateien
+   * überschrieben sich im Download-Ordner (R4-W4) —, „nur neue" ohne Bezugspunkt
+   * ist die ganze Lage und heißt `erste-lieferung-`, die Gesamtdatei trägt nichts.
    */
   function nachtragMarke(umfang: ExportUmfang, ziel: ExportZiel): string {
-    const stand = umfang === "neue" ? exportStaende[ziel] : undefined;
-    if (!stand) return "";
-    const d = new Date(stand.zeitpunkt);
-    const z = (n: number) => String(n).padStart(2, "0");
-    return `nachtrag-seit-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}-`;
+    return lieferungsMarke(umfang, exportStaende[ziel]);
   }
 
   async function exportiereEinsatzCsv(s: Einsatzsammlung, umfang: ExportUmfang) {
@@ -2871,7 +2867,7 @@ function AppInhalt() {
     const marke = nachtragMarke(umfang, "csv");
     const ok = await dateiAnbieten(
       `eeb-einsatz-${marke}${einsatzDateiname(s)}.csv`,
-      einsatzCsvInhalt(teil, meldungsNummern(s.eintraege), marke !== ""),
+      einsatzCsvInhalt(teil, meldungsNummern(s.eintraege)),
       "text/csv;charset=utf-8",
     );
     if (ok) exportVerbuchen(s, "csv");
@@ -2926,7 +2922,7 @@ function AppInhalt() {
         // Start-Bundle heraus und wird erst beim ersten PDF geladen.
         const { einsatzPdfErzeugen } = await import("./pdf");
         const stand = umfang === "neue" ? exportStaende.pdf : undefined;
-        const ok = await einsatzPdfErzeugen(teil, undefined, s.eintraege, stand?.zeitpunkt);
+        const ok = await einsatzPdfErzeugen(teil, undefined, s.eintraege, stand?.zeitpunkt, weitergabe ? "" : nachtragMarke(umfang, "pdf"));
         if (!ok) return; // Share-Sheet abgebrochen — nichts übergeben
         // „Einsatz weitergeben / sichern" geht an die Ablösung oder ins Archiv,
         // nicht an den Stab: Es hat seinen eigenen Stand (pdf.ts) und verbraucht
@@ -3241,14 +3237,22 @@ function AppInhalt() {
       if (wahl === "nur-boegen") return null;
       sammlung = sammlungFuerZiel(quelle, ziel, wahl === "mit-zug" ? zug : "");
     }
+    // Die Stände der Exporte reisen mit der Sammlung desselben Einsatzes (R5-W6);
+    // bei einer fremden Sammlung gehören sie nicht hierher.
+    const dateiStaende = quelle.exportStaende;
+    delete quelle.exportStaende;
+    const eintraegeVorher = ziel.eintraege.map((e) => ({ ...e }));
     const geklaert = await entfernteImImportKlaeren(sammlung);
     const r = einsatzAbgleichen(geklaert.sammlung);
+    if (quelle.id === zielId) exportStaendeUebernehmen(zielId, dateiStaende, [...einsaetzeLaden(), ...einsaetzePapierkorb()].map((x) => x.id));
     const abgleich = abgleichText(r);
+    const nummern = nummernWechselText(nummernWechsel(eintraegeVorher, einsaetzeLaden().find((x) => x.id === zielId)?.eintraege ?? []), einsaetzeLaden().find((x) => x.id === zielId)?.eintraege ?? []);
     return (
       (quelle.id === zielId
         ? `${r.hinzugefuegt} neue Meldung(en) ergänzt.`
         : `Sammlung „${quelle.name}“ in „${ziel.name}“ übernommen: ${r.hinzugefuegt} neue Meldung(en) mit Zeiten, Zug und Siegel.`) +
       (abgleich ? ` ${abgleich}` : "") +
+      (nummern ? ` ${nummern}` : "") +
       geklaert.hinweis
     );
   }
@@ -3409,9 +3413,44 @@ function AppInhalt() {
       // nie in den Speicher.
       const nachtragSeit = s.nachtragSeit;
       delete s.nachtragSeit;
+      // Die Stände der Exporte aus dem Umschlag (R5-W6): nach dem Import übernehmen.
+      const dateiStaende = s.exportStaende;
+      delete s.exportStaende;
       // Unvollständige Bögen blieben draußen (R5-E1); der Satz kommt in die Quittung.
       const abgelehnt = abgelehnteBoegen(s);
       const abgelehntGesamt = s.eintraege.length + abgelehnt.length;
+      // Zwei Meldeköpfe legen „Hochwasser Jagst" unabhängig an (es gibt offline
+      // keine gemeinsame Kennung): Der Import fragt, ob die Datei zur vorhandenen
+      // Sammlung gehört, statt still eine zweite gleichnamige anzulegen (R5-W2).
+      const vorhandene = einsaetzeLaden();
+      if (![...vorhandene, ...einsaetzePapierkorb()].some((x) => x.id === s.id)) {
+        const gleichnamig = vorhandene
+          .filter((x) => x.name.trim().toLowerCase() === s.name.trim().toLowerCase())
+          .sort((a, b) => b.geaendert - a.geaendert)[0];
+        if (gleichnamig) {
+          const wahl = await frageWahl({
+            titel: `Es gibt schon eine Sammlung „${gleichnamig.name}“`,
+            text:
+              `Die Datei enthält die Sammlung „${s.name}“ mit ${anzahlEinheiten(s.eintraege)}. Auf diesem Gerät gibt es schon eine gleichnamige ` +
+              `(angelegt ${zeitLang(gleichnamig.angelegt)}, ${anzahlEinheiten(gleichnamig.eintraege)}) — vermutlich dieselbe Lage von einem zweiten Meldekopf. ` +
+              "Zusammenführen oder getrennt halten?",
+            wege: [
+              {
+                wert: "vorhanden",
+                label: "In die vorhandene Sammlung übernehmen",
+                hinweis: "Alle Einheiten in einer Sammlung, mit Zeiten, Abrückvermerken, Auftrag und Siegel. Laufende Nummern können sich dabei ändern.",
+              },
+              {
+                wert: "eigene",
+                label: "Als eigene Sammlung",
+                hinweis: "Beide Sammlungen bleiben nebeneinander; auf der Startseite stehen sie mit ihrer Anlagezeit.",
+              },
+            ],
+          });
+          if (!wahl) return;
+          if (wahl === "vorhanden") s = sammlungFuerZiel(s, gleichnamig);
+        }
+      }
       if (nachtragSeit != null && ![...einsaetzeLaden(), ...einsaetzePapierkorb()].some((x) => x.id === s.id)) {
         const n = geltendeJeEinheit(s.eintraege).length;
         const anlegen = await frageJaNein({
@@ -3428,9 +3467,12 @@ function AppInhalt() {
       // Vor Ort entfernte Meldungen kommen nicht still zurück (R2-D4).
       const geklaert = await entfernteImImportKlaeren(s);
       // Bekannte Meldungen abgleichen statt nur neue anzuhängen (R3-W1).
+      const eintraegeVorher = (einsaetzeLaden().find((x) => x.id === s.id)?.eintraege ?? []).map((e) => ({ ...e }));
       const r = einsatzAbgleichen(geklaert.sammlung);
       // Was von dort kam, hat das andere Gerät schon (R3-W2).
       weitergabeUmImportErgaenzen(s.id, r.neueIds, r.neueVermerke, r.bekannt);
+      // Was der Stab laut dem anderen Gerät schon bekam, gilt hier auch (R5-W6).
+      exportStaendeUebernehmen(s.id, dateiStaende, [...einsaetzeLaden(), ...einsaetzePapierkorb()].map((x) => x.id));
       const letzteImImport = letzteMeldung(geklaert.sammlung.eintraege);
       einsaetzeNeuLaden();
       setFehler("");
@@ -3442,6 +3484,8 @@ function AppInhalt() {
       const koepfe = geltendeJeEinheit(jetzt?.eintraege ?? []);
       const anwesend = koepfe.filter((e) => e.status === MeldeStatus.ANWESEND).length;
       const folgen = (jetzt?.eintraege ?? []).filter((e) => e.quelle !== "aufteilung" && e.quelle !== "zusammenfuehrung").length - koepfe.length;
+      // Nummern, die sich beim Zusammenführen verschoben haben (R5-W3).
+      const nummernHinweis = nummernWechselText(nummernWechsel(eintraegeVorher, jetzt?.eintraege ?? []), jetzt?.eintraege ?? []);
       const einheitenText = `${koepfe.length === 1 ? "1 Einheit" : `${koepfe.length} Einheiten`}, davon ${anwesend} anwesend${
         folgen > 0 ? `, ${folgen === 1 ? "1 Folgemeldung" : `${folgen} Folgemeldungen`}` : ""
       }`;
@@ -3460,6 +3504,7 @@ function AppInhalt() {
           // Wie aktuell die übernommene Lage ist: Kam auf dem alten Gerät
           // danach noch etwas, fehlt es hier (Audit Runde 3, R3-K5).
           (letzteImImport != null ? ` Stand der Datei: letzte Meldung ${zeitLang(letzteImImport)}.` : "") +
+          (nummernHinweis ? ` ${nummernHinweis}` : "") +
           geklaert.hinweis +
           (abgelehnt.length > 0 ? ` ${ablehnungsSatz(abgelehnt, abgelehntGesamt)}` : ""),
       });
@@ -3541,6 +3586,10 @@ function AppInhalt() {
           onOldenburgExport={(umfang) => exportiereEinsatzOldenburg(offenerEinsatz, umfang)}
           onSammelPdf={(umfang) => sammelPdf(offenerEinsatz, umfang)}
           exportStaende={exportStaende}
+          onStandAusWeitergabe={(ziel) => {
+            const stand = exportStandAusWeitergabe(offenerEinsatz.id, ziel, [...einsaetzeLaden(), ...einsaetzePapierkorb()].map((x) => x.id));
+            if (stand) setExportStaende((alt) => ({ ...alt, [ziel]: stand }));
+          }}
           exportUmfang={exportUmfang}
           onExportUmfang={setExportUmfang}
           onWeitergeben={() => sammelPdf(offenerEinsatz, "alle", true)}

@@ -285,6 +285,13 @@ export interface UebersichtEintrag {
    * „Veränderung" — die Wand und der Stab lesen sonst nur eine normale Zeile.
    */
   rueckkehr?: { abgerueckAm?: number };
+  /**
+   * Nur im Nachtrag (R5-W7): warum die Einheit dabei ist („neu", „Zug", „Auftrag" …).
+   * `nachtragNeu === false`: Sie war schon in der letzten Lieferung — ihre Zeile
+   * ersetzt die frühere, ihre Kräfte gehören nicht noch einmal zur Summe.
+   */
+  nachtragGrund?: string[];
+  nachtragNeu?: boolean;
 }
 
 /** Ein Bogen der Sammel-PDF samt QR — die Übersichtsangaben plus der Code für die Bogenseiten. */
@@ -294,7 +301,9 @@ export interface SammelBogen extends UebersichtEintrag {
 
 /** Zählt der Eintrag in die Summen? Abgerückte nie, Übungen nur in Übungssammlungen (zaehlt=false). */
 function zaehlend(e: UebersichtEintrag): boolean {
-  return !e.abgerueckt && e.zaehlt !== false;
+  // Eine Einheit des Nachtrags, die schon in der letzten Lieferung stand, ersetzt
+  // ihre frühere Zeile und wird nicht noch einmal summiert (R5-W7).
+  return !e.abgerueckt && e.zaehlt !== false && e.nachtragNeu !== false;
 }
 
 /** Nur die Bögen, die in Summen und Bedarf gehören. */
@@ -494,6 +503,14 @@ function uebersichtsTabelle(
     if (teil) namensZeilen.push({ text: teil, italics: true });
     if (b.uebung) namensZeilen.push({ text: "ÜBUNG", bold: true, color: UEBUNG_FARBE });
     if (!e.abgerueckt && e.zaehlt === false) namensZeilen.push({ text: "zählt nicht in diese Lage", italics: true });
+    // Nachtrag: der Grund je Zeile (R5-W7).
+    if (e.nachtragGrund) {
+      namensZeilen.push({
+        text: e.nachtragNeu === false ? `im Nachtrag wegen: ${e.nachtragGrund.join(", ")} — ersetzt die frühere Zeile` : "im Nachtrag: neu",
+        italics: true,
+        bold: true,
+      });
+    }
     // Lücken der Meldung als Zahl — am Gerät eine Marke an der Karte (R2-K3).
     // Mit Inhalt statt „1 Lücke" (R3-K7).
     // Auf dem Papier alle, nicht „… + 2 weitere" (R4-K3): Das Lageblatt nennt
@@ -541,6 +558,10 @@ function uebersichtsTabelle(
   const uebungen = anwesend.filter((e) => e.zaehlt === false).length;
   const beschriftung = [`${summe.einheiten} zählend`];
   if (uebungen > 0) beschriftung.push(`${uebungen} Übung`);
+  // Im Nachtrag: Einheiten, die schon in der letzten Lieferung standen, ersetzen
+  // ihre Zeile und stehen nicht in dieser Summe (R5-W7).
+  const ersetzend = anwesend.filter((e) => e.zaehlt !== false && e.nachtragNeu === false).length;
+  if (ersetzend > 0) beschriftung.push(`${ersetzend} geändert, nicht mitgezählt`);
   if (abgerueckt.length > 0) beschriftung.push(`${abgerueckt.length} abgerückt`);
   /** Summenzeile: Beschriftung, Stärke, Fahrzeuge an ihren Spalten, Rest leer. */
   const summenZeile = (titel: string, staerkeText: string, fzg: string, margin?: [number, number, number, number]): TableCell[] => [

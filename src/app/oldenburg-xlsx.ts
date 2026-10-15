@@ -87,7 +87,8 @@ import {
 import { geltendeJeEinheit } from "./fassung-vorrang";
 import { zaehltInLage } from "./auswertung";
 import { datumVonMs, lueckenAlle, pruefpunkteEintrag } from "./einheiten-tabelle";
-import { eintreffzeit } from "./eintrag-zeiten";
+import { eintreffzeit, zeitLang } from "./eintrag-zeiten";
+import { nachtragGrundText, type NachtragGrund } from "./export-stand";
 
 export { XLSX_MIME };
 
@@ -339,6 +340,10 @@ interface Kontext {
   status?: string;
   /** Zählt nicht in die Lage — „Bemerkung" sagt es ausdrücklich. */
   zaehltNicht?: boolean;
+  /** Nachtrag: warum die Zeile dabei ist, z. B. „geändert: Zug" (R5-W7). */
+  nachtrag?: string;
+  /** Der Ort, den der Bogen nennt, wenn er nicht zur Lage zu passen scheint (R5-K5). */
+  fremderOrt?: string;
 }
 
 function zeileFuer(b: Erfassungsbogen, k: Kontext): Zeile {
@@ -399,6 +404,8 @@ function zeileFuer(b: Erfassungsbogen, k: Kontext): Zeile {
     // Liste der Führungsstelle nicht wie eine zählende aussehen.
     bemerkung: [
       k.status ?? "",
+      k.nachtrag ? `Nachtrag: ${k.nachtrag}` : "",
+      k.fremderOrt ? `Anderer Einsatz? Bogen nennt: „${k.fremderOrt}“` : "",
       b.uebung === true ? "ÜBUNG" : "",
       k.zaehltNicht ? "zählt nicht in der Lage" : "",
       zeitraumVorbei ? `Einsatzzeitraum im Bogen endete ${datumDeutsch(datumZuIso(b.einsatz.zeitraumBis))} — Bogen aus früherer Lage?` : "",
@@ -429,13 +436,17 @@ function zeileFuer(b: Erfassungsbogen, k: Kontext): Zeile {
  * auslässt — filtert die Führungsstelle auf eine Organisation, stimmt die Summe
  * oben sofort für diese Auswahl.
  */
-function leisteZeile(letzteZeile: number, zeilen: Zeile[]): string {
+function leisteZeile(letzteZeile: number, zeilen: Zeile[], kennzeichen?: string): string {
   const zellen: Zelle[] = SPALTEN.map((sp, i) => ({
     spalte: i,
     stil: sp.leisteStil,
     // Summenspalten: das Ergebnis gleich mit (ohne Filter = Summe aller
     // zählenden Zeilen), damit nicht rechnende Vorschauen es zeigen (R3-K7).
-    wert: sp.summe ? zeilen.reduce((n, z) => n + (typeof z[sp.id] === "number" ? (z[sp.id] as number) : 0), 0) : sp.leiste,
+    wert: sp.summe
+      ? zeilen.reduce((n, z) => n + (typeof z[sp.id] === "number" ? (z[sp.id] as number) : 0), 0)
+      : i === 0 && kennzeichen
+        ? kennzeichen
+        : sp.leiste,
     formel: sp.summe ? `SUBTOTAL(9,${spaltenName(i)}${ERSTE_DATENZEILE}:${spaltenName(i)}${letzteZeile})` : undefined,
   }));
   return zeileXml(1, zellen);
@@ -483,18 +494,30 @@ export function blockKopfText(anzahl: number): string {
  * SUBTOTAL-Summen. `ausserhalb` folgt nach einer Leerzeile und einer
  * Überschrift darunter, außerhalb jeder Formel (R2-K2).
  */
-function blattBauen(zeilen: Zeile[], ausserhalb: Zeile[] = []): Uint8Array<ArrayBuffer> {
+function blattBauen(
+  zeilen: Zeile[],
+  bloecke: { kopf: string; zeilen: Zeile[] }[] = [],
+  /** Nachtrag: steht in der Hinweisleiste (A1), weil dort die Summen sind (R5-K6). */
+  kennzeichen?: string,
+  /** Nachtrag: ausführlicher Hinweis in einer Schlusszeile — A1 ist nur drei Spalten breit. */
+  fuss?: string,
+): Uint8Array<ArrayBuffer> {
   const summenEnde = Math.max(ERSTE_DATENZEILE, ERSTE_DATENZEILE + zeilen.length - 1);
-  const xml = [leisteZeile(summenEnde, zeilen), kopfZeile(), ...zeilen.map((z, i) => datenZeile(z, ERSTE_DATENZEILE + i))];
+  const xml = [leisteZeile(summenEnde, zeilen, kennzeichen), kopfZeile(), ...zeilen.map((z, i) => datenZeile(z, ERSTE_DATENZEILE + i))];
   let letzteZeile = summenEnde;
-  if (ausserhalb.length > 0) {
+  // Jeder Block steht nach einer Leerzeile unter dem vorigen, außerhalb jeder Formel.
+  for (const block of bloecke.filter((x) => x.zeilen.length > 0)) {
     // Eine Leerzeile trennt den Block: Excel beendet dort die „aktuelle
     // Region", ein Autofilter oder Strg+A über die Liste greift ihn also nicht
     // versehentlich mit.
-    const kopfNr = summenEnde + 2;
-    xml.push(zeileXml(kopfNr, [{ spalte: 0, wert: blockKopfText(ausserhalb.length), stil: STIL_BLOCKKOPF }]));
-    ausserhalb.forEach((z, i) => xml.push(datenZeile(z, kopfNr + 1 + i)));
-    letzteZeile = kopfNr + ausserhalb.length;
+    const kopfNr = letzteZeile + 2;
+    xml.push(zeileXml(kopfNr, [{ spalte: 0, wert: block.kopf, stil: STIL_BLOCKKOPF }]));
+    block.zeilen.forEach((z, i) => xml.push(datenZeile(z, kopfNr + 1 + i)));
+    letzteZeile = kopfNr + block.zeilen.length;
+  }
+  if (fuss) {
+    letzteZeile += 2;
+    xml.push(zeileXml(letzteZeile, [{ spalte: 0, wert: fuss, stil: STIL_BLOCKKOPF }]));
   }
   return mappeBauen(
     {
@@ -531,8 +554,30 @@ export function einsatzOldenburgXlsx(s: Einsatzsammlung): Uint8Array<ArrayBuffer
   );
   // Dieselbe Regel wie aktuelleMeldungen (App-Summen, CSV, Sammel-PDF).
   const zaehlt = (e: MeldeEintrag) => e.status === MeldeStatus.ANWESEND && zaehltInLage(s.art, e.bogen);
-  const zeile = (e: MeldeEintrag) => zeileFuer(e.bogen, kontextAus(s, e, zaehlt(e)));
-  return blattBauen(meldungen.filter(zaehlt).map(zeile), meldungen.filter((e) => !zaehlt(e)).map(zeile));
+  const gruende = s.nachtragGruende;
+  const zeile = (e: MeldeEintrag) => zeileFuer(e.bogen, kontextAus(s, e, zaehlt(e), gruende?.[e.einheitSchluessel]));
+  const nichtGezaehlt = meldungen.filter((e) => !zaehlt(e));
+  if (!gruende) return blattBauen(meldungen.filter(zaehlt).map(zeile), [{ kopf: blockKopfText(nichtGezaehlt.length), zeilen: nichtGezaehlt.map(zeile) }]);
+  // Nachtrag (R5-K6, R5-W7): Die Summen in Zeile 1 gelten nur für die NEUEN
+  // Einheiten; die geänderten stehen darunter und ersetzen ihre Zeile der letzten
+  // Lieferung. Die Leiste sagt, dass die Datei nur ein Teil der Lage ist.
+  const neu = meldungen.filter((e) => zaehlt(e) && gruende[e.einheitSchluessel]?.neu);
+  const geaendert = meldungen.filter((e) => zaehlt(e) && !gruende[e.einheitSchluessel]?.neu);
+  const seit = s.nachtragSeit != null ? ` seit ${zeitLang(s.nachtragSeit)}` : "";
+  return blattBauen(
+    neu.map(zeile),
+    [
+      { kopf: nachtragBlockKopfText(geaendert.length), zeilen: geaendert.map(zeile) },
+      { kopf: blockKopfText(nichtGezaehlt.length), zeilen: nichtGezaehlt.map(zeile) },
+    ],
+    "NACHTRAG – Teil der Lage",
+    `NACHTRAG${seit} — nicht die ganze Lage. „Summe Nachtrag“ (Zeile 1) zählt nur die neuen Einheiten; geänderte Einheiten ersetzen ihre Zeile der letzten Lieferung.`,
+  );
+}
+
+/** Überschrift über den geänderten Einheiten eines Nachtrags (R5-W7). */
+export function nachtragBlockKopfText(anzahl: number): string {
+  return `Geänderte Einheiten (${anzahl}) — ersetzen ihre Zeile der letzten Lieferung, in den Summen oben NICHT enthalten`;
 }
 
 /** „ABGERÜCKT" / „AUFGEGANGEN in …" für die Bemerkung; anwesend = nichts. */
@@ -546,8 +591,9 @@ function statusVermerk(s: Einsatzsammlung, e: MeldeEintrag): string | undefined 
   return undefined;
 }
 
-function kontextAus(s: Einsatzsammlung, e: MeldeEintrag, zaehlt: boolean): Kontext {
+function kontextAus(s: Einsatzsammlung, e: MeldeEintrag, zaehlt: boolean, grund?: NachtragGrund): Kontext {
   return {
+    nachtrag: grund ? nachtragGrundText(grund) : undefined,
     zug: e.zugEtikett,
     teil: e.teilEtikett,
     id: e.id,

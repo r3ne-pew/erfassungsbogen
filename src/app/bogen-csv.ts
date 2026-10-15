@@ -69,6 +69,7 @@ import { HERKUNFT_TEXT, eintreffzeit, zeitLang } from "./eintrag-zeiten";
 import { meldungsNummern } from "./einheiten-tabelle";
 import { MeldeStatus, type Einsatzsammlung, type MeldeEintrag, type MeldeQuelle } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit } from "./fassung-vorrang";
+import { nachtragGrundText } from "./export-stand";
 
 // ------------------------------------------------------------------ Spalten
 
@@ -344,9 +345,12 @@ function bogenSaetze(b: Erfassungsbogen, k: Kontext): Satz[] {
   ];
 }
 
-function zuDatei(saetze: Satz[]): string {
-  const kopf = csvZeile([...SPALTEN]);
-  return csvDatei([kopf, ...saetze.map((s) => csvZeile(SPALTEN.map((sp) => s[sp] ?? "")))]);
+function zuDatei(saetze: Satz[], zusatzSpalte?: { name: string; werte: (satz: Satz, index: number) => string; schluss?: string }): string {
+  const kopf = csvZeile([...SPALTEN, ...(zusatzSpalte ? [zusatzSpalte.name] : [])]);
+  const zeilen = saetze.map((s, i) => csvZeile([...SPALTEN.map((sp) => s[sp] ?? ""), ...(zusatzSpalte ? [zusatzSpalte.werte(s, i)] : [])]));
+  // Schlusszeile (Nachtrag, R5-K6): ein Satz „Hinweis" mit dem Text im ersten Feld.
+  const schluss = zusatzSpalte?.schluss ? [csvZeile([zusatzSpalte.schluss, ...SPALTEN.slice(1).map((sp) => (sp === "Satzart" ? "Hinweis" : "")), ""])] : [];
+  return csvDatei([kopf, ...zeilen, ...schluss]);
 }
 
 // --------------------------------------------------------------- Öffentlich
@@ -390,5 +394,22 @@ export function einsatzDetailCsvInhalt(
       einheitAnzeigename(a.bogen.einheit).localeCompare(einheitAnzeigename(b.bogen.einheit), "de") ||
       (a.teilEtikett ?? "").localeCompare(b.teilEtikett ?? "", "de"),
   );
-  return zuDatei(meldungen.flatMap((e) => bogenSaetze(e.bogen, kontextAusMeldung(e, s.name, nummern.get(e.einheitSchluessel)))));
+  const gruende = s.nachtragGruende;
+  // Je Satz die Einheit, zu der er gehört — für die Spalte „Im Nachtrag wegen" (R5-W7).
+  const einheitJeSatz: string[] = [];
+  const saetze = meldungen.flatMap((e) => {
+    const teil = bogenSaetze(e.bogen, kontextAusMeldung(e, s.name, nummern.get(e.einheitSchluessel)));
+    for (const _ of teil) einheitJeSatz.push(e.einheitSchluessel);
+    return teil;
+  });
+  if (!gruende) return zuDatei(saetze);
+  // Als Nachtrag: Grund auf jeder Zeile (wie der Kontext, damit eine gefilterte
+  // Ansicht lesbar bleibt) und eine Schlusszeile, die die Datei als Teilmenge
+  // kennzeichnet (R5-K6).
+  const seit = s.nachtragSeit != null ? ` seit ${zeitLang(s.nachtragSeit)}` : "";
+  return zuDatei(saetze, {
+    name: "Im Nachtrag wegen",
+    werte: (_satz, i) => nachtragGrundText(gruende[einheitJeSatz[i]!]),
+    schluss: `NACHTRAG${seit} — nicht die ganze Lage (${meldungen.length} ${meldungen.length === 1 ? "Einheit" : "Einheiten"} in dieser Datei)`,
+  });
 }

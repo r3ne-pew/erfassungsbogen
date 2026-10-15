@@ -227,3 +227,15 @@ describe("unvollständige Bögen in Dateien (R5-E1)", () => {
     expect(r.gesamt).toBe(2);
   });
 });
+
+describe("Stände der Exporte im Umschlag (Audit Runde 5, R5-W6)", () => {
+  it("reisen im Umschlag mit, nicht in der Sammlung, und Nachtrag-Gründe bleiben draußen", async () => {
+    const { einsatzDateiInhalt, einsatzAusDatei } = await import("./einsatz-transport");
+    const s = { id: "e", name: "Lage", art: 0, angelegt: 1, geaendert: 1, eintraege: [], nachtragGruende: { x: { neu: true, gruende: ["neu"] } } } as never;
+    const text = einsatzDateiInhalt(s, { csv: { zeitpunkt: 5, eintragIds: ["a"] } });
+    expect(text).not.toContain("nachtragGruende");
+    const zurueck = einsatzAusDatei(text);
+    expect(zurueck.exportStaende?.csv?.eintragIds).toEqual(["a"]);
+    expect(einsatzAusDatei(einsatzDateiInhalt(s)).exportStaende).toBeUndefined();
+  });
+});

@@ -15,6 +15,7 @@ import { migriereBogen } from "./hilfen";
 import { bogenBefund } from "./bogen-pruefung";
 import type { Einsatzsammlung } from "@bos/meldekopf/einsaetze";
 import { entpackt, pdfStroeme } from "./pdf-stroeme";
+import type { ExportStand, ExportZiel } from "./export-stand";
 
 declare module "@bos/meldekopf/einsaetze" {
   interface Einsatzsammlung {
@@ -25,6 +26,14 @@ declare module "@bos/meldekopf/einsaetze" {
      * Speicher übernommen.
      */
     nachtragSeit?: number;
+    /**
+     * Nur im Umschlag der Datei (nie im Speicher): die Stände der Exporte je
+     * Format — Kennungen, Prüfsummen und Zeitpunkt, keine Personendaten. Die
+     * Ablösung weiß damit, was der Stab schon hat (Audit Runde 5, R5-W6). Das
+     * Einlesen übernimmt sie in den Gerätespeicher (`exportStaendeUebernehmen`)
+     * und entfernt das Feld.
+     */
+    exportStaende?: Partial<Record<ExportZiel, ExportStand>>;
   }
 }
 
@@ -34,17 +43,25 @@ interface EinsatzDatei {
   typ: "eeb-einsatz";
   version: 1;
   einsatz: Einsatzsammlung;
+  /** Stände der Exporte je Format (R5-W6); fehlt in Dateien älterer Versionen. */
+  staende?: Partial<Record<ExportZiel, ExportStand>>;
 }
 
-/** Ganze Einsatz-Sammlung als Datei-Inhalt (menschenlesbar eingerückt). */
-export function einsatzDateiInhalt(s: Einsatzsammlung): string {
+/**
+ * Ganze Einsatz-Sammlung als Datei-Inhalt (menschenlesbar eingerückt). `staende`
+ * (R5-W6) sind die Stände der Exporte dieses Geräts; sie reisen im Umschlag mit,
+ * nicht in der Sammlung. Ein zugeschnittener Nachtrag (`nachtragGruende`) trägt
+ * seine Gründe nicht in die Datei.
+ */
+export function einsatzDateiInhalt(s: Einsatzsammlung, staende?: Partial<Record<ExportZiel, ExportStand>>): string {
   // Jeder enthaltene Bogen mit seiner Transport-Version: nur Übungsbögen
   // fordern das neue Schema, alles andere bleibt für alte Stände lesbar.
+  const { nachtragGruende: _gruende, exportStaende: _staende, ...rest } = s;
   const einsatz: Einsatzsammlung = {
-    ...s,
+    ...rest,
     eintraege: s.eintraege.map((e) => ({ ...e, bogen: mitTransportVersion(e.bogen) })),
   };
-  const datei: EinsatzDatei = { typ: "eeb-einsatz", version: 1, einsatz };
+  const datei: EinsatzDatei = { typ: "eeb-einsatz", version: 1, einsatz, ...(staende && Object.keys(staende).length > 0 ? { staende } : {}) };
   return JSON.stringify(datei, null, 2);
 }
 
@@ -90,6 +107,11 @@ function einsatzAusRoh(roh: unknown): Einsatzsammlung {
   if (!s || typeof s.id !== "string" || !Array.isArray(s.eintraege)) {
     throw new Error("Keine gültige Einsatz-Datei.");
   }
+  // Die Stände der Exporte aus dem Umschlag gehören nicht in die Sammlung: Sie
+  // hängen bis zum Import an ihr und werden dort übernommen und entfernt (R5-W6).
+  delete (s as { nachtragGruende?: unknown }).nachtragGruende;
+  if (alsDatei?.typ === "eeb-einsatz" && alsDatei.staende && typeof alsDatei.staende === "object") s.exportStaende = alsDatei.staende;
+  else delete s.exportStaende;
   const gesamt = s.eintraege.length;
   const abgelehnt: string[] = [];
   const angenommen: typeof s.eintraege = [];

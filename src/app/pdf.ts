@@ -23,7 +23,7 @@ import { MeldeStatus, type Einsatzsammlung, type MeldeEintrag } from "@bos/melde
 import { geltendeJeEinheit, fassungenJeEinheit } from "./fassung-vorrang";
 import { zaehltInLage } from "./auswertung";
 import { eintreffzeit } from "./eintrag-zeiten";
-import { lageblattVermerken, weitergabeVermerken } from "./export-stand";
+import { exportStaendeLaden, lageblattVermerken, weitergabeVermerken } from "./export-stand";
 import { meldungsNummern } from "./einheiten-tabelle";
 
 interface FontContainer {
@@ -174,6 +174,11 @@ function uebersichtEintrag(
     zaehlt: m.status === MeldeStatus.ANWESEND && zaehltInLage(einsatz.art, m.bogen),
     notiz: m.notiz,
     ...(m.rueckkehr ? { rueckkehr: m.rueckkehr } : {}),
+    // Beim Nachtrag: warum die Einheit dabei ist, und ob ihre Kräfte zur Summe
+    // der letzten Lieferung dazukommen oder die frühere Zeile ersetzen (R5-W7).
+    ...(einsatz.nachtragGruende?.[m.einheitSchluessel]
+      ? { nachtragGrund: einsatz.nachtragGruende[m.einheitSchluessel]!.gruende, nachtragNeu: einsatz.nachtragGruende[m.einheitSchluessel]!.neu }
+      : {}),
     // Über die ganze Sammlung gezählt — auch im Nachtrag „nur neue Bögen"
     // dieselbe Nummer wie am Gerät (R2-A6).
     nummer: meldungsNummern(historie).get(m.einheitSchluessel),
@@ -224,6 +229,12 @@ export async function einsatzPdfErzeugen(
   historie: MeldeEintrag[] = einsatz.eintraege,
   /** Nachtrag seit dem Stand des letzten Sammel-PDF (Date.now()) — Kopf, Summen und Umschlag sagen es (R4-W4). */
   nachtragSeit?: number,
+  /**
+   * Namensteil der Lieferung (export-stand.ts `lieferungsMarke`): für alle
+   * Formate gleich, „nachtrag-seit-…-" bzw. „erste-lieferung-" (R5-W8). Ohne
+   * Angabe heißt ein Nachtrag „nachtrag-".
+   */
+  dateiMarke?: string,
 ): Promise<boolean> {
   const boegenMitQr: SammelBogen[] = [];
   for (const m of meldungen) {
@@ -238,14 +249,16 @@ export async function einsatzPdfErzeugen(
   const dd = await einsatzPdfDokumentGesetzt(
     einsatz.name,
     boegenMitQr,
-    einsatzDateiInhalt(nachtrag && nachtragSeit != null ? { ...einsatz, nachtragSeit } : einsatz),
+    // Die Stände der Exporte reisen mit (R5-W6): auf der Ablösung weiß der
+    // erste Nachtrag dann, was der Stab schon hat.
+    einsatzDateiInhalt(nachtrag && nachtragSeit != null ? { ...einsatz, nachtragSeit } : einsatz, exportStaendeLaden(einsatz.id)),
     Date.now(),
     nachtrag ? nachtragSeit : undefined,
     (probe) => pdfMake.createPdf(probe).getBuffer(),
   );
   // Teilexport („nur neue Bögen") mit eigenem Dateinamen — sonst hießen
   // Nachtrag und ganze Sammlung gleich (Audit Runde 2, R2-A3).
-  const ok = await dokumentAusgeben(dd, `eeb-einsatz-${nachtrag ? "nachtrag-" : ""}${natoZeitstempel()}_${dateiRumpf(einsatz)}.pdf`);
+  const ok = await dokumentAusgeben(dd, `eeb-einsatz-${dateiMarke ?? (nachtrag ? "nachtrag-" : "")}${natoZeitstempel()}_${dateiRumpf(einsatz)}.pdf`);
   // Die ganze Sammlung ging heraus — womöglich an die nächste Schicht. Die
   // Einsatzansicht sagt danach, wann, und was seitdem nur hier dazukam
   // (Audit Runde 2, R2-W5). Der Nachtrag „nur neue Bögen" ist keine Übergabe.

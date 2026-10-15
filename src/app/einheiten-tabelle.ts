@@ -155,6 +155,64 @@ export function meldungsNummern(eintraege: MeldeEintrag[]): Map<string, number> 
   return new Map(reihe.map(([schluessel]) => [schluessel, vergeben.get(schluessel)!]));
 }
 
+/** „1 Einheit" / „4 Einheiten" — Einheiten (nicht Fassungen) einer Sammlung, wie die Liste sie zählt. */
+export function anzahlEinheiten(eintraege: MeldeEintrag[]): string {
+  const n = new Set(eintraege.map((e) => e.einheitSchluessel)).size;
+  return n === 1 ? "1 Einheit" : `${n} Einheiten`;
+}
+
+/** Eine Einheit, deren laufende Nummer sich durch eine Übernahme geändert hat (R5-W3). */
+export interface NummernWechsel {
+  einheitSchluessel: string;
+  einheit: string;
+  von: number;
+  nach: number;
+}
+
+/**
+ * Welche Einheiten nach einer Übernahme (Import, Abgleich) eine andere Nummer
+ * tragen als vorher (Audit Runde 5, R5-W3). Zwei Geräte vergeben ihre Nummern
+ * parallel nach dem Eingang; beim Zusammenführen rücken die Nummern der einen
+ * Seite um die der anderen herum. Eine am Funk genannte oder gedruckte Nummer
+ * meint dann eine andere Einheit — das gehört in die Quittung.
+ */
+export function nummernWechsel(vorher: MeldeEintrag[], nachher: MeldeEintrag[]): NummernWechsel[] {
+  const alt = meldungsNummern(vorher);
+  const neu = meldungsNummern(nachher);
+  const namen = new Map(neueInfo(nachher));
+  const wechsel: NummernWechsel[] = [];
+  for (const [schl, von] of alt) {
+    const nach = neu.get(schl);
+    if (nach != null && nach !== von) wechsel.push({ einheitSchluessel: schl, einheit: namen.get(schl) ?? schl, von, nach });
+  }
+  return wechsel.sort((a, b) => a.von - b.von);
+}
+
+function neueInfo(eintraege: MeldeEintrag[]): [string, string][] {
+  const aus: [string, string][] = [];
+  for (const e of eintraege) aus.push([e.einheitSchluessel, `${einheitAnzeigename(e.bogen.einheit)}${e.teilEtikett ? ` (${e.teilEtikett})` : ""}`]);
+  return aus;
+}
+
+/**
+ * „Nummern geändert: Nr. 5 gehört jetzt THW Erlangen (vorher THW Kassel), THW
+ * Kassel hat Nr. 6 — Lageblatt neu drucken." Leer ohne Wechsel (R5-W3).
+ */
+export function nummernWechselText(wechsel: NummernWechsel[], nachher: MeldeEintrag[]): string {
+  if (wechsel.length === 0) return "";
+  const neu = meldungsNummern(nachher);
+  const namen = new Map(neueInfo(nachher));
+  const inhaber = new Map([...neu].map(([schl, nr]) => [nr, schl]));
+  const teile = wechsel.slice(0, 4).map((w) => {
+    const jetzt = inhaber.get(w.von);
+    return jetzt && jetzt !== w.einheitSchluessel
+      ? `Nr. ${w.von} gehört jetzt ${namen.get(jetzt) ?? "einer anderen Einheit"} (vorher ${w.einheit}), ${w.einheit} hat Nr. ${w.nach}`
+      : `${w.einheit}: Nr. ${w.von} → ${w.nach}`;
+  });
+  const rest = wechsel.length - teile.length;
+  return `Nummern geändert: ${teile.join("; ")}${rest > 0 ? ` und ${rest} weitere` : ""} — am Funk genannte Nummern und das gedruckte Lageblatt gelten nicht mehr, Lageblatt neu drucken.`;
+}
+
 // ------------------------------------------------------------ Fremder Einsatz
 
 /** Wörter, die eine Lage nur beschreiben, nicht verorten — zwei Lagen „Hochwasser…" sind noch nicht dieselbe. */
