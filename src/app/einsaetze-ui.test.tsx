@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PersonalErfassung, type Erfassungsbogen } from "@bos/eeb-format/model";
 import { Dialogschicht } from "./dialoge";
@@ -2032,6 +2032,11 @@ describe("Lage vom Papier abgleichen (Audit Runde 3, R3-A2)", () => {
     expect(screen.getAllByText("vom Papier, Zeiten prüfen")).toHaveLength(2);
     expect(screen.getByText(/Lage noch nicht abgeglichen: 2 Einheiten/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Lage vom Papier abgleichen…" }));
+    // Die Eintreffzeit steht leer (R5-A1) — vom Blatt eintragen.
+    const zeiten = screen.getAllByLabelText(/Eingetroffen am/);
+    expect((zeiten[0] as HTMLInputElement).value).toBe("");
+    fireEvent.change(zeiten[0]!, { target: { value: "2026-10-06T10:12" } });
+    fireEvent.change(zeiten[1]!, { target: { value: "2026-10-06T11:22" } });
     const radios = screen.getAllByRole("radio", { name: "abgerückt" });
     await user.click(radios[0]!);
     const zug = screen.getAllByLabelText("Zug (leer = ohne)");
@@ -2066,6 +2071,7 @@ describe("Lage vom Papier abgleichen (Audit Runde 3, R3-A2)", () => {
     await user.type(nr[0]!, "7");
     await user.type(notiz[0]!, "Pumpe 2 defekt");
     await user.type(nr[1]!, "7");
+    for (const z of screen.getAllByLabelText(/Eingetroffen am/)) fireEvent.change(z, { target: { value: "2026-10-06T10:12" } });
     await user.click(screen.getByRole("button", { name: "Abgleich übernehmen" }));
     // Zweimal Nr. 7: nichts übernommen.
     expect(await screen.findByText(/„Nr\. 7“ steht bei .* und /)).toBeTruthy();
@@ -2078,6 +2084,28 @@ describe("Lage vom Papier abgleichen (Audit Runde 3, R3-A2)", () => {
     expect(e.find((x) => x.id === ids[0])!.nummer).toBe(7);
     expect(e.find((x) => x.id === ids[0])!.notiz).toBe("Pumpe 2 defekt");
     expect(e.find((x) => x.id === ids[1])!.nummer).toBeUndefined();
+  });
+});
+
+describe("Papier-Abgleich ohne Eintreffzeit (Audit Runde 5, R5-A1)", () => {
+  it("belegt die Eintreffzeit nicht vor und lässt die Marke stehen, bis die Zeit vom Blatt eingetragen ist", async () => {
+    const user = userEvent.setup();
+    const angelegt = einsatzAnlegen("Hochwasser Neckar", EinsatzArt.EINSATZ);
+    const ids = ["Ansbach", "Kirchehrenbach"].map((n) => meldungHinzufuegen(angelegt.id, bogenMitName(n))!.eintrag.id);
+    vomPapierMarkieren(angelegt.id, ids);
+    const a = ansicht(angelegt.id);
+    await user.click(screen.getByRole("button", { name: "Lage vom Papier abgleichen…" }));
+    for (const z of screen.getAllByLabelText(/Eingetroffen am/)) expect((z as HTMLInputElement).value).toBe("");
+    await user.type(screen.getAllByLabelText("Zug (leer = ohne)")[0]!, "1. TZ");
+    await user.click(screen.getByRole("button", { name: "Abgleich übernehmen" }));
+    const hinweis = await screen.findByRole("dialog", { name: "Eintreffzeit nicht bestätigt" });
+    expect(within(hinweis).getByText(/Für 2 Einheiten stand keine Eintreffzeit/)).toBeTruthy();
+    await user.click(within(hinweis).getByRole("button", { name: "Alles klar" }));
+    const e = einsaetzeLaden().find((s) => s.id === angelegt.id)!.eintraege;
+    expect(e.find((x) => x.id === ids[0])!.zugEtikett).toBe("1. TZ");
+    expect(e.every((x) => x.vomPapier != null)).toBe(true);
+    a.neuLaden();
+    expect(screen.getAllByText("vom Papier, Zeiten prüfen")).toHaveLength(2);
   });
 });
 

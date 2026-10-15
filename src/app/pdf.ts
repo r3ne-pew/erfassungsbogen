@@ -174,6 +174,7 @@ function uebersichtEintrag(
     zaehlt: m.status === MeldeStatus.ANWESEND && zaehltInLage(einsatz.art, m.bogen),
     notiz: m.notiz,
     ...(m.rueckkehr ? { rueckkehr: m.rueckkehr } : {}),
+    ...(m.vomPapier != null ? { zeitUnbestaetigt: true } : {}),
     // Beim Nachtrag: warum die Einheit dabei ist, und ob ihre Kräfte zur Summe
     // der letzten Lieferung dazukommen oder die frühere Zeile ersetzen (R5-W7).
     ...(einsatz.nachtragGruende?.[m.einheitSchluessel]

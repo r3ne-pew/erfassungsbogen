@@ -403,11 +403,37 @@ export function folgeAenderung(kopf: MeldeEintrag, alle: MeldeEintrag[]): FolgeA
   const nachher = staerke(kopf.bogen).gesamt;
   return {
     gemeldetAm: kopf.empfangenAm,
-    kurz: folgeKurztext(d, vorher, nachher),
+    kurz: platzhalterVergleich(vorige, kopf, d) ?? folgeKurztext(d, vorher, nachher),
     ...(vorher !== nachher ? { staerkeVorher: vorher, staerkeNachher: nachher } : {}),
     verlust: nachher < vorher,
     ...(kopf.rueckkehr ? { rueckkehr: kopf.rueckkehr } : {}),
   };
+}
+
+/**
+ * Vergleich gegen eine Schnellerfassung (R5-W9): Sie erfasst nur die Stärke.
+ * „3 Fahrzeuge abgemeldet" las sich wie ein Ereignis, dabei hat niemand etwas
+ * abgemeldet — die Schnellerfassung hat sie nie erfasst. Null, wenn `kopf` keine
+ * Schnellerfassung ist.
+ */
+function platzhalterVergleich(vorige: MeldeEintrag, kopf: MeldeEintrag, d: ReturnType<typeof bogenDiff>): string | null {
+  if (kopf.quelle !== "manuell") return null;
+  const vorher = staerke(vorige.bogen).gesamt;
+  const nachher = staerke(kopf.bogen).gesamt;
+  const teile: string[] = [];
+  if (vorher !== nachher) {
+    const diff = nachher - vorher;
+    teile.push(`Stärke ${vorher} → ${nachher}${diff !== 0 ? ` (${diff > 0 ? "+" : "−"}${Math.abs(diff)})` : ""}`);
+  }
+  const fehlt = d.fahrzeugeAbgang.length > 0 || d.personalAbgang.length > 0 || d.bedarf.length > 0;
+  if (fehlt) teile.push("Fahrzeuge, Personal und Sofortbedarf nicht erfasst");
+  return teile.length > 0 ? teile.join(" · ") : null;
+}
+
+/** Kurztext des Vergleichs zweier Fassungen für die Karte („Stärke 12 → 10 · …"); leer ohne Unterschied. */
+export function vergleichKurztext(vorige: MeldeEintrag, kopf: MeldeEintrag): string {
+  const d = bogenDiff(vorige.bogen, kopf.bogen);
+  return platzhalterVergleich(vorige, kopf, d) ?? diffKurzfassung(d);
 }
 
 /** „…“ mit höchstens 60 Zeichen; „—" (geleert) bleibt ohne Anführungszeichen. */

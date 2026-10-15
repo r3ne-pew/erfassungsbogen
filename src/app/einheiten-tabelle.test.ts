@@ -447,3 +447,25 @@ describe("nummernWechsel (Audit Runde 5, R5-W3)", () => {
     expect(nummernWechselText(nummernWechsel([kassel], [kassel]), [kassel])).toBe("");
   });
 });
+
+describe("Vergleich gegen eine Schnellerfassung (Audit Runde 5, R5-W9)", () => {
+  it("sagt „nicht erfasst“ statt „Fahrzeuge abgemeldet“", async () => {
+    const { vergleichKurztext } = await import("./einheiten-tabelle");
+    const { neuerBogen } = await import("./hilfen");
+    const { MeldeStatus, einheitSchluessel } = await import("@bos/meldekopf/einsaetze");
+    const { PersonalErfassung } = await import("@bos/eeb-format/model");
+    const mk = (id: string, quelle: "scan" | "manuell") => {
+      const b = neuerBogen();
+      b.einheit.hierarchie[0]!.name = "Crailsheim";
+      return { id, einheitSchluessel: einheitSchluessel(b.einheit), empfangenAm: 1, quelle, status: MeldeStatus.ANWESEND, bogen: b };
+    };
+    const bogen = mk("b", "scan");
+    bogen.bogen.fahrzeuge = [{ typ: { code: 1 } } as never, { typ: { code: 1 } } as never];
+    const schnell = mk("s", "manuell");
+    schnell.bogen.personalErfassung = PersonalErfassung.NUR_STAERKE;
+    schnell.bogen.staerkeManuell = { fuehrer: 0, unterfuehrer: 2, mannschaft: 8, gesamt: 10 };
+    const text = vergleichKurztext(bogen, schnell);
+    expect(text).toContain("nicht erfasst");
+    expect(text).not.toContain("abgemeldet");
+  });
+});

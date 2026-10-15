@@ -292,6 +292,11 @@ export interface UebersichtEintrag {
    */
   nachtragGrund?: string[];
   nachtragNeu?: boolean;
+  /**
+   * Die Eintreffzeit ist die Zeit des Einlesens vom Papier, nicht bestätigt
+   * (R5-A1): Das Blatt kennzeichnet sie, statt eine Uhrzeit wie eine Angabe zu drucken.
+   */
+  zeitUnbestaetigt?: boolean;
 }
 
 /** Ein Bogen der Sammel-PDF samt QR — die Übersichtsangaben plus der Code für die Bogenseiten. */
@@ -405,6 +410,33 @@ function gesamtZuerst(d: BogenDiff): BogenDiff {
 }
 
 /**
+ * Änderungen für die zwei Zeilen des Lageblatts, nach Bedarfsrelevanz geordnet
+ * (R5-K7): Gesamtstärke; dann alles, was den Bedarf bewegt (Unterbringung,
+ * Ruhezeit, Verpflegung, Kraftstoff) und der Auftrag der Einheit; der Rest
+ * (Personal, Fahrzeuge, Bemerkung) nur als Stichwort mit Zahl. Vorher stand
+ * hinter der Stärke „… und 4 weitere Änderungen" — dahinter die Unterbringung.
+ */
+export function lageblattAenderungen(d: BogenDiff): string[] {
+  const wert = (a: { feld: string; vorher: string; nachher: string }) => `${a.feld}: ${a.vorher} → ${a.nachher}`;
+  const zeilen: string[] = [];
+  const gesamt = d.staerke.find((a) => a.feld === FELD_GESAMTSTAERKE);
+  if (gesamt) zeilen.push(wert(gesamt));
+  const papier = (a: { feld: string; vorher: string; nachher: string }) => `${a.feld} von ${a.vorher} auf ${a.nachher}`;
+  const bedarf = [...d.bedarf.map(papier), ...d.sonstiges.filter((a) => a.feld === "Ort / Auftrag").map(papier)];
+  if (bedarf.length > 0) zeilen.push(`Bedarf/Auftrag: ${bedarf.join("; ")}`);
+  const rest: string[] = [];
+  const andereStaerke = d.staerke.filter((a) => a !== gesamt).length;
+  if (andereStaerke > 0) rest.push("Stärke nach Funktion");
+  const personal = d.personalZugang.length + d.personalAbgang.length + d.personalGeaendert.length;
+  if (personal > 0) rest.push(`Personal (${personal})`);
+  const fahrzeuge = d.fahrzeugeZugang.length + d.fahrzeugeAbgang.length + d.fahrzeugeGeaendert.length;
+  if (fahrzeuge > 0) rest.push(`Fahrzeuge (${fahrzeuge})`);
+  if (d.sonstiges.some((a) => a.feld !== "Ort / Auftrag")) rest.push("Bemerkung/Sonstiges");
+  if (rest.length > 0) zeilen.push(`weitere: ${rest.join(", ")}`);
+  return zeilen;
+}
+
+/**
  * Bedarf je Einheit: Dringendes (Ruhezeit, Unterbringung, abweichende
  * Verpflegung) fett, Kraftstoff normal — am Gerät gelb gegen grau, auf dem
  * Papier war alles gleich fett (Audit Runde 3, R3-K6).
@@ -481,7 +513,7 @@ function uebersichtsTabelle(
           : {
               stack: [
                 { text: `gegenüber ${zeitpunktDeutsch(vorher.stand)}:`, bold: true },
-                ...diffZeilen(gesamtZuerst(d), maxZeilen).map((z) => ({ text: aenderungFuerPapier(z) })),
+                ...(maxZeilen === LAGEBLATT_MAX_ZEILEN ? lageblattAenderungen(d) : diffZeilen(gesamtZuerst(d), maxZeilen)).map((z) => ({ text: aenderungFuerPapier(z) })),
               ],
             };
     }
@@ -532,6 +564,7 @@ function uebersichtsTabelle(
       {
         stack: [
           { text: blattZeit(e.eingetroffenAm) },
+          ...(e.zeitUnbestaetigt ? [{ text: "Zeit nicht bestätigt (vom Papier)", italics: true, fontSize: 7 }] : []),
           ...(e.abgerueckAm != null ? [{ text: `ab ${blattZeit(e.abgerueckAm)}`, bold: true }] : []),
         ],
       },

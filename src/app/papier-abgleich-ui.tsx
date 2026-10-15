@@ -91,7 +91,8 @@ export function PapierAbgleich(props: {
       offen.map((e) => ({
         eintragId: e.id,
         name: `${einheitAnzeigename(e.bogen.einheit)}${e.teilEtikett ? ` (${e.teilEtikett})` : ""}`,
-        eingetroffen: zuLokal(eintreffzeit(e)),
+        // Leer: Die Zeit des Einlesens ist keine Eintreffzeit (R5-A1).
+        eingetroffen: "",
         abgerueckt: e.status === MeldeStatus.ABGERUECKT,
         abgerueckAm: e.abgerueckAm != null ? zuLokal(e.abgerueckAm) : "",
         zug: e.zugEtikett ?? "",
@@ -109,14 +110,13 @@ export function PapierAbgleich(props: {
     const daten = zeilen.map((z) => {
       const ein = ausLokal(z.eingetroffen);
       const ab = z.abgerueckt ? ausLokal(z.abgerueckAm) : null;
-      if (ein == null) fehler.push(`${z.name}: Eintreffzeit fehlt`);
       if (z.abgerueckt && ab == null) fehler.push(`${z.name}: Abrückzeit fehlt`);
       if (ein != null && ab != null && ab < ein) fehler.push(`${z.name}: Abrücken vor dem Eintreffen`);
       const nr = z.nummer.trim() === "" ? undefined : Number(z.nummer.trim());
       if (nr != null && (!Number.isInteger(nr) || nr < 1)) fehler.push(`${z.name}: „Nr.“ muss eine ganze Zahl ab 1 sein`);
       return {
         eintragId: z.eintragId,
-        eingetroffenAm: ein ?? 0,
+        ...(ein != null ? { eingetroffenAm: ein } : {}),
         status: z.abgerueckt ? MeldeStatus.ABGERUECKT : MeldeStatus.ANWESEND,
         abgerueckAm: ab ?? undefined,
         zug: z.zug,
@@ -144,12 +144,21 @@ export function PapierAbgleich(props: {
       return;
     }
     const ohneNummer = zeilen.filter((z) => z.nummer.trim() === "").length;
+    const ohneZeit = zeilen.filter((z) => z.eingetroffen.trim() === "").length;
     setZeilen(null);
     onGeaendert();
     // Ohne „Nr. laut Blatt" vergibt die App die Nummern nach dem Eingang — das
     // sind nach einem Wiederanlauf vom Papier meist andere als auf dem Blatt
     // an der Wand (R4-A1). Das gehört gesagt, bevor jemand „Nr. 3 rückt ab"
     // funkt.
+    if (ohneZeit > 0) {
+      await zeigeHinweis({
+        titel: "Eintreffzeit nicht bestätigt",
+        text:
+          `Für ${ohneZeit === 1 ? "1 Einheit" : `${ohneZeit} Einheiten`} stand keine Eintreffzeit im Abgleich. ` +
+          "Es gilt weiter die Zeit des Einlesens; die Karte trägt „vom Papier, Zeiten prüfen“ und das Lageblatt kennzeichnet die Zeit als nicht bestätigt, bis die Zeit vom Blatt eingetragen ist.",
+      });
+    }
     if (ohneNummer > 0) {
       await zeigeHinweis({
         titel: "Nummern neu vergeben",
@@ -168,7 +177,7 @@ export function PapierAbgleich(props: {
           <strong>
             Vom Papier eingelesen, Lage noch nicht abgeglichen: {offen.length === 1 ? "1 Einheit" : `${offen.length} Einheiten`}.
           </strong>{" "}
-          Eintreffzeit ist die Zeit des Einlesens, alle stehen als anwesend, ohne Zug, Auftrag und Nummer. Die Angaben vom
+          Die Eintreffzeit ist die Zeit des Einlesens und gilt als nicht bestätigt, alle stehen als anwesend, ohne Zug, Auftrag und Nummer. Die Angaben vom
           Blatt (Seite 1 bzw. Kasten „Stand am Meldekopf“) hier in einem Schritt eintragen.
         </p>
         <button type="button" className="primaer" onClick={oeffnen}>
@@ -207,7 +216,7 @@ export function PapierAbgleich(props: {
               />
             </label>
             <label className="feld">
-              Eingetroffen am
+              Eingetroffen am (leer = Zeit des Einlesens, nicht bestätigt)
               <input type="datetime-local" value={z.eingetroffen} onChange={(e) => aendern(i, { eingetroffen: e.target.value })} />
             </label>
             <fieldset className="papier-status">

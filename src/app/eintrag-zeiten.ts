@@ -688,7 +688,12 @@ export function vomPapierMarkieren(einsatzId: string, eintragIds: string[], jetz
 /** Eine Zeile des Abgleichs: was vom Blatt („Stand am Meldekopf") gilt. */
 export interface PapierAbgleichZeile {
   eintragId: string;
-  eingetroffenAm: number;
+  /**
+   * Eintreffzeit laut Blatt. Fehlt sie, bleibt die Zeit des Einlesens stehen und
+   * die Meldung bleibt als „vom Papier" markiert (R5-A1): Die Marke fällt erst,
+   * wenn die Eintreffzeit wirklich bestätigt wurde.
+   */
+  eingetroffenAm?: number;
   status: MeldeStatus.ANWESEND | MeldeStatus.ABGERUECKT;
   /** Nur bei ABGERUECKT. */
   abgerueckAm?: number;
@@ -715,7 +720,7 @@ export function papierAbgleichUebernehmen(einsatzId: string, zeilen: PapierAbgle
     if (!e) continue;
     n++;
     const vorher = eintreffzeit(e);
-    if (vorher !== z.eingetroffenAm) {
+    if (z.eingetroffenAm != null && vorher !== z.eingetroffenAm) {
       e.eingetroffenAm = z.eingetroffenAm;
       vermerken(e, `Eintreffzeit korrigiert: ${zeitLang(vorher)} → ${zeitLang(z.eingetroffenAm)}`);
     }
@@ -747,7 +752,8 @@ export function papierAbgleichUebernehmen(einsatzId: string, zeilen: PapierAbgle
     if (z.nummer != null) {
       for (const x of s.eintraege) if (x.einheitSchluessel === e.einheitSchluessel) x.nummer = z.nummer;
     }
-    delete e.vomPapier;
+    // Die Marke fällt nur, wenn die Zeit vom Blatt eingetragen wurde (R5-A1).
+    if (z.eingetroffenAm != null) delete e.vomPapier;
   }
   if (n > 0) {
     s.geaendert = Date.now();

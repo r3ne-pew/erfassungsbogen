@@ -813,7 +813,7 @@ describe("einsatzLageblattDokument()", () => {
     expect(json).toContain('{"text":"Diesel 80 l"}');
     // Änderungen: die Gesamtstärke zuerst.
     const t = texte(inhalt[2]).join("\n");
-    expect(t).toMatch(/gegenüber .*:\nGesamtstärke: von \d+ auf \d+\n… und \d+ weitere Änderungen/);
+    expect(t).toMatch(/gegenüber .*:\nGesamtstärke: von \d+ auf \d+\nBedarf\/Auftrag: Unterbringung M\/W\/D .*\nweitere: .*Personal \(2\)/);
   });
 
   it("sagt auf einem leeren Blatt, dass noch nichts gemeldet ist", () => {
@@ -825,5 +825,20 @@ describe("einsatzLageblattDokument()", () => {
     expect(t).not.toMatch(/\b0 \/ 0|0 Portionen|Diesel 0 l/);
     expect(t).toContain("Stärke F / U / M / G ____ / ____ / ____ / ____");
     expect(t).toContain("Bedarf gesamt (von Hand)");
+  });
+});
+
+describe("lageblattAenderungen (Audit Runde 5, R5-K7)", () => {
+  it("nennt Unterbringung und Kraftstoff, statt sie hinter „weitere Änderungen“ zu verbergen", async () => {
+    const { lageblattAenderungen } = await import("./pdf-dokument");
+    const { bogenDiff } = await import("@bos/meldekopf/meldung-diff");
+    const alt = basisBogen();
+    alt.sofortbedarf = { ...alt.sofortbedarf!, unterbringung: true, dieselLiter: 100 };
+    const neu = structuredClone(alt);
+    neu.sofortbedarf = { ...neu.sofortbedarf!, dieselLiter: 400 };
+    neu.sonstiges = "Nachschub nötig";
+    const z = lageblattAenderungen(bogenDiff(alt, neu));
+    expect(z.join("\n")).toContain("Diesel von 100 l auf 400 l");
+    expect(z.join("\n")).toContain("weitere: Bemerkung/Sonstiges");
   });
 });

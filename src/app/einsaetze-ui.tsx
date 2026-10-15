@@ -108,6 +108,7 @@ import {
   lueckenText,
   pruefpunkteEintrag,
   folgeAenderung,
+  vergleichKurztext,
   rueckkehrText,
   meldungsNummern,
   passtZuBedarfsfilter,
@@ -2638,7 +2639,7 @@ function EinheitKarte(props: {
   // Bogen der Einheit kam nach der Schnellerfassung, trägt aber den älteren
   // Stand — die Lage rechnet sonst still weiter mit Platzhaltern (R4-W1).
   const nachgereicht = nachgereichterBogen(kopf, revs);
-  const kurz = vorige ? diffKurzfassung(bogenDiff(vorige.bogen, kopf.bogen)) : "";
+  const kurz = vorige ? vergleichKurztext(vorige, kopf) : "";
   // Folgemeldung von außen (nicht die Rest-Fassung eines Aufteilens): wann
   // sie einging und was sie änderte. Frisch oder noch nicht zur Kenntnis
   // genommen trägt sie die Marke „neue Fassung" — auch zugeklappt auf dem

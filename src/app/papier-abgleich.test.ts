@@ -71,6 +71,25 @@ describe("vomPapierMarkieren / papierAbgleichUebernehmen", () => {
     expect(aggregiere(e, EinsatzArt.EINSATZ).staerke.gesamt).toBe(6 + 8);
   });
 
+  it("lässt die Marke stehen, solange die Eintreffzeit nicht vom Blatt eingetragen wurde (R5-A1)", () => {
+    const s = einsatzAnlegen("Hochwasser", EinsatzArt.EINSATZ);
+    const a = meldungAufnehmen(s.id, bogen("Ansbach"), { quelle: "scan" })!;
+    const b = meldungAufnehmen(s.id, bogen("Ulm", 4), { quelle: "scan" })!;
+    vomPapierMarkieren(s.id, [a.eintrag.id, b.eintrag.id]);
+    const zeitDavor = sammlung(s.id).eintraege.find((e) => e.id === a.eintrag.id)!.eingetroffenAm;
+    papierAbgleichUebernehmen(s.id, [
+      { eintragId: a.eintrag.id, status: MeldeStatus.ANWESEND, zug: "1. TZ", nummer: 4 },
+      { eintragId: b.eintrag.id, eingetroffenAm: 3000, status: MeldeStatus.ANWESEND, zug: "" },
+    ]);
+    const e = sammlung(s.id).eintraege;
+    const ansbach = e.find((x) => x.id === a.eintrag.id)!;
+    expect(ansbach).toMatchObject({ zugEtikett: "1. TZ", nummer: 4 });
+    expect(ansbach.vomPapier).toBeDefined();
+    expect(ansbach.eingetroffenAm).toBe(zeitDavor);
+    expect(e.find((x) => x.id === b.eintrag.id)!.vomPapier).toBeUndefined();
+    expect(offenVomPapier(e).map((x) => x.id)).toEqual([a.eintrag.id]);
+  });
+
   it("nimmt die Marke weg, wenn die Eintreffzeit an der Karte korrigiert wird", () => {
     const s = einsatzAnlegen("Hochwasser", EinsatzArt.EINSATZ);
     const r = meldungAufnehmen(s.id, bogen("Ansbach"), { quelle: "scan" })!;
