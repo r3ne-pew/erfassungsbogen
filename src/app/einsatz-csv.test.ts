@@ -89,7 +89,7 @@ describe("einsatzCsvInhalt()", () => {
       "WC/Dusche M", "WC/Dusche W", "WC/Dusche D",
       "Diesel (l)", "Benzin (l)", "Gemisch (l)",
       "Fahrzeuge (Anzahl)", "Fahrzeuge (Liste)", "Stand", "Eingetroffen", "Abgerückt", "Empfangen", "Quelle",
-      "Status", "Zählt in Lage", "Übung", "Sofortbedarf", "Rückfrage", "Signatur", "Absender", "Auftrag/Notiz",
+      "Status", "Zählt in Lage", "Übung", "Sofortbedarf", "Hinweise", "Signatur", "Absender", "Auftrag/Notiz",
       "Bemerkung (Einheit)",
     ]);
   });
@@ -192,10 +192,10 @@ describe("einsatzCsvInhalt()", () => {
     expect(zeilen(einsatzCsvInhalt(sammlung([meldung(bogen("A"))])))[2]).toContain("Summe (1 Einheiten)");
   });
 
-  it("schreibt die offenen Punkte der Meldung in eine Spalte „Rückfrage“ (R4-K8)", () => {
+  it("schreibt die offenen Punkte der Meldung in eine Spalte „Hinweise“ (R4-K8)", () => {
     const csv = einsatzCsvInhalt(sammlung([meldung(bogen("A", { fahrzeuge: [{ typ: { code: 2 }, kennzeichen: "" }] }))]));
     const sp = spaltenIndex(csv);
-    expect(zeilen(csv)[1]!.split(";")[sp("Rückfrage")]).toContain("hat noch kein Kennzeichen");
+    expect(zeilen(csv)[1]!.split(";")[sp("Hinweise")]).toContain("hat noch kein Kennzeichen");
   });
 
   it("führt abgerückte Einheiten mit Status auf, zählt sie aber nicht in die Summe", () => {

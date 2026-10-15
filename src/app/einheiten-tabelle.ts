@@ -335,12 +335,12 @@ export function lueckeKurz(text: string): string {
   if (/^Einheitstyp .* nicht erkannt/.test(text)) return "Einheitstyp nicht erkannt";
   if (/^Stärke ist 0/.test(text)) return "Stärke 0";
   const verpflegung = /^Verpflegung für (\d+) Personen angefordert, die Gesamtstärke ist aber (\d+)/.exec(text);
-  if (verpflegung) return `Verpflegung ${verpflegung[1]} ≠ Stärke ${verpflegung[2]}`;
+  if (verpflegung) return `Verpflegung ${verpflegung[1]} statt Stärke ${verpflegung[2]}`;
   if (/^Sofortbedarf: mehr Vegetarier\/Veganer/.test(text)) return "mehr Vegetarier als Verpflegte";
   if (/^Verpflegung: .* übersteigen die Gesamtstärke/.test(text)) return "vegetarisch/vegan > Stärke";
   if (/^Alle \d+ Personen stehen auf Geschlecht/.test(text)) return "alle als „männlich“ (Vorbelegung)";
-  if (/^Aufteilung nach Geschlecht: .* weicht von der Gesamtstärke ab/.test(text)) return "M/W/D ≠ Stärke";
-  if (/^Stärke: \d+ \+ \d+ \+ \d+ ergibt nicht/.test(text)) return "F+U+M ≠ Gesamt";
+  if (/^Aufteilung nach Geschlecht: .* weicht von der Gesamtstärke ab/.test(text)) return "M/W/D weicht von Stärke ab";
+  if (/^Stärke: \d+ \+ \d+ \+ \d+ ergibt nicht/.test(text)) return "F+U+M weicht von Gesamt ab";
   if (/^Stärke \d+ \/ \d+ \/ \d+ \/ \d+: mehr Führer als Mannschaft/.test(text)) return "mehr Führer als Mannschaft";
   if (/^Stärke: \d+ .* — stimmt das\?/.test(text)) return "Stärke auffällig hoch";
   if (/^Es sind \d+ Ansprechpartner erfasst/.test(text)) return "mehr Personen als Stärke";

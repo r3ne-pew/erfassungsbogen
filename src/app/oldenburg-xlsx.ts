@@ -409,7 +409,7 @@ function zeileFuer(b: Erfassungsbogen, k: Kontext): Zeile {
       b.uebung === true ? "ÜBUNG" : "",
       k.zaehltNicht ? "zählt nicht in der Lage" : "",
       zeitraumVorbei ? `Einsatzzeitraum im Bogen endete ${datumDeutsch(datumZuIso(b.einsatz.zeitraumBis))} — Bogen aus früherer Lage?` : "",
-      k.rueckfragen?.length ? `Rückfrage: ${lueckenAlle(k.rueckfragen)}` : "",
+      k.rueckfragen?.length ? `Hinweise: ${lueckenAlle(k.rueckfragen)}` : "",
       b.sonstiges ?? "",
     ]
       .filter(Boolean)

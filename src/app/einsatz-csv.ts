@@ -78,7 +78,7 @@ const SPALTEN = [
   "Übung",
   "Sofortbedarf",
   // Offene Punkte der Meldung — gingen in jede Tabelle verloren (R4-K8).
-  "Rückfrage",
+  "Hinweise",
   "Signatur",
   "Absender",
   "Auftrag/Notiz",

@@ -772,22 +772,22 @@ describe("einsatzLageblattDokument()", () => {
   });
 
   /**
-   * R4-K3: Auf dem Papier darf keine Rückfrage mitten im Satz abbrechen und
+   * R4-K3: Auf dem Papier darf kein Hinweis mitten im Satz abbrechen und
    * keine hinter „+ 2 weitere" verschwinden: Das Lageblatt nennt jeden Punkt
    * als Stichwort, die Sammel-PDF die ganzen Sätze.
    */
-  it("nennt alle Rückfragen: Lageblatt als Stichworte, Sammel-PDF im Wortlaut (R4-K3)", () => {
+  it("nennt alle Hinweise: Lageblatt als Stichworte, Sammel-PDF im Wortlaut (R4-K3)", () => {
     const b = basisBogen();
     b.sofortbedarf = { ...b.sofortbedarf!, verpflegungPersonen: b.personal.length + 8 };
     b.fahrzeuge = [{ typ: { freitext: "MTW" }, kennzeichen: "" }, ...b.fahrzeuge];
     const lage = texte(einsatzLageblattDokument("Lage", [{ bogen: b }]).content).join("\n").replace(/\u200B/g, "");
-    expect(lage).toMatch(/Rückfrage: .*Verpflegung \d+ ≠ Stärke \d+/);
+    expect(lage).toMatch(/Hinweise: .*Verpflegung \d+ statt Stärke \d+/);
     expect(lage).not.toContain("weitere");
-    expect(/Rückfrage: [^\n]*/.exec(lage)![0]).not.toContain("…");
+    expect(/Hinweise: [^\n]*/.exec(lage)![0]).not.toContain("…");
     const sammel = texte(einsatzPdfDokument("Lage", [{ bogen: b, qr: QR }]).content)
       .join("\n")
       .replace(/\u200B/g, "");
-    expect(sammel).toMatch(/Rückfragen \(\d+\)/);
+    expect(sammel).toMatch(/Hinweise \(\d+\)/);
     expect(sammel).toContain("Verpflegung für");
     expect(sammel).toContain("hat noch kein Kennzeichen");
   });

@@ -185,6 +185,82 @@ export function weichUmbrechen(text: string): string {
   );
 }
 
+/**
+ * Zeichen, die die PDF-Schrift (Helvetica, WinAnsi = Windows-1252) kennt.
+ * Alles andere druckt pdfkit als Fremdzeichen: „Verpflegung 12 ≠ Stärke 8"
+ * stand auf dem Lageblatt als „12 ″` Stärke 8" (Audit Runde 5, R5-K2).
+ */
+const WINANSI_SONDER = new Set("€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ");
+const winAnsiKennt = (z: string): boolean => {
+  const c = z.codePointAt(0)!;
+  return (c >= 0x20 && c <= 0x7e) || (c >= 0xa0 && c <= 0xff) || z === "\n" || z === "\u200B" || WINANSI_SONDER.has(z);
+};
+/** Häufige Zeichen aus Freitext mit sinnvoller Schreibweise in WinAnsi. */
+const WINANSI_ERSATZ: Record<string, string> = {
+  "→": "->", "⇒": "=>", "←": "<-", "↔": "<->", "≠": "!=", "≥": ">=", "≤": "<=", "≈": "ca.", "−": "-", "‐": "-", "‑": "-", "‒": "-",
+  "✓": "x", "✔": "x", "✗": "x", "✘": "x", "☎": "Tel.", "⚠": "!", "ł": "l", "Ł": "L", "đ": "d", "Đ": "D", "ı": "i",
+  "\u202F": " ", "\u2009": " ", "\u2002": " ", "\u2003": " ", "\uFEFF": "", "\u00AD": "",
+};
+
+/**
+ * Text für die PDF-Schrift: unbekannte Zeichen durch eine Schreibweise ersetzen,
+ * die sie kennt („≠" → „!=", „ő" → „o"); was sich nicht abbilden lässt, wird „?"
+ * statt eines Fremdzeichens. Gilt für alle Texte der Dokumente, auch für Freitext
+ * der Bögen, den niemand prüft.
+ */
+export function winAnsiText(text: string): string {
+  let aus = "";
+  let geaendert = false;
+  for (const z of text) {
+    if (winAnsiKennt(z)) {
+      aus += z;
+      continue;
+    }
+    geaendert = true;
+    const ersatz = WINANSI_ERSATZ[z];
+    if (ersatz != null) {
+      aus += ersatz;
+      continue;
+    }
+    // Buchstabe mit Akzent, den WinAnsi nicht hat („ő", „ž" ist drin, „ć" nicht): Grundbuchstabe.
+    const grund = z.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    aus += [...grund].every(winAnsiKennt) && grund !== "" ? grund : "?";
+  }
+  return geaendert ? aus : text;
+}
+
+/** Läuft durch ein Dokument und wendet {@link winAnsiText} auf alle gedruckten Texte an (Schlüssel „text"). */
+function winAnsiKnoten<T>(k: T): T {
+  if (Array.isArray(k)) {
+    k.forEach((x, i) => {
+      (k as unknown[])[i] = winAnsiKnoten(x);
+    });
+  } else if (k && typeof k === "object") {
+    const o = k as Record<string, unknown>;
+    for (const name of Object.keys(o)) {
+      // Eingebettete Dateien (JSON, Sammlung) sind Daten, kein gedruckter Text.
+      if (name === "files" || name === "image" || name === "svg" || name === "link") continue;
+      const wert = o[name];
+      if (name === "text" && typeof wert === "string") o[name] = winAnsiText(wert);
+      else if (wert && typeof wert === "object") winAnsiKnoten(wert);
+    }
+  }
+  return k;
+}
+
+/** Dokument-Titel, Inhalt, Kopf- und Fußzeile auf WinAnsi bringen (R5-K2). */
+function winAnsiDokument(dd: TDocumentDefinitions): TDocumentDefinitions {
+  winAnsiKnoten(dd.content);
+  if (dd.info?.title) dd.info.title = winAnsiText(dd.info.title);
+  for (const feld of ["header", "footer"] as const) {
+    const f = dd[feld];
+    if (typeof f === "function") {
+      dd[feld] = ((...a: Parameters<typeof f>) => winAnsiKnoten(f(...a))) as typeof f;
+    } else if (f) winAnsiKnoten(f);
+  }
+  return dd;
+}
+
 /** pdfmake-Attachment inkl. der von pdfkit unterstützten AFRelationship (fehlt im Typ). */
 type EingebetteteDatei = Attachment & { relationship?: string };
 
@@ -555,9 +631,9 @@ function uebersichtsTabelle(
     const luecken = pruefpunkte(b, true, e.eingetroffenAm != null ? datumVonMs(e.eingetroffenAm) : undefined);
     if (luecken.length > 0) {
       if (maxZeilen === LAGEBLATT_MAX_ZEILEN) {
-        namensZeilen.push({ text: `Rückfrage: ${lueckenAlle(luecken.map((p) => p.text))}`, italics: true });
+        namensZeilen.push({ text: `Hinweise: ${lueckenAlle(luecken.map((p) => p.text))}`, italics: true });
       } else {
-        namensZeilen.push({ text: luecken.length === 1 ? "Rückfrage:" : `Rückfragen (${luecken.length}):`, italics: true });
+        namensZeilen.push({ text: luecken.length === 1 ? "Hinweis:" : `Hinweise (${luecken.length}):`, italics: true });
         for (const p of luecken) namensZeilen.push({ text: `– ${p.text}`, italics: true, fontSize: 7 });
       }
     }
@@ -1121,7 +1197,7 @@ export function einsatzPdfDokument(
       }).content as Content[]),
     );
   });
-  return {
+  return winAnsiDokument({
     pageSize: "A4",
     // Nur die vorangestellte Übersicht liegt quer — sie trägt breite Tabellen
     // (Änderungsspalte, Zug-Zwischensummen); ab dem ersten Bogen wird oben
@@ -1151,7 +1227,7 @@ export function einsatzPdfDokument(
       `${nachtrag ? `NACHTRAG ${nachtrag} (nicht die ganze Lage) — Einsatz` : "Einsatz-Sammlung"}: ${name} · Stand ${zeitLang(erstellt)} · Eintreff-/Abrückzeiten: Seite 1 und Kasten über jedem Bogen`,
     ),
     content,
-  };
+  });
 }
 
 /**
@@ -1226,7 +1302,7 @@ export function einsatzLageblattDokument(
   /** Die Nachtragszeilen auf eine eigene Seite hinter dem Blatt (R4-A3). */
   rueckseite = false,
 ): TDocumentDefinitions {
-  return {
+  return winAnsiDokument({
     pageSize: "A4",
     pageOrientation: "landscape",
     pageMargins: SEITENRAENDER,
@@ -1250,7 +1326,7 @@ export function einsatzLageblattDokument(
       undefined,
       rueckseite,
     ),
-  };
+  });
 }
 
 /** Was ein Messpunkt beim Setzen über seine Lage meldet (pdfmake `pageBreakBefore`). */
@@ -1790,7 +1866,7 @@ export function pdfDokument(
     });
   }
 
-  return {
+  return winAnsiDokument({
     pageSize: "A4",
     pageMargins: SEITENRAENDER,
     defaultStyle: { fontSize: 8, font: SCHRIFT },
@@ -1875,7 +1951,7 @@ export function pdfDokument(
       ...(qr ? [qrBlock(qr, farbe.akzent, zeitgruppe(b.stand), vermerk, codeKopfzeile(b, zeitgruppe(b.stand), vermerk?.nummer))] : []),
       ...(zusatz?.messpunkt ? [{ text: " ", fontSize: 1, id: `${MESS_BOGEN_ENDE}-qr${zusatz.messKennung ?? ""}` } as Content] : []),
     ],
-  };
+  });
 }
 
 /**

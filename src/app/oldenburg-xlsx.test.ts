@@ -428,7 +428,7 @@ describe("Oldenburg-XLSX: Sammlung", () => {
 
   it("nimmt die offenen Punkte der Meldung als Rückfrage in die Bemerkung (R4-K8)", () => {
     const b = blatt(einsatzOldenburgXlsx(sammlung([meldung(bogen({ fahrzeuge: [{ typ: { code: 2 }, kennzeichen: "" }] }))])));
-    expect(wert(b, 1, "Bemerkung")).toMatch(/Rückfrage: .*Kennzeichen fehlt/);
+    expect(wert(b, 1, "Bemerkung")).toMatch(/Hinweise: .*Kennzeichen fehlt/);
   });
 
   it("nimmt die Eintrags-ID der Sammlung als Bogen-ID", () => {

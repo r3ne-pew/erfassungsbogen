@@ -3431,7 +3431,7 @@ function EinheitKarte(props: {
                 onClick={() => setLueckenOffen(!lueckenOffen)}
               >
                 {/* Der Inhalt statt „1 Lücke" (R3-K7). */}
-                Rückfrage: {lueckenText(luecken.map((p) => p.text))}
+                Hinweise: {lueckenText(luecken.map((p) => p.text))}
               </button>
             </span>
           )}

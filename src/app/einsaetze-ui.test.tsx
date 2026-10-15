@@ -895,7 +895,7 @@ describe("Zeiten, Auftrag und Bedarf auf der Karte", () => {
     // Ein leerer Bogen: Stärke 0, kein Auftrag — die Prüfliste hat etwas zu sagen.
     buehne(["Wardenburg"]);
     // Der Inhalt statt „n Lücken" (R3-K7).
-    const marke = screen.getByRole("button", { name: /^Rückfrage: .* \+ \d+ weitere$/ });
+    const marke = screen.getByRole("button", { name: /^Hinweise: .* \+ \d+ weitere$/ });
     expect(marke.getAttribute("aria-expanded")).toBe("false");
     await nutzer.click(marke);
     expect(document.querySelector(".luecken-liste")!.textContent).toContain("Stärke ist 0");
@@ -1351,7 +1351,7 @@ describe("Kompakte Einheiten auf dem Telefon (R2-K7)", () => {
     expect(karte.className).toContain("kompakt");
   });
 
-  it("Tipp auf die Rückfrage-Marke klappt auf und zeigt die Hinweise gleich im Satz (R4-N4)", async () => {
+  it("Tipp auf die Hinweise-Marke klappt auf und zeigt die Hinweise gleich im Satz (R4-N4)", async () => {
     const nutzer = userEvent.setup();
     const angelegt = einsatzAnlegen("Hochwasser Test", EinsatzArt.EINSATZ);
     meldungHinzufuegen(angelegt.id, bogenMitName("Ulm"));
@@ -1372,7 +1372,7 @@ describe("Kompakte Einheiten auf dem Telefon (R2-K7)", () => {
     }
   });
 
-  it("ein Tipp neben der Rückfrage-Marke klappt nur auf (R4-N4)", async () => {
+  it("ein Tipp neben der Hinweise-Marke klappt nur auf (R4-N4)", async () => {
     const nutzer = userEvent.setup();
     const angelegt = einsatzAnlegen("Hochwasser Test", EinsatzArt.EINSATZ);
     meldungHinzufuegen(angelegt.id, bogenMitName("Ulm"));
