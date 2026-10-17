@@ -963,6 +963,11 @@ describe("Ausgabewege der Einsatzansicht", () => {
     expect(zeile.previousElementSibling?.classList.contains("einsatz-weitergabe")).toBe(true);
   });
 
+  it("sagt bei den Papier-Knöpfen, dass die PDFs hell bleiben (R5-L5)", () => {
+    buehne(["Wardenburg"], { onWeitergeben: vi.fn(), onLageblatt: vi.fn() });
+    expect(screen.getByText(/Die PDFs sind für Papier gedacht — hell, auch in der Ansicht „Nacht“/)).toBeDefined();
+  });
+
   it("sagt, wann zuletzt ein Lageblatt entstand und was seitdem neu ist (R2-A3)", () => {
     buehne(["Wardenburg"], { onLageblatt: vi.fn() });
     expect(document.querySelector(".lageblatt-stand")!.textContent).toBe("Noch kein Lageblatt aus diesem Einsatz.");

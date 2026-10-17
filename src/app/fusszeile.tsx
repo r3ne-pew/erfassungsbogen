@@ -813,6 +813,8 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
           >
             {arbeitet === "blanko" ? "Blanko-Vordruck wird erzeugt…" : "Blanko-Vordruck (PDF)"}
           </button>
+          {/* Das PDF bleibt hell, auch nachts (R5-L5). */}
+          <span className="hinweis papier-hinweis">Das PDF ist für Papier gedacht, hell.</span>
           <a href={`mailto:${KONTAKT}`}>Kontakt</a>
           <a href={REPO} target="_blank" rel="noopener noreferrer">Open Source auf GitHub</a>
         </nav>

@@ -1892,6 +1892,11 @@ export function EinsatzDetail(props: {
                 : ausgabeQuittung}
         </p>
       )}
+      {/* Die PDFs sind weiß und bleiben es: auch in „Dunkel“ und „Nacht“ (R5-L5). Wer sie nachts auf
+          dem Telefon aufruft, wird nicht überrascht. */}
+      {(onWeitergeben || onLageblatt || onBlanko) && (
+        <p className="hinweis papier-hinweis">Die PDFs sind für Papier gedacht — hell, auch in der Ansicht „Nacht“.</p>
+      )}
       {onLageblatt && (
         <p className="hinweis lageblatt-stand" role="status">
           {lageblattStand
