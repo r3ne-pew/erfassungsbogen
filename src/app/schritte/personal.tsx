@@ -1401,7 +1401,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             <h3>Beispielnamen (Übung)</h3>
             <p className="hinweis">
               Erzeugt erkennbar fiktive Personen mit zufälligem Namen, Geschlecht, Ernährung
-              und Fahrerlaubnis; Führungs- und Unterführerplätze werden passend zur Stärke verteilt.
+              und Fahrerlaubnis; Unterführerplätze (Gruppen-/Truppführer) werden passend zur Stärke verteilt, ein Führerplatz erst ab Zugstärke.
             </p>
             <div className="zeile">
               <Feld titel="Anzahl" schmal>

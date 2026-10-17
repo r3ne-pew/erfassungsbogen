@@ -118,6 +118,12 @@ export function useOfflineStand(): OfflineZustand {
   const [zusatzHakt, setZusatzHakt] = useState<{ versuch: number } | null>(null);
   // Einmal je Aufruf geprüft: Zugriff auf den Speicher gesperrt oder Schreiben abgelehnt (R5-O7).
   const [gesperrt] = useState(() => speicherGesperrt());
+  // Steuert der Service Worker diese Seite schon? „ready" und die Übernahme der
+  // Seite (clientsClaim) kommen in derselben Millisekunde, die Reihenfolge ist
+  // Zufall — in neuen Chrome-Versionen steht oft zuerst „ready" da. Wer nur
+  // beim Wechsel auf „bereit" nachsieht, ob es eine Steuerung gibt, lädt die
+  // zweite Stufe dann nie nach.
+  const [gesteuert, setGesteuert] = useState(() => !!sw()?.controller);
   // Letzte Bewegung des Zählers — steht er still, wird nachgesehen (R4-O1).
   const bewegung = useRef({ geladen: -1, seit: Date.now() });
 
@@ -150,10 +156,21 @@ export function useOfflineStand(): OfflineZustand {
     };
   }, [stand, umfang]);
 
+  // Übernimmt der Service Worker die Seite erst nach „ready", startet das
+  // Nachladen der zweiten Stufe daraus (siehe `gesteuert`).
+  useEffect(() => {
+    const container = sw();
+    if (!container) return;
+    const nachsehen = () => setGesteuert(!!container.controller);
+    container.addEventListener("controllerchange", nachsehen);
+    nachsehen();
+    return () => container.removeEventListener("controllerchange", nachsehen);
+  }, []);
+
   // Zweite Stufe: erst wenn der Service Worker die Seite steuert (sonst landet
   // nichts in seinem Cache), und erneut, wenn das Netz zurückkommt.
   useEffect(() => {
-    if (stand !== "bereit" || !umfang || !sw()?.controller) return;
+    if (stand !== "bereit" || !umfang || !gesteuert) return;
     let aus = false;
     void zusatzNachladen(
       umfang,
@@ -169,7 +186,7 @@ export function useOfflineStand(): OfflineZustand {
     return () => {
       aus = true;
     };
-  }, [stand, umfang, online]);
+  }, [stand, umfang, online, gesteuert]);
 
   useEffect(() => {
     const beiOnline = () => {

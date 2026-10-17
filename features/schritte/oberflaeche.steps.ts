@@ -242,8 +242,13 @@ When("ich die App vom Netz trenne", async function (this: EebWelt) {
   // Nötig ist das Warten, weil `setOffline` in Chromium nur die Seite vom Netz
   // nimmt, nicht den Service Worker: Ohne Warten lud der Service Worker den
   // Rest „ohne Netz" weiter, und die Szenarien bestanden nur dank dieses Lecks.
-  await this.page.waitForFunction(
-    async () => {
+  // Als Schleife im Test statt `waitForFunction(async …)`: Playwright wertet das
+  // zurückgegebene Versprechen einer async-Funktion selbst als „wahr" und
+  // beendete das Warten nach Millisekunden, auch wenn noch keine der 474
+  // Dateien im Vorrat lag — bestanden hat der Schritt nur dank Zeitzufall.
+  const bis = Date.now() + 25_000;
+  for (;;) {
+    const fertig = await this.page.evaluate(async () => {
       const r = await fetch(new URL("offline-zusatz.json", document.baseURI), { cache: "no-cache" }).catch(() => null);
       if (!r?.ok) return true; // Ohne Liste (Dev-Server) gibt es keine zweite Stufe.
       const umfang = (await r.json()) as { zusatz: { url: string }[] };
@@ -251,10 +256,11 @@ When("ich die App vom Netz trenne", async function (this: EebWelt) {
         if (!(await caches.match(new URL(e.url, document.baseURI).href))) return false;
       }
       return true;
-    },
-    undefined,
-    { polling: 250, timeout: 25_000 },
-  );
+    });
+    if (fertig) break;
+    if (Date.now() > bis) throw new Error("Die zweite Stufe des Offline-Vorrats war nach 25 s nicht vollständig im Cache.");
+    await this.page.waitForTimeout(250);
+  }
   await this.page.context().setOffline(true);
 });
 

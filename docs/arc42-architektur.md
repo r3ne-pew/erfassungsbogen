@@ -12,6 +12,15 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-17:** Lagemonitor — reine Anzeigeseite für einen am
+> Meldekopf-Gerät angeschlossenen Fernseher (`lagemonitor.ts`,
+> `lagemonitor-ui.tsx`, `lagemonitor-beginn.ts`; Aufruf über
+> `main.tsx` mit `?lagemonitor=<Einsatz>`). Zweites Fenster, gleicher
+> `localStorage`, Abgleich über das `storage`-Ereignis und einen Takt von
+> 5 s; kein Netz. Neuer Speicherschlüssel `eeb.lagebeginn.v1` (Einsatzbeginn
+> von Hand, bewusst außerhalb des Schemas und der Submodule). Electron lässt
+> dieses eine Fenster zu (`electron/main.js`) — Kapitel 5, 6, 8.2, 8.3.
+>
 > **Nachgezogen 2026-09-13:** Datenschutzfrist (neues Kern-Modul
 > `datenschutzfrist.ts`, Frist je Meldung in `einsaetze.ts`, Uhr in
 > `datenschutz-uhr.ts`) — Kapitel 5.3, 5.4 und 8.2.
@@ -459,7 +468,7 @@ flowchart LR
 | Partner / Nachbarsystem | Art der Schnittstelle | Beschreibung |
 | --- | --- | --- |
 | Einheit (Erfasser) | Bedienoberfläche (Web/App) | Füllt den Assistenten aus (Einheit, Einsatz, Personal, Fahrzeuge, Sofortbedarf), druckt PDF, gibt Bogen per QR/Datei/AirDrop weiter. |
-| Meldekopf/Führungsstelle (Sammler) | Bedienoberfläche + Scan-Eingang | Erfasst fremde Einheiten neu (Schnellerfassung) oder importiert deren Bögen (Kamera-Scan, USB-Handscanner, Foto-Stapel, Datei/PDF); sammelt sie unter einem Einsatz, sieht laufende Summen, gibt Sammel-PDF/CSV weiter. |
+| Meldekopf/Führungsstelle (Sammler) | Bedienoberfläche + Scan-Eingang | Erfasst fremde Einheiten neu (Schnellerfassung) oder importiert deren Bögen (Kamera-Scan, USB-Handscanner, Foto-Stapel, Datei/PDF); sammelt sie unter einem Einsatz, sieht laufende Summen, gibt Sammel-PDF/CSV weiter. Der Lagemonitor zeigt dieselben Summen in einem zweiten Fenster für einen Fernseher am Gerät (DTG, Einsatzdauer ab handgesetztem Beginn, Stärke, Einheiten, Fahrzeuge, Züge, letzte Meldungen; ohne Personennamen). |
 | Papier-Erfassungsbogen der Organisation | Referenzformat (kein Datenfluss) | Das PDF-Layout muss dem gewohnten amtlichen Papierbogen entsprechen, damit Ausdrucke in bestehende (nicht-digitale) Meldewege passen. |
 | USB-Handscanner | Tastatur-Emulation | Der Scanner „tippt" den dekodierten QR-Inhalt wie eine Tastatur ein; die App entwirrt scancode-bedingte Tastaturbelegungsfehler (`src/app/tastaturbelegung.ts`). |
 | AirDrop (Apple) / Quick Share (Android) | Betriebssystem-Nahfeldfreigabe | Reiner Transportkanal für den geteilten Link/die Datei; die App implementiert dafür nichts außer einem teilbaren Link. |

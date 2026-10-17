@@ -12,6 +12,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app";
 import { Fehlerfaenger } from "./fehlerfaenger";
+import { Lagemonitor, lagemonitorKennung } from "./lagemonitor-ui";
 import { DebugLeiste, debugAktiv, wendePlattformKlasseAn, wendeRahmenAn } from "./debug-plattform";
 import { wendeAnzeigeModusAn } from "./anzeige-modus";
 import { tastaturWaechterStarten } from "./tastatur";
@@ -37,6 +38,9 @@ schriftStufeStarten();
 
 // Im Debug-Modus eine schwebende Leiste zum Umschalten der Vorschau zeigen.
 function Wurzel() {
+  // Zweites Fenster mit der Lage für den Fernseher: nur Anzeige, ohne die App.
+  const monitorEinsatz = lagemonitorKennung();
+  if (monitorEinsatz) return <Lagemonitor einsatzId={monitorEinsatz} />;
   return (
     <Fehlerfaenger>
       <App />
