@@ -897,6 +897,46 @@ describe("Assistenten-Durchlauf", () => {
   }, 20000);
 
   /**
+   * Audit Runde 5, R5-A4: Der Blanko-Kasten „Meldekopf" hat Nr. und Zug; die Erfassung
+   * kannte nur die Uhrzeit — Papier und Gerät liefen in zwei Nummernreihen.
+   */
+  it("übernimmt „Nr. laut Zettel“ und Zug in die neue Einheit (R5-A4)", async () => {
+    const einsatz = einsatzImSpeicherAnlegen("Zettelhausen", EinsatzArt.EINSATZ);
+    meldungHinzufuegen(einsatz.id, bogenMitName("Altstadt"));
+    const nutzer = userEvent.setup();
+    render(<App />);
+    await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
+    await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
+    await nutzer.type(screen.getByLabelText("Nr. laut Zettel (leer = die App vergibt)"), "9");
+    await nutzer.type(screen.getByLabelText("Zug / Verband (laut Zettel)"), "2. TZ");
+    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Neudorf");
+    await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
+    await nutzer.click(within(await screen.findByRole("dialog", { name: "Stärke fehlt" })).getByRole("button", { name: "Trotzdem mit Stärke 0 übernehmen" }));
+    await waitFor(() => expect(einsaetzeLaden().find((s) => s.id === einsatz.id)!.eintraege).toHaveLength(2));
+    const eintraege = einsaetzeLaden().find((s) => s.id === einsatz.id)!.eintraege;
+    const neu = eintraege.find((e) => e.bogen.einheit.hierarchie[0]!.name === "Neudorf")!;
+    expect(neu.nummer).toBe(9);
+    expect(neu.zugEtikett).toBe("2. TZ");
+  }, 20000);
+
+  it("weist eine schon vergebene „Nr. laut Zettel“ ab, ohne etwas aufzunehmen (R5-A4)", async () => {
+    const einsatz = einsatzImSpeicherAnlegen("Zettelhausen", EinsatzArt.EINSATZ);
+    meldungHinzufuegen(einsatz.id, bogenMitName("Altstadt"));
+    const nutzer = userEvent.setup();
+    render(<App />);
+    await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
+    await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
+    // Altstadt ist die erste Einheit und trägt Nr. 1.
+    await nutzer.type(screen.getByLabelText("Nr. laut Zettel (leer = die App vergibt)"), "1");
+    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Neudorf");
+    await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
+    await nutzer.click(within(await screen.findByRole("dialog", { name: "Stärke fehlt" })).getByRole("button", { name: "Trotzdem mit Stärke 0 übernehmen" }));
+    const hinweis = await screen.findByRole("dialog", { name: "Nr. schon vergeben" });
+    expect(hinweis.textContent).toContain("Altstadt");
+    expect(einsaetzeLaden().find((s) => s.id === einsatz.id)!.eintraege).toHaveLength(1);
+  }, 20000);
+
+  /**
    * Audit Runde 3, R3-S6: „Eingetroffen um" leer, 25 Minuten Unterbrechung —
    * gespeichert war die Uhrzeit des Übernehmens.
    */

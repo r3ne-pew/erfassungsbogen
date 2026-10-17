@@ -261,6 +261,29 @@ export function eintreffzeitSetzen(einsatzId: string, eintragId: string, zeitpun
   });
 }
 
+/**
+ * „Nr. laut Zettel“ und Zug einer eben von Hand erfassten Einheit (R5-A4): Das Papier
+ * (Blanko-Kasten „Meldekopf“) hat sie, die Erfassung kannte nur die Uhrzeit — sonst gab es
+ * zwei Nummernreihen. Die Nummer gilt für die ganze Einheit; sie ist fest wie die aus dem
+ * Papier-Abgleich (R4-A1).
+ */
+export function nummerUndZugSetzen(einsatzId: string, eintragId: string, wert: { nummer?: number; zug?: string }): void {
+  const liste = alleSammlungen();
+  const s = liste.find((x) => x.id === einsatzId);
+  const e = s?.eintraege.find((x) => x.id === eintragId);
+  if (!s || !e) return;
+  const zug = wert.zug?.trim() || undefined;
+  for (const x of s.eintraege) {
+    if (x.einheitSchluessel !== e.einheitSchluessel) continue;
+    if (wert.nummer != null) x.nummer = wert.nummer;
+    if (zug) x.zugEtikett = zug;
+  }
+  if (zug) vermerken(e, `Zug: ${zug}`);
+  if (wert.nummer != null) vermerken(e, `Nr. ${wert.nummer} laut Zettel`);
+  s.geaendert = Date.now();
+  sammlungenSchreiben(liste);
+}
+
 /** Abrückzeit einer abgerückten Meldung korrigieren. */
 export function abrueckzeitSetzen(einsatzId: string, eintragId: string, zeitpunkt: number): void {
   eintragAendern(einsatzId, eintragId, (e) => {

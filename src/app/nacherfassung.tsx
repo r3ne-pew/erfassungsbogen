@@ -115,12 +115,36 @@ export function eintreffzeitPruefen(uhrzeit: string, jetzt = Date.now()): Eintre
  * weil dort das Blatt oben anfängt und die Uhrzeit vom Meldeblock daneben
  * liegt. Leer = Zeit der Übernahme, wie bisher.
  */
-export function EintreffzeitFeld(props: { wert: string; onAendern: (wert: string) => void }) {
+export function EintreffzeitFeld(props: {
+  wert: string;
+  onAendern: (wert: string) => void;
+  /** „Nr. laut Zettel“ und Zug — das Gegenstück zum Kasten „Meldekopf“ des Blanko-Vordrucks (R5-A4). */
+  nummer?: string;
+  onNummer?: (wert: string) => void;
+  zug?: string;
+  onZug?: (wert: string) => void;
+  zuege?: string[];
+}) {
   return (
     <section className="karte nacherfassung-zeit">
       <Feld titel="Eingetroffen um (vom Meldeblock)" schmal>
         <input type="time" value={props.wert} onChange={(e) => props.onAendern(e.target.value)} />
       </Feld>
+      {props.onNummer && (
+        <Feld titel="Nr. laut Zettel (leer = die App vergibt)" schmal>
+          <input type="text" inputMode="numeric" value={props.nummer ?? ""} onChange={(e) => props.onNummer?.(e.target.value)} />
+        </Feld>
+      )}
+      {props.onZug && (
+        <Feld titel="Zug / Verband (laut Zettel)">
+          <input type="text" list="nacherfassung-zuege" value={props.zug ?? ""} onChange={(e) => props.onZug?.(e.target.value)} />
+          <datalist id="nacherfassung-zuege">
+            {(props.zuege ?? []).map((z) => (
+              <option key={z} value={z} />
+            ))}
+          </datalist>
+        </Feld>
+      )}
       <p className="hinweis">
         Leer lassen, wenn die Einheit gerade eintrifft — dann gilt die Uhrzeit von „In Einsatz übernehmen“.
         Liegen bis dahin mehr als fünf Minuten, fragt die App, ob der Beginn der Erfassung gilt.

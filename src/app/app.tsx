@@ -82,6 +82,7 @@ import {
   eintreffzeitSetzen,
   istSpeicherVoll,
   meldungAufnehmen,
+  nummerUndZugSetzen,
   speicherFehlerArt,
   speicherVollMeldung,
   vomPapierMarkieren,
@@ -937,6 +938,9 @@ function AppInhalt() {
   const [scanFortschritt, setScanFortschritt] = useState("");
   // Nacherfassung vom Papier: Uhrzeit vom Meldeblock, leer = Zeit der Übernahme (R2-A5).
   const [nachEintreffzeit, setNachEintreffzeit] = useState("");
+  // „Nr. laut Zettel“ und Zug der von Hand erfassten Einheit (R5-A4).
+  const [nachNummer, setNachNummer] = useState("");
+  const [nachZug, setNachZug] = useState("");
   // Zuletzt auf „Ja — dieselbe Einheit" zusammengelegt: für die Quittung mit
   // beiden Namen und „Rückgängig — als eigene Einheit" (Audit Runde 4, R4-E1).
   const [zusammenlegung, setZusammenlegung] = useState<{
@@ -2743,6 +2747,26 @@ function AppInhalt() {
       if (!wahl) return;
       if (wahl === "beginn") zeit = erfassungBeginn;
     }
+    // „Nr. laut Zettel“: eine ganze Zahl ab 1, nicht schon an eine andere Einheit vergeben (R5-A4).
+    let zettelNr: number | undefined;
+    if (nachNummer.trim() !== "") {
+      const n = Number(nachNummer.trim());
+      if (!Number.isInteger(n) || n < 1) {
+        await zeigeHinweis({ titel: "Nr. laut Zettel", text: "Bitte eine ganze Zahl ab 1 eintragen oder das Feld leer lassen — dann vergibt die App die Nummer." });
+        return;
+      }
+      const sammlung = einsaetzeLaden().find((s) => s.id === ziel);
+      const belegt = sammlung ? [...meldungsNummern(sammlung.eintraege)].find(([schl, nr]) => nr === n && schl !== einheitSchluessel(b.einheit)) : undefined;
+      if (belegt) {
+        const wer = sammlung!.eintraege.find((e) => e.einheitSchluessel === belegt[0]);
+        await zeigeHinweis({
+          titel: "Nr. schon vergeben",
+          text: `Nr. ${n} gehört schon ${wer ? `„${einheitAnzeigename(wer.bogen.einheit)}“` : "einer anderen Einheit"}. Eine andere Nummer eintragen oder das Feld leer lassen.`,
+        });
+        return;
+      }
+      zettelNr = n;
+    }
     setMeldung("");
     const vorherDa = new Set(einsaetzeLaden().find((s) => s.id === ziel)?.eintraege.map((e) => e.id));
     // Manuell erfasster Bogen ist kein signierter Transport.
@@ -2750,15 +2774,24 @@ function AppInhalt() {
     if (!ok) return;
     // Uhrzeit vom Blatt an die NEUE Einheit (R2-A5). Eine Folgemeldung erbt
     // die Eintreffzeit ihrer Vorgängerin, die bleibt maßgeblich.
-    if (zeit != null) {
+    {
       const eintraege = einsaetzeLaden().find((s) => s.id === ziel)?.eintraege ?? [];
       const neu = eintraege.find((e) => e.id === bogenInhaltsId(b) && !vorherDa.has(e.id));
       if (neu && eintraege.filter((e) => e.einheitSchluessel === neu.einheitSchluessel).length === 1) {
-        eintreffzeitSetzen(ziel, neu.id, zeit);
+        if (zeit != null) eintreffzeitSetzen(ziel, neu.id, zeit);
+        if (zettelNr != null || nachZug.trim() !== "") nummerUndZugSetzen(ziel, neu.id, { nummer: zettelNr, zug: nachZug });
         einsaetzeNeuLaden();
+        // Ohne Nr. vom Zettel: sagen, welche die App vergeben hat — sie gehört auf den Zettel,
+        // sonst laufen Papier und Gerät in zwei Nummernreihen (R5-A4).
+        if (zettelNr == null) {
+          const nr = meldungsNummern(einsaetzeLaden().find((s) => s.id === ziel)?.eintraege ?? []).get(neu.einheitSchluessel);
+          if (nr != null) setMeldung(`„${einheitAnzeigename(b.einheit)}“ hat Nr. ${nr} — die Nummer auf dem Zettel eintragen.`);
+        }
       }
     }
     setNachEintreffzeit("");
+    setNachNummer("");
+    setNachZug("");
     setSammelZiel(null);
     setErfassungBeginn(null);
     setBogen(null);
@@ -2812,6 +2845,8 @@ function AppInhalt() {
     setFremdeErfassung(true);
     setErfassungBeginn(Date.now());
     setNachEintreffzeit("");
+    setNachNummer("");
+    setNachZug("");
     setSammelZiel(zielId);
     setOffenerEinsatzId(null); // Assistent übernimmt die Ansicht
     setMeldung("");
@@ -4266,7 +4301,15 @@ function AppInhalt() {
       {/* Nacherfassung für einen Einsatz: die Uhrzeit vom Meldeblock gleich
           oben mitnehmen, statt sie danach je Karte über „ändern" (R2-A5). */}
       {schritt === 0 && sammelEinsatz && fremdeErfassung && (
-        <EintreffzeitFeld wert={nachEintreffzeit} onAendern={setNachEintreffzeit} />
+        <EintreffzeitFeld
+          wert={nachEintreffzeit}
+          onAendern={setNachEintreffzeit}
+          nummer={nachNummer}
+          onNummer={setNachNummer}
+          zug={nachZug}
+          onZug={setNachZug}
+          zuege={[...new Set(sammelEinsatz.eintraege.map((e) => e.zugEtikett).filter((z): z is string => !!z))].sort()}
+        />
       )}
       {schritt === 0 && <SchrittEinheit bogen={bogen} aendern={aendern} geheZu={setSchritt} />}
       {schritt === 1 && <SchrittEinsatz bogen={bogen} aendern={aendern} />}
