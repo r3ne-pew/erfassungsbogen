@@ -56,9 +56,11 @@ export interface Entwurf {
    * wird — so findet die App nach einem Neustart zurück in die Erfassung.
    * Fehlt = eigener Bogen. `beginn` (Date.now()) = Beginn der Erfassung —
    * Vorschlag für die Eintreffzeit, wenn bis zur Übernahme Zeit vergeht
-   * (Audit Runde 3, R3-S6).
+   * (Audit Runde 3, R3-S6). `startseite`: Die Erfassung wurde über „‹ Startseite“
+   * verlassen — nach einem Neuladen steht die App dort, nicht im halbfertigen
+   * Formular (R5-N3).
    */
-  fremd?: { einsatzId?: string; beginn?: number };
+  fremd?: { einsatzId?: string; beginn?: number; startseite?: true };
   /** Zuletzt offener Schritt des Assistenten — „Fortsetzen" öffnet ihn (R2-N7). */
   schritt?: number;
   /** Letzte Übergabe dieses Bogens (QR, Link, PDF, Nahbereich) — siehe uebergabe-stand.ts (R2-W2). */
@@ -114,8 +116,9 @@ export function entwurfPruefen(text: string | null): { entwurf: Entwurf | null }
   }
   if (!e.fremd || typeof e.fremd !== "object") delete e.fremd;
   else {
-    const { einsatzId, beginn } = e.fremd;
+    const { einsatzId, beginn, startseite } = e.fremd;
     e.fremd = {
+      ...(startseite === true ? { startseite: true as const } : {}),
       ...(typeof einsatzId === "string" && einsatzId ? { einsatzId } : {}),
       ...(typeof beginn === "number" && Number.isFinite(beginn) ? { beginn } : {}),
     };

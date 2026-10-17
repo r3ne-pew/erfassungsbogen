@@ -1364,6 +1364,21 @@ describe("Assistenten-Durchlauf", () => {
     expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("Rottweil");
   }, 20000);
 
+  it("bleibt nach „‹ Startseite“ und Neuladen auf der Startseite, die Erfassung wartet dort (R5-N3)", async () => {
+    const { entwurfZuJson } = await import("./entwurf");
+    const sammlung = einsatzImSpeicherAnlegen("Hochwasser Weser", EinsatzArt.EINSATZ);
+    localStorage.setItem(
+      "eeb.entwurf.v1",
+      entwurfZuJson(bogenMitName("Ulm"), Date.now(), { schritt: 0, fremd: { einsatzId: sammlung.id, beginn: Date.now(), startseite: true } }),
+    );
+    vi.resetModules();
+    (await import("./speicher-browser")).speicherVerdrahten();
+    const { App: AppKalt } = await import("./app");
+    render(<AppKalt />);
+    expect(await screen.findByRole("heading", { name: "Digitaler Einheiten-Erfassungsbogen" })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "In Einsatz übernehmen" })).toBeNull();
+  }, 20000);
+
   it("beginnt nach dem Neuladen mit dem eigenen Bogen weiter auf der Startseite", async () => {
     const { entwurfZuJson } = await import("./entwurf");
     localStorage.setItem("eeb.entwurf.v1", entwurfZuJson(bogenMitName("Eigenstadt"), Date.now(), { schritt: 0 }));

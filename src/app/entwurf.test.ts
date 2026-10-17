@@ -61,6 +61,13 @@ beforeEach(() => {
 });
 
 describe("entwurfAusJson()", () => {
+  it("behält die Marke „über die Startseite verlassen“ einer fremden Erfassung (R5-N3)", () => {
+    const b = neuerBogen();
+    const e = entwurfAusJson(entwurfZuJson(b, 1, { fremd: { einsatzId: "e1", beginn: 5, startseite: true } }));
+    expect(e?.fremd).toEqual({ einsatzId: "e1", beginn: 5, startseite: true });
+    expect(entwurfAusJson(entwurfZuJson(b, 1, { fremd: { einsatzId: "e1" } }))?.fremd).toEqual({ einsatzId: "e1" });
+  });
+
   it("überlebt einen Roundtrip", () => {
     const b = neuerBogen();
     b.einheit.hierarchie = [{ bezeichnung: { code: 1 }, name: "OV Test" }];

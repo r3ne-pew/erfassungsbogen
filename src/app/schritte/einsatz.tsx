@@ -54,11 +54,13 @@ export function SchrittEinsatz({ bogen, aendern }: SchrittProps) {
           Auftrag der EIGENEN Einheit, nicht ums Sammeln fremder Bögen. */}
       {/* Ehrlich zur Vorbelegung: Das Format kennt kein offenes Ende, „bis" ist
           deshalb mit dem Tag des Beginns vorbelegt. Vorher hieß es hier, das
-          Feld dürfe offen bleiben — und stand doch mit dem heutigen Datum da. */}
+          Feld dürfe offen bleiben — und stand doch mit dem heutigen Datum da. Und der Rat „später
+          nachtragen“ stand im Widerspruch zur Marke „Zeitraum vorbei“ am Folgetag (R5-N2). */}
       <p className="hinweis">
         Wofür deine Einheit gemeldet wird — Einsatz oder Übung. „Zeitraum bis" ist mit dem Tag des
-        Beginns vorbelegt; steht das Ende noch nicht fest, den Vorschlag einfach stehen lassen und
-        später nachtragen.
+        Beginns vorbelegt; steht das Ende noch nicht fest, den Vorschlag stehen lassen. Läuft der Einsatz
+        länger, das Ende nachtragen — sonst steht die Einheit am Folgetag beim Meldekopf als „Zeitraum
+        vorbei“.
       </p>
       {/* Klasse „datum" statt „schmal": In 112 px stand vom Datum nur Tag und
           Monat, das Jahr war abgeschnitten — ein Vorjahresbogen fiel nicht auf.

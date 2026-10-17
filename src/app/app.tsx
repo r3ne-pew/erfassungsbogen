@@ -833,7 +833,9 @@ function AppInhalt() {
   // Neuladen gleich wieder die Erfassung — vorher landete man auf der
   // Startseite und brauchte „Fortsetzen" (Audit Runde 3, R3-S7). Der eigene
   // Bogen beginnt weiter auf der Startseite.
-  const [zeigeStart, setZeigeStart] = useState(!START_SOFORT && !!ENTWURF && !erfassungsZielBeimStart() && !NACH_ABGLEICH);
+  const [zeigeStart, setZeigeStart] = useState(
+    !START_SOFORT && !!ENTWURF && (!erfassungsZielBeimStart() || ENTWURF.fremd?.startseite === true) && !NACH_ABGLEICH,
+  );
   const [vorlagen, setVorlagen] = useState<Vorlage[]>(() => vorlagenLaden());
   /** Vorige Fassung nach „Vorlage aktualisieren" — für „Rückgängig" (R2-D2). */
   const [vorlageRueckweg, setVorlageRueckweg] = useState<Vorlage | null>(null);
@@ -1093,7 +1095,9 @@ function AppInhalt() {
         bogen,
         {
           vorlageId: vorlageInBearbeitung ?? undefined,
-          fremd: fremdeErfassung ? { einsatzId: sammelZielId ?? undefined, beginn: erfassungBeginn ?? undefined } : undefined,
+          fremd: fremdeErfassung
+            ? { einsatzId: sammelZielId ?? undefined, beginn: erfassungBeginn ?? undefined, ...(zeigeStart ? { startseite: true as const } : {}) }
+            : undefined,
           schritt,
           uebergabe: uebergabe ?? undefined,
         },
@@ -1108,7 +1112,7 @@ function AppInhalt() {
       setGespeichertUm(null);
       setSpeicherFehler(false);
     }
-  }, [bogen, vorlageInBearbeitung, fremdeErfassung, sammelZielId, erfassungBeginn, schritt, uebergabe, fenster.runde]);
+  }, [bogen, vorlageInBearbeitung, fremdeErfassung, sammelZielId, erfassungBeginn, zeigeStart, schritt, uebergabe, fenster.runde]);
 
   // Nicht Gespeichertes geht nicht ohne Rückfrage verloren: Schließen oder
   // Neuladen fragt nach, solange die Zeile „Nicht gespeichert" steht. Viele
