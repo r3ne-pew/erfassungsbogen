@@ -53,13 +53,10 @@ main.lm.lm-hell {
 .lm-klapp > summary { cursor: pointer; padding: 0.15em 0.3em; }
 .lm-klapp[open] > summary { border-bottom: 1px solid var(--lm-rahmen); }
 .lm-klapp h2 { margin: 0 0 0.3em; font-size: 1.1em; }
-.lm-spalten { display: grid; grid-template-columns: 1.3fr 1fr; gap: 2vw; padding: 0.5em; }
-.lm-tabelle { width: 100%; border-collapse: collapse; }
-.lm-tabelle th, .lm-tabelle td { text-align: left; padding: 0.2em 0.4em; border-bottom: 1px solid var(--lm-rahmen); font-variant-numeric: tabular-nums; }
-.lm-liste { list-style: none; margin: 0; padding: 0; }
-.lm-liste li { display: flex; justify-content: space-between; gap: 1em; padding: 0.2em 0.4em; border-bottom: 1px solid var(--lm-rahmen); }
-.lm-liste li.lm-neu { font-weight: 700; }
-.lm-vor { white-space: nowrap; }
+.lm-einheiten { width: 100%; border-collapse: collapse; font-size: 1.15em; font-variant-numeric: tabular-nums; }
+.lm-einheiten th, .lm-einheiten td { text-align: left; padding: 0.15em 0.5em; border: 1px solid var(--lm-rahmen); }
+.lm-einheiten th { opacity: 0.75; font-weight: 400; }
+.lm-einheiten .lm-zahl { text-align: right; width: 3.5em; }
 .lm-daten { display: grid; grid-template-columns: max-content 1fr; gap: 0.2em 1em; margin: 0; padding: 0.5em; }
 .lm-daten dt { opacity: 0.75; }
 .lm-daten dd { margin: 0; }
@@ -67,9 +64,6 @@ main.lm.lm-hell {
 .lm-optionen button { font-size: inherit; }
 .lm-leer .lm-r1 { margin-bottom: 1em; }
 .lm-block { margin-top: 1.5rem; }
-@media (max-width: 900px) {
-  .lm-spalten { grid-template-columns: 1fr; }
-}
 /* Ränder um die Zeilen bekommen den Grund des Monitors, nicht den der App. */
 body:has(main.lm) { background: #000; }
 body:has(main.lm.lm-hell) { background: #fff; }

@@ -7,14 +7,11 @@
  * Bildschirm im Fahrzeug sieht jeder, der vorbeikommt.
  */
 
+import { staerke } from "@bos/eeb-format/model";
+import { einheitOrt } from "@bos/meldekopf/darstellung";
 import { EinsatzArt, type Einsatzsammlung } from "@bos/meldekopf/einsaetze";
-import { aggregiere, aggregiereNachZug, aktuelleMeldungen, type EinsatzSummen, type ZugGruppe } from "./auswertung";
-import { einheitAnzeigename, natoZeitstempel } from "./hilfen";
-
-/** So viele jüngste Meldungen zeigt der Monitor. */
-export const LETZTE_MELDUNGEN = 6;
-/** So lange gilt eine Meldung als „neu" (hervorgehoben). */
-export const NEU_MS = 15 * 60 * 1000;
+import { aggregiere, aktuelleMeldungen, type EinsatzSummen } from "./auswertung";
+import { funkrufText, natoZeitstempel, orgLabel, vokabText, vokabularFuer } from "./hilfen";
 
 /** Datum-Zeit-Gruppe in ihren Teilen: „17" „1806" „feb" „24" (Tag, Uhrzeit, Monat, Jahr). */
 export function dtgTeile(d: Date): { tag: string; zeit: string; monat: string; jahr: string } {
@@ -42,21 +39,18 @@ export function dauerText(beginn: number | null, jetzt: number): string | null {
   ].join(", ");
 }
 
-/** „gerade eben", „vor 7 Min", „vor 2 Std 5 Min", „vor 3 d". */
-export function vorText(zeit: number, jetzt: number): string {
-  const minuten = Math.max(0, Math.floor((jetzt - zeit) / 60_000));
-  if (minuten < 1) return "gerade eben";
-  if (minuten < 60) return `vor ${minuten} Min`;
-  const stunden = Math.floor(minuten / 60);
-  if (stunden < 24) return minuten % 60 === 0 ? `vor ${stunden} Std` : `vor ${stunden} Std ${minuten % 60} Min`;
-  return `vor ${Math.floor(stunden / 24)} d`;
-}
-
-export interface LetzteMeldung {
-  name: string;
-  zug?: string;
-  empfangenAm: number;
-  neu: boolean;
+/** Eine Zeile der Einheitentabelle: Organisation, Ort, Funkrufname, Einheitentyp, Führer/Unterführer/Mannschaft. */
+export interface EinheitZeile {
+  /** Schlüssel der Meldung — stabil, solange die Einheit gleich bleibt. */
+  id: string;
+  orga: string;
+  ort: string;
+  /** Funkrufname des ersten Fahrzeugs, das einen hat; leer, wenn keins einen trägt. */
+  funkruf: string;
+  typ: string;
+  fuehrer: number;
+  unterfuehrer: number;
+  mannschaft: number;
 }
 
 export interface Lagebild {
@@ -64,28 +58,33 @@ export interface Lagebild {
   ort?: string;
   uebung: boolean;
   summen: EinsatzSummen;
-  zuege: ZugGruppe[];
-  letzte: LetzteMeldung[];
+  /** Anwesende Einheiten in der Reihenfolge, in der sie gemeldet wurden. */
+  einheiten: EinheitZeile[];
 }
 
-export function lagebild(einsatz: Einsatzsammlung, jetzt: number): Lagebild {
-  const anwesend = aktuelleMeldungen(einsatz.eintraege, einsatz.art);
-  const letzte = [...anwesend]
-    .sort((a, b) => b.empfangenAm - a.empfangenAm)
-    .slice(0, LETZTE_MELDUNGEN)
-    .map((m) => ({
-      name: einheitAnzeigename(m.bogen.einheit) || "(ohne Namen)",
-      zug: m.zugEtikett,
-      empfangenAm: m.empfangenAm,
-      neu: jetzt - m.empfangenAm <= NEU_MS,
-    }));
+export function lagebild(einsatz: Einsatzsammlung): Lagebild {
+  const einheiten = [...aktuelleMeldungen(einsatz.eintraege, einsatz.art)]
+    .sort((a, b) => a.empfangenAm - b.empfangenAm)
+    .map((m): EinheitZeile => {
+      const e = m.bogen.einheit;
+      const st = staerke(m.bogen);
+      return {
+        id: m.id,
+        orga: e.organisationName?.trim() || orgLabel(e.organisation),
+        ort: einheitOrt(e),
+        funkruf: m.bogen.fahrzeuge.map((f) => funkrufText(f, e)).find((t) => t !== "") ?? "",
+        typ: vokabText(e.einheitsTyp, vokabularFuer(e.organisation, "einheitstyp"), "name").trim(),
+        fuehrer: st.fuehrer,
+        unterfuehrer: st.unterfuehrer,
+        mannschaft: st.mannschaft,
+      };
+    });
   return {
     name: einsatz.name,
     ort: einsatz.ort,
     uebung: einsatz.art === EinsatzArt.UEBUNG,
     summen: aggregiere(einsatz.eintraege, einsatz.art),
-    zuege: aggregiereNachZug(einsatz.eintraege, einsatz.art),
-    letzte,
+    einheiten,
   };
 }
 

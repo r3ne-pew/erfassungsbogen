@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { EinsatzArt, einsatzAnlegen, meldungHinzufuegen } from "@bos/meldekopf/einsaetze";
-import { neuerBogen } from "./hilfen";
+import { neuerBogen, neuesFahrzeug } from "./hilfen";
 import { Lagemonitor, lagemonitorKennung } from "./lagemonitor-ui";
 import {
   BEGINN_SCHLUESSEL,
@@ -55,6 +55,43 @@ describe("Lagemonitor", () => {
     render(<Lagemonitor einsatzId={e.id} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Wattsturm 2026");
     expect(screen.getAllByText("Wattsturm 2026")).toHaveLength(1);
+  });
+
+  it("listet die Einheiten als Tabelle: Orga, Ort, Funkrufname, Einheitentyp, F/U/M", () => {
+    const e = einsatzAnlegen("Wattsturm 2026", EinsatzArt.UEBUNG);
+    const mit = neuerBogen();
+    mit.einheit.hierarchie[0]!.name = "Jever";
+    mit.einheit.einheitsTyp = { freitext: "Zugtrupp" };
+    mit.staerkeManuell = { fuehrer: 1, unterfuehrer: 2, mannschaft: 5, gesamt: 8 };
+    const fz = neuesFahrzeug();
+    fz.funkrufname = { kennwort: { freitext: "Heros" }, eigenerStandort: true, teile: [21, 10] };
+    mit.fahrzeuge = [fz];
+    meldungHinzufuegen(e.id, mit);
+    const ohne = neuerBogen();
+    ohne.einheit.hierarchie[0]!.name = "Aurich";
+    ohne.staerkeManuell = { fuehrer: 0, unterfuehrer: 0, mannschaft: 3, gesamt: 3 };
+    meldungHinzufuegen(e.id, ohne);
+
+    render(<Lagemonitor einsatzId={e.id} />);
+    const zeilen = within(screen.getByRole("table")).getAllByRole("row");
+    expect(zeilen).toHaveLength(3); // Kopf + zwei Einheiten
+    const zellen = (i: number) => within(zeilen[i]!).getAllByRole("cell").map((c) => c.textContent);
+    const alle = [zellen(1), zellen(2)];
+    const jever = alle.find((z) => z[1] === "Jever")!;
+    expect(jever[0]).toBe("THW");
+    expect(jever[2]).toMatch(/Heros/);
+    expect(jever[3]).toBe("Zugtrupp");
+    expect(jever.slice(4)).toEqual(["1", "2", "5"]);
+    const aurich = alle.find((z) => z[1] === "Aurich")!;
+    expect(aurich[2]).toBe("–"); // kein Fahrzeug mit Funkrufname
+    expect(aurich.slice(4)).toEqual(["0", "0", "3"]);
+  });
+
+  it("sagt statt einer leeren Tabelle, dass noch keine Einheit gemeldet ist", () => {
+    const e = einsatzAnlegen("Leer", EinsatzArt.EINSATZ);
+    render(<Lagemonitor einsatzId={e.id} />);
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByText("Noch keine Einheit gemeldet.")).toBeTruthy();
   });
 
   it("zeigt die Einsatzdauer, sobald ein Beginn gesetzt ist", () => {

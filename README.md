@@ -74,8 +74,9 @@ Wer noch abwägt: [Papier oder digital?](https://erfassungsbogen.app/papier-oder
 - **Lagemonitor für den Fernseher**: ein zweites Fenster mit der Lage in großer
   Schrift — in der ersten Zeile der optionale Funkrufname der Führungsstelle,
   darunter der Name des Einsatzes, dann taktische Zeit (DTG), Einsatzdauer ab
-  einem von Hand gesetzten Einsatzbeginn, Stärke (Führer/Unterführer/Mannschaft), Einheiten, Fahrzeuge,
-  Züge und die zuletzt gemeldeten Einheiten, ohne Personennamen. Es wird auf den
+  einem von Hand gesetzten Einsatzbeginn und die Stärke (Führer/Unterführer/
+  Mannschaft). Aufklappbar darunter die Einheitentabelle mit Organisation, Ort,
+  Funkrufname, Einheitentyp und Stärke je Einheit, ohne Personennamen. Es wird auf den
   per Kabel angeschlossenen Fernseher gezogen (erweiterter Bildschirm), hält den
   Bildschirm wach und aktualisiert sich selbst, solange es auf dem
   Meldekopf-Gerät läuft — ohne Netz und ohne Server. Zu finden in der

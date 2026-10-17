@@ -22,7 +22,7 @@ import {
   einsatzbeginnLaden,
   einsatzbeginnSetzen,
 } from "./lagemonitor-beginn";
-import { ausEingabeWert, dauerText, dtgTeile, lagebild, vorText, zuEingabeWert } from "./lagemonitor";
+import { ausEingabeWert, dauerText, dtgTeile, lagebild, zuEingabeWert } from "./lagemonitor";
 import { EinsatzArt } from "@bos/meldekopf/einsaetze";
 
 const URL_PARAMETER = "lagemonitor";
@@ -132,7 +132,7 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
     );
   }
 
-  const bild = lagebild(einsatz, jetzt);
+  const bild = lagebild(einsatz);
   const s = bild.summen;
   const dtg = dtgTeile(new Date(jetzt));
   const dauer = dauerText(beginn, jetzt);
@@ -159,41 +159,33 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
 
       <details className="lm-zeile lm-klapp">
         <summary>Einheiten</summary>
-        <div className="lm-spalten">
-          <section aria-label="Züge">
-            <h2>Züge</h2>
-            <table className="lm-tabelle">
-              <thead>
-                <tr><th>Zug / Verband</th><th>Einh.</th><th>Stärke</th><th>Fzg.</th></tr>
-              </thead>
-              <tbody>
-                {bild.zuege.map((z) => (
-                  <tr key={z.zugEtikett ?? ""}>
-                    <td>{z.zugEtikett ?? "Einzeln"}</td>
-                    <td>{z.summen.einheiten}</td>
-                    <td>{z.summen.staerke.fuehrer}/{z.summen.staerke.unterfuehrer}/{z.summen.staerke.mannschaft}//{z.summen.staerke.gesamt}</td>
-                    <td>{z.summen.fahrzeuge}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-          <section aria-label="Letzte Meldungen">
-            <h2>Zuletzt gemeldet</h2>
-            {bild.letzte.length === 0 ? (
-              <p>Noch keine Einheit gemeldet.</p>
-            ) : (
-              <ul className="lm-liste">
-                {bild.letzte.map((m) => (
-                  <li key={`${m.name}-${m.empfangenAm}`} className={m.neu ? "lm-neu" : ""}>
-                    <span>{m.name}{m.zug ? ` · ${m.zug}` : ""}</span>
-                    <span className="lm-vor">{vorText(m.empfangenAm, jetzt)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
+        {bild.einheiten.length === 0 ? (
+          <p className="lm-leer-hinweis">Noch keine Einheit gemeldet.</p>
+        ) : (
+          <table className="lm-einheiten">
+            <thead>
+              <tr>
+                <th>Orga</th><th>Ort</th><th>Funkrufname</th><th>Einheitentyp</th>
+                <th className="lm-zahl" title="Führer">F</th>
+                <th className="lm-zahl" title="Unterführer">U</th>
+                <th className="lm-zahl" title="Mannschaft">M</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bild.einheiten.map((e) => (
+                <tr key={e.id}>
+                  <td>{e.orga}</td>
+                  <td>{e.ort || "–"}</td>
+                  <td>{e.funkruf || "–"}</td>
+                  <td>{e.typ || "–"}</td>
+                  <td className="lm-zahl">{e.fuehrer}</td>
+                  <td className="lm-zahl">{e.unterfuehrer}</td>
+                  <td className="lm-zahl">{e.mannschaft}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </details>
 
       <details className="lm-zeile lm-klapp">
