@@ -22,10 +22,7 @@ main.lm {
 .lm-kacheln { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1vw; }
 .lm-kachel { border: 2px solid currentColor; border-radius: 0.5em; padding: 0.6em 0.8em; display: flex; flex-direction: column; gap: 0.2em; }
 .lm-kachel.lm-gross { grid-column: span 2; }
-.lm-kachel.lm-breit { grid-column: 1 / -1; flex-direction: row; align-items: baseline; gap: 1em; }
-.lm-kachel.lm-achtung { border-width: 6px; }
 .lm-wert { font-size: 2.3em; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.lm-wert.lm-klein { font-size: 1.8em; }
 .lm-name { font-size: 1em; opacity: 0.85; }
 .lm-spalten { display: grid; grid-template-columns: 1.3fr 1fr; gap: 2vw; }
 .lm-tabelle { width: 100%; border-collapse: collapse; font-size: 1.15em; }

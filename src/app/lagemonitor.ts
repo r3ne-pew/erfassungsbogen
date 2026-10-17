@@ -7,7 +7,7 @@
  * Bildschirm im Fahrzeug sieht jeder, der vorbeikommt.
  */
 
-import { EinsatzArt, MeldeStatus, type Einsatzsammlung } from "@bos/meldekopf/einsaetze";
+import { EinsatzArt, type Einsatzsammlung } from "@bos/meldekopf/einsaetze";
 import { aggregiere, aggregiereNachZug, aktuelleMeldungen, type EinsatzSummen, type ZugGruppe } from "./auswertung";
 import { einheitAnzeigename, natoZeitstempel } from "./hilfen";
 
@@ -62,8 +62,6 @@ export interface Lagebild {
   summen: EinsatzSummen;
   zuege: ZugGruppe[];
   letzte: LetzteMeldung[];
-  /** Zeitpunkt der jüngsten Meldung insgesamt (auch abgerückter Einheiten), sonst `null`. */
-  letzteMeldungAm: number | null;
 }
 
 export function lagebild(einsatz: Einsatzsammlung, jetzt: number): Lagebild {
@@ -77,7 +75,6 @@ export function lagebild(einsatz: Einsatzsammlung, jetzt: number): Lagebild {
       empfangenAm: m.empfangenAm,
       neu: jetzt - m.empfangenAm <= NEU_MS,
     }));
-  const alle = einsatz.eintraege.filter((e) => e.status !== MeldeStatus.AUFGEGANGEN);
   return {
     name: einsatz.name,
     ort: einsatz.ort,
@@ -85,7 +82,6 @@ export function lagebild(einsatz: Einsatzsammlung, jetzt: number): Lagebild {
     summen: aggregiere(einsatz.eintraege, einsatz.art),
     zuege: aggregiereNachZug(einsatz.eintraege, einsatz.art),
     letzte,
-    letzteMeldungAm: alle.length ? Math.max(...alle.map((e) => e.empfangenAm)) : null,
   };
 }
 

@@ -16,7 +16,6 @@ import { AnzeigeSchalter } from "./anzeige-schalter";
 import { einsaetzeLaden } from "./einsaetze-lesen";
 import { BEGINN_SCHLUESSEL, einsatzbeginnLaden, einsatzbeginnSetzen } from "./lagemonitor-beginn";
 import { ausEingabeWert, dauerText, dtgText, lagebild, vorText, zuEingabeWert } from "./lagemonitor";
-import { unterbringungAngefordertText } from "./auswertung";
 import { EinsatzArt } from "@bos/meldekopf/einsaetze";
 
 const URL_PARAMETER = "lagemonitor";
@@ -132,11 +131,6 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
   const bild = lagebild(einsatz, jetzt);
   const s = bild.summen;
   const dauer = dauerText(beginn, jetzt);
-  const kraftstoff = [
-    s.kraftstoff.dieselLiter ? `Diesel ${s.kraftstoff.dieselLiter} l` : "",
-    s.kraftstoff.benzinLiter ? `Benzin ${s.kraftstoff.benzinLiter} l` : "",
-    s.kraftstoff.gemischLiter ? `Gemisch ${s.kraftstoff.gemischLiter} l` : "",
-  ].filter(Boolean);
 
   return (
     <main className="lm">
@@ -162,38 +156,12 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
           <span className="lm-name">Einheiten</span>
         </div>
         <div className="lm-kachel lm-gross">
-          <span className="lm-wert">{s.staerke.gesamt}</span>
-          <span className="lm-name">
-            Stärke · Führer {s.staerke.fuehrer} · Unterführer {s.staerke.unterfuehrer} · Mannschaft {s.staerke.mannschaft}
-          </span>
+          <span className="lm-wert">{s.staerke.fuehrer}/{s.staerke.unterfuehrer}/{s.staerke.mannschaft}</span>
+          <span className="lm-name">Stärke (Führer / Unterführer / Mannschaft)</span>
         </div>
         <div className="lm-kachel">
           <span className="lm-wert">{s.fahrzeuge}</span>
           <span className="lm-name">Fahrzeuge</span>
-        </div>
-        <div className="lm-kachel">
-          <span className="lm-wert">{s.verpflegung.gesamt}</span>
-          <span className="lm-name">Verpflegung</span>
-        </div>
-        <div className="lm-kachel">
-          <span className="lm-wert">{s.unterbringungBenoetigt ? s.unterbringungAngefordert.personen : "–"}</span>
-          <span className="lm-name">
-            Unterbringung {s.unterbringungBenoetigt ? `(${unterbringungAngefordertText(s)})` : "nicht angefordert"}
-          </span>
-        </div>
-        <div className="lm-kachel">
-          <span className="lm-wert">{kraftstoff.length ? kraftstoff.join(" · ") : "–"}</span>
-          <span className="lm-name">Kraftstoff</span>
-        </div>
-        <div className={`lm-kachel${s.ruhezeitErforderlich ? " lm-achtung" : ""}`}>
-          <span className="lm-wert">{s.ruhezeitErforderlich}</span>
-          <span className="lm-name">Ruhezeit nötig</span>
-        </div>
-        <div className="lm-kachel lm-breit">
-          <span className="lm-wert lm-klein">
-            {bild.letzteMeldungAm != null ? vorText(bild.letzteMeldungAm, jetzt) : "–"}
-          </span>
-          <span className="lm-name">Letzte Meldung</span>
         </div>
       </section>
 
