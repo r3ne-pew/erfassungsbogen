@@ -364,12 +364,23 @@ export function stapelBericht(
   return zeilen;
 }
 
-/** Bilder ohne QR-Code in einer Zeile, mit den ersten Dateinamen. */
+/** So viele Dateinamen nennt der Bericht, dann „und n weitere“. */
+const OHNE_CODE_NAMEN = 12;
+
+/**
+ * Bilder, in denen kein QR-Code gelesen wurde, in einer Zeile — mit allen Dateinamen
+ * (bis {@link OHNE_CODE_NAMEN}). Ob ein Bild eine Bogenseite ohne Code oder eine
+ * Codeseite war, die nur nicht lesbar war (unscharf, zu klein, verwackelt), weiß die
+ * App nicht; „tragen keinen“ stimmte für die zweite Art nicht und beruhigte, wo sie
+ * warnen sollte (Audit Runde 5, R5-A5). Der Satz nennt deshalb beides.
+ */
 function ohneCodeZeile(namen: string[]): string {
-  const zeigen = namen.slice(0, 3).join(", ");
+  const zeigen = namen.slice(0, OHNE_CODE_NAMEN).join(", ");
+  const rest = namen.length - OHNE_CODE_NAMEN;
   return (
-    `${namen.length} Bilder ohne QR-Code (${zeigen}${namen.length > 3 ? ", …" : ""}) — Bogen- und Übersichtsseiten tragen keinen. ` +
-    "Fehlt ein Bogen, dessen Codeseite noch einmal fotografieren."
+    `${namen.length} Bilder ohne lesbaren QR-Code (${zeigen}${rest > 0 ? ` und ${rest} weitere` : ""}). ` +
+    "Bogen- und Übersichtsseiten tragen keinen — war eines davon eine Codeseite, ist das Foto zu unscharf, zu klein oder verwackelt: " +
+    "diese Datei neu fotografieren, näher und im Licht."
   );
 }
 

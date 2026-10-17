@@ -289,15 +289,33 @@ describe("qrStapelLesen", () => {
     const zeilen = stapelBericht(erg, 8, 0);
     // Keine Zeile je Bogenseite.
     expect(zeilen.filter((z) => z.includes("Kein QR-Code im Bild gefunden."))).toHaveLength(0);
-    const zusammen = zeilen.filter((z) => z.includes("10 Bilder ohne QR-Code"));
+    const zusammen = zeilen.filter((z) => z.includes("10 Bilder ohne lesbaren QR-Code"));
     expect(zusammen).toHaveLength(1);
-    expect(zusammen[0]).toContain("s-01.png, s-02.png, s-03.png, …");
+    // Alle Dateien sind benannt, nicht nur drei (R5-A5) …
+    for (let n = 1; n <= 10; n++) expect(zusammen[0]).toContain(`s-${String(n).padStart(2, "0")}.png`);
+    // … und die Zeile behauptet nicht mehr, Codeseiten trügen keinen Code.
+    expect(zusammen[0]).toContain("zu unscharf");
+    expect(zusammen[0]).toContain("neu fotografieren");
     // Das fehlende Teil steht vor der Sammelzeile.
     const luecke = zeilen.findIndex((z) => z.startsWith("Unvollständiger mehrteiliger Bogen"));
     expect(luecke).toBeGreaterThan(0);
     expect(luecke).toBeLessThan(zeilen.indexOf(zusammen[0]!));
     // Statt 10 Zeilen: Aufnahme, Lücke, Sammelzeile, zwei Hinweise.
     expect(zeilen).toHaveLength(5);
+  });
+
+  it("bericht nennt bei mehr als zwölf Bildern ohne Code den Rest als Zahl (R5-A5)", () => {
+    const erg = {
+      gelesen: 20,
+      funde: [],
+      fehler: Array.from({ length: 15 }, (_, i) => ({ datei: `f-${i + 1}.jpg`, grund: "kein-code" as const, text: "Kein QR-Code im Bild gefunden." })),
+      luecken: [],
+      abgebrochen: false,
+    };
+    const zeile = stapelBericht(erg, 5, 0).find((z) => z.includes("15 Bilder ohne lesbaren QR-Code"))!;
+    expect(zeile).toContain("f-12.jpg");
+    expect(zeile).not.toContain("f-13.jpg");
+    expect(zeile).toContain("und 3 weitere");
   });
 
   it("bericht: zwei Bilder ohne Code und sonst nichts bleiben einzeln benannt — der Helfer muss wissen, welches Foto fehlte (R4-A6)", () => {

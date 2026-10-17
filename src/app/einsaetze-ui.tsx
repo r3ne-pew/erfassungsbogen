@@ -800,6 +800,8 @@ export function EinsatzDetail(props: {
   einleseQuittung?: ReactNode;
   /** Zählt hoch, wenn der Abgleich vom Papier geöffnet werden soll — Knopf im Einlese-Bericht (R4-A6). */
   abgleichAnstoss?: number;
+  /** Der Einlese-Bericht trägt den Knopf zum Abgleich; die Karte darunter zeigt ihn dann nicht noch einmal (R5-N9). */
+  abgleichKnopfImBericht?: boolean;
   onExport: () => void;
   /** Die Ausgabewege bekommen den gewählten Umfang mit: alle Bögen oder nur die seit dem letzten Export neuen. */
   onCsvExport: (umfang: ExportUmfang) => void;
@@ -1399,6 +1401,7 @@ export function EinsatzDetail(props: {
         zuege={[...new Set(einsatz.eintraege.map((e) => e.zugEtikett).filter((z): z is string => !!z))].sort()}
         onGeaendert={onGeaendert}
         anstoss={props.abgleichAnstoss}
+        knopfImBericht={props.abgleichKnopfImBericht}
       />
 
       {/* Was seit der letzten Kenntnisnahme kam: mit Namen, mit der Änderung

@@ -59,6 +59,11 @@ export function PapierAbgleich(props: {
    * Bericht von „Bögen einlesen…“ (R4-A6). 0 = nie angestoßen.
    */
   anstoss?: number;
+  /**
+   * Der Bericht von „Bögen einlesen…“ steht offen und trägt selbst den Knopf: Hier steht dann
+   * keiner, ein Weg zum Abgleich, einmal (R5-N9).
+   */
+  knopfImBericht?: boolean;
 }) {
   const { einsatzId, eintraege, zuege, onGeaendert } = props;
   const offen = offenVomPapier(eintraege);
@@ -180,9 +185,13 @@ export function PapierAbgleich(props: {
           Die Eintreffzeit ist die Zeit des Einlesens und gilt als nicht bestätigt, alle stehen als anwesend, ohne Zug, Auftrag und Nummer. Die Angaben vom
           Blatt (Seite 1 bzw. Kasten „Stand am Meldekopf“) hier in einem Schritt eintragen.
         </p>
-        <button type="button" className="primaer" onClick={oeffnen}>
-          Lage vom Papier abgleichen…
-        </button>
+        {props.knopfImBericht ? (
+          <p className="hinweis">Der Knopf „Lage vom Papier abgleichen…“ steht im Bericht darüber.</p>
+        ) : (
+          <button type="button" className="primaer" onClick={oeffnen}>
+            Lage vom Papier abgleichen…
+          </button>
+        )}
       </section>
     );
   }

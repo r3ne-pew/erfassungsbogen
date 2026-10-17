@@ -103,6 +103,7 @@ import { QrScannerWeb } from "./qr-scanner-web";
 import { TeilQuittung, fehlendeTeile, fehltNochSatz } from "./teil-quittung";
 import { qrAusBild } from "./qr-bild";
 import {
+  LAGE_ABGLEICH_KURZ,
   LAGE_NACHTRAGEN_HINWEIS,
   SAMMLUNG_IN_PDF_HINWEIS,
   dateiImportMeldung,
@@ -3587,6 +3588,7 @@ function AppInhalt() {
           onBilderImport={(dateien) => void importiereStapel(offenerEinsatz.id, [], dateien)}
           onEinlesen={(daten, bilder) => void importiereStapel(offenerEinsatz.id, daten, bilder)}
           abgleichAnstoss={abgleichAnstoss}
+          abgleichKnopfImBericht={stapelBericht.includes(LAGE_ABGLEICH_KURZ)}
           einleseQuittung={
             <>
               <EinleseQuittung fehler={einlese?.fehler ?? ""} meldung={einlese?.meldung ?? ""} einzelheiten={einlese?.einzelheiten} />

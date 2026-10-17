@@ -66,3 +66,18 @@ describe("PapierAbgleich von außen öffnen (R4-A6)", () => {
     expect(gerufen).toEqual([{ block: "start" }]);
   });
 });
+
+describe("Ein Weg zum Abgleich (R5-N9)", () => {
+  it("steht der Knopf schon im Einlese-Bericht, zeigt die Karte keinen zweiten", () => {
+    const s = einsatzAnlegen("Hochwasser", EinsatzArt.EINSATZ);
+    const ids = ["Ansbach"].map((n) => meldungAufnehmen(s.id, bogen(n), { quelle: "scan" })!.eintrag.id);
+    vomPapierMarkieren(s.id, ids, 999);
+    const eintraege = einsaetzeLaden().find((x) => x.id === s.id)!.eintraege;
+    const props = { einsatzId: s.id, eintraege, zuege: [], onGeaendert: () => {} };
+    const { rerender } = render(<PapierAbgleich {...props} knopfImBericht />);
+    expect(screen.queryByRole("button", { name: "Lage vom Papier abgleichen…" })).toBeNull();
+    expect(screen.getByText(/steht im Bericht darüber/)).toBeTruthy();
+    rerender(<PapierAbgleich {...props} knopfImBericht={false} />);
+    expect(screen.getByRole("button", { name: "Lage vom Papier abgleichen…" })).toBeTruthy();
+  });
+});
