@@ -12,10 +12,9 @@
 
 import { useEffect, useState } from "react";
 import "./lagemonitor.css";
-import { AnzeigeSchalter } from "./anzeige-schalter";
 import { einsaetzeLaden } from "./einsaetze-lesen";
 import { BEGINN_SCHLUESSEL, einsatzbeginnLaden, einsatzbeginnSetzen } from "./lagemonitor-beginn";
-import { ausEingabeWert, dauerText, dtgText, lagebild, vorText, zuEingabeWert } from "./lagemonitor";
+import { ausEingabeWert, dauerText, dtgTeile, lagebild, vorText, zuEingabeWert } from "./lagemonitor";
 import { EinsatzArt } from "@bos/meldekopf/einsaetze";
 
 const URL_PARAMETER = "lagemonitor";
@@ -110,64 +109,40 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
     document.title = einsatz ? `Lage – ${einsatz.name}` : "Lagemonitor";
   }, [einsatz]);
 
-  const werkzeuge = (
-    <div className="lm-werkzeuge" role="toolbar" aria-label="Anzeige">
-      <AnzeigeSchalter />
-      <button type="button" onClick={vollbild}>Vollbild</button>
-      <button type="button" onClick={schliessen}>Schließen</button>
-    </div>
-  );
+  const [hell, setHell] = useState(false);
+  const klasse = `lm${hell ? " lm-hell" : ""}`;
 
   if (!einsatz) {
     return (
-      <main className="lm lm-leer">
-        <h1>Lagemonitor</h1>
-        <p>Dieser Einsatz ist auf diesem Gerät nicht (mehr) vorhanden.</p>
-        {werkzeuge}
+      <main className={`${klasse} lm-leer`}>
+        <div className="lm-zeile lm-r1">Dieser Einsatz ist auf diesem Gerät nicht (mehr) vorhanden.</div>
+        <button type="button" onClick={schliessen}>Schließen</button>
       </main>
     );
   }
 
   const bild = lagebild(einsatz, jetzt);
   const s = bild.summen;
+  const dtg = dtgTeile(new Date(jetzt));
   const dauer = dauerText(beginn, jetzt);
+  const art = einsatz.art === EinsatzArt.UEBUNG ? "Übung" : einsatz.art === EinsatzArt.VERANSTALTUNG ? "Veranstaltung" : "Einsatz";
 
   return (
-    <main className="lm">
-      <header className="lm-kopf">
-        <div className="lm-titel">
-          <h1>{einsatz.name}</h1>
-          <p>
-            {bild.ort ? `${bild.ort} · ` : ""}
-            {einsatz.art === EinsatzArt.UEBUNG ? "Übung" : einsatz.art === EinsatzArt.VERANSTALTUNG ? "Veranstaltung" : "Einsatz"}
-          </p>
+    <main className={klasse}>
+      <h1 className="lm-zeile lm-r1">{einsatz.name}</h1>
+      <div className="lm-zeile lm-r2">{bild.ort ? bild.ort : art}</div>
+      <div className="lm-zeile lm-dtg" aria-label="Datum-Zeit-Gruppe">
+        <div className="lm-dtg-text">
+          <span>{dtg.tag}</span> <strong>{dtg.zeit}</strong> <span>{dtg.monat}</span> <span>{dtg.jahr}</span>
         </div>
-        <div className="lm-zeit">
-          <div className="lm-dtg" aria-label="Datum-Zeit-Gruppe">{dtgText(new Date(jetzt))}</div>
-          <div className="lm-dauer">
-            {dauer ? `Einsatzdauer ${dauer}` : beginn != null ? "Einsatz beginnt noch" : "Einsatzbeginn nicht gesetzt"}
-          </div>
-        </div>
-      </header>
+      </div>
+      <div className="lm-zeile lm-r3" aria-label="Stärke Führer, Unterführer, Mannschaft, gesamt">
+        {s.staerke.fuehrer} / {s.staerke.unterfuehrer} / {s.staerke.mannschaft} // <u>{s.staerke.gesamt}</u>
+      </div>
+      <div className="lm-zeile lm-r3">{dauer ?? (beginn != null ? "Einsatz beginnt noch" : "Einsatzbeginn nicht gesetzt")}</div>
 
-      <section className="lm-kacheln" aria-label="Summen">
-        <div className="lm-kachel">
-          <span className="lm-wert">{s.einheiten}</span>
-          <span className="lm-name">Einheiten</span>
-        </div>
-        <div className="lm-kachel lm-gross">
-          <span className="lm-wert">{s.staerke.fuehrer}/{s.staerke.unterfuehrer}/{s.staerke.mannschaft}</span>
-          <span className="lm-name">Stärke (Führer / Unterführer / Mannschaft)</span>
-        </div>
-        <div className="lm-kachel">
-          <span className="lm-wert">{s.fahrzeuge}</span>
-          <span className="lm-name">Fahrzeuge</span>
-        </div>
-      </section>
-
-      {s.einheiten === 0 ? (
-        <p className="lm-leer-hinweis">Noch keine Einheit gemeldet.</p>
-      ) : (
+      <details className="lm-zeile lm-klapp">
+        <summary>Einheiten</summary>
         <div className="lm-spalten">
           <section aria-label="Züge">
             <h2>Züge</h2>
@@ -180,7 +155,7 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
                   <tr key={z.zugEtikett ?? ""}>
                     <td>{z.zugEtikett ?? "Einzeln"}</td>
                     <td>{z.summen.einheiten}</td>
-                    <td>{z.summen.staerke.fuehrer}/{z.summen.staerke.unterfuehrer}/{z.summen.staerke.mannschaft}={z.summen.staerke.gesamt}</td>
+                    <td>{z.summen.staerke.fuehrer}/{z.summen.staerke.unterfuehrer}/{z.summen.staerke.mannschaft}//{z.summen.staerke.gesamt}</td>
                     <td>{z.summen.fahrzeuge}</td>
                   </tr>
                 ))}
@@ -189,18 +164,45 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
           </section>
           <section aria-label="Letzte Meldungen">
             <h2>Zuletzt gemeldet</h2>
-            <ul className="lm-liste">
-              {bild.letzte.map((m) => (
-                <li key={`${m.name}-${m.empfangenAm}`} className={m.neu ? "lm-neu" : ""}>
-                  <span className="lm-einheit">{m.name}{m.zug ? ` · ${m.zug}` : ""}</span>
-                  <span className="lm-vor">{vorText(m.empfangenAm, jetzt)}</span>
-                </li>
-              ))}
-            </ul>
+            {bild.letzte.length === 0 ? (
+              <p>Noch keine Einheit gemeldet.</p>
+            ) : (
+              <ul className="lm-liste">
+                {bild.letzte.map((m) => (
+                  <li key={`${m.name}-${m.empfangenAm}`} className={m.neu ? "lm-neu" : ""}>
+                    <span>{m.name}{m.zug ? ` · ${m.zug}` : ""}</span>
+                    <span className="lm-vor">{vorText(m.empfangenAm, jetzt)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </div>
-      )}
-      {werkzeuge}
+      </details>
+
+      <details className="lm-zeile lm-klapp">
+        <summary>Einsatzdaten</summary>
+        <dl className="lm-daten">
+          <dt>Art</dt><dd>{art}{bild.ort ? ` · ${bild.ort}` : ""}</dd>
+          <dt>Einsatzbeginn</dt>
+          <dd>
+            {beginn != null
+              ? (() => { const b = dtgTeile(new Date(beginn)); return `${b.tag} ${b.zeit} ${b.monat} ${b.jahr}`; })()
+              : "nicht gesetzt (in der Einsatzansicht einstellen)"}
+          </dd>
+          <dt>Einheiten</dt><dd>{s.einheiten}</dd>
+          <dt>Fahrzeuge</dt><dd>{s.fahrzeuge}</dd>
+        </dl>
+      </details>
+
+      <details className="lm-zeile lm-klapp">
+        <summary>Optionen</summary>
+        <div className="lm-optionen">
+          <button type="button" onClick={() => setHell((h) => !h)}>{hell ? "Dunkel" : "Hell"}</button>
+          <button type="button" onClick={vollbild}>Vollbild</button>
+          <button type="button" onClick={schliessen}>Schließen</button>
+        </div>
+      </details>
     </main>
   );
 }

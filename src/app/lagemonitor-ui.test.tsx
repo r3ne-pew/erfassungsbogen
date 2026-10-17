@@ -37,7 +37,7 @@ describe("Lagemonitor", () => {
     const e = einsatzAnlegen("Übungstag", EinsatzArt.UEBUNG);
     einsatzbeginnSetzen(e.id, Date.now() - 95 * 60_000, [e.id]);
     render(<Lagemonitor einsatzId={e.id} />);
-    expect(screen.getByText(/Einsatzdauer 01:3\d h/)).toBeTruthy();
+    expect(screen.getByText(/1 Stunde, 3\d Minuten/)).toBeTruthy();
   });
 });
 

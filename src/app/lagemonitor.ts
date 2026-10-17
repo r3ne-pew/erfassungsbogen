@@ -16,26 +16,30 @@ export const LETZTE_MELDUNGEN = 6;
 /** So lange gilt eine Meldung als „neu" (hervorgehoben). */
 export const NEU_MS = 15 * 60 * 1000;
 
-/** Datum-Zeit-Gruppe wie im Funk: „172035 OKT 26". */
-export function dtgText(d: Date): string {
+/** Datum-Zeit-Gruppe in ihren Teilen: „17" „1806" „feb" „24" (Tag, Uhrzeit, Monat, Jahr). */
+export function dtgTeile(d: Date): { tag: string; zeit: string; monat: string; jahr: string } {
   const s = natoZeitstempel(d);
-  return `${s.slice(0, 6)} ${s.slice(6, 9).toUpperCase()} ${s.slice(9)}`;
+  return { tag: s.slice(0, 2), zeit: s.slice(2, 6), monat: s.slice(6, 9), jahr: s.slice(9) };
 }
 
 const zwei = (n: number) => String(n).padStart(2, "0");
 
 /**
- * Einsatzdauer als „03:15 h" bzw. „2 d 03:15 h". `null`, wenn der Beginn fehlt
- * oder in der Zukunft liegt (dann steht am Monitor „beginnt in …" statt einer
- * negativen Dauer).
+ * Einsatzdauer ausgeschrieben: „1 Tag, 6 Stunden, 6 Minuten". Tage fehlen unter
+ * 24 Stunden. `null`, wenn der Beginn fehlt oder in der Zukunft liegt.
  */
 export function dauerText(beginn: number | null, jetzt: number): string | null {
   if (beginn == null || jetzt < beginn) return null;
   const minuten = Math.floor((jetzt - beginn) / 60_000);
   const tage = Math.floor(minuten / 1440);
-  const rest = minuten % 1440;
-  const zeit = `${zwei(Math.floor(rest / 60))}:${zwei(rest % 60)} h`;
-  return tage > 0 ? `${tage} d ${zeit}` : zeit;
+  const stunden = Math.floor((minuten % 1440) / 60);
+  const rest = minuten % 60;
+  const teil = (n: number, eins: string, viele: string) => `${n} ${n === 1 ? eins : viele}`;
+  return [
+    ...(tage > 0 ? [teil(tage, "Tag", "Tage")] : []),
+    teil(stunden, "Stunde", "Stunden"),
+    teil(rest, "Minute", "Minuten"),
+  ].join(", ");
 }
 
 /** „gerade eben", „vor 7 Min", „vor 2 Std 5 Min", „vor 3 d". */

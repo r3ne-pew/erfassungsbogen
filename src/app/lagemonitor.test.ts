@@ -1,21 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { dauerText, dtgText, vorText, zuEingabeWert, ausEingabeWert } from "./lagemonitor";
+import { dauerText, dtgTeile, vorText, zuEingabeWert, ausEingabeWert } from "./lagemonitor";
 
-describe("dtgText", () => {
-  it("schreibt Tag, Zeit, Monat und Jahr wie im Funk", () => {
-    expect(dtgText(new Date(2026, 9, 17, 20, 35))).toBe("172035 OKT 26");
-    expect(dtgText(new Date(2026, 4, 3, 7, 5))).toBe("030705 MAI 26");
+describe("dtgTeile", () => {
+  it("zerlegt die Datum-Zeit-Gruppe wie im Funk", () => {
+    expect(dtgTeile(new Date(2026, 1, 17, 18, 6))).toEqual({ tag: "17", zeit: "1806", monat: "feb", jahr: "26" });
+    expect(dtgTeile(new Date(2026, 4, 3, 7, 5))).toEqual({ tag: "03", zeit: "0705", monat: "mai", jahr: "26" });
   });
 });
 
 describe("dauerText", () => {
   const t0 = new Date(2026, 9, 17, 8, 0).getTime();
-  it("zeigt Stunden und Minuten", () => {
-    expect(dauerText(t0, t0 + (3 * 60 + 15) * 60_000)).toBe("03:15 h");
-    expect(dauerText(t0, t0)).toBe("00:00 h");
+  it("schreibt Stunden und Minuten aus", () => {
+    expect(dauerText(t0, t0 + (3 * 60 + 15) * 60_000)).toBe("3 Stunden, 15 Minuten");
+    expect(dauerText(t0, t0)).toBe("0 Stunden, 0 Minuten");
+    expect(dauerText(t0, t0 + 61 * 60_000)).toBe("1 Stunde, 1 Minute");
   });
-  it("zählt ab 24 Stunden Tage mit", () => {
-    expect(dauerText(t0, t0 + (51 * 60 + 5) * 60_000)).toBe("2 d 03:05 h");
+  it("nimmt ab 24 Stunden Tage dazu", () => {
+    expect(dauerText(t0, t0 + (30 * 60 + 6) * 60_000)).toBe("1 Tag, 6 Stunden, 6 Minuten");
+    expect(dauerText(t0, t0 + (51 * 60 + 5) * 60_000)).toBe("2 Tage, 3 Stunden, 5 Minuten");
   });
   it("liefert nichts ohne Beginn oder bei einem Beginn in der Zukunft", () => {
     expect(dauerText(null, t0)).toBeNull();
