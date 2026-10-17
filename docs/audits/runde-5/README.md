@@ -82,3 +82,38 @@ Nicht prüfbar wie bisher: Kamera, Handscanner, echte Handschuhe und echtes
 Licht, echte Bildschirmtastatur (nur nachgestellt), WebKit/Safari, echtes
 Drucken, native Builds. Zeitmessungen liefen unter Last durch elf parallele
 Prüfer und sind unsicher.
+
+## Stand der Behebung
+
+Stand 17.10.2026. Alle 85 Befunde wurden auf demselben Zweig in vier Paketen
+bearbeitet, jedes mit Typprüfung, Unit-Tests, Verhaltensszenarien und
+Nachmessung im Browser. Einzelheiten stehen im Abschnitt „Stand der
+Behebung" jedes Berichts. Gesamtprüfung vor dem Zusammenführen: Typprüfung
+ohne Fehler, 2 875 Unit-Tests, 137 von 137 Verhaltensszenarien,
+Produktionsbuild ohne Fehler.
+
+| Paket | Inhalt | Befunde |
+| --- | --- | --- |
+| 1 | Uhr, Löschfristen, Fehlerfänger, Speicher, Offline | R5-D1–D5, E1, E2, E7, O1–O7, S4, S6 |
+| 2 | Fassungen, Exportstand, Abgleich, Führungssicht | R5-W1–W9, K1, K3–K7, A1, N1 |
+| 3 | Touch, Tipp-Sperre, QR-Vollbild, Layout, Sicht | R5-S1–S3, S5, S7, G1–G7, E3–E6, M1–M7, L1–L3, L6, L7, H1–H3 |
+| 4 | Papier, PDF, Begriffe, Rest | R5-A2–A9, K2, L5, N2–N9 |
+
+Alle neun P1 sind behoben. Mit Grenze oder nur teilweise gelöst:
+
+- R5-A5: Der Stapelbericht kann „unscharf" und „kein Code" aus dem Bild
+  allein nicht trennen; er nennt bis zu 12 Dateien und sagt, was zu tun ist.
+- R5-N7: Einige Fachwörter blieben wegen Tests und Gherkin in den
+  Beschriftungen.
+- R5-G6, R5-G7, R5-M2: Reste bei 200 % Schrift quer bzw. im Feld-Modus und
+  bei den Schrittleisten-Zielen am Telefon.
+- R5-M4: „Materialwirtschaft" bricht in Chromium unter Linux, weil dort
+  kein Trennwörterbuch vorhanden ist.
+- R5-H2: Personal als Karten bleibt bei Großbögen sehr lang; ab 13 Personen
+  beginnt die Ansicht als Kurz-Liste.
+- Zwei Punkte aus Paket 1 und 2 sind nur per Unit-Test belegt, nicht im
+  Browser: R5-D4 (Sicherungsdatei) und R5-E2 (Uhr zurückgestellt). Die
+  Seitenzahl großer Lagen nach R5-K7 und die Höhe der ersten Karte mit
+  Quittung (R5-K4) wurden nicht nachgemessen.
+- R5-D2: Die Ursache liegt im Submodul `vendor/bos-meldekopf`; die Behebung
+  steckt in `src/app/einsatz-wiederherstellen.ts`.
