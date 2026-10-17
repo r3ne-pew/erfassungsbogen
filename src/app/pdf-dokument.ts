@@ -382,6 +382,18 @@ export interface SammelBogen extends UebersichtEintrag {
   qr: QrSatz;
 }
 
+/**
+ * Nach Nr. geordnet, wie am Gerät und im Funk (R5-A9): „Nr. 17“ steht auf dem
+ * Wandblatt zwischen 16 und 18, nicht an der Stelle des Namens im Alphabet.
+ * Stabil; Einträge ohne Nr. folgen in ihrer Reihenfolge.
+ */
+export function nachNummer<T extends { nummer?: number }>(eintraege: readonly T[]): T[] {
+  return eintraege
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => (a.e.nummer ?? Infinity) - (b.e.nummer ?? Infinity) || a.i - b.i)
+    .map(({ e }) => e);
+}
+
 /** Zählt der Eintrag in die Summen? Abgerückte nie, Übungen nur in Übungssammlungen (zaehlt=false). */
 function zaehlend(e: UebersichtEintrag): boolean {
   // Eine Einheit des Nachtrags, die schon in der letzten Lieferung stand, ersetzt
@@ -393,6 +405,9 @@ function zaehlend(e: UebersichtEintrag): boolean {
 function zaehlendeBoegen(eintraege: UebersichtEintrag[]): Erfassungsbogen[] {
   return eintraege.filter(zaehlend).map((e) => e.bogen);
 }
+
+/** Ab so vielen Einheiten steht der Bedarf der Sammel-PDF vor der Tabelle (R5-A8). */
+const BEDARF_VORN_AB = 12;
 
 /** Mehr Zeilen passen nicht sinnvoll in eine Tabellenzelle — der Rest wird gezählt. */
 const UEBERSICHT_MAX_ZEILEN = 8;
@@ -538,7 +553,8 @@ function bemerkungZelle(notiz: string | undefined, sonstiges: string | undefined
   const teile: Content[] = [];
   if (notiz?.trim()) teile.push({ text: weichUmbrechen(notiz.trim()) });
   let b = sonstiges?.trim() ?? "";
-  if (kuerzen != null && b.length > kuerzen) b = `${b.slice(0, kuerzen).trimEnd()} …`;
+  // Gekürzt, und das Blatt sagt, wo der Rest steht (R5-A9) — sonst endete sie bei „… MTW OV zusätzlich über St …“.
+  if (kuerzen != null && b.length > kuerzen) b = `${b.slice(0, kuerzen).trimEnd()} … (Rest: Sammel-PDF)`;
   if (b) teile.push({ text: weichUmbrechen(`(${b})`), italics: true });
   if (teile.length === 0) return { text: "" };
   return teile.length === 1 ? (teile[0] as TableCell) : { stack: teile };
@@ -996,6 +1012,13 @@ function uebersichtsSeite(
   const nachtragsTab = zumWeiterfuehren && nachtragZeilen > 0 ? nachtragsTabelle(nachtragZeilen, leer, rueckseite) : undefined;
   const zugSummen = zugSummenTabelle(eintraege, nachtrag);
   const bedarf = bedarfsTabelle(eintraege, leer, nachtrag);
+  // Sammel-PDF mit vielen Einheiten: Bedarf und Zwischensummen stehen unter der
+  // Kopfleiste. Hinter der Tabelle passte der unteilbare Block oft nicht mehr auf
+  // die Seite und stand allein auf einer eigenen (R5-A8).
+  const bedarfBlock: Content = zugSummen
+    ? { columns: [{ width: 300, stack: [bedarf] }, { width: "*", stack: [zugSummen] }], columnGap: 12, fontSize: 7.5 }
+    : bedarf;
+  const bedarfVorn = !zumWeiterfuehren && eintraege.length > BEDARF_VORN_AB;
   return [
     // Titel und Erstellzeit in einer Zeile — jede Zeile zählt, damit das
     // Lageblatt bei rund zehn Einheiten auf eine Seite passt (R2-K3).
@@ -1012,14 +1035,13 @@ function uebersichtsSeite(
     // gesamt" allein auf Seite 2 — wer nur Seite 1 aushängt oder faxt, gab
     // Stärke ohne Bedarf weiter (Audit Runde 3, R3-K6).
     lageKopfleiste(eintraege, leer, nachtrag),
+    ...(bedarfVorn ? [bedarfBlock] : []),
     uebersichtsTabelle(eintraege, maxZeilen, zumWeiterfuehren, nachtrag),
     ...(nachtragsTab && !rueckseite ? [nachtragsTab] : []),
     ...(hinweis ? [{ text: hinweis, italics: true, margin: [0, 2, 0, 0] } as Content] : []),
     // Bedarf und Zwischensummen nebeneinander statt untereinander: vorher
     // rutschten die Zwischensummen allein auf Seite 2 (R2-K3).
-    zugSummen
-      ? { columns: [{ width: 300, stack: [bedarf] }, { width: "*", stack: [zugSummen] }], columnGap: 12, fontSize: 7.5 }
-      : bedarf,
+    ...(bedarfVorn ? [] : [bedarfBlock]),
     // Zu voll für eine Seite mit fünf Nachtragszeilen: die Zeilen bekommen die
     // Rückseite, Seite 1 bleibt, wie sie ist (R4-A3).
     ...(nachtragsTab && rueckseite ? [{ stack: [nachtragsTab], pageBreak: "before" } as Content] : []),
@@ -1122,6 +1144,56 @@ function vermerkKasten(v: MeldekopfVermerk, margin: [number, number, number, num
   };
 }
 
+/**
+ * Kopfzeile jeder Bogenseite, im oberen Seitenrand (R5-A2, R5-A3). Der Rand
+ * liegt ohnehin leer; die Zeile kostet dem Satz keine Höhe und damit keine
+ * Seite. Auf Seite 1 steht der Platz, auf dem der Meldekopf „angenommen,
+ * Nr., übertragen“ quittiert — bisher nur auf dem Blanko. Auf jeder Folgeseite
+ * stehen Nr. und Einheit: Eine verrutschte Seite 2 war sonst eine Namensliste
+ * ohne Absender.
+ */
+const RAND_ZEILE_Y = 6;
+const NAME_IM_KOPF_MAX = 62;
+const UEBERTRAGEN_KURZ = `übertragen ${kasten(false)} von ______ um ____:____ Uhr`;
+
+/** Mit Rahmen und fett (Seite 1: der Platz zum Quittieren), sonst eine schlichte Zeile. */
+function randZeile(text: string, rahmen: boolean): Content {
+  return {
+    margin: [SEITENRAENDER[0], RAND_ZEILE_Y, SEITENRAENDER[2], 0],
+    table: { widths: ["*"], body: [[{ text, fontSize: 7.5, bold: rahmen, noWrap: true }]] },
+    layout: {
+      hLineWidth: () => (rahmen ? 0.5 : 0),
+      vLineWidth: () => (rahmen ? 0.5 : 0),
+      paddingTop: () => 1.5,
+      paddingBottom: () => 1.5,
+      paddingLeft: () => 4,
+      paddingRight: () => 4,
+    },
+  };
+}
+
+/** Einheit für die Kopfzeile: einzeilig, notfalls gekürzt. */
+function kopfName(name: string): string {
+  return name.length > NAME_IM_KOPF_MAX ? `${name.slice(0, NAME_IM_KOPF_MAX - 1).trimEnd()}…` : name;
+}
+
+/**
+ * Kopfzeile einer Bogenseite. `nummer` aus dem Meldekopf (Sammel-PDF) oder
+ * Ausfülllinie (Einzel-PDF, Blanko). `blatt`/`von`: Seite dieses Bogens.
+ */
+function bogenKopfzeile(einheit: string, nummer: number | undefined, blatt: number, von: number): Content {
+  const nr = nummer != null ? `Nr. ${nummer}` : "Nr. ______";
+  if (blatt === 1) {
+    return randZeile(
+      nummer != null
+        ? `${nr}  ·  ${kopfName(einheit)}  ·  Blatt 1 von ${von}  ·  ${UEBERTRAGEN_KURZ}`
+        : `Meldekopf:  ${nr}  ·  eingegangen ____________ um ____:____ Uhr  ·  ${UEBERTRAGEN_KURZ}`,
+      true,
+    );
+  }
+  return randZeile(`${nr}  ·  ${kopfName(einheit)}  ·  Blatt ${blatt} von ${von} dieses Bogens`, false);
+}
+
 /** Fußzeile mit Seitenzahl — für Sammel-PDF und Lageblatt gleich. */
 function seitenFuss(text: string): TDocumentDefinitions["footer"] {
   return (seite, gesamt) => ({
@@ -1134,6 +1206,9 @@ function seitenFuss(text: string): TDocumentDefinitions["footer"] {
   });
 }
 
+/** Ein Pixel, quadratisch: Platzhalter für QR-Bilder im Probesatz. */
+const PIXEL_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
 /** Kennung des Kastens „Stand am Meldekopf“ im Probesatz (R4-A7). */
 const MESS_KASTEN = "sammel-kasten-";
 
@@ -1143,6 +1218,14 @@ export interface SammelOptionen {
   verdichtet?: ReadonlySet<number>;
   /** Probesatz: Messpunkte je Bogen, ohne eingebettete Dateien. */
   messen?: boolean;
+  /**
+   * Seite (ab 1), auf der der Bogen mit dem Index i beginnt — aus einem Probesatz
+   * mit Platzhalterbildern. Damit trägt jede Bogenseite im Seitenrand Nr. und Einheit
+   * (R5-A3); ohne Angabe bleibt der Rand leer.
+   */
+  bogenStart?: number[];
+  /** Nur die Kasten „Stand am Meldekopf“ tragen eine Kennung — Probesatz für `bogenStart`, ohne Messpunkte, die Höhe kosten. */
+  nurKastenKennung?: boolean;
 }
 
 /**
@@ -1157,7 +1240,7 @@ export interface SammelOptionen {
  */
 export function einsatzPdfDokument(
   name: string,
-  boegenMitQr: SammelBogen[],
+  boegenMitQrUngeordnet: SammelBogen[],
   /** Optional: kompletter Einsatz-Umschlag (einsatzDateiInhalt) für die Schichtübergabe. */
   sammlungJson?: string,
   erstellt = Date.now(),
@@ -1168,6 +1251,7 @@ export function einsatzPdfDokument(
   nachtragSeit?: number,
   optionen: SammelOptionen = {},
 ): TDocumentDefinitions {
+  const boegenMitQr = nachNummer(boegenMitQrUngeordnet);
   const nachtrag = nachtragSeit != null ? `seit ${zeitLang(nachtragSeit)}` : undefined;
   const content: Content[] = uebersichtsSeite(
     nachtrag ? `Übergabe-Übersicht NACHTRAG ${nachtrag}: ${name}` : `Übergabe-Übersicht: ${name}`,
@@ -1189,7 +1273,7 @@ export function einsatzPdfDokument(
     // Der Stand am Meldekopf steht über dem Bogen und auf jeder QR-Seite —
     // die Bogenseiten müssen auch ohne Seite 1 stimmen (R2-A1).
     const vermerk = meldekopfVermerk(eintrag, name, erstellt);
-    content.push(vermerkKasten(vermerk, [0, 0, 0, 4], optionen.messen ? `${MESS_KASTEN}${i}` : undefined));
+    content.push(vermerkKasten(vermerk, [0, 0, 0, 4], optionen.messen || optionen.nurKastenKennung ? `${MESS_KASTEN}${i}` : undefined));
     content.push(
       ...(pdfDokument(eintrag.bogen, eintrag.qr, undefined, vermerk, {
         verdichtet: optionen.verdichtet?.has(i) === true,
@@ -1213,7 +1297,7 @@ export function einsatzPdfDokument(
     ...(boegenMitQr.length > 0 && boegenMitQr.every(({ bogen }) => bogen.uebung)
       ? { background: uebungsWasserzeichen() }
       : {}),
-    ...(optionen.messen
+    ...(optionen.messen || optionen.nurKastenKennung
       ? {}
       : {
           files: {
@@ -1221,6 +1305,23 @@ export function einsatzPdfDokument(
             ...(sammlungJson ? { [EEB_EINSATZ_SAMMLUNG_DATEINAME]: sammlungAlsEingebetteteDatei(sammlungJson) } : {}),
           },
         }),
+    // Kopfzeile jeder Bogenseite: Nr., Einheit, Blatt x von y; auf Blatt 1 der Platz
+    // „übertragen“ (R5-A2, R5-A3). Die Übersicht (quer) hat ihren Titel.
+    ...(optionen.bogenStart
+      ? {
+          header: (seite: number, gesamt: number, groesse: { orientation: string }): Content => {
+            const start = optionen.bogenStart!;
+            let i = -1;
+            start.forEach((von, k) => {
+              if (von <= seite) i = k;
+            });
+            if (i < 0 || groesse.orientation === "landscape") return { text: "" };
+            const ende = (start[i + 1] ?? gesamt + 1) - 1;
+            const e = boegenMitQr[i]!;
+            return bogenKopfzeile(einheitAnzeigename(e.bogen.einheit), e.nummer, seite - start[i]! + 1, ende - start[i]! + 1);
+          },
+        }
+      : {}),
     // Die Fußzeile trägt den Stand des Ausdrucks auf jeder Seite; Zeiten und
     // Abrückvermerk je Einheit stehen im Kasten über dem Bogen (R2-A1).
     footer: seitenFuss(
@@ -1232,13 +1333,13 @@ export function einsatzPdfDokument(
 
 /**
  * Bis zu so viel Höhe (pt) belegt die letzte Zeile(n) eines Bogens auf einer
- * Folgeseite, damit sie als Restseite gilt: gut acht Textzeilen. Der Kasten
+ * Folgeseite, damit sie als Restseite gilt: gut zwölf Textzeilen (R5-A8, vorher 110 pt = gut acht). Der Kasten
  * „Stand am Meldekopf“ über dem Bogen kostete in der Sammel-PDF von 30
  * Einheiten zwei Seiten, die nur noch die letzte Zeile des Sofortbedarfs
  * trugen („M 11 / W 1 / D 0“), obwohl das Einzel-PDF derselben Einheit ohne
  * Restseite auskam (Audit Runde 4, R4-A7).
  */
-const RESTSEITE_MAX_PT = 110;
+const RESTSEITE_MAX_PT = 160;
 
 /**
  * Sammel-PDF ohne Restseiten. Ein Probesatz ohne Bilder und ohne Anhang misst
@@ -1251,12 +1352,14 @@ const RESTSEITE_MAX_PT = 110;
  */
 export async function einsatzPdfDokumentGesetzt(
   name: string,
-  boegenMitQr: SammelBogen[],
+  boegenMitQrUngeordnet: SammelBogen[],
   sammlungJson: string | undefined,
   erstellt: number,
   nachtragSeit: number | undefined,
   setzen: (dd: TDocumentDefinitions) => Promise<unknown>,
 ): Promise<TDocumentDefinitions> {
+  // Die Indizes der Probesätze gelten für diese Reihenfolge (nach Nr., R5-A9).
+  const boegenMitQr = nachNummer(boegenMitQrUngeordnet);
   const ohneBilder = boegenMitQr.map((e) => ({ ...e, qr: null }) as unknown as SammelBogen);
   /** Welche Bögen enden mit einer Restseite? */
   const restseiten = async (verdichtet: ReadonlySet<number>): Promise<Set<number>> => {
@@ -1278,10 +1381,29 @@ export async function einsatzPdfDokumentGesetzt(
     return rest;
   };
   const betroffen = await restseiten(new Set());
-  if (betroffen.size === 0) return einsatzPdfDokument(name, boegenMitQr, sammlungJson, erstellt, nachtragSeit);
-  const nochBetroffen = await restseiten(betroffen);
-  const verdichtet = new Set([...betroffen].filter((i) => !nochBetroffen.has(i)));
-  return einsatzPdfDokument(name, boegenMitQr, sammlungJson, erstellt, nachtragSeit, { verdichtet });
+  let verdichtet: ReadonlySet<number> = new Set();
+  if (betroffen.size > 0) {
+    const nochBetroffen = await restseiten(betroffen);
+    verdichtet = new Set([...betroffen].filter((i) => !nochBetroffen.has(i)));
+  }
+  // Wo jeder Bogen beginnt, weiß erst der Satz MIT Codeseiten: Platzhalterbilder gleicher
+  // Größe (ein Pixel, quadratisch) setzen gleich wie die QR-Codes, kosten aber nichts (R5-A3).
+  const platzhalter = boegenMitQr.map(
+    (e) => ({ ...e, qr: { ...e.qr, teile: e.qr.teile.map((t) => ({ ...t, datenUrl: PIXEL_PNG })) } }) as SammelBogen,
+  );
+  const start = new Map<string, MessPosition>();
+  const probe = einsatzPdfDokument(name, platzhalter, undefined, erstellt, nachtragSeit, { verdichtet, nurKastenKennung: true });
+  probe.pageBreakBefore = (knoten) => {
+    const k = knoten as { id?: string; startPosition?: MessPosition };
+    if (k.id && k.startPosition) start.set(k.id, k.startPosition);
+    return false;
+  };
+  await setzen(probe);
+  const bogenStart = boegenMitQr.map((_, i) => start.get(`${MESS_KASTEN}${i}`)?.pageNumber ?? 0);
+  return einsatzPdfDokument(name, boegenMitQr, sammlungJson, erstellt, nachtragSeit, {
+    verdichtet,
+    ...(bogenStart.every((n) => n > 0) ? { bogenStart } : {}),
+  });
 }
 
 /**
@@ -1296,12 +1418,13 @@ export async function einsatzPdfDokumentGesetzt(
  */
 export function einsatzLageblattDokument(
   name: string,
-  eintraege: UebersichtEintrag[],
+  eintraegeUngeordnet: UebersichtEintrag[],
   erstellt = Date.now(),
   nachtragZeilen = NACHTRAG_ZEILEN_MIN,
   /** Die Nachtragszeilen auf eine eigene Seite hinter dem Blatt (R4-A3). */
   rueckseite = false,
 ): TDocumentDefinitions {
+  const eintraege = nachNummer(eintraegeUngeordnet);
   return winAnsiDokument({
     pageSize: "A4",
     pageOrientation: "landscape",
@@ -1318,7 +1441,7 @@ export function einsatzLageblattDokument(
       erstellt,
       eintraege.length === 0
         ? "Noch keine Einheit gemeldet."
-        : "Summen und Bedarf zählen nur die anwesenden Einheiten dieser Lage; abgerückte stehen im eigenen Block. Alle Änderungen im Einzelnen: Sammel-PDF." +
+        : "Summen und Bedarf zählen nur die anwesenden Einheiten dieser Lage; abgerückte stehen im eigenen Block. Nach Nr. geordnet. Alle Änderungen im Einzelnen: Sammel-PDF." +
           (rueckseite ? " Nachträge von Hand: Seite 2." : ""),
       LAGEBLATT_MAX_ZEILEN,
       true,
@@ -1575,6 +1698,14 @@ function blankoMeldekopf(): Content {
         stack: [
           { text: "Meldekopf:   Nr. ______   ·   eingegangen am ____________  um ____:____ Uhr   ·   Zug / Verband: ________________" },
           { text: `${kasten(false)} ÜBUNG — kein echter Einsatz   ·   ins Gerät übertragen ${kasten(false)}  von (Kürzel) ________  um ____:____ Uhr`, margin: [0, 5, 0, 0] },
+          // Beiblatt (R5-A6): Der Vordruck fasst 4 Fahrzeuge und 6 Qualifikationen. Mehr gehört
+          // auf einen zweiten Vordruck mit gleicher Einheit und Nr., nicht an den Rand.
+          {
+            text: "Blatt ____ von ____   ·   Reicht der Platz nicht (mehr als 4 Fahrzeuge oder 6 Qualifikationen): weiteren Vordruck als Beiblatt nehmen, dort Einheit und Nr. eintragen und hier die Blattzahl nachtragen.",
+            bold: false,
+            fontSize: 7,
+            margin: [0, 4, 0, 0],
+          },
         ],
         bold: true,
         margin: [0, 3, 0, 3],
@@ -1731,6 +1862,10 @@ export function pdfDokument(
 
   const fahrzeugBlock = (f: Fahrzeug, leer = !!blanko): Content => ({
     ...(tabLayout ? { layout: tabLayout } : {}),
+    // Ein Fahrzeug steht ganz auf einer Seite: Das taktische Zeichen läuft über zwei Zeilen,
+    // und der Block riss über die Seitengrenze — „Tiefl 18 t“ nur als Bild, der Text auf
+    // der nächsten Seite (R5-A3).
+    unbreakable: true,
     table: {
       // Erste Spalte: taktisches Zeichen (DV 102), zeilenübergreifend links.
       widths: [56, "*", "*", "*"],
@@ -1836,6 +1971,9 @@ export function pdfDokument(
   const sofort: Content[] = [];
   if (b.sofortbedarf) {
     const sb = b.sofortbedarf;
+    // Auf dem Vordruck Luft zwischen den Zeilen: Die Kästchen berührten sich, „[ ] Betriebsstoff“
+    // war angeschnitten und die Ausfülllinie „____ vegan“ lief in die nächste Zeile (R5-A7).
+    const zeile = (text: string): Content => ({ text, ...(blanko ? { margin: [0, 3, 0, 3] as [number, number, number, number] } : {}) });
     sofort.push({
       ...(tabLayout ? { layout: tabLayout } : {}),
       table: {
@@ -1848,15 +1986,15 @@ export function pdfDokument(
             {
               stack: [
                 { text: "Sofortbedarf:", bold: true, decoration: "underline" },
-                { text: `${kasten(sb.verpflegungPersonen > 0)} Verpflegung für ${zahl(sb.verpflegungPersonen)} Personen, davon ${zahl(vp.vegetarisch)} vegetarisch, ${zahl(vp.vegan)} vegan` },
-                { text: `${kasten(sb.dieselLiter + sb.benzinLiter + sb.gemischLiter > 0)} Betriebsstoff: ${zahl(sb.dieselLiter)} l Diesel / ${zahl(sb.benzinLiter)} l Benzin / ${zahl(sb.gemischLiter)} l Gemisch` },
+                zeile(`${kasten(sb.verpflegungPersonen > 0)} Verpflegung für ${zahl(sb.verpflegungPersonen)} Personen, davon ${zahl(vp.vegetarisch)} vegetarisch, ${zahl(vp.vegan)} vegan`),
+                zeile(`${kasten(sb.dieselLiter + sb.benzinLiter + sb.gemischLiter > 0)} Betriebsstoff: ${zahl(sb.dieselLiter)} l Diesel / ${zahl(sb.benzinLiter)} l Benzin / ${zahl(sb.gemischLiter)} l Gemisch`),
               ],
             },
             {
               stack: [
-                { text: `${kasten(sb.unterbringung)}  Unterbringung` },
-                { text: `${kasten(sb.ruhezeitErforderlich)}  Ruhezeit erforderlich` },
-                { text: `Anzahl Unterbringung/WC/Dusche:\nM ${zahl(mwd.m)} / W ${zahl(mwd.w)} / D ${zahl(mwd.d)}` },
+                zeile(`${kasten(sb.unterbringung)}  Unterbringung`),
+                zeile(`${kasten(sb.ruhezeitErforderlich)}  Ruhezeit erforderlich`),
+                zeile(`Anzahl Unterbringung/WC/Dusche:\nM ${zahl(mwd.m)} / W ${zahl(mwd.w)} / D ${zahl(mwd.d)}`),
               ],
             },
           ],
@@ -1875,6 +2013,12 @@ export function pdfDokument(
     // Maschinenlesbares JSON dokumentweit einbetten (ZUGFeRD-artig). Am
     // Vordruck hinge dort ein leerer Bogen — ein Anhang ohne jede Aussage.
     ...(blanko ? {} : { files: { [EEB_JSON_DATEINAME]: bogenAlsEingebetteteDatei(b) } }),
+    // Kopfzeile im Seitenrand: Seite 1 der Platz für „Nr., eingegangen, übertragen“, jede
+    // Folgeseite Nr. und Einheit (R5-A2, R5-A3). Die Sammel-PDF nimmt nur den Inhalt
+    // dieses Dokuments und setzt ihre eigene Kopfzeile mit der Nr. des Meldekopfs.
+    header: blanko
+      ? (seite) => (seite > 1 ? randZeile("Einheit: ______________________________   ·   Nr. ______   ·   Blatt ____ von ____", false) : { text: "" })
+      : (seite, gesamt) => bogenKopfzeile(einheitAnzeigename(b.einheit), undefined, seite, gesamt),
     footer: (seite, gesamt) => ({
       columns: [
         { text: blanko ? "Stand:" : `Stand: ${zeitgruppe(b.stand)}`, margin: [40, 0, 0, 0] },
@@ -1941,7 +2085,20 @@ export function pdfDokument(
       { text: "weitere interne / externe Qualifikationen obiger Helfer/-innen:", margin: [0, 0, 0, 4] },
       { ...(tabLayout ? { layout: tabLayout } : {}), table: { widths: [180, "*"], body: qualiZeilen } },
       ...sofort,
-      ...(b.sonstiges ? [{ text: `Sonstiges: ${weichUmbrechen(b.sonstiges)}`, margin: [0, 8, 0, 0] } as Content] : []),
+      // Vordruck: Platz für drei Zeilen Handschrift statt einer Zeile (R5-A7).
+      ...(blanko
+        ? [
+            {
+              unbreakable: true,
+              stack: [
+                { text: "Sonstiges:", margin: [0, 8, 0, 3] },
+                { table: { widths: ["*"], body: [[leerZelle()], [leerZelle()], [leerZelle()]] } },
+              ],
+            } as Content,
+          ]
+        : b.sonstiges
+          ? [{ text: `Sonstiges: ${weichUmbrechen(b.sonstiges)}`, margin: [0, 8, 0, 0] } as Content]
+          : []),
       ...(zusatz?.messpunkt ? [{ text: " ", fontSize: 1, id: `${MESS_BOGEN_ENDE}-formular${zusatz.messKennung ?? ""}` } as Content] : []),
 
       // ---- QR-Block ----

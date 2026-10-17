@@ -768,7 +768,7 @@ describe("einsatzLageblattDokument()", () => {
     expect(t).toContain("Auftrag / Notiz\n(Bemerkung der Einheit)");
     expect(t).toContain("Ölsperre Kocher km 12");
     expect(t).toContain("(Ölsperre 200 m verbraucht, Nachschub nötig)");
-    expect(t).toContain(`(${"x".repeat(70)} …)`);
+    expect(t).toContain(`(${"x".repeat(70)} … (Rest: Sammel-PDF))`);
   });
 
   /**
