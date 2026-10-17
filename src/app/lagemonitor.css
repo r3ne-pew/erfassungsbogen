@@ -1,0 +1,45 @@
+/* Lagemonitor: Fernsehanzeige, Schrift skaliert mit der Fenstergröße (vw/vh). */
+/* „main.lm" schlägt die allgemeine main-Regel der App (60rem breit, mittig). */
+main.lm {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 2vh 2.5vw;
+  font-size: clamp(12px, min(1.3vw, 2.2vh), 40px);
+  display: flex;
+  flex-direction: column;
+  gap: 2vh;
+}
+.lm h1 { margin: 0; font-size: 2.2em; line-height: 1.1; }
+.lm h2 { margin: 0 0 0.4em; font-size: 1.4em; }
+.lm-kopf { display: flex; justify-content: space-between; align-items: flex-end; gap: 2vw; flex-wrap: wrap; }
+.lm-titel p { margin: 0.2em 0 0; font-size: 1.3em; opacity: 0.8; }
+.lm-zeit { text-align: right; }
+.lm-dtg { font-size: 3em; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.lm-dauer { font-size: 1.5em; }
+.lm-kacheln { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1vw; }
+.lm-kachel { border: 2px solid currentColor; border-radius: 0.5em; padding: 0.6em 0.8em; display: flex; flex-direction: column; gap: 0.2em; }
+.lm-kachel.lm-gross { grid-column: span 2; }
+.lm-kachel.lm-breit { grid-column: 1 / -1; flex-direction: row; align-items: baseline; gap: 1em; }
+.lm-kachel.lm-achtung { border-width: 6px; }
+.lm-wert { font-size: 2.3em; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.lm-wert.lm-klein { font-size: 1.8em; }
+.lm-name { font-size: 1em; opacity: 0.85; }
+.lm-spalten { display: grid; grid-template-columns: 1.3fr 1fr; gap: 2vw; }
+.lm-tabelle { width: 100%; border-collapse: collapse; font-size: 1.15em; }
+.lm-tabelle th, .lm-tabelle td { text-align: left; padding: 0.3em 0.5em; border-bottom: 1px solid currentColor; font-variant-numeric: tabular-nums; }
+.lm-liste { list-style: none; margin: 0; padding: 0; font-size: 1.15em; }
+.lm-liste li { display: flex; justify-content: space-between; gap: 1em; padding: 0.3em 0.5em; border-bottom: 1px solid currentColor; }
+.lm-liste li.lm-neu { font-weight: 700; border-left: 0.4em solid currentColor; }
+.lm-vor { white-space: nowrap; }
+.lm-leer-hinweis, .lm-leer p { font-size: 1.6em; }
+/* Werkzeuge: nur bei Maus/Fokus sichtbar, der Fernseher zeigt sie nicht. */
+.lm-werkzeuge { position: fixed; right: 1vw; bottom: 1vh; display: flex; gap: 0.5em; align-items: center; opacity: 0; transition: opacity 0.2s; }
+.lm-werkzeuge:hover, .lm-werkzeuge:focus-within { opacity: 1; }
+.lm-block { margin-top: 1.5rem; }
+@media (max-width: 900px) {
+  .lm-kacheln { grid-template-columns: repeat(2, 1fr); }
+  .lm-spalten { grid-template-columns: 1fr; }
+}

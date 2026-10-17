@@ -58,6 +58,7 @@ import { fassungGiltSetzen, fassungenJeEinheit, geltendeJeEinheit, istVerdraengt
 import { einsaetzeLaden, einsaetzePapierkorb } from "./einsaetze-lesen";
 import { koepfeJe, revisionenJe } from "./einheiten-index";
 import { RolleMarke } from "./rolle-marke";
+import { LagemonitorBlock } from "./lagemonitor-ui";
 import { AufteilenPanel } from "./aufteilen-ui";
 import { ZusammenfuehrenPanel } from "./zusammenfuehren-ui";
 import type { AufteilungsWahl } from "@bos/meldekopf/aufteilen";
@@ -1758,6 +1759,7 @@ export function EinsatzDetail(props: {
             : "Noch kein Lageblatt aus diesem Einsatz."}
         </p>
       )}
+      <LagemonitorBlock einsatzId={einsatz.id} alleIds={einsaetzeLaden().map((x) => x.id)} />
       {onWeitergeben && (
         <p className="hinweis einsatz-ausgaben-hinweis">
           {/* Ein Knopf für die ganze Sammel-PDF: „Sammel-PDF (alle Bögen)"

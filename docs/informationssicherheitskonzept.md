@@ -438,6 +438,7 @@ dem Vite-Build); es gibt keine serverseitige Variante.
 | D2i | Weitergabe-Stand je Einsatz-Sammlung (seit 2026-09-29, R2-W5; erweitert 2026-10-05, R3-W2) | Zeitpunkt der letzten Weitergabe der ganzen Sammlung („Einsatz weitergeben / sichern"), Kennungen der Meldungen darin, der Zustand je Einheit als Prüfsummen (seit 2026-10-06 statt der Vermerke, R4-K1/R4-W7; ältere Stände zählen weiter Vermerk-Prüfsummen) und Zeitpunkt der letzten Übernahme per Import — Grundlage des Übergabevermerks „Weitergegeben … · seitdem n neue Meldungen und m Änderungen"; keine Personendaten, kein Auftragstext | `localStorage` des Geräts (`eeb.weitergabe-stand.v1`), fällt mit „Alle Daten löschen" weg |
 | D2j | Kenntnis-Stand je Einsatz-Sammlung (seit 2026-10-04, R3-K1) | Zeitpunkt der letzten Kenntnisnahme („Zur Kenntnis genommen" in der Einsatzansicht, beim ersten Öffnen einer Sammlung vorbelegt) und Kennungen der Meldungen, die da schon in der Sammlung standen — Grundlage der Sammelquittung „Neu seit der letzten Kenntnisnahme" und der Marken „neu"/„neue Fassung" (seit 2026-10-06 mit dem Vermerk, ob die Kenntnisnahme getippt wurde, R4-K7); je Gerät, reist nicht mit der Sammlung; keine Personendaten | `localStorage` des Geräts (`eeb.kenntnis-stand.v1`), fällt mit „Alle Daten löschen" weg |
 | D2k | Haken einer unterbrochenen Musterung (seit 2026-10-06, R4-E7) | Kennung und Fassung (`geaendert`) der Vorlage, die gemustert wird, die angehakten Plätze als Wahrheitswerte nach Stelle (Personal, Fahrzeuge, Sofortbedarf, Bemerkung) und der Zeitpunkt des letzten Hakens — damit die Auswahl ein Neuladen übersteht; gilt höchstens einen Tag und nur für dieselbe Fassung der Vorlage, wird mit dem Ende der Musterung (Start, Abbrechen, Wechsel der Ansicht) gelöscht (`src/app/musterung-stand.ts`); keine Namen, keine Personendaten | `localStorage` des Geräts (`eeb.musterung.v1`), wandert mit der Datensicherung mit, fällt mit „Alle Daten löschen" weg |
+| D2l | Einsatzbeginn für den Lagemonitor (seit 2026-10-17) | Je Einsatz-Kennung der von Hand gesetzte Beginn als Zeitpunkt (`src/app/lagemonitor-beginn.ts`); beim Schreiben fallen Einträge zu nicht mehr vorhandenen Einsätzen weg; keine Namen, keine Personendaten | `localStorage` des Geräts (`eeb.lagebeginn.v1`), wandert mit der Datensicherung mit, fällt mit „Alle Daten löschen" weg |
 | D3 | Absenderkarte | Freiwillige Kontaktangabe (Name/E-Mail/Telefon) der meldenden Person | `localStorage` des Geräts |
 | D4 | Privater Geräteschlüssel | Ed25519-Schlüssel zur Signatur weitergereichter Bögen | `localStorage` des Geräts, **unverschlüsselt als Hex**; lässt er sich beim ersten Erzeugen nicht speichern (Speicher voll/gesperrt), nur im Arbeitsspeicher der offenen Seite, bis Platz ist (seit 2026-10-05, R3-E1) |
 | D5 | QR-Payload / Exportdatei | Binär kodierter, komprimierter Bogen zur Übergabe an ein zweites Gerät; ebenso eine geteilte Vorlage (QR/Link mit Marker `V.`, oder JSON-Datei `eeb-vorlage-*.json`) | Transient (QR-Code-Anzeige) bzw. Datei auf dem Gerät oder in einer vom Nutzer gewählten Ablage (z. B. Cloud-Ordner) |
@@ -523,10 +524,14 @@ Technik gehärtet:
   Berechtigungsanfragen werden pauschal abgelehnt.
 - **Kontrollierte externe Links:** `setWindowOpenHandler` und `will-navigate`
   fangen jede Navigation zu einer fremden URL ab und öffnen sie im
-  System-Standardbrowser statt im App-Fenster.
+  System-Standardbrowser statt im App-Fenster. Einzige Ausnahme ist das zweite
+  App-Fenster des Lagemonitors (Adresse mit `?lagemonitor=`, seit 2026-10-17):
+  `setWindowOpenHandler` erlaubt es mit denselben Einstellungen
+  (`contextIsolation`, `sandbox`, kein Node-Zugriff); jede andere interne
+  Adresse bleibt abgelehnt.
 - `hardenedRuntime: true` für macOS-Builds.
 
-> *Prüfvermerk:* Alle vier Punkte im Code bestätigt (`electron/main.js`,
+> *Prüfvermerk:* Alle vier Punkte im Code bestätigt (`electron/main.js`; Stand 2026-10-17 mit der Ausnahme für den Lagemonitor,
 > `package.json` Feld `build`).
 
 ### 5.2 Kryptografische Herkunfts- und Integritätsprüfung

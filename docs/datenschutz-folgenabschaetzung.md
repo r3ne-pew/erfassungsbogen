@@ -11,6 +11,13 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-17 — Lagemonitor:** Die Einsatzansicht öffnet auf
+> Wunsch ein zweites Fenster mit der Lage für einen am Gerät angeschlossenen
+> Fernseher (`?lagemonitor=`). Es liest denselben lokalen Speicher, hat kein
+> Netz und keinen neuen Empfänger und zeigt nur Summen und Einheitsnamen, keine
+> Personen. Neu ist ein Speicherort ohne Personendaten: der von Hand gesetzte
+> Einsatzbeginn je Einsatz (`eeb.lagebeginn.v1`). Geändert: 5.7.
+>
 > **Nachgezogen 2026-09-13 — Datenschutzfrist:** Die App anonymisiert
 > Personaldaten 90 Tage nach der letzten Änderung eines Bogens, Übungsbögen und
 > Vorlagen ausgenommen.
