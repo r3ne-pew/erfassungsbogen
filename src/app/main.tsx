@@ -19,10 +19,15 @@ import { tastaturWaechterStarten } from "./tastatur";
 import { schriftStufeStarten } from "./schrift-stufe";
 import { statistikStarten } from "./statistik";
 import { dauerhaftWennWertvoll, speicherVerdrahten } from "./speicher-browser";
+import { stempelQuelleSetzen } from "./hilfen";
+import { stempelZeitpunkt } from "./datenschutz-uhr";
 
 // Die Einsatz-Sammlung bekommt ihre Ablage hineingereicht (ADR-003); ohne
 // diese Zeile bliebe sie speicherlos. Muss vor dem ersten Lesen stehen.
 speicherVerdrahten();
+// Neue Stände werden mit der geprüften Uhr gestempelt (R5-E2); hilfen.ts importiert
+// sie bewusst nicht selbst (Startbündel, siehe dort).
+stempelQuelleSetzen(stempelZeitpunkt);
 // Um dauerhaften Speicher bitten, sobald hier etwas Wertvolles liegt (R2-O6).
 dauerhaftWennWertvoll();
 

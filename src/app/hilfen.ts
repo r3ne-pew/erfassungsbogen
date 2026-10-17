@@ -33,7 +33,6 @@ import {
   unterbringungMWD,
   verpflegung,
 } from "@bos/eeb-format/model";
-import { stempelZeitpunkt } from "./datenschutz-uhr";
 import { bogenBefund } from "./bogen-pruefung";
 import {
   EEB_URL_PREFIX,
@@ -82,6 +81,18 @@ export {
   datumDeutsch,
   zeitgruppe,
 } from "@bos/meldekopf/darstellung";
+
+// Stempelzeit neuer Stände: die geprüfte Uhr (datenschutz-uhr.ts, R5-E2). Sie
+// wird beim Start hier angemeldet, statt dass dieses Modul sie importiert: Mit
+// dem Import zog hilfen.ts über datenschutz-uhr und den Meldekopf-Kern die
+// Vokabulare (Berufe, Ortsverbände, ~330 KB) aus den nachgeladenen Brocken in
+// das Startbündel (Startbündel 1,04 → 1,58 MB, ADR-003 Aufnahmeregel 5).
+let stempelQuelle: () => EebZeitpunkt = () => jetztZeitpunkt();
+
+/** Meldet die Quelle für Stempelzeiten an (main.tsx: die geprüfte Uhr). */
+export function stempelQuelleSetzen(quelle: () => EebZeitpunkt): void {
+  stempelQuelle = quelle;
+}
 
 /**
  * Anzeigename der Einheit: Organisation, Standort, Einheitstyp — jeder Teil einmal
@@ -1134,7 +1145,7 @@ export function neuerBogen(): Erfassungsbogen {
   const heute = datumAusIso(new Date().toISOString().slice(0, 10));
   return {
     schemaVersion: SCHEMA_VERSION,
-    stand: stempelZeitpunkt(),
+    stand: stempelQuelle(),
     einheit: {
       organisation: OrganisationsTyp.THW,
       einheitsTyp: {},
