@@ -31,6 +31,7 @@ import {
 } from "@bos/eeb-format/model";
 import {
   betriebsstoffPlausibilitaet,
+  einheitAnzeigename,
   bogenLaden,
   browserKompressor,
   fahrzeugHinweise,
@@ -962,5 +963,34 @@ describe("bogenPruefen() — Pflichtfelder (R5-E1)", () => {
     const c = JSON.parse(JSON.stringify(neuerBogen())) as Record<string, unknown>;
     delete c.stand;
     expect(() => bogenPruefen(c)).toThrow(/Der Bogen ist unvollständig: der Stand/);
+  });
+});
+
+describe("einheitAnzeigename() — jeder Teil einmal (R5-N6)", () => {
+  const einheit = (organisation: OrganisationsTyp, organisationName: string | undefined, ort: string, typ: string) => ({
+    organisation,
+    ...(organisationName ? { organisationName } : {}),
+    einheitsTyp: { freitext: typ },
+    hierarchie: [{ bezeichnung: { freitext: "Ort" }, name: ort }],
+  });
+
+  it("lässt den Ort weg, der schon im Organisationsnamen steht", () => {
+    expect(einheitAnzeigename(einheit(OrganisationsTyp.SONSTIGE, "DRK-Kreisverband Buchenrode e. V.", "Buchenrode", "Behandlung Kat. GELB (BHP 25)"))).toBe(
+      "DRK-Kreisverband Buchenrode e. V. Behandlung Kat. GELB (BHP 25)",
+    );
+    expect(einheitAnzeigename(einheit(OrganisationsTyp.SONSTIGE, "Berufsfeuerwehr Nordwede — MTF-Standort (Bundesausstattung)", "Nordwede", "Führungsgruppe (MTF)"))).toBe(
+      "Berufsfeuerwehr Nordwede — MTF-Standort (Bundesausstattung) Führungsgruppe (MTF)",
+    );
+  });
+
+  it("lässt den Typ weg, der dem Ort gleicht", () => {
+    expect(einheitAnzeigename(einheit(OrganisationsTyp.SONSTIGE, "Bundeswehr", "Panzerpionierzug", "Panzerpionierzug"))).toBe("Bundeswehr Panzerpionierzug");
+  });
+
+  it("lässt THW-Namen und verschiedene Teile unberührt, auch bei Teilwörtern", () => {
+    expect(einheitAnzeigename(einheit(OrganisationsTyp.THW, undefined, "Ulm", "Bergungsgruppe"))).toBe("THW Ulm Bergungsgruppe");
+    // „Ulm“ steckt in „Neu-Ulm“ nur als Wortteil mit Bindestrich — dort ist es ein eigenes Wort und entfällt zu Recht;
+    // „Ulmen“ aber ist ein anderes Wort.
+    expect(einheitAnzeigename(einheit(OrganisationsTyp.SONSTIGE, "FF Ulmen", "Ulm", "Gruppe"))).toBe("FF Ulmen Ulm Gruppe");
   });
 });

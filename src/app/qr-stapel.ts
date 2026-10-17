@@ -344,7 +344,7 @@ export function stapelBericht(
   if (e.abgebrochen) zeilen.push("Abgebrochen — die restlichen Bilder wurden nicht gelesen.");
   for (const l of e.luecken) {
     zeilen.push(
-      `Unvollständiger mehrteiliger Bogen: ${l.haben} von ${l.anzahl} Teilen da (${l.dateien.join(", ")}) — ` +
+      `Unvollständiger Bogen (mehrere QR-Codes): ${l.haben} von ${l.anzahl} Teilen da (${l.dateien.join(", ")}) — ` +
         `es ${l.fehlen.length === 1 ? "fehlt Teil" : "fehlen die Teile"} ${l.fehlen.join(", ")}.` +
         // Mit Merker ist das kein Verlust, sondern ein Zwischenstand (R2-A2).
         (l.gemerktBis != null

@@ -26,7 +26,7 @@ describe("StapelQuittung", () => {
       <StapelQuittung stand="" onAbbrechen={() => {}} bericht={["1 Bild gelesen — 1 Bogen aufgenommen."]} onSchliessen={() => {}} />,
     );
     expect(gerufen).toEqual([{ block: "nearest" }]);
-    const karte = screen.getByRole("region", { name: "Stapel eingelesen" });
+    const karte = screen.getByRole("region", { name: "Bilder und Dateien eingelesen" });
     expect(document.activeElement).toBe(karte);
   });
 

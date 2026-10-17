@@ -54,10 +54,10 @@ import { binaerTeilen, istNativ, textTeilen } from "./nativ";
 import { sitzplaetzeFuer, sitzplaetzeRichtwert, sitzplatzBilanz, type SitzplatzBilanz } from "@bos/vokabulare/sitzplaetze";
 import {
   datumDeutsch,
-  einheitAnzeigename,
   einheitOrt,
   funkrufText as funkrufTextEinfach,
   kennzeichenText,
+  orgLabel,
   vokabText,
   vokabularFuer,
 } from "@bos/meldekopf/darstellung";
@@ -79,10 +79,30 @@ export {
   kennzeichenText,
   kontaktText,
   einheitOrt,
-  einheitAnzeigename,
   datumDeutsch,
   zeitgruppe,
 } from "@bos/meldekopf/darstellung";
+
+/**
+ * Anzeigename der Einheit: Organisation, Standort, Einheitstyp — jeder Teil einmal
+ * (Audit Runde 5, R5-N6). Der Baustein (vendor, ADR-003) setzt die drei Teile ohne Prüfung
+ * zusammen; bei Bögen anderer Organisationen stand dann „Bundeswehr Panzerpionierzug
+ * Panzerpionierzug“ oder „DRK-Kreisverband Buchenrode e. V. Buchenrode Behandlung“. Ein Teil,
+ * der als ganze Wörter schon in einem davor steht, entfällt. Der Fingerabdruck der Einheit
+ * (einheitSchluessel) hängt nicht daran.
+ */
+export function einheitAnzeigename(e: Einheit): string {
+  const org = e.organisationName?.trim() || orgLabel(e.organisation);
+  const typ = vokabText(e.einheitsTyp, vokabularFuer(e.organisation, "einheitstyp"), "name");
+  const teile: string[] = [];
+  for (const teil of [org, einheitOrt(e), typ]) {
+    if (!teil) continue;
+    const muster = new RegExp(`(?<![\\p{L}\\p{N}])${teil.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`, "iu");
+    if (teile.some((davor) => muster.test(davor))) continue;
+    teile.push(teil);
+  }
+  return teile.join(" ");
+}
 
 /**
  * Funkrufname eines Fahrzeugs, wie er gesprochen wird. Im Regelfall die

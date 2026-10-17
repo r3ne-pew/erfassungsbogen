@@ -1062,6 +1062,14 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
           Nur Stärke (Meldekopf-Schnellerfassung)
         </label>
       </p>
+      {/* „Meldekopf-Schnellerfassung“ nennt eine Funktion des anderen Geräts; wer seinen
+          eigenen Bogen ausfüllt, braucht sie nicht (R5-N7). */}
+      {!nurStaerke && (
+        <p className="hinweis">
+          „Nur Stärke“ meldet nur die Zahlen, ohne Namen und Fahrzeuge — gedacht für den Meldekopf, der eine
+          Einheit im Stehen aufnimmt. Für den eigenen Bogen „Personal vollständig erfassen“ lassen.
+        </p>
+      )}
 
       {nurStaerke && (
         <>
@@ -1190,6 +1198,13 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
       {!nurStaerke && !schnell && bogen.personal.length > VIELE_PERSONEN && (
         <p className="hinweis viele-personen">
           Viele Personen — die Kurz-Liste (eine Zeile je Person) zeigt mehr auf einmal.
+        </p>
+      )}
+      {/* Die Regel zur ersten Person stand in der Kurz-Liste nur im Tooltip von „⇑“, den es
+          auf dem Telefon nicht gibt (R5-N8). */}
+      {!nurStaerke && schnell && bogen.personal.length >= 2 && (
+        <p className="hinweis ansprech-regel">
+          Die erste Person ist die Ansprechperson (erreichbar für Rückfragen). „⇑“ setzt eine Person ganz nach oben — und damit an diese Stelle.
         </p>
       )}
       {quittung}

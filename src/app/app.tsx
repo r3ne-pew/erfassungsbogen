@@ -1802,7 +1802,7 @@ function AppInhalt() {
         hinweis:
           (nichtJuenger && bisher
             ? `Der Bogen trägt ${b.stand < bisher.stand ? "einen älteren" : "denselben"} Stand (${zeitpunktDeutsch(b.stand)}) wie die bisherige Meldung (${zeitpunktDeutsch(bisher.stand)}${platzhalterBisher ? ", von Hand erfasst" : ""}) — er gilt trotzdem, die bisherige wandert in die Historie.`
-            : "Der Normalfall bei einer Folgemeldung: die bisherige Meldung wandert in die Historie.") +
+            : "Der Normalfall bei einer Nachmeldung derselben Einheit: die bisherige Meldung wandert in die Historie, die neue gilt.") +
           (bisher ? wegfallHinweis(bisher) : ""),
       };
       const historieWeg: Antwortweg[] = nichtJuenger
@@ -3398,7 +3398,7 @@ function AppInhalt() {
       const voll = speicherVollMeldung(speicherVoll);
       if (voll) setEinlese({ fehler: voll, meldung: "" });
     } catch (e) {
-      setEinlese({ fehler: `Stapel einlesen: ${fehlerText(e)}`, meldung: daten?.meldung ?? "" });
+      setEinlese({ fehler: `Einlesen: ${fehlerText(e)}`, meldung: daten?.meldung ?? "" });
     } finally {
       setStapelStand("");
     }

@@ -297,7 +297,7 @@ describe("qrStapelLesen", () => {
     expect(zusammen[0]).toContain("zu unscharf");
     expect(zusammen[0]).toContain("neu fotografieren");
     // Das fehlende Teil steht vor der Sammelzeile.
-    const luecke = zeilen.findIndex((z) => z.startsWith("Unvollständiger mehrteiliger Bogen"));
+    const luecke = zeilen.findIndex((z) => z.startsWith("Unvollständiger Bogen (mehrere QR-Codes)"));
     expect(luecke).toBeGreaterThan(0);
     expect(luecke).toBeLessThan(zeilen.indexOf(zusammen[0]!));
     // Statt 10 Zeilen: Aufnahme, Lücke, Sammelzeile, zwei Hinweise.

@@ -66,7 +66,7 @@ export function StapelQuittung(props: {
           dafür nicht. */}
       {hatBericht && (
         <section className="karte" ref={berichtRef} tabIndex={-1} aria-labelledby="stapel-quittung-titel">
-          <h2 id="stapel-quittung-titel">Stapel eingelesen</h2>
+          <h2 id="stapel-quittung-titel">Bilder und Dateien eingelesen</h2>
           <ul>
             {befund.map((zeile) => (
               <li key={zeile}>{zeile}</li>

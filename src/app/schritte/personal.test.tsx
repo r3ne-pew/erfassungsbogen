@@ -128,6 +128,16 @@ describe("Schritt Personal", () => {
     expect(screen.getByText("Person 2 von 2")).toBeDefined();
   });
 
+  it("erklärt „Nur Stärke“ für den eigenen Bogen und die Regel zur ersten Person in der Kurz-Liste (R5-N7, R5-N8)", async () => {
+    const nutzer = userEvent.setup();
+    buehne();
+    expect(screen.getByText(/„Nur Stärke“ meldet nur die Zahlen, ohne Namen und Fahrzeuge/)).toBeDefined();
+    await nutzer.click(screen.getByRole("button", { name: "+ Person hinzufügen" }));
+    await nutzer.click(screen.getByRole("button", { name: "+ Person hinzufügen" }));
+    await nutzer.click(screen.getByLabelText("Kurz-Liste (Tabelle)"));
+    expect(screen.getByText(/Die erste Person ist die Ansprechperson/)).toBeDefined();
+  });
+
   it("rechnet in der Meldekopf-Schnellerfassung die Gesamtstärke aus", async () => {
     const nutzer = userEvent.setup();
     buehne();
