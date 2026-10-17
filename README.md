@@ -72,8 +72,9 @@ Wer noch abwägt: [Papier oder digital?](https://erfassungsbogen.app/papier-oder
   Kraftstoff, sortiert nach jeder angeklickten Spalte, mit Summenzeile darunter;
   Suche und Filter der Liste gelten für beide Sichten.
 - **Lagemonitor für den Fernseher**: ein zweites Fenster mit der Lage in großer
-  Schrift — taktische Zeit (DTG), Einsatzdauer ab einem von Hand gesetzten
-  Einsatzbeginn, Stärke (Führer/Unterführer/Mannschaft), Einheiten, Fahrzeuge,
+  Schrift — in der ersten Zeile der optionale Funkrufname der Führungsstelle,
+  darunter der Name des Einsatzes, dann taktische Zeit (DTG), Einsatzdauer ab
+  einem von Hand gesetzten Einsatzbeginn, Stärke (Führer/Unterführer/Mannschaft), Einheiten, Fahrzeuge,
   Züge und die zuletzt gemeldeten Einheiten, ohne Personennamen. Es wird auf den
   per Kabel angeschlossenen Fernseher gezogen (erweiterter Bildschirm), hält den
   Bildschirm wach und aktualisiert sich selbst, solange es auf dem

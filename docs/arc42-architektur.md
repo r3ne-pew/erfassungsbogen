@@ -17,8 +17,10 @@
 > `lagemonitor-ui.tsx`, `lagemonitor-beginn.ts`; Aufruf über
 > `main.tsx` mit `?lagemonitor=<Einsatz>`). Zweites Fenster, gleicher
 > `localStorage`, Abgleich über das `storage`-Ereignis und einen Takt von
-> 5 s; kein Netz. Neuer Speicherschlüssel `eeb.lagebeginn.v1` (Einsatzbeginn
-> von Hand, bewusst außerhalb des Schemas und der Submodule). Electron lässt
+> 5 s; kein Netz. Neue Speicherschlüssel `eeb.lagebeginn.v1` (Einsatzbeginn
+> von Hand) und `eeb.lagefunkruf.v1` (optionaler Funkrufname, erste Zeile des
+> Monitors; beide über `lagemonitor-speicher.ts`), bewusst außerhalb des
+> Schemas und der Submodule. Electron lässt
 > dieses eine Fenster zu (`electron/main.js`) — Kapitel 5, 6, 8.2, 8.3.
 >
 > **Nachgezogen 2026-09-13:** Datenschutzfrist (neues Kern-Modul

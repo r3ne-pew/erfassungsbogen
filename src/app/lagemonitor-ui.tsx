@@ -13,7 +13,15 @@
 import { useEffect, useState } from "react";
 import "./lagemonitor.css";
 import { einsaetzeLaden } from "./einsaetze-lesen";
-import { BEGINN_SCHLUESSEL, einsatzbeginnLaden, einsatzbeginnSetzen } from "./lagemonitor-beginn";
+import {
+  BEGINN_SCHLUESSEL,
+  FUNKRUF_MAX,
+  FUNKRUF_SCHLUESSEL,
+  einsatzFunkrufLaden,
+  einsatzFunkrufSetzen,
+  einsatzbeginnLaden,
+  einsatzbeginnSetzen,
+} from "./lagemonitor-beginn";
 import { ausEingabeWert, dauerText, dtgTeile, lagebild, vorText, zuEingabeWert } from "./lagemonitor";
 import { EinsatzArt } from "@bos/meldekopf/einsaetze";
 
@@ -77,7 +85,9 @@ function useSpeicherAenderung(): number {
   const [stand, setStand] = useState(0);
   useEffect(() => {
     const horcher = (e: StorageEvent) => {
-      if (e.key === null || e.key === "eeb.einsaetze.v1" || e.key === BEGINN_SCHLUESSEL) setStand((n) => n + 1);
+      if (e.key === null || e.key === "eeb.einsaetze.v1" || e.key === BEGINN_SCHLUESSEL || e.key === FUNKRUF_SCHLUESSEL) {
+        setStand((n) => n + 1);
+      }
     };
     window.addEventListener("storage", horcher);
     return () => window.removeEventListener("storage", horcher);
@@ -104,6 +114,7 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
   void stand;
   const einsatz = einsaetzeLaden().find((s) => s.id === einsatzId);
   const beginn = einsatzbeginnLaden(einsatzId);
+  const funkruf = einsatzFunkrufLaden(einsatzId);
 
   useEffect(() => {
     document.title = einsatz ? `Lage – ${einsatz.name}` : "Lagemonitor";
@@ -129,8 +140,13 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
 
   return (
     <main className={klasse}>
-      <h1 className="lm-zeile lm-r1">{einsatz.name}</h1>
-      <div className="lm-zeile lm-r2">{bild.ort ? bild.ort : art}</div>
+      {/* Erste Zeile: eigener Funkrufname, optional — ohne ihn rückt der Einsatzname nach oben. */}
+      {funkruf && <h1 className="lm-zeile lm-r1">{funkruf}</h1>}
+      {funkruf ? (
+        <div className="lm-zeile lm-r2">{einsatz.name}</div>
+      ) : (
+        <h1 className="lm-zeile lm-r1">{einsatz.name}</h1>
+      )}
       <div className="lm-zeile lm-dtg" aria-label="Datum-Zeit-Gruppe">
         <div className="lm-dtg-text">
           <span>{dtg.tag}</span> <strong>{dtg.zeit}</strong> <span>{dtg.monat}</span> <span>{dtg.jahr}</span>
@@ -184,6 +200,7 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
         <summary>Einsatzdaten</summary>
         <dl className="lm-daten">
           <dt>Art</dt><dd>{art}{bild.ort ? ` · ${bild.ort}` : ""}</dd>
+          <dt>Funkrufname</dt><dd>{funkruf ?? "nicht gesetzt (in der Einsatzansicht einstellen)"}</dd>
           <dt>Einsatzbeginn</dt>
           <dd>
             {beginn != null
@@ -214,6 +231,12 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
 export function LagemonitorBlock({ einsatzId, alleIds }: { einsatzId: string; alleIds: readonly string[] }) {
   const [beginn, setBeginn] = useState<number | null>(() => einsatzbeginnLaden(einsatzId));
   const [fehler, setFehler] = useState(false);
+  const [funkruf, setFunkruf] = useState(() => einsatzFunkrufLaden(einsatzId) ?? "");
+
+  function setzeFunkruf(text: string) {
+    setFunkruf(text.slice(0, FUNKRUF_MAX));
+    setFehler(!einsatzFunkrufSetzen(einsatzId, text, alleIds));
+  }
 
   function setze(ms: number | null) {
     const ok = einsatzbeginnSetzen(einsatzId, ms, alleIds);
@@ -225,9 +248,22 @@ export function LagemonitorBlock({ einsatzId, alleIds }: { einsatzId: string; al
     <div className="lm-block">
       <p className="lm-block-titel"><strong>Lagemonitor für den Fernseher</strong></p>
       <p className="hinweis">
-        Zweites Fenster mit der Lage in großer Schrift, ohne Personennamen — auf den Fernseher ziehen (HDMI, erweiterter
-        Bildschirm). Es aktualisiert sich von selbst, solange es auf diesem Gerät läuft.
+        Zweites Fenster mit der Lage in großer Schrift, ohne Personennamen — auf den Fernseher ziehen (HDMI,
+        erweiterter Bildschirm). Es aktualisiert sich von selbst, solange es auf diesem Gerät läuft. In der ersten
+        Zeile steht der Funkrufname (wenn eingetragen), darunter der Name dieses Einsatzes.
       </p>
+      <div className="vorlage-aktionen">
+        <label>
+          Funkrufname (optional){" "}
+          <input
+            type="text"
+            value={funkruf}
+            maxLength={FUNKRUF_MAX}
+            placeholder="z. B. Salus Übungsleitung"
+            onChange={(e) => setzeFunkruf(e.target.value)}
+          />
+        </label>
+      </div>
       <div className="vorlage-aktionen">
         <label>
           Einsatzbeginn{" "}
