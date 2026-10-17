@@ -20,7 +20,7 @@ import {
  * Stylesheet den Klappknopf aus und zeigt die Segmente wie gewohnt; das
  * Ausblenden ist reines CSS, im Baum stehen immer alle Knöpfe.
  */
-export function AnzeigeSchalter({ klappbar = false }: { klappbar?: boolean }) {
+export function AnzeigeSchalter({ klappbar = false, beschriftet = false }: { klappbar?: boolean; beschriftet?: boolean }) {
   const [modus, setModus] = useState<AnzeigeModus>(() => anzeigeModus());
   const [offen, setOffen] = useState(false);
 
@@ -43,7 +43,7 @@ export function AnzeigeSchalter({ klappbar = false }: { klappbar?: boolean }) {
     .join(" ");
   const aktuell = ANZEIGE_MODI.find((x) => x.modus === modus)?.label ?? "";
 
-  return (
+  const schalter = (
     <span className={klassen} role="group" aria-label="Anzeigemodus">
       {klappbar && (
         <button
@@ -72,6 +72,16 @@ export function AnzeigeSchalter({ klappbar = false }: { klappbar?: boolean }) {
         </button>
       ))}
     </span>
+  );
+  // Überall derselbe Name „Ansicht“ (R5-N4): Wo die vier Segmente ohne Klappknopf stehen
+  // (Einsatzansicht), trägt der Schalter die Überschrift selbst; sonst sahen sie nach Reitern aus.
+  return beschriftet ? (
+    <span className="anzeige-mit-name">
+      <span className="anzeige-name" aria-hidden="true">Ansicht:</span>
+      {schalter}
+    </span>
+  ) : (
+    schalter
   );
 }
 
@@ -129,7 +139,7 @@ function festPositioniert(el: Element, fenster: Window): boolean {
  * `mitText`: der Knopf nennt den gewählten Modus („Ansicht: Standard") — so
  * steht er in der festen Leiste der Einsatzansicht (R5-L1).
  */
-export function AnzeigeLeistenKnopf({ mitText = false }: { mitText?: boolean } = {}) {
+export function AnzeigeLeistenKnopf({ mitText = false, kurz = false }: { mitText?: boolean; kurz?: boolean } = {}) {
   const [modus, setModus] = useState<AnzeigeModus>(() => anzeigeModus());
   const [offen, setOffen] = useState(false);
   const huelle = useRef<HTMLSpanElement>(null);
@@ -185,6 +195,8 @@ export function AnzeigeLeistenKnopf({ mitText = false }: { mitText?: boolean } =
         {/* In der festen Leiste der Einsatzansicht mit Text: „◐" allein sagte
             nicht, was es schaltet (R5-L1; „◐ ohne Text", Runde 5). */}
         {mitText && <span className="anzeige-leiste-text">Ansicht: {aktuell}</span>}
+        {/* Im Assistenten (drei Knöpfe in der Leiste) nur das Wort, ohne den Modus (R5-N4). */}
+        {!mitText && kurz && <span className="anzeige-leiste-text">Ansicht</span>}
       </button>
       {offen && (
         <span className="anzeige-leiste-wahl" role="group" aria-label="Anzeigemodus">

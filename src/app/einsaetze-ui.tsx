@@ -1295,7 +1295,7 @@ export function EinsatzDetail(props: {
         {/* „‹ Startseite" wie im Assistenten: Der Weg führt auf die
             Startseite, die Einsätze stehen dort erst weiter unten (R3-N6). */}
         <button type="button" className="zur-start" onClick={onZurueck}>‹ Startseite</button>
-        <AnzeigeSchalter />
+        <AnzeigeSchalter beschriftet />
       </div>
       <div className="titelzeile">
         <h1>{einsatz.name}</h1>

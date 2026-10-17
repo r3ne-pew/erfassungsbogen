@@ -727,6 +727,9 @@
     /* R5-G7: mindestens 2 px zwischen den Segmenten (vorher 1 px im Standard-Modus). */
     .anzeige-schalter button + button { border-left: max(var(--strich), 2px) solid var(--linie-stark); }
     .anzeige-schalter button.aktiv { background: var(--akzent); color: var(--auf-akzent); }
+    /* R5-N4: Der Schalter trägt dort, wo die Segmente allein stehen, den Namen „Ansicht:“. */
+    .anzeige-mit-name { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; max-width: 100%; }
+    .anzeige-name { font-size: var(--t-xs); font-weight: 600; }
     /* Im Assistenten-Kopf sitzt der Umschalter rechts in der Titelzeile — auf
        der Kennfarbe trennt die Kopf-Linie statt des Inhalts-Graus. */
     /* Der Titel darf den Umschalter nach einem Umbruch nicht zerquetschen: h1

@@ -202,3 +202,16 @@ describe("ankerInBildmitte (R4-L3)", () => {
     expect(ankerInBildmitte(s.dok, s.fenster)).toBe(gross);
   });
 });
+
+describe("Ein Name für den Schalter: „Ansicht“ (R5-N4)", () => {
+  it("die beschriftete Form trägt die Überschrift „Ansicht:“ vor den vier Segmenten", () => {
+    render(<AnzeigeSchalter beschriftet />);
+    expect(screen.getByText("Ansicht:")).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Anzeigemodus" })).toBeTruthy();
+  });
+
+  it("der Knopf der Leiste im Assistenten trägt das Wort statt „◐“ allein", () => {
+    render(<AnzeigeLeistenKnopf kurz />);
+    expect(screen.getByText("Ansicht")).toBeTruthy();
+  });
+});

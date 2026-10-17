@@ -834,7 +834,7 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
           <a href="https://erfassungsbogen.app/meldekopf.html" target="_blank" rel="noopener noreferrer">Meldekopf</a>
         </nav>
         <div className="fuss-gruppe">
-          <span className="fuss-titel">Darstellung</span>
+          <span className="fuss-titel">Ansicht</span>
           <AnzeigeSchalter />
         </div>
       </div>

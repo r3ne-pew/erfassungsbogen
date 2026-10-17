@@ -4354,7 +4354,7 @@ function AppInhalt() {
           {/* Moduswechsel aus der festen Leiste, ohne die Stelle im Formular
               zu verlieren (Audit Runde 3, R3-L6). Neben „← Zurück", nicht
               neben „Weiter →": Ein Fehlgriff klappt nur die Wahl auf. */}
-          <AnzeigeLeistenKnopf />
+          <AnzeigeLeistenKnopf kurz />
           {/* Der Abschluss der Einsatz-Erfassung stand nur auf Schritt 6; am
               Meldekopf reicht oft Schritt 1 und 3 (F2). Im Hochformat steht er
               in eigener Zeile über dem Blättern: schmal zwischen „← Zurück" und
