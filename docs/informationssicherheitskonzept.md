@@ -327,6 +327,22 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > zweiten Stufe (6.1). Eine feste Warnleiste am Bildrand ersetzt die Zeile
 > „Nicht gespeichert" im Kopf (R5-O1). Keine neuen Hosts, CSP unverändert.
 
+
+> **Nachgezogen 2026-10-17:** Audit Runde 5, Paket 4 „Papier, PDF, Begriffe,
+> Rest" — PDF- und Exportänderungen (5.4): Jede Bogenseite trägt im Seitenrand
+> eine Kopfzeile (Einzel-PDF: Platz „Nr., eingegangen, übertragen", Folgeseiten
+> mit Nr. und Einheit; Sammel-PDF: Nr., Einheit, „Blatt x von y", Haken
+> „übertragen"; Blanko: Einheit und Blattzahl auf Seite 2). Fahrzeugblöcke
+> reißen nicht mehr über die Seitengrenze, das Lageblatt steht nach Nr. und
+> kennzeichnet gekürzte Bemerkungen, der Blanko-Vordruck nennt das Beiblatt und
+> hat mehr Platz für Sofortbedarf und „Sonstiges". Alle PDF-Texte werden auf die
+> PDF-Schrift (WinAnsi) abgebildet. Die Prüfpunkte heißen „Hinweise" (Lageblatt,
+> Karte, Übersichts-CSV-Spalte, Excel-Bemerkung). Neu in der manuellen
+> Erfassung: „Nr. laut Zettel" und Zug (Meldungsdaten, bleiben im Gerät). Kein
+> neuer Speicherort, keine neue Datenkategorie, keine Netzverbindung; Transport
+> und `vendor/` unverändert. Der Entwurf trägt zusätzlich die Marke „über die
+> Startseite verlassen" (`fremd.startseite`, R5-N3, 3.3 D1) — keine Daten.
+
 ## Hinweis zu diesem Dokument
 
 Dies ist eine KI-gestützt erstellte Entwurfsvorlage, keine geprüfte oder
@@ -766,6 +782,24 @@ Datenausleitung an eine andere Herkunft ist technisch unterbunden.
   das Lageblatt nennt Bedarfsänderungen (Unterbringung, Kraftstoff) und kennzeichnet
   vom Papier übernommene, unbestätigte Eintreffzeiten. Die Datenkategorien der
   Exporte ändern sich dadurch nicht, es kommen nur abgeleitete Hinweise dazu.
+  *Nachgezogen 2026-10-17 (Audit Runde 5, Paket 4, R5-A2 bis R5-A9, R5-K2,
+  R5-L5, R5-N5):* Einzel-PDF, Sammel-PDF und Blanko tragen im oberen Seitenrand
+  eine Kopfzeile (`bogenKopfzeile` in `pdf-dokument.ts`): auf Seite 1 des
+  Einzel-PDF der Platz „Meldekopf: Nr., eingegangen, übertragen [ ] von …", in
+  der Sammel-PDF Nr., Einheit, „Blatt x von y" und der Haken „übertragen", auf
+  jeder Folgeseite Nr. und Einheit. Die Seitenanfänge je Bogen misst ein
+  Probesatz mit Platzhalterbildern. Die Kopfzeilen sind Text aus dem Bogen
+  und dem Meldekopf-Stand, keine neuen Datenkategorien. Fahrzeugblöcke sind
+  unteilbar; Lageblatt und Sammel-PDF stehen nach Nr.; „Bedarf gesamt" steht
+  bei mehr als zwölf Einheiten vor der Tabelle; gekürzte Bemerkungen enden mit
+  „(Rest: Sammel-PDF)". Der Blanko-Vordruck (`public/downloads/…blanko.pdf`,
+  neu erzeugt) hat 29 statt 34 Personalzeilen, einen Beiblatt-Hinweis, Abstand
+  im Sofortbedarf und drei Zeilen „Sonstiges". Alle Texte aller PDFs laufen
+  durch `winAnsiText` (Fremdzeichen wie „≠" oder „→" werden ersetzt, Test
+  `pdf-winansi.test.ts`). In Übersichts-CSV und Excel heißt die Spalte bzw.
+  das Stichwort der Prüfpunkte „Hinweise" statt „Rückfrage". Auf der
+  Einsatzansicht steht der Hinweis, dass die PDFs für Papier gedacht und hell
+  sind. Kein neuer Empfänger, keine neue Netzverbindung.
 
 ### 5.5 Datensparsamkeit und Löschung
 

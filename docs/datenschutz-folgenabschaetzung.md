@@ -255,6 +255,15 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > Datenkategorie, kein neuer Empfänger, kein neuer Speicherort, keine neuen
 > Netzverbindungen. Geändert: 5.5.
 >
+> **Nachgezogen 2026-10-17 — Papier, PDF, Begriffe (Audit Runde 5, Paket 4):**
+> Einzel-PDF, Sammel-PDF und Blanko-Vordruck tragen im Seitenrand eine
+> Kopfzeile mit Nr., Einheit und Blattzahl sowie Platz zum Quittieren
+> („übertragen"); Lageblatt und Sammel-PDF stehen nach Nr. Die Angaben stehen
+> schon auf dem Bogen bzw. im Meldekopf-Stand. Die manuelle Erfassung nimmt
+> optional „Nr. laut Zettel" und Zug auf (Meldungsdaten der Sammlung, bleiben
+> im Gerät). Keine neue Datenkategorie, kein neuer Empfänger, kein neuer
+> Speicherort, keine neuen Netzverbindungen. Geändert: 5.5.
+>
 > **Nachgezogen 2026-10-14 — Uhr, Löschfristen, Fehlerfänger, Speicher,
 > Offline (Audit Runde 5, Paket 1):** Ein Uhrsprung (60 Tage und mehr, vor oder
 > zurück) wird nie durch Zeitablauf bestätigt: Bis dahin übernahm die App ihn
@@ -527,6 +536,12 @@ biometrische Daten, strafrechtliche Daten.
   „Veränderung" (R5-K7). Die Sammel-PDF bettet den Stand der Exporte je Format
   ein (Kennungen, Prüfsummen, Zeitpunkt; R5-W6, siehe 5.7). Es kommen keine
   Datenkategorien und keine Empfänger hinzu.
+  *Nachgezogen 2026-10-17 (Audit Runde 5, Paket 4):* Jede Seite der PDFs trägt
+  im Seitenrand Nr., Einheit und „Blatt x von y" (auf Seite 1 den Haken „ins
+  Gerät übertragen"), damit lose Blätter einer Einheit zuzuordnen sind; die
+  Angaben stehen bereits auf dem Bogen bzw. im Stand am Meldekopf. Die
+  Spalte „Prüfpunkte" heißt „Hinweise". Keine neue Datenkategorie, kein neuer
+  Empfänger.
   Seit 2026-10-05 (R3-A6) steht im Bogen-PDF je Person auch die Zählrolle
   (F/UF/M); Lageblatt und Bogen-PDF lassen Platz für Nachträge von Hand.
   Seit 2026-10-06 (R4-A3 bis R4-A8) trägt das Lageblatt mindestens fünf

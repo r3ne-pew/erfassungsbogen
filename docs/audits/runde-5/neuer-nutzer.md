@@ -580,3 +580,22 @@ dieses Pakets.
 | Befund | Stand | Umsetzung |
 | --- | --- | --- |
 | R5-N1 „Anderer Einsatz?“ bei den ersten Bögen einer frischen Sammlung | behoben | Der Sammlungsname allein ist keine Vergleichsbasis mehr. Hat die Sammlung einen Ort/Auftrag, gilt er; sonst zählen nur Wörter, die mindestens zwei von mindestens drei anderen Einheiten gemeinsam nennen. Ortsnamen ab drei Buchstaben, „Neu-Ulm“ zählt auch als „Ulm“. Tests: erste und zweite Einheit einer Sammlung nur mit Namen ohne Marke; mit Ort bzw. vier Einheiten bleibt die Marke. |
+
+Stand 17.10.2026, Paket 4 „Papier, PDF, Begriffe, Rest".
+Geprüft mit Typprüfung, Unit-Tests (2 875 grün), Verhaltenstests (137 Szenarien, 1 749 Schritte grün)
+und Nachmessung (PDFs mit `pdfinfo`, `pdftotext` und gerenderten Seiten; Browser
+360 × 640, `isMobile`/`hasTouch`, de-DE, Dev-Server Port 5180). Probemenge: alle
+443 Beispielbögen unter `examples/`; die Seitenzahlen blieben unverändert (Einzel
+772, mit zwei Codeteilen 998). Aufgeführt sind nur die Befunde dieses Pakets.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-N2 Rat „Zeitraum bis stehen lassen“ gegen „Zeitraum vorbei“ | behoben (Wortlaut) | Schritt 2: „… steht das Ende noch nicht fest, den Vorschlag stehen lassen. Läuft der Einsatz länger, das Ende nachtragen — sonst steht die Einheit am Folgetag beim Meldekopf als „Zeitraum vorbei“.“ Die Marke selbst bleibt (der Zeitraum ist ein echter Prüfpunkt). |
+| R5-N3 Neuladen springt in die halbfertige Aufnahme | behoben | Der Entwurf einer fremden Erfassung trägt die Marke `fremd.startseite`, solange sie über „‹ Startseite“ verlassen ist; nach dem Neuladen steht die Startseite mit der Karte „Fortsetzen / Verwerfen“, nicht das Formular. Ohne die Marke (Neuladen mitten in der Erfassung) öffnet die Erfassung wie bisher (R3-S7). |
+| R5-N4 Ansichtsschalter heißt dreimal anders | behoben | „Ansicht“ in Kopf, Fußzeile (statt „Darstellung“), auf der Sammlungsseite als Überschrift „Ansicht:“ vor den vier Segmenten, im Assistenten in der Leiste „◐ Ansicht“. |
+| R5-N6 Namensteile doppelt | behoben | `einheitAnzeigename` (App-Schicht `hilfen.ts`; der Baustein unter `vendor/` blieb unberührt) lässt einen Teil weg, der als ganze Wörter schon in einem davor steht: „Bundeswehr Panzerpionierzug“, „DRK-Kreisverband Buchenrode e. V. Behandlung Kat. GELB (BHP 25)“. THW-Namen unverändert. Nicht geändert: die Reihenfolge „FF Northeim Sudheim Gruppe“ (die Organisation trägt den Ortsteil nicht getrennt). |
+| R5-N7 Fachwörter ohne Erklärung | teilweise behoben | Schritt 3 erklärt „Nur Stärke (Meldekopf-Schnellerfassung)“ unter der Wahl („… gedacht für den Meldekopf … Für den eigenen Bogen „Personal vollständig erfassen“ lassen“; die Beschriftung bleibt wegen Tests und Gherkin). „Stapel eingelesen“ heißt „Bilder und Dateien eingelesen“, „Unvollständiger mehrteiliger Bogen“ „Unvollständiger Bogen (mehrere QR-Codes)“. Die Wahl „Als neue Fassung anhängen“ nennt im Hinweis die Nachmeldung derselben Einheit. „Excel-Liste (Format „Oldenburg“)“ blieb (Gherkin, der Hinweis darunter erklärt sie schon). |
+| R5-N8 „⇑“ nur im Tooltip erklärt | behoben | In der Kurz-Liste steht ab zwei Personen sichtbar „Die erste Person ist die Ansprechperson (erreichbar für Rückfragen). „⇑“ setzt eine Person ganz nach oben — und damit an diese Stelle.“ |
+| R5-N9 „Lage vom Papier abgleichen…“ zweimal im Bild | behoben | Der Knopf steht im Bericht; die Karte darunter zeigt statt eines zweiten Knopfs „Der Knopf … steht im Bericht darüber.“ Ohne offenen Bericht trägt die Karte den Knopf wie bisher. Der Bericht ist unverändert lang (Aufnahmezeile, Hinweise zur Handkorrektur). |
+| R5-N5 „Rückfrage“ meint eine Hinweisliste | behoben | Die Liste heißt „Hinweise“ (Marke an der Karte „Hinweise: Zeitraum vorbei + 3 weitere“, Lageblatt, Sammel-PDF „Hinweise (3):“, Spalte „Hinweise“ der Übersichts-CSV, Excel-Bemerkung). „Rückfrage“ bleibt den Dialogen, die etwas fragen; Tests angepasst, Gherkin hatte keine Stelle mit dem Wortlaut. |
+

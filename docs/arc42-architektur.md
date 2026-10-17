@@ -134,6 +134,21 @@
 > Einsatzansicht steht in einer festen Leiste statt schwebend (R5-L1). Der
 > Kopfbalken im Feld-Modus ist die auf 7:1 abgedunkelte Kennfarbe (`kopfFeld()`
 > in `org-farben.ts`, R5-L3) — Kapitel 5.2.
+>
+> **Nachgezogen 2026-10-17:** Audit Runde 5, Paket 4 „Papier, PDF, Begriffe,
+> Rest" — `pdf-dokument.ts` setzt im Seitenrand eine Kopfzeile je Bogenseite
+> (`bogenKopfzeile`; Einzel-PDF und Blanko als `header` der Dokumentdefinition,
+> Sammel-PDF über `bogenStart`: Ein Probesatz mit Platzhalterbildern gleicher
+> Größe misst die Startseite je Bogen, `einsatzPdfDokumentGesetzt`). Alle
+> gedruckten Texte laufen durch `winAnsiText` (Helvetica/WinAnsi, R5-K2).
+> `nachNummer` ordnet Lageblatt und Sammel-PDF nach Nr. Der Blanko-Vordruck
+> wurde neu erzeugt (29 Personalzeilen). `hilfen.ts` überschreibt
+> `einheitAnzeigename` des Bausteins (jeder Namensteil einmal, R5-N6; der
+> Fingerabdruck der Einheit bleibt). `eintrag-zeiten.ts` kennt
+> `nummerUndZugSetzen` („Nr. laut Zettel", R5-A4); der Entwurf trägt
+> `fremd.startseite` (R5-N3). Das Stylesheet verdichtet Startseite und
+> Schritt 3 bei niedrigem Fenster (R5-M2, R5-G6). Kapitel 5.2, 8.4. Kein neuer
+> Speicherort außer dieser Marke, `vendor/` und Transportformat unverändert.
 
 ---
 
@@ -658,7 +673,7 @@ flowchart TB
 | `dialoge.tsx` | Ersatz für Systemdialoge: `frageText`/`frageFelder` (statt `prompt`), `frageJaNein` (statt `confirm`), `frageWahl`, `zeigeHinweis` (statt `alert`); gezeichnet von einer einmal eingehängten `<Dialogschicht />`. |
 | `einsaetze-ui.tsx` (56 KB, größte UI-Datei) | Einsatz-Sammlung: Liste, Detailsicht mit Summen, Abrücken, Zug-Etikett, Aufteilen/Zusammenführen, Folgemeldung/Historie/Diff, Sammel-PDF, CSV-Export (wahlweise nur die seit dem letzten Export neuen Bögen), Papierkorb. |
 | `qr-scanner-web.tsx` + `qr-bild.ts`/`qr-stapel.ts`/`qr-boegen.ts` | Web-QR-Scan per `getUserMedia`/jsQR, Einzelbild-Decodierung, Stapel-Import (mehrere Fotos/Screenshots, Mehrteil-Erkennung), Gruppierung von QR-Texten zu vollständigen Bögen. |
-| `pdf-dokument.ts` (rund 1 850 Zeilen, größte Nicht-UI-Datei) | Baut die pdfmake-Dokumentdefinition im Papier-Layout inkl. eingebettetem QR-Code auf der letzten Seite. Seit 2026-10-06 (R4-A3, R4-A7) mit Probesätzen ohne Bilder (pdfmake `pageBreakBefore` misst Messpunkte): Lageblatt mit mindestens fünf Nachtragszeilen (zu voll: eigene Rückseite, `einsatzLageblattSeiteFuellen`), Sammel-PDF mit enger gesetzten Bögen, wo sonst eine Restseite entstünde (`einsatzPdfDokumentGesetzt`), Einzel-PDF mit freien Zeilen, wo sie keine Seite kosten (`einzelPdfDokument`). Die Seitenzahlen prüft `pdf-seiten.test.ts` mit echtem Satz. |
+| `pdf-dokument.ts` (rund 1 850 Zeilen, größte Nicht-UI-Datei) | Baut die pdfmake-Dokumentdefinition im Papier-Layout inkl. eingebettetem QR-Code auf der letzten Seite. Seit 2026-10-06 (R4-A3, R4-A7) mit Probesätzen ohne Bilder (pdfmake `pageBreakBefore` misst Messpunkte): Lageblatt mit mindestens fünf Nachtragszeilen (zu voll: eigene Rückseite, `einsatzLageblattSeiteFuellen`), Sammel-PDF mit enger gesetzten Bögen, wo sonst eine Restseite entstünde (`einsatzPdfDokumentGesetzt`), Einzel-PDF mit freien Zeilen, wo sie keine Seite kosten (`einzelPdfDokument`). Die Seitenzahlen prüft `pdf-seiten.test.ts` mit echtem Satz. Seit 2026-10-17 (R5-A2, R5-A3, R5-A8, R5-A9, R5-K2): Kopfzeile je Bogenseite im Seitenrand (`bogenKopfzeile`, Sammel-PDF mit `bogenStart` aus einem Probesatz mit Platzhalterbildern), unteilbare Fahrzeugblöcke, Sortierung nach Nr. (`nachNummer`), WinAnsi-Abbildung aller Texte (`winAnsiText`, Test `pdf-winansi.test.ts`). |
 | `pdf-bilder.ts` / `pdf-qr.ts` / `pdf-stroeme.ts` | Rückfallebene: PDF-Bild-Objekte roh als Pixel lesen und den enthaltenen QR-Code decodieren – bewusst ohne vollständigen PDF-Renderer. |
 | `bogen-csv.ts` / `einsatz-csv.ts` / `oldenburg-xlsx.ts` / `xlsx.ts` / `csv.ts` | Datenexporte: vollständiges CSV je Bogen/Einsatz (Langformat mit Satzart-Spalte), CSV-Übersicht für die Lagekarte, XLSX im „Oldenburg"-Format, gemeinsame CSV-Formatgrundlagen (Semikolon, UTF-8-BOM, Dezimalkomma). |
 | `entwurf.ts` / `speicher-browser.ts` / `speicher-schonend.ts` / `einsaetze-lesen.ts` / `sicherung.ts` / `absenderkarte.ts` / `export-stand.ts` | Lokale Persistenz: Entwurfswiederherstellung, `localStorage`-Anbindung der Einsatz-Sammlung (seit 2026-10-05, R3-O2, mit schonender Hülle: kein Schreiben unveränderten Textes, Lesen scheitert nicht an einem gesperrten Speicher, Lese-Ergebnis gemerkt solange der Speichertext gleich ist), Datensicherung/-Export, freiwillige Absenderkarte, Export-Stand je Einsatz **und Format** (Sammel-PDF, Übersichts-CSV, Alle-Daten-CSV, Excel; welche Meldungen und welchen Zustand je Einheit der Stab in diesem Format schon bekommen hat — Grundlage des Teilexports „nur neue Bögen", `eeb.export-stand.v2`, nachgezogen 2026-10-06, R4-W2/K1), dazu Lageblatt- und Weitergabe-Stand (wann zuletzt ein Lageblatt bzw. die ganze Sammlung herausging; Übergabevermerk, nachgezogen 2026-09-29, R2-W5; beide führen seit 2026-10-06 den Zustand je Einheit, R4-K1) und Kenntnis-Stand (welche Meldungen an diesem Gerät zuletzt „zur Kenntnis genommen" wurden — Grundlage der Sammelquittung und der Marke „neue Fassung", `eeb.kenntnis-stand.v1`, nachgezogen 2026-10-04, R3-K1). |

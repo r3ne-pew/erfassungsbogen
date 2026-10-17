@@ -475,3 +475,15 @@ Pakets; die Skripte liegen im Scratchpad unter `fix5/paket3/`.
 | R5-L3 Feld-Modus: Kopfbalken in voller Kennfarbe, Weiß nur 4,5 bis 4,6:1 | behoben | Im Feld-Modus trägt der Kopf die auf 7:1 abgedunkelte Kennfarbe (`kopfFeld()` in `org-farben.ts`, `--org-kopf-feld`; Ton und Sättigung bleiben), dazu gerechnete Zweitschrift und Haken; die Statusleiste (`theme-color`) folgt; in den Apps bleibt die Plattform-Kopfzeile. Gerechnet für alle zwölf Organisationen in vier Modi (Test `org-farben.test.ts`): Standard Weiß ≥ 4,65:1, Zweitschrift ≥ 4,53:1, Haken ≥ 4,54:1; Dunkel ≥ 6,77:1; Feld ≥ 7,02:1 (z. B. DRK #b1050f 7,25:1, Feuerwehr #b00e29 7,14:1, DLRG #734f00 7,38:1, THW unverändert 15,09:1); Nacht #d9cdb6 10,47:1 und #a2977e 5,69:1 auf #221f16. |
 | R5-L6 Anleitung: helle Aufnahmen nachts die hellsten Flächen | behoben | Aufnahmen in Dunkel und Nacht mit `brightness(0.4)` statt 0,7 (`scripts/content-stil.mts`, in alle 36 Seiten geschrieben, `.scancodes` bleiben ungedimmt). PNG-Mittel der Aufnahme „Startseite“: 148 → 84 (schmal 144 → 82); am Maß des Prüfers (137 bei 0,7) rund 78. |
 | R5-L7 Moduswechsel im Assistenten: Stelle springt aus dem Feld-Modus um 44 bis 49 px | nicht mehr reproduzierbar | Mit der Sonde des Prüfers (Skript `s5`, Schritt 3, `scrollY` 900, 1 800, 3 000 und 4 500, Feld → Standard, Dunkel, Nacht) beträgt der Versatz des Elements in der Bildmitte höchstens 27 px (vorher 44 bis 49); der Anker (`ankerInBildmitte`) hält ±1 px. Ursache des Restes ist die Zeilenhöhe der Kurz-Liste, die sich nach der Umgestaltung (R5-G2) geändert hat; der Code des Ankers ist unverändert. Mit der Einsatzansicht und kleinen Elementen als Sonde ±1 px. |
+
+Stand 17.10.2026, Paket 4 „Papier, PDF, Begriffe, Rest".
+Geprüft mit Typprüfung, Unit-Tests (2 875 grün), Verhaltenstests (137 Szenarien, 1 749 Schritte grün)
+und Nachmessung (PDFs mit `pdfinfo`, `pdftotext` und gerenderten Seiten; Browser
+360 × 640, `isMobile`/`hasTouch`, de-DE, Dev-Server Port 5180). Probemenge: alle
+443 Beispielbögen unter `examples/`; die Seitenzahlen blieben unverändert (Einzel
+772, mit zwei Codeteilen 998). Aufgeführt sind nur die Befunde dieses Pakets.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R5-L5 Lageblatt, Blanko und Sammel-PDF weiß, ohne Hinweis | behoben | Die Einsatzansicht sagt unter den Knöpfen „Die PDFs sind für Papier gedacht — hell, auch in der Ansicht „Nacht“.“, die Fußzeile „Das PDF ist für Papier gedacht, hell.“ Die PDFs bleiben hell. Eine Textansicht der Lage im Nacht-Modus gibt es nicht; die Einsatzansicht ist die nachtfeste Lage. |
+
