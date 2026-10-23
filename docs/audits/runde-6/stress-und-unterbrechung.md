@@ -367,6 +367,6 @@ Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstes
 | --- | --- | --- |
 | R6-S1 | behoben | „Stand aus dem anderen Fenster laden“ fragt vorher und legt die eigene Fassung auf den Rückholplatz (Unit-Test). |
 | R6-S2 | behoben | Die Warnung nennt beide Stände mit Zeit und Personenzahl. |
-| R6-S3 | behoben | Ein Beobachter legt für jedes offene Fenster der Startseite den Verlaufseintrag an (`dialogVerlaufVerdrahten`), Zurück schließt das Fenster. Unit-Test; im Browser nicht gemessen. |
+| R6-S3 | behoben | Ein Beobachter legt für jedes offene Fenster der Startseite den Verlaufseintrag an (`dialogVerlaufVerdrahten`), Zurück schließt das Fenster. Unit-Test; im Browser belegt: Verlauf 2 → 3 beim Öffnen von „Datensicherung“, Zurück schließt das Fenster und bleibt auf der Startseite. |
 | R6-S4 | behoben | Siehe R6-D4: „Rückgängig“ nach „Person entfernen“ überlebt Schrittwechsel und Neuladen (Unit-Test mit Remount). |
 | R6-S5 | teilweise | Beim Öffnen einer Ansicht-Wahl schließt die andere; im Querformat wird der Balken zur Ecke (R6-M8). Die dreifache Darstellung der Wahl bleibt. |
