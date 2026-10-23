@@ -2126,6 +2126,36 @@ function AppInhalt() {
   }
 
   /**
+   * Im Stapel fragt niemand „Ist das dieselbe Einheit?" – die Quittung nennt dafür die
+   * möglichen Doppelungen (Audit Runde 6, R6-N2): „THW Albstadt" ohne Typ neben „THW Albstadt
+   * Zugtrupp …" zählte doppelt, ohne dass es jemand erfuhr.
+   */
+  function aehnlichImStapel(zielId: string, vorher: MeldeEintrag[], neueIds: string[]): string[] {
+    const sammlung = einsaetzeLaden().find((x) => x.id === zielId);
+    if (!sammlung) return [];
+    const geltend = geltendeJeEinheit(sammlung.eintraege);
+    const zeilen: string[] = [];
+    for (const id of neueIds) {
+      const e = sammlung.eintraege.find((x) => x.id === id);
+      if (!e || vorher.some((v) => v.einheitSchluessel === e.einheitSchluessel)) continue; // Folgemeldung, keine neue Einheit
+      const ort = einheitOrt(e.bogen.einheit);
+      const a = geltend.find(
+        (g) =>
+          g.einheitSchluessel !== e.einheitSchluessel &&
+          g.bogen.einheit.organisation === e.bogen.einheit.organisation &&
+          !andererEinheitstyp(g.bogen.einheit, e.bogen.einheit) &&
+          aehnlicherOrt(einheitOrt(g.bogen.einheit), ort),
+      );
+      if (a) {
+        zeilen.push(
+          `„${einheitAnzeigename(e.bogen.einheit)}" ähnelt „${einheitAnzeigename(a.bogen.einheit)}" – beide zählen getrennt. Dieselbe Einheit? Dann an der Karte „Mehr…“ › „Zusammenführen…“.`,
+        );
+      }
+    }
+    return zeilen;
+  }
+
+  /**
    * „Rückgängig" nach dem Zusammenlegen (R4-E1): Die eben angehängte Fassung
    * fällt wieder heraus, die bisherige Einheit gilt wie vorher, und die neue
    * Meldung steht als eigene Einheit in der Sammlung — ohne neu zu erfassen.
@@ -3262,6 +3292,7 @@ function AppInhalt() {
     const hinweise = [
       ...sammlungenUebernommen,
       ...vorrang,
+      ...aehnlichImStapel(zielId, vorher, neueIds),
       zusatz.sammlungInPdf ? SAMMLUNG_IN_PDF_HINWEIS : zusatz.lage && neu > 0 ? LAGE_NACHTRAGEN_HINWEIS : "",
     ].filter(Boolean);
     return {
@@ -3450,7 +3481,7 @@ function AppInhalt() {
       }
       einsaetzeNeuLaden();
       const vorrang = await vorrangImStapel(zielId, vorher, neueIds);
-      setStapelBericht([...stapelBerichtZeilen(erg, neu, uebersprungen, daten, neueIds.length > 0), ...vorrang]);
+      setStapelBericht([...stapelBerichtZeilen(erg, neu, uebersprungen, daten, neueIds.length > 0), ...vorrang, ...aehnlichImStapel(zielId, vorher, neueIds)]);
       const voll = speicherVollMeldung(speicherVoll);
       if (voll) setEinlese({ fehler: voll, meldung: "" });
     } catch (e) {
