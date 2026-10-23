@@ -1732,6 +1732,7 @@ function blankoMeldekopf(): Content {
             text: "Blatt ____ von ____   ·   Reicht der Platz nicht (mehr als 29 Personen, 4 Fahrzeuge oder 6 Qualifikationen): weiteren Vordruck als Beiblatt nehmen, dort Einheit und Nr. eintragen und hier die Blattzahl nachtragen.",
             bold: false,
             fontSize: 7.5,
+            lineHeight: 1.25,
             margin: [0, 5, 0, 0],
           },
         ],
