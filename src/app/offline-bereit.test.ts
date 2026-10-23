@@ -144,3 +144,13 @@ describe("offlineText — hakt und gesperrter Speicher (Runde 5)", () => {
     }
   });
 });
+
+// Audit Runde 6, R6-O4: Steht der Zähler bei lebender Registrierung still, sagt die Zeile das.
+describe("offlineText(): Netz hakt beim Kern (R6-O4)", () => {
+  it("nennt den Stillstand und fordert nichts auf, was sich selbst erledigt", () => {
+    const t = offlineText({ stand: "laedt", frischBereit: false, online: true, kern: { geladen: 6_600_000, gesamt: 7_200_000 }, kernHakt: true });
+    expect(t).toMatch(/das Netz hakt/);
+    expect(t).not.toMatch(/neu laden/i);
+  });
+});
+

@@ -78,9 +78,9 @@ export async function kernFortschritt(umfang: OfflineUmfang): Promise<{ geladen:
   return { geladen: Math.min(geladen, gesamt), gesamt };
 }
 
-/** Pause vor dem n-ten erneuten Versuch (n ab 1): 2 s, 4 s, 8 s, 16 s, 30 s, dann je 60 s. */
+/** Pause vor dem n-ten erneuten Versuch (n ab 1): 2 s, 4 s, 8 s, 16 s, dann je 20 s (R6-O6: vorher bis 60 s). */
 export function nachladePause(versuch: number): number {
-  return Math.min(60_000, [2_000, 4_000, 8_000, 16_000, 30_000][versuch - 1] ?? 60_000);
+  return [2_000, 4_000, 8_000, 16_000][versuch - 1] ?? 20_000;
 }
 
 /** So oft wird eine einzelne Datei höchstens versucht, bevor sie aufgegeben wird (etwa ein dauerhaftes 404). */

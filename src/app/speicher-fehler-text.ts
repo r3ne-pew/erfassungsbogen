@@ -27,9 +27,9 @@ export function speicherFehlerDetails(art: SpeicherFehlerArt, fremd: boolean, le
   const ausgang = fremd
     ? gesperrt
       ? "Die Erfassung bleibt geöffnet. Speichern für diese Seite erlauben oder ein normales Fenster nutzen (etwa im privaten Modus oder durch eine Datenschutz-Einstellung gesperrt)."
-      : "Die Erfassung bleibt geöffnet. Platz schaffen: in der Fußzeile der Startseite Papierkorb leeren bzw. Sicherung erstellen."
+      : "Die Erfassung bleibt geöffnet. Zuerst sichern, dann Platz schaffen: in der Fußzeile der Startseite Papierkorb leeren oder alte Einsätze endgültig löschen (die Sicherung selbst schafft keinen Platz)."
     : gesperrt
       ? "Der Bogen bleibt geöffnet. Für die nächste Erfassung Speichern für diese Seite erlauben oder ein normales Fenster nutzen (etwa im privaten Modus oder durch eine Datenschutz-Einstellung gesperrt)."
-      : "Der Bogen bleibt geöffnet. Platz schaffen: in der Fußzeile der Startseite Papierkorb leeren bzw. Sicherung erstellen.";
+      : "Der Bogen bleibt geöffnet. Zuerst sichern, dann Platz schaffen: in der Fußzeile der Startseite Papierkorb leeren oder alte Einsätze endgültig löschen (die Sicherung selbst schafft keinen Platz).";
   return `${ausgang}${stand}`;
 }

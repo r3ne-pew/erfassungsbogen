@@ -105,6 +105,31 @@ export interface OfflineZustand {
    * geht erst nach einem Neuladen mit Netz weiter (R4-O1).
    */
   abgebrochen?: boolean;
+  /**
+   * Der Zähler der ersten Stufe steht länger still, die Registrierung lebt aber:
+   * Das Netz hakt, das Laden geht von selbst weiter (R6-O4).
+   */
+  kernHakt?: boolean;
+}
+
+/** Letzter bekannter Stand der zweiten Stufe: bleibt über ein Neuladen ohne Netz erhalten (R6-O7). */
+const ZUSATZ_STAND_SCHLUESSEL = "eeb.offline-zusatz.v1";
+
+function zusatzStandLaden(): { fertig: number; gesamt: number } | null {
+  try {
+    const x = JSON.parse(globalThis.localStorage?.getItem(ZUSATZ_STAND_SCHLUESSEL) ?? "null") as { fertig?: unknown; gesamt?: unknown } | null;
+    return typeof x?.fertig === "number" && typeof x?.gesamt === "number" && x.gesamt > 0 ? { fertig: x.fertig, gesamt: x.gesamt } : null;
+  } catch {
+    return null;
+  }
+}
+
+function zusatzStandMerken(z: { fertig: number; gesamt: number }): void {
+  try {
+    globalThis.localStorage?.setItem(ZUSATZ_STAND_SCHLUESSEL, JSON.stringify(z));
+  } catch {
+    /* Speicher voll oder gesperrt – die Zeile fällt dann auf den Kern zurück */
+  }
 }
 
 export function useOfflineStand(): OfflineZustand {
@@ -113,8 +138,9 @@ export function useOfflineStand(): OfflineZustand {
   const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine !== false));
   const [umfang, setUmfang] = useState<OfflineUmfang | null>(null);
   const [kern, setKern] = useState<{ geladen: number; gesamt: number } | null>(null);
-  const [zusatz, setZusatz] = useState<{ fertig: number; gesamt: number } | null>(null);
+  const [zusatz, setZusatz] = useState<{ fertig: number; gesamt: number } | null>(() => zusatzStandLaden());
   const [abgebrochen, setAbgebrochen] = useState(false);
+  const [kernHakt, setKernHakt] = useState(false);
   const [zusatzHakt, setZusatzHakt] = useState<{ versuch: number } | null>(null);
   // Einmal je Aufruf geprüft: Zugriff auf den Speicher gesperrt oder Schreiben abgelehnt (R5-O7).
   const [gesperrt] = useState(() => speicherGesperrt());
@@ -125,7 +151,7 @@ export function useOfflineStand(): OfflineZustand {
   // zweite Stufe dann nie nach.
   const [gesteuert, setGesteuert] = useState(() => !!sw()?.controller);
   // Letzte Bewegung des Zählers — steht er still, wird nachgesehen (R4-O1).
-  const bewegung = useRef({ geladen: -1, seit: Date.now() });
+  const bewegung = useRef({ geladen: -1, seit: Date.now(), neuAngelegt: false });
 
   // Umfang beider Stufen — nur im Web mit Service Worker, nicht nativ.
   useEffect(() => {
@@ -177,6 +203,7 @@ export function useOfflineStand(): OfflineZustand {
       (fertig, gesamt) => {
         if (aus) return;
         setZusatz({ fertig, gesamt });
+        zusatzStandMerken({ fertig, gesamt });
         // Es bewegt sich wieder: Das Haken ist vorbei.
         setZusatzHakt((h) => (h ? null : h));
       },
@@ -216,7 +243,9 @@ export function useOfflineStand(): OfflineZustand {
     if (kern.geladen !== b.geladen) {
       b.geladen = kern.geladen;
       b.seit = Date.now();
+      b.neuAngelegt = false;
       setAbgebrochen(false);
+      setKernHakt(false);
     }
   }, [kern]);
 
@@ -230,9 +259,20 @@ export function useOfflineStand(): OfflineZustand {
       if (Date.now() - b.seit < STILLSTAND_MS) return;
       b.seit = Date.now();
       void installationAnstossen().then((r) => {
-        // Registrierung weg (neu angelegt oder auch das scheiterte): Der
-        // Browser hat die Installation verworfen, die Zeile sagt es.
-        if (r !== "vorhanden") setAbgebrochen(true);
+        // Die Registrierung lebt: Das Netz hakt, es läuft von selbst weiter (R6-O4).
+        if (r === "vorhanden") {
+          setKernHakt(true);
+          return;
+        }
+        // Registrierung war weg und ist neu angelegt: erst beim zweiten Stillstand
+        // gilt das Laden als abgebrochen – eine Aufforderung, die sich Sekunden später
+        // selbst erledigt, wäre falsch (R6-O4). Scheitert die Neuanlage, sofort.
+        if (r === "neu" && !b.neuAngelegt) {
+          b.neuAngelegt = true;
+          setKernHakt(true);
+          return;
+        }
+        setAbgebrochen(true);
       });
     }, 5000);
     return () => clearInterval(uhr);
@@ -265,6 +305,7 @@ export function useOfflineStand(): OfflineZustand {
     zusatz,
     zweiStufen,
     abgebrochen: stand === "laedt" && abgebrochen,
+    kernHakt: stand === "laedt" && kernHakt && !abgebrochen,
     zusatzHakt: zusatzHakt != null,
     zusatzVersuch: zusatzHakt?.versuch,
     speicherGesperrt: gesperrt,
@@ -312,6 +353,9 @@ export function offlineText(s: OfflineZustand): string {
   // Netz da ist — wer nicht warten will, lädt neu (R4-O1).
   if (s.abgebrochen && s.online) {
     return `⚠ Laden abgebrochen${stand ? ` bei ${stand}` : ""} — mit Netz einmal neu laden, dann geht es weiter. Bis dahin diese Seite ohne Netz nicht neu laden. ${Daten}`;
+  }
+  if (s.kernHakt && s.online) {
+    return `⏳ Wird für den Offline-Betrieb geladen${stand ? `: ${stand}` : ""} — das Netz hakt, das Laden geht weiter, sobald es wieder da ist. Bitte geöffnet lassen. ${Daten}`;
   }
   return s.online
     ? `⏳ Wird für den Offline-Betrieb geladen${stand ? `: ${stand}` : ""} — bitte mit Netz geöffnet lassen. Danach gehen Bogen, PDF, QR-Code und Empfang ohne Netz. ${Daten}`

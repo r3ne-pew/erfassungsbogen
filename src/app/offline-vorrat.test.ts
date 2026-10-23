@@ -31,8 +31,8 @@ function antwort(): Response {
 }
 
 describe("nachladePause()", () => {
-  it("steigert 2, 4, 8, 16, 30 Sekunden und bleibt bei 60", () => {
-    expect([1, 2, 3, 4, 5, 6, 7, 50].map(nachladePause)).toEqual([2000, 4000, 8000, 16000, 30000, 60000, 60000, 60000]);
+  it("steigert 2, 4, 8, 16 Sekunden und bleibt bei 20 (R6-O6)", () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 50].map(nachladePause)).toEqual([2000, 4000, 8000, 16000, 20000, 20000, 20000, 20000]);
   });
 });
 

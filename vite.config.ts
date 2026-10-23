@@ -321,7 +321,7 @@ export default defineConfig({
             urlPattern: ({ url, sameOrigin }) =>
               sameOrigin && (/\.html$/.test(url.pathname) || url.pathname.endsWith("/offline-zusatz.json")),
             handler: "NetworkFirst",
-            options: { cacheName: "eeb-zusatz", networkTimeoutSeconds: 5 },
+            options: { cacheName: "eeb-zusatz", networkTimeoutSeconds: 1 }, // R6-O3: im Funkloch nach 1 s aus dem Gerät, nicht nach 5 s
           },
         ],
         // Das Haupt-Bundle (React, pdfmake, THW-OV-Verzeichnis …) ist ~3 MB und
