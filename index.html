@@ -877,6 +877,10 @@
     .fehlerseite h1 { font-size: var(--t-xl); margin: 0 0 var(--r-3, 0.75rem); }
     .fehlerseite details { margin-top: var(--r-4, 1rem); }
     .fehlerseite summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+    /* R6-N4: Die Aufklapper sehen aus wie Bedienelemente (Rahmen, Pfeil), nicht wie lose Texte. */
+    .fehlerseite details.fehler-aufklapper { border: var(--strich) solid var(--linie-stark); border-radius: var(--radius); padding: 0 var(--r-3, 0.75rem); }
+    .fehlerseite details.fehler-aufklapper > summary { list-style: none; font-weight: 600; }
+    .fehlerseite details.fehler-aufklapper > summary::-webkit-details-marker { display: none; }
     html:has(.fest-warnung) #app { padding-top: var(--fest-warnung-hoehe, 0px); }
     html:has(.fest-warnung) { scroll-padding-top: calc(var(--fest-warnung-hoehe, 0px) + 8px); }
     .seiten-kopf.assistent-kopf .titelzeile { order: 1; }

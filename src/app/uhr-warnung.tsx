@@ -47,7 +47,7 @@ export function UhrWarnung({ neuLaden = () => window.location.reload() }: { neuL
   async function stimmt() {
     if (hatFolgen) {
       const ja = await frageJaNein({
-        titel: "Datum stimmt — jetzt aufräumen?",
+        titel: "Datum stimmt — jetzt endgültig löschen?",
         text: `Das Gerät zeigt den ${tag(w!.geraet)}. Damit ${mehrere ? "werden" : "wird"} ${folgen} endgültig gelöscht — nicht im Papierkorb. ${betroffen.liste ? `Betroffen: ${betroffen.liste}. ${betroffen.laufend} ` : ""}${rettung}`,
         ok: "Ja, Datum stimmt — löschen",
         abbruch: "Abbrechen",

@@ -1214,7 +1214,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
       )}
       {/* Die Regel zur ersten Person stand in der Kurz-Liste nur im Tooltip von „⇑“, den es
           auf dem Telefon nicht gibt (R5-N8). */}
-      {!nurStaerke && schnell && bogen.personal.length >= 2 && (
+      {!nurStaerke && bogen.personal.length >= 2 && (
         <p className="hinweis ansprech-regel">
           Die erste Person ist die Ansprechperson (erreichbar für Rückfragen). „⇑“ setzt eine Person ganz nach oben — und damit an diese Stelle.
         </p>

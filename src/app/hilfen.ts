@@ -661,7 +661,7 @@ export function fahrzeugHinweise(b: Erfassungsbogen): string[] {
     // das gehört dann in „Sonstiges" — der Meldekopf muss es wissen.
     hinweise.push(
       `Sitzplätze: ${bilanz.plaetze} in den erfassten Fahrzeugen für ${bilanz.benoetigt} Personen — ` +
-        `${bilanz.fehlend} brauchen eine andere Mitfahrgelegenheit (Richtwerte je Fahrzeugtyp, ` +
+        `${bilanz.fehlend} ${bilanz.fehlend === 1 ? "braucht" : "brauchen"} eine andere Mitfahrgelegenheit (Richtwerte je Fahrzeugtyp, ` +
         `soweit am Fahrzeug nichts anderes eingetragen ist).`,
     );
   }

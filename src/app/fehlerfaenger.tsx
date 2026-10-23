@@ -95,6 +95,11 @@ export class Fehlerfaenger extends Component<{ children: ReactNode }, Zustand> {
           Fehler wurde nichts gelöscht.
         </p>
         <p>Zuerst neu laden; hilft das nicht, zur Startseite. Wer sicher gehen will, sichert vorher alles in eine Datei.</p>
+        <p>
+          Stürzt die Ansicht beim Öffnen eines Einsatzes ab, bleibt der Rest nutzbar: Auf der Startseite lässt sich dieser
+          Einsatz einzeln löschen (<strong>Löschen…</strong>; danach liegt er 30 Tage im Papierkorb). „Daten sichern“ vorher
+          nicht vergessen.
+        </p>
         <div className="aktionen">
           <button type="button" className="primaer" onClick={() => { ansichtVergessen(); window.location.reload(); }}>Neu laden</button>
           <button type="button" onClick={() => { ansichtVergessen(); window.location.assign(window.location.pathname); }}>Zur Startseite</button>
@@ -105,12 +110,12 @@ export class Fehlerfaenger extends Component<{ children: ReactNode }, Zustand> {
             {meldung}
           </p>
         )}
-        <details>
-          <summary>Technische Angabe (für die Fehlersuche)</summary>
+        <details className="fehler-aufklapper">
+          <summary>▸ Technische Angabe (für die Fehlersuche)</summary>
           <p className="hinweis">{fehlerSatz(fehler)}</p>
         </details>
-        <details open={loeschenOffen} onToggle={(e) => this.setState({ loeschenOffen: (e.currentTarget as HTMLDetailsElement).open })}>
-          <summary>Hilft nichts? Alle Daten löschen</summary>
+        <details className="fehler-aufklapper" open={loeschenOffen} onToggle={(e) => this.setState({ loeschenOffen: (e.currentTarget as HTMLDetailsElement).open })}>
+          <summary>▸ Hilft nichts? Alle Daten löschen</summary>
           <p>
             Das entfernt <strong>alle</strong> Daten dieser App von diesem Gerät: Sammlungen, Vorlagen, den angefangenen
             Bogen und den Papierkorb. Eine Kopie gibt es nicht — vorher „Daten sichern“.
