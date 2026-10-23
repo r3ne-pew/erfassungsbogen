@@ -169,6 +169,20 @@ export function ersteEbeneBetreten(): boolean {
 }
 
 /**
+ * Liegt noch der Eintrag einer eben beantworteten Rückfrage obenauf (kein Fenster mehr offen)?
+ * Dann ersetzt die App ihn durch den Eintrag der neuen Ansicht, statt einen weiteren darauf zu
+ * legen: Sonst blieb er unter dem Assistenten stehen, und ein Zurück mehr führte ohne sichtbare
+ * Wirkung auf dieselbe Seite (Audit Runde 6, R6-E4).
+ */
+export function rueckfrageEintragErsetzbar(): boolean {
+  try {
+    return ebeneImVerlauf() === RUECKFRAGE_EBENE && !document.querySelector("dialog[open]");
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Den Eintrag der Rückfrage wieder verbrauchen, wenn sie per Knopf zu ist und
  * er noch obenauf liegt. Verzögert: Löst die Antwort einen Ansichtswechsel aus,
  * legt die App dessen Verlaufseintrag an; ein `back()` davor risse ihn mit
@@ -185,3 +199,42 @@ export function ersteEbeneVerlassen(): void {
     }
   }, 80);
 }
+
+/**
+ * Dieselbe Behandlung für alle Fenster der Startseite (Datensicherung, „Alle Daten löschen",
+ * Impressum, Datenschutz, Beispielbögen …), nicht nur für Rückfragen: Auf dem ersten
+ * Verlaufseintrag der App führte Zurück bei offenem Fenster aus der App heraus (Audit Runde 6,
+ * R6-S3). Ein Beobachter legt für jedes geöffnete `<dialog>` den Eintrag an und verbraucht ihn
+ * beim Schließen; die Zurück-Geste schließt das Fenster über `offenesFensterAbbrechen` (app.tsx).
+ * Fenster, die ihren Rücksprung selbst führen (`data-zurueck="eigen"`) und Rückfragen, die schon
+ * einen Eintrag tragen, bleiben unberührt.
+ */
+export function dialogVerlaufVerdrahten(): void {
+  if (typeof document === "undefined" || typeof MutationObserver === "undefined") return;
+  const beobachter = new MutationObserver((muster) => {
+    for (const m of muster) {
+      const d = m.target;
+      if (!(d instanceof HTMLDialogElement) || d.dataset.zurueck === "eigen") continue;
+      if (d.open && d.dataset.ebene !== "1") {
+        if (ersteEbeneBetreten()) d.dataset.ebene = "1";
+      } else if (!d.open && d.dataset.ebene === "1") {
+        delete d.dataset.ebene;
+        ersteEbeneVerlassen();
+      }
+    }
+  });
+  beobachter.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["open"] });
+  // Schloss die Zurück-Geste nur das oberste von zwei Fenstern, braucht das darunter wieder einen Eintrag.
+  window.addEventListener("popstate", () => {
+    setTimeout(() => {
+      if (document.querySelector("dialog[open][data-ebene='1']") && !ebeneImVerlauf()) {
+        try {
+          if ((history.state as { eebErste?: boolean } | null)?.eebErste) ebeneBetreten(RUECKFRAGE_EBENE);
+        } catch {
+          /* ohne Verlauf */
+        }
+      }
+    }, 0);
+  });
+}
+

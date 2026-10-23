@@ -30,6 +30,7 @@ import {
   bogenHatInhalt,
   heuteDatum,
   nurSollstaerke,
+  staerkePlausibilitaet,
   zeitraumDeutsch,
   bogenLaden,
   browserKompressor,
@@ -55,6 +56,7 @@ import { fehlerText } from "./nachladen";
 import { dateiFehlerMeldung } from "./datei-fehler";
 import { FehlerImBild } from "./fehler-im-bild";
 import { entfernteImImportKlaeren } from "./entfernte-meldungen";
+import { rueckfrageEintragErsetzbar } from "./modal-overlay";
 import { FensterKonflikt, nachAbgleichFortsetzen, useFensterAbgleich } from "./fenster-abgleich";
 import { entwirreScanText } from "./tastaturbelegung";
 import { ortSperren } from "./tipp-schutz";
@@ -1024,7 +1026,8 @@ function AppInhalt() {
       return;
     }
     verlaufZielRef.current = null;
-    history.pushState({ eeb: jetzt }, "");
+    if (rueckfrageEintragErsetzbar()) history.replaceState({ eeb: jetzt }, "");
+    else history.pushState({ eeb: jetzt }, "");
   }, [schritt, startSichtbar, offenerEinsatzId, scannerOffen]);
   useEffect(() => {
     function beiVerlauf(e: PopStateEvent) {
@@ -2740,6 +2743,32 @@ function AppInhalt() {
     }
     if (!(await sollstaerkeFreigeben(b))) return;
     if (!(await staerkeFreigeben(b))) return;
+    // Dieselbe Zahlendreher-Frage wie bei „Stärke ändern…", bevor die Einheit in die Lage zählt:
+    // Mannschaft „99" statt „9" ging ohne Rückfrage durch (Audit Runde 6, R6-E6).
+    {
+      const warnungen = staerkePlausibilitaet(staerke(b));
+      if (warnungen.length > 0 && !nurSollstaerke(b)) {
+        const ja = await frageJaNein({
+          titel: "Stimmt die Stärke?",
+          text: (
+            <>
+              <p>Stärke {staerkeKurz(b)}</p>
+              <ul>
+                {warnungen.map((x) => (
+                  <li key={x}>{x}</li>
+                ))}
+              </ul>
+            </>
+          ),
+          ok: "Ja, so übernehmen",
+          abbruch: "Zahlen korrigieren",
+        });
+        if (!ja) {
+          setSchritt(2);
+          return;
+        }
+      }
+    }
     let zeit: number | null = null;
     const gelesen = eintreffzeitPruefen(nachEintreffzeit);
     if (gelesen.art === "zeit") zeit = gelesen.zeit;

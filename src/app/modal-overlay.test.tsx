@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
-import { ersteEbeneBetreten, ersteEbeneVerlassen, useModalesOverlay } from "./modal-overlay";
+import { dialogVerlaufVerdrahten, ersteEbeneBetreten, ersteEbeneVerlassen, useModalesOverlay } from "./modal-overlay";
 
 function Overlay(props: { onSchliessen: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -122,3 +122,30 @@ describe("Folgerückfrage übernimmt den Eintrag der vorigen (R6-N1)", () => {
     }
   });
 });
+
+// Audit Runde 6, R6-S3: Zurück schloss die Fenster der Startseite nicht, sondern verließ die App.
+describe("Fenster der Startseite tragen einen Verlaufseintrag (R6-S3)", () => {
+  it("legt beim Öffnen eines beliebigen Dialogs einen Eintrag an und verbraucht ihn beim Schließen", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      history.replaceState({ eeb: { schritt: 0 }, eebErste: true }, "");
+      dialogVerlaufVerdrahten();
+      const d = document.createElement("dialog");
+      document.body.appendChild(d);
+      const zurueck = vi.spyOn(history, "back").mockImplementation(() => {});
+      d.setAttribute("open", "");
+      await Promise.resolve();
+      expect((history.state as Record<string, unknown>).eebEbene).toBe("rueckfrage");
+      d.removeAttribute("open");
+      await Promise.resolve();
+      vi.advanceTimersByTime(200);
+      expect(zurueck).toHaveBeenCalledTimes(1);
+      zurueck.mockRestore();
+      d.remove();
+    } finally {
+      vi.useRealTimers();
+      history.replaceState(null, "");
+    }
+  });
+});
+

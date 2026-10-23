@@ -21,6 +21,7 @@ import { statistikStarten } from "./statistik";
 import { dauerhaftWennWertvoll, speicherVerdrahten } from "./speicher-browser";
 import { stempelQuelleSetzen } from "./hilfen";
 import { stempelZeitpunkt } from "./datenschutz-uhr";
+import { dialogVerlaufVerdrahten } from "./modal-overlay";
 
 // Die Einsatz-Sammlung bekommt ihre Ablage hineingereicht (ADR-003); ohne
 // diese Zeile bliebe sie speicherlos. Muss vor dem ersten Lesen stehen.
@@ -30,6 +31,8 @@ speicherVerdrahten();
 stempelQuelleSetzen(stempelZeitpunkt);
 // Um dauerhaften Speicher bitten, sobald hier etwas Wertvolles liegt (R2-O6).
 dauerhaftWennWertvoll();
+// Zurück schließt jedes Fenster der Startseite, statt die App zu verlassen (R6-S3).
+dialogVerlaufVerdrahten();
 
 // Plattform-Klasse (z. B. platform-ios) auf <html> für plattformspezifisches CSS.
 // Im Browser kann der Debug-Modus die visuelle Plattform überschreiben.
