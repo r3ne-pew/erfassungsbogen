@@ -15,6 +15,7 @@
 import type { Erfassungsbogen } from "@bos/eeb-format/model";
 import { datumAusIso, mitTransportVersion, staerke } from "@bos/eeb-format/model";
 import { bogenPruefen, dateinameTeil, einheitAnzeigename, migriereBogen } from "./hilfen";
+import { bogenBefund } from "./bogen-pruefung";
 import { aktive, imPapierkorb, papierkorbBereinigt } from "@bos/meldekopf/papierkorb";
 import { geprueftesJetztMs, stempelZeitpunkt } from "./datenschutz-uhr";
 
@@ -118,6 +119,9 @@ export function vorlagenAusJson(text: string | null): Vorlage[] {
     } catch {
       continue;
     }
+    // Wie an den Eingängen: ergänzen, was sich leer lassen lässt; sonst weglassen
+    // (Audit Runde 6, R6-E1: eine Vorlage ohne Fahrzeuge legte die Startseite lahm).
+    if (!bogenBefund(e.bogen).ok) continue;
     liste.push(e);
   }
   return liste;

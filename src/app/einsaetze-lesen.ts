@@ -34,6 +34,7 @@ import {
   einsaetzePapierkorb as kernEinsaetzePapierkorb,
   type Einsatzsammlung,
 } from "@bos/meldekopf/einsaetze";
+import { bogenBefund } from "./bogen-pruefung";
 import { bekannterText, huellenZugriffe, nurLesend, rohText } from "./speicher-schonend";
 
 /** Speicherschlüssel der Sammlungen im Kern (einsaetze.ts, nicht exportiert). */
@@ -57,6 +58,24 @@ function einfrieren<T>(wert: T): T {
   return wert;
 }
 
+/**
+ * Was schon im Speicher liegt, wird wie an den Eingängen geprüft (Audit Runde
+ * 6, R6-E1): Ergänzbares wird im gelesenen Objekt ergänzt, ein unbrauchbarer
+ * Bogen bleibt in der Ansicht weg, statt die Startseite abstürzen zu lassen.
+ * Im Speicher selbst ändert das nichts; was der Kern zurückschreibt, liest er
+ * selbst.
+ */
+function geprueft(liste: Einsatzsammlung[]): Einsatzsammlung[] {
+  for (const sammlung of liste) {
+    if (!Array.isArray(sammlung.eintraege)) {
+      sammlung.eintraege = [];
+      continue;
+    }
+    sammlung.eintraege = sammlung.eintraege.filter((e) => e && bogenBefund(e.bogen).ok);
+  }
+  return liste;
+}
+
 function gelesen(art: "aktiv" | "papierkorb", kern: () => Einsatzsammlung[]): Einsatzsammlung[] {
   const minute = Math.floor(Date.now() / 60_000);
   const roh = rohText(SAMMLUNGEN_SCHLUESSEL);
@@ -64,7 +83,7 @@ function gelesen(art: "aktiv" | "papierkorb", kern: () => Einsatzsammlung[]): Ei
   if (roh !== undefined && alt && alt.minute === minute && alt.text === roh) return [...alt.liste];
 
   const vorher = huellenZugriffe();
-  const liste = nurLesend(kern);
+  const liste = geprueft(nurLesend(kern));
   // Nur merken, wenn der Kern wirklich über die schonende Hülle gelesen hat
   // (Tests hängen mitunter eine eigene Ablage ein) und bekannt ist, was nun
   // im Speicher steht (nach einem gescheiterten Zurückschreiben nicht).
