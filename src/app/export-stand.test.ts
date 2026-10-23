@@ -144,11 +144,25 @@ describe("kenntnisStandLaden / kenntnisVermerken (Audit Runde 3, R3-K1)", () => 
     expect(kenntnisStandLaden("e1")).toEqual({ zeitpunkt: 5000, eintragIds: ["m1"] });
     expect(exportStandLaden("e1", "pdf")).toBeNull();
     expect(localStorage.getItem("eeb.kenntnis-stand.v1")).not.toBeNull();
-    const danach = sammlung("e1", [eintrag("m1", "Wardenburg", 1000), eintrag("m2", "Wardenburg", 800)]);
+    const danach = sammlung("e1", [eintrag("m1", "Wardenburg", 1000), eintrag("m2", "Hatten", 800)]);
     // Über die Kennung, nicht die Zeit: die ältere Empfangszeit ist trotzdem neu.
     expect(neueEintraege(danach.eintraege, kenntnisStandLaden("e1")).map((e) => e.id)).toEqual(["m2"]);
     kenntnisVermerken(danach, ["e1"], 7000);
     expect(kenntnisStandLaden("e2")).toBeNull();
+  });
+});
+
+// Audit Runde 6, R6-W1: Eine ältere Fassung, die erst nach dem Export eintrifft und nur
+// in der Historie liegt, ist keine neue Meldung und gehört nicht in den Nachtrag.
+describe("ältere, nachträglich eingetroffene Fassung (R6-W1)", () => {
+  it("zählt nicht als neuer Bogen und kommt nicht in den Nachtrag", () => {
+    const geltend = eintrag("m1", "Wardenburg", 3000);
+    const aelter = eintrag("m2", "Wardenburg", 2000);
+    aelter.bogen.stand = geltend.bogen.stand - 60 * 60_000;
+    const s = sammlung("e1", [geltend, aelter]);
+    const stand = { zeitpunkt: 4000, eintragIds: ["m1"] };
+    expect(neueEintraege(s.eintraege, stand)).toEqual([]);
+    expect(nachtragEintraege(s.eintraege, stand)).toEqual([]);
   });
 });
 

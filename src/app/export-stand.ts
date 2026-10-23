@@ -463,7 +463,11 @@ export function seitdemText(neu: number, aend?: AenderungenSeit): string {
 export function neueEintraege(eintraege: MeldeEintrag[], stand: ExportStand | null): MeldeEintrag[] {
   if (!stand) return eintraege;
   const bekannt = new Set(stand.eintragIds);
-  return eintraege.filter((e) => !bekannt.has(e.id));
+  // Eine ältere Fassung, die erst nach dem Export eintraf und nur in der Historie
+  // liegt, ändert die Lage nicht: Sie zählte als „neuer Bogen" und brachte ihre
+  // alte Stärke in den Nachtrag (Audit Runde 6, R6-W1).
+  const geltend = new Set(geltendeJeEinheit(eintraege).map((e) => e.id));
+  return eintraege.filter((e) => !bekannt.has(e.id) && geltend.has(e.id));
 }
 
 /**
