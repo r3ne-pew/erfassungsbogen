@@ -1631,15 +1631,24 @@
     footer.nav.assistent-nav {
       container: assistent-nav / inline-size;
       display: grid; align-items: center; justify-content: stretch;
-      grid-template-columns: auto auto minmax(0, 1fr) minmax(0, auto);
+      /* R6-G1: Die Spalte des Primärknopfs schrumpft nicht mehr unter dessen
+         Breite (vorher minmax(0, auto): der Knopf lief über „◐ Ansicht"); was
+         fehlt, trägt „◐ Ansicht" — sein Wort fällt weg, bevor etwas überlappt. */
+      grid-template-columns: auto minmax(0, auto) minmax(0, 1fr) auto;
       grid-template-areas: "zurueck modus mitte weiter";
       /* mindestens 12 px zwischen den Knöpfen (R4-G4), auch auf 320 px */
       column-gap: max(12px, min(1rem, 18px, 3vw));
     }
     footer.nav.assistent-nav > .nav-zurueck { grid-area: zurueck; min-width: min(calc(var(--ziel-basis) + var(--ziel)), calc(44px + var(--ziel))); }
-    footer.nav.assistent-nav > .anzeige-leiste { grid-area: modus; }
+    footer.nav.assistent-nav > .anzeige-leiste { grid-area: modus; min-width: 0; max-width: 100%; flex: 0 1 auto; }
+    footer.nav.assistent-nav .anzeige-leiste-knopf { min-width: 0; max-width: 100%; overflow: hidden; }
+    footer.nav.assistent-nav .anzeige-leiste-text { white-space: nowrap; }
     footer.nav.assistent-nav > .uebernehmen { grid-area: mitte; justify-self: center; }
     footer.nav.assistent-nav > .primaer { grid-area: weiter; justify-self: end; }
+    @container assistent-nav (max-width: 19rem) {
+      footer.nav.assistent-nav .anzeige-leiste-text { display: none; }
+      footer.nav.assistent-nav .nav-zur { display: none; }
+    }
     @container assistent-nav (max-width: 25rem) {
       .nav-wort { display: none; }
       .nav-zurueck, .primaer { padding-inline: min(1.1rem, 20px, 3.5vw); }
@@ -1654,6 +1663,12 @@
       footer.nav.assistent-nav > .anzeige-leiste { grid-area: auto; grid-row: 2; grid-column: 2; }
       footer.nav.assistent-nav > .uebernehmen { grid-area: auto; grid-row: 1; grid-column: 1 / -1; justify-self: stretch; }
       footer.nav.assistent-nav > .primaer { grid-area: auto; grid-row: 3; grid-column: 1 / -1; justify-self: stretch; }
+      /* R6-G2: Ohne Abschluss-Knopf bleiben zwei Zeilen (Primärknopf, darunter
+         „←" und „◐"); die leere erste Zeile kostete nur Abstand. */
+      footer.nav.assistent-nav:not(.mit-uebernehmen) > .primaer { grid-row: 1; }
+      footer.nav.assistent-nav:not(.mit-uebernehmen) > .nav-zurueck,
+      footer.nav.assistent-nav:not(.mit-uebernehmen) > .anzeige-leiste { grid-row: 2; }
+      footer.nav.assistent-nav > .primaer { min-width: 0; }
     }
     /* Quer am Telefon — das Gerät in der Fahrzeughalterung, eine der
        maßgeblichen Nutzungssituationen — blieben von 390 px Höhe nach

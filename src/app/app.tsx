@@ -4446,13 +4446,21 @@ function AppInhalt() {
           <button
             type="button"
             className="primaer"
+            aria-label={schritt === UEBERSICHT - 1 ? "Zur Übersicht →" : undefined}
             onClick={() =>
               setSchritt(
                 schritt === 0 && fremdeErfassung && bogen.personalErfassung === PersonalErfassung.NUR_STAERKE ? 2 : schritt + 1,
               )
             }
           >
-            {schritt === UEBERSICHT - 1 ? "Zur Übersicht →" : "Weiter →"}
+            {schritt === UEBERSICHT - 1 ? (
+              <>
+                {/* Auf dem kleinsten Bild fällt „Zur" weg, damit „◐" nicht unter den Knopf gerät (R6-G1). */}
+                <span className="nav-zur">Zur </span>Übersicht →
+              </>
+            ) : (
+              "Weiter →"
+            )}
           </button>
         </footer>
       )}
