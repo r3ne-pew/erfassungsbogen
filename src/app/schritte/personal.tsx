@@ -424,7 +424,7 @@ function PersonKarte(props: {
                Liste zwölf gleich aussehende Karten führen kann. */
             if (!personLeer(p) && !(await frageJaNein({
               titel: `${bezeichnung} entfernen?`,
-              text: "Die erfassten Angaben dieser Person gehen verloren — Name, Funktionen, Qualifikationen und Erreichbarkeiten.",
+              text: "Die Angaben dieser Person werden entfernt — Name, Funktionen, Qualifikationen und Erreichbarkeiten. „Rückgängig“ in der Leiste unten holt sie zurück.",
               ok: "Person entfernen",
               gefahr: true,
             }))) {
@@ -562,7 +562,7 @@ function PersonalSchnellTabelle(props: {
       !personLeer(p) &&
       !(await frageJaNein({
         titel: `${bezeichnung} entfernen?`,
-        text: "Die erfassten Angaben dieser Person gehen verloren — Name, Funktionen, Qualifikationen und Erreichbarkeiten.",
+        text: "Die Angaben dieser Person werden entfernt — Name, Funktionen, Qualifikationen und Erreichbarkeiten. „Rückgängig“ in der Leiste unten holt sie zurück.",
         ok: "Person entfernen",
         gefahr: true,
       }))
@@ -755,7 +755,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
   };
   /** „Entfernt: Name" bzw. „2 Personen (Name, Name)". */
   const entferntText = (entfernte: { name: string }[]) =>
-    entfernte.length === 1 ? entfernte[0]!.name : `${entfernte.length} Personen (${entfernte.map((e) => e.name).join(", ")})`;
+    entfernte.length === 1 ? entfernte[0]!.name : `${entfernte.length} Personen (${entfernte.map((e) => e.name).join("; ")})`;
   const rueckgaengig = () => {
     if (!rueckweg) return;
     if (rueckweg.art === "liste") {

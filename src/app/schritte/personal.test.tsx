@@ -486,7 +486,7 @@ describe("Schritt Personal", () => {
       await waitFor(() => expect(screen.queryByDisplayValue(name.split(", ")[1]!)).toBeNull());
     }
     const leiste = () => document.querySelector<HTMLElement>(".quittung-daumen")!;
-    expect(leiste().textContent).toMatch(/^Entfernt: 2 Personen \(Berg, Eva, Stein, Paul\)/);
+    expect(leiste().textContent).toMatch(/^Entfernt: 2 Personen \(Berg, Eva; Stein, Paul\)/);
     await nutzer.click(within(leiste()).getByRole("button", { name: "Rückgängig" }));
     const vornamen = screen.getAllByLabelText("Vorname").map((f) => (f as HTMLInputElement).value);
     expect(vornamen).toEqual(["Paul", "Eva", "Sabine"]);

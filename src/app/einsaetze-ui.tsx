@@ -543,7 +543,7 @@ export function EinsatzListe(props: {
             {/* Datum und Restzeit statt „nach 30 Tagen": Ab drei Tagen
                 hervorgehoben (Audit Runde 4, R4-D5). */}
             <p className={papierkorbRest(s.geloeschtAm!).bald ? "hinweis warnung-text" : "hinweis"}>
-              {s.eintraege.length} Meldung(en) · gelöscht am {new Date(s.geloeschtAm!).toLocaleDateString("de-DE")} —{" "}
+              {s.eintraege.length} Meldung(en) · gelöscht am {new Date(s.geloeschtAm!).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })} —{" "}
               {papierkorbRest(s.geloeschtAm!).text}
             </p>
             {/* Wiederherstellen zählt als Änderung: Die Aufräumfrist ruhender

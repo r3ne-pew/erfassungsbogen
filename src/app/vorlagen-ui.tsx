@@ -182,7 +182,7 @@ export function VorlagenListe(props: {
               </AbgangKnopf>
             </div>
             <p className={papierkorbRest(v.geloeschtAm!).bald ? "hinweis warnung-text" : "hinweis"}>
-              Gelöscht am {new Date(v.geloeschtAm!).toLocaleDateString("de-DE")} — {papierkorbRest(v.geloeschtAm!).text}
+              Gelöscht am {new Date(v.geloeschtAm!).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })} — {papierkorbRest(v.geloeschtAm!).text}
             </p>
             <div className="papierkorb-endgueltig">
               <AbgangKnopf
