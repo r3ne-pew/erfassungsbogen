@@ -9,7 +9,10 @@ Funktionalität: Vorlagen anlegen, verwalten und mustern
     Wenn ich auf "Als Vorlage speichern" klicke
     Und ich im Dialog "Name der Vorlage" mit "FGr K Oldenburg" fülle
     Und ich im Dialog auf "Vorlage speichern" klicke
-    Und ich auf "‹ Startseite" klicke
+    # Erst die Rückmeldung abwarten: Das Schließen des Dialogs nimmt seinen Verlaufseintrag
+    # asynchron zurück, ein sofortiger Tipp auf „Startseite" landete sonst wieder im Bogen.
+    Dann sehe ich den Hinweis 'Als Vorlage „FGr K Oldenburg" gespeichert.'
+    Wenn ich auf "‹ Startseite" klicke
     Dann sehe ich die Überschrift "Gespeicherte Vorlagen"
 
   Szenario: Die gespeicherte Vorlage steht auf der Startseite
