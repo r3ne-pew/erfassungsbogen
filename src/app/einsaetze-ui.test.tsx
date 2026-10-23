@@ -469,8 +469,9 @@ describe("Einheiten als Tabelle", () => {
     buehne(["Wardenburg", "Ahlhorn"]);
     await nutzer.click(screen.getByRole("button", { name: "Tabelle" }));
 
-    // Vorgabe ist die Sortierung nach Nr. wie auf dem Lageblatt (R7-K9).
-    expect(einheitenSpalte()[0]).toContain("Wardenburg");
+    // Vorgabe ist die Sortierung nach Nr. wie auf dem Lageblatt (R7-K9); wer zuerst steht, hängt
+    // bei gleicher Minute vom Schlüssel ab, darum nur die Nummer prüfen.
+    expect(einheitenSpalte()[0]).toMatch(/^Nr\. 1 /);
 
     const spaltenkopf = screen.getAllByRole("columnheader")[0]!;
     const kopf = within(spaltenkopf).getByRole("button");
