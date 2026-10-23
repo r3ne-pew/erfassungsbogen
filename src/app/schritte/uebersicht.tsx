@@ -638,7 +638,15 @@ export function Uebersicht(props: {
               Paare weiterhin im Raster der Liste. */}
           {bogen.einheit.hierarchie.map((h, i) => (
             <div key={i} style={{ display: "contents" }}>
-              <dt>{vokabText(h.bezeichnung, vokabularFuer(org, "ebene")) || "Ebene"}</dt>
+              {/* Heißt die Ebene wie der Einheitstyp (DRK: „Behandlung Kat. ROT"), wiederholte die Zeile ihn als
+                  Beschriftung; sie heißt dann „Standort" (Audit Runde 6, R6-N8). */}
+              <dt>
+                {(() => {
+                  const ebene = vokabText(h.bezeichnung, vokabularFuer(org, "ebene"));
+                  const typ = vokabText(bogen.einheit.einheitsTyp, vokabularFuer(org, "einheitstyp"), "name");
+                  return !ebene ? "Ebene" : typ && ebene.trim().toLocaleLowerCase("de-DE") === typ.trim().toLocaleLowerCase("de-DE") ? "Standort" : ebene;
+                })()}
+              </dt>
               <dd>{h.name}{h.kurz ? ` (${h.kurz})` : ""}{h.telefon ? ` · ${h.telefon}` : ""}{h.email ? ` · ${h.email}` : ""}</dd>
             </div>
           ))}

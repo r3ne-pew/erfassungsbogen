@@ -99,6 +99,7 @@ function FahrzeugKarte(props: {
               Kabine (FüKomKw 1+2 oder 1+6), deshalb ist der Richtwert nur ein
               Vorschlag. */}
           <input
+            id={`feld-sitzplaetze-${index}`}
             type="number"
             min={0}
             max={99}

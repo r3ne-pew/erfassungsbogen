@@ -791,6 +791,7 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
     hinweise.push({
       text: `Alle ${b.personal.length} Personen stehen auf Geschlecht „männlich" — das ist die Vorbelegung. Bitte prüfen (zählt für Unterbringung und WC/Dusche).`,
       schritt: S_PERSONAL,
+      feld: "feld-geschlecht-0",
     });
   }
   if (bisVorVon) {
@@ -908,7 +909,9 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
     hinweise.push(
       ...fahrzeugHinweise(b).map((text) => {
         const kz = /^Fahrzeug (\d+) hat noch kein Kennzeichen/.exec(text);
-        return { text, schritt: S_FAHRZEUGE, ...(kz ? { feld: `feld-kennzeichen-${Number(kz[1]) - 1}` } : {}) };
+        // Die Sitzplatz-Bilanz springt zum Sitzplatz-Feld des ersten Fahrzeugs (R6-N7).
+        const feld = kz ? `feld-kennzeichen-${Number(kz[1]) - 1}` : /^Sitzplätze: /.test(text) ? "feld-sitzplaetze-0" : null;
+        return { text, schritt: S_FAHRZEUGE, ...(feld ? { feld } : {}) };
       }),
     );
     // Fahrzeuge ohne Fahrer kommen nicht in den Einsatz: die StAN-Vorbelegung

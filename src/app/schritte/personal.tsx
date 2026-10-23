@@ -454,6 +454,7 @@ function PersonKarte(props: {
           <div className="zeile">
             <Feld titel="Geschlecht" schmal>
               <Auswahl
+                id={`feld-geschlecht-${props.index}`}
                 value={p.geschlecht}
                 className={vorgabe.geschlecht ? "vorgabe-offen" : undefined}
                 onFocus={() => setVorgabe((v) => ({ ...v, geschlecht: false }))}

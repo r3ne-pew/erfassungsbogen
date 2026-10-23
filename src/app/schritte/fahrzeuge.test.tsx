@@ -132,7 +132,7 @@ describe("Schritt Fahrzeuge", () => {
 
     await nutzer.type(feld, "1");
 
-    expect(screen.getByText(/1 brauchen eine andere Mitfahrgelegenheit/)).toBeDefined();
+    expect(screen.getByText(/1 braucht eine andere Mitfahrgelegenheit/)).toBeDefined();
   });
 
   it("behält beim Tippen der Kennzahlen das Trennzeichen", async () => {
