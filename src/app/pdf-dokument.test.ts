@@ -22,8 +22,8 @@ import {
   zeitpunktAusIso,
   type Erfassungsbogen,
 } from "@bos/eeb-format/model";
-import { einheitAnzeigename, zeitgruppe, type QrSatz } from "./hilfen";
-import { EEB_JSON_DATEINAME, aenderungFuerPapier, bogenAlsEingebetteteDatei, einsatzLageblattDokument, einsatzPdfDokument, pdfDokument, stiftHinweis, STIFT_KAESTCHEN, codeKopfzeile } from "./pdf-dokument";
+import { einheitAnzeigename, neuesFahrzeug, zeitgruppe, type QrSatz } from "./hilfen";
+import { EEB_JSON_DATEINAME, aenderungFuerPapier, bogenAlsEingebetteteDatei, einsatzLageblattDokument, einsatzPdfDokument, pdfDokument, stiftHinweis, STIFT_KAESTCHEN, codeKopfzeile, meldekopfVermerk, ohneVorbelegung, erreichbarkeitZeilen } from "./pdf-dokument";
 
 const QR_BILD = "data:image/png;base64,QRTESTBILD";
 const QR_URL = "https://erfassungsbogen.app/#TESTPAYLOAD";
@@ -842,3 +842,37 @@ describe("lageblattAenderungen (Audit Runde 5, R5-K7)", () => {
     expect(z.join("\n")).toContain("weitere: Bemerkung/Sonstiges");
   });
 });
+
+// Audit Runde 6, R6-A1: Der Kasten „Stand am Meldekopf" trägt die Marke der Übersicht.
+describe("meldekopfVermerk(): unbestätigte Eintreffzeit (R6-A1)", () => {
+  it("nennt die vom Papier eingelesene Zeit als nicht bestätigt", () => {
+    const b = basisBogen();
+    const v = meldekopfVermerk({ bogen: b, nummer: 4, eingetroffenAm: Date.UTC(2026, 9, 17, 11, 22), zeitUnbestaetigt: true }, "Hochwasser", Date.now());
+    expect(v.stand).toMatch(/Eingetroffen .*\(nicht bestätigt, vom Papier\)/);
+  });
+
+  it("lässt die Marke weg, wenn die Zeit bestätigt ist", () => {
+    const v = meldekopfVermerk({ bogen: basisBogen(), nummer: 4, eingetroffenAm: Date.UTC(2026, 9, 17, 11, 22) }, "Hochwasser", Date.now());
+    expect(v.stand).not.toMatch(/nicht bestätigt/);
+  });
+});
+
+// Audit Runde 6, R6-A3: Vorbelegung aus dem Einheitstyp steht nicht als gemeldet auf Papier.
+describe("ohneVorbelegung() (R6-A3)", () => {
+  it("nimmt bei nur nach Stärke erfasster Einheit Funkrufname und StAN-Kreuz weg", () => {
+    const b = basisBogen();
+    b.personalErfassung = PersonalErfassung.NUR_STAERKE;
+    b.fahrzeuge = [{ ...neuesFahrzeug(), stanKonform: true, funkrufname: { kennwort: { freitext: "Heros" }, eigenerStandort: true, teile: [22, 51] } }];
+    const c = ohneVorbelegung(b);
+    expect(c.fahrzeuge[0]!.stanKonform).toBeUndefined();
+    expect(c.fahrzeuge[0]!.funkrufname).toBeUndefined();
+    expect(erreichbarkeitZeilen(b).join(" ")).not.toMatch(/Heros/);
+  });
+
+  it("lässt vollständig erfasste Einheiten unverändert", () => {
+    const b = basisBogen();
+    b.fahrzeuge = [{ ...neuesFahrzeug(), stanKonform: true }];
+    expect(ohneVorbelegung(b)).toBe(b);
+  });
+});
+

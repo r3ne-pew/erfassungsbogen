@@ -442,6 +442,17 @@ function blattZeit(ms: number | undefined): string {
  * nur die zählenden — genau wie die Stärkeleiste am Gerät.
  */
 /**
+ * Bei einer Einheit, deren Personal nur als Stärke erfasst ist, stammen Fahrzeug-
+ * Ausstattung („nach StAN: ja") und Funkrufname aus der Vorbelegung des Einheitstyps –
+ * gemeldet hat sie niemand. Auf Papier sähe das wie eine Aussage der Einheit aus
+ * (Audit Runde 6, R6-A3): Die Kästchen bleiben leer, der Funkrufname entfällt.
+ */
+export function ohneVorbelegung(b: Erfassungsbogen): Erfassungsbogen {
+  if (b.personalErfassung !== PersonalErfassung.NUR_STAERKE) return b;
+  return { ...b, fahrzeuge: b.fahrzeuge.map((f) => ({ ...f, stanKonform: undefined, funkrufname: undefined })) };
+}
+
+/**
  * Wie erreiche ich die Einheit ohne Gerät? Funkrufname des ersten Fahrzeugs
  * mit Funkrufnamen und die Rückrufnummer der Führungskraft (sonst die des
  * Ortsverbands) — auf dem Einzelbogen stehen sie, auf dem Lageblatt fehlten
@@ -449,6 +460,7 @@ function blattZeit(ms: number | undefined): string {
  */
 export function erreichbarkeitZeilen(b: Erfassungsbogen): string[] {
   const zeilen: string[] = [];
+  b = ohneVorbelegung(b);
   const fzg = b.fahrzeuge.find((f) => f.funkrufname);
   const furn = fzg ? funkrufText(fzg, b.einheit) : "";
   if (furn) zeilen.push(furn);
@@ -1115,7 +1127,9 @@ export function meldekopfVermerk(e: UebersichtEintrag, name: string, erstellt: n
   // wie auf dem Blatt an der Wand (R4-A1).
   const teile = [
     ...(e.nummer != null ? [`Nr. ${e.nummer}`] : []),
-    `Eingetroffen ${e.eingetroffenAm == null ? "(nicht festgehalten)" : zeitLang(e.eingetroffenAm)}`,
+    // Die Marke der Übersicht gehört auch in den Kasten: Sonst gilt die Einlesezeit beim
+    // Wiederanlauf vom Papier als bestätigt (R6-A1).
+    `Eingetroffen ${e.eingetroffenAm == null ? "(nicht festgehalten)" : `${zeitLang(e.eingetroffenAm)}${e.zeitUnbestaetigt ? " (nicht bestätigt, vom Papier)" : ""}`}`,
   ];
   if (e.abgerueckt) {
     teile.push(e.abgerueckAm == null ? "ABGERÜCKT (nicht mehr vor Ort)" : `ABGERÜCKT ${zeitLang(e.abgerueckAm)}`);
@@ -1152,7 +1166,8 @@ function vermerkKasten(v: MeldekopfVermerk, margin: [number, number, number, num
  * stehen Nr. und Einheit: Eine verrutschte Seite 2 war sonst eine Namensliste
  * ohne Absender.
  */
-const RAND_ZEILE_Y = 6;
+// 16 pt = 5,6 mm vom Papierrand: Viele Drucker lassen oben 3 bis 5 mm unbedruckt (R6-A2; vorher 6 pt = 2 mm).
+const RAND_ZEILE_Y = 16;
 const NAME_IM_KOPF_MAX = 62;
 const UEBERTRAGEN_KURZ = `übertragen ${kasten(false)} von ______ um ____:____ Uhr`;
 
@@ -1164,8 +1179,8 @@ function randZeile(text: string, rahmen: boolean): Content {
     layout: {
       hLineWidth: () => (rahmen ? 0.5 : 0),
       vLineWidth: () => (rahmen ? 0.5 : 0),
-      paddingTop: () => 1.5,
-      paddingBottom: () => 1.5,
+      paddingTop: () => 0.5,
+      paddingBottom: () => 0.5,
       paddingLeft: () => 4,
       paddingRight: () => 4,
     },
@@ -1784,6 +1799,7 @@ export function pdfDokument(
   /** Nur Einzel-PDF: Platz für Stiftnachträge (R3-A6). */
   zusatz?: NachtragsPlatz,
 ): TDocumentDefinitions {
+  b = ohneVorbelegung(b);
   const org = b.einheit.organisation;
   const farbe = orgFarbe(org);
   const typName = vokabText(b.einheit.einheitsTyp, vokabularFuer(org, "einheitstyp"), "name") || "Einheit";
