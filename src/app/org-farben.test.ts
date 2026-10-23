@@ -69,21 +69,22 @@ describe("orgAkzentPalette", () => {
   });
 
   it("hellt den Link-Ton auf, wo der Kontrast es zulässt", () => {
-    // Die Absicht bleibt „heller = anfassbar". Nur das DLRG-Gelb steht so
-    // dicht an Weiß, dass schon der kleinste Schritt AA reißt — dort dunkelt
-    // der Ton ab, statt unlesbar zu werden.
+    // Die Absicht bleibt „heller = anfassbar". Nur das DRK-Rot (#e60005)
+    // steht so dicht an Weiß, dass schon der kleinste Schritt AA reißt — dort
+    // dunkelt der Ton ab, statt unlesbar zu werden.
     const dunkler = ALLE.filter((org) => {
       const p = orgAkzentPalette(org);
       return helligkeit(p.hell) < helligkeit(p.akzent);
     });
-    expect(dunkler).toEqual([OrganisationsTyp.DLRG]);
+    expect(dunkler).toEqual([OrganisationsTyp.DRK]);
   });
 
   it("hält den Erledigt-Haken grün, solange ein grüner Ton trägt", () => {
-    // Auf DRK-Rot und DLRG-Gelb liegt kein grüner Ton mit 4,5:1 — dort wird
-    // der Haken weiß; die Auskunft hängt dann am Zeichen, nicht an der Farbe.
+    // Auf den Rottönen (DRK, Johanniter, Malteser, ASB, DLRG) liegt kein grüner
+    // Ton mit 4,5:1 — dort wird der Haken weiß; die Auskunft hängt dann am
+    // Zeichen, nicht an der Farbe.
     const weiss = ALLE.filter((org) => orgAkzentPalette(org).kopfGut === "#ffffff");
-    expect(weiss).toEqual([OrganisationsTyp.DRK, OrganisationsTyp.DLRG]);
+    expect(weiss).toEqual([OrganisationsTyp.DRK, OrganisationsTyp.JUH, OrganisationsTyp.MHD, OrganisationsTyp.ASB, OrganisationsTyp.DLRG]);
     expect(orgAkzentPalette(OrganisationsTyp.THW).kopfGut).toBe("#8fe0ab");
   });
 
@@ -113,10 +114,10 @@ function leuchtdichte(hex: string): number {
  * darauf bleibt gegen BEIDE Töne lesbar.
  */
 describe("kopfDunkel: Kopfbalken im Dunkel-Modus (R4-L2)", () => {
-  const MALTESER = leuchtdichte(orgAkzentPalette(OrganisationsTyp.MHD).akzent);
+  const MALTESER = leuchtdichte("#7d1128"); // Obergrenze der Balkenhelligkeit, unabhängig von der Malteser-Kennfarbe
 
-  it("dunkle Kennfarben bleiben unverändert (THW, Malteser, Johanniter)", () => {
-    for (const org of [OrganisationsTyp.THW, OrganisationsTyp.MHD, OrganisationsTyp.JUH]) {
+  it("dunkle Kennfarben bleiben unverändert (THW)", () => {
+    for (const org of [OrganisationsTyp.THW]) {
       const p = orgAkzentPalette(org);
       expect(p.kopfDunkel).toBe(p.akzent);
     }
@@ -128,8 +129,8 @@ describe("kopfDunkel: Kopfbalken im Dunkel-Modus (R4-L2)", () => {
     }
   });
 
-  it("DRK, Feuerwehr, DLRG und ASB werden merklich dunkler, behalten aber ihren Farbton", () => {
-    for (const org of [OrganisationsTyp.DRK, OrganisationsTyp.FEUERWEHR, OrganisationsTyp.DLRG, OrganisationsTyp.ASB]) {
+  it("DRK, Feuerwehr, DLRG, ASB, Johanniter und Malteser werden merklich dunkler, behalten aber ihren Farbton", () => {
+    for (const org of [OrganisationsTyp.DRK, OrganisationsTyp.FEUERWEHR, OrganisationsTyp.DLRG, OrganisationsTyp.ASB, OrganisationsTyp.JUH, OrganisationsTyp.MHD]) {
       const p = orgAkzentPalette(org);
       expect(p.kopfDunkel).not.toBe(p.akzent);
       expect(leuchtdichte(p.kopfDunkel)).toBeLessThan(leuchtdichte(p.akzent) * 0.6);
