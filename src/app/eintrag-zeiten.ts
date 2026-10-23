@@ -178,8 +178,8 @@ export class SpeicherVollFehler extends Error {
   constructor(ursache?: unknown) {
     super(
       "Speichern fehlgeschlagen — der Speicher dieses Geräts ist voll. " +
-        "Platz schafft nur Löschen: nicht mehr benötigte Einsätze in den Papierkorb legen und den Papierkorb leeren " +
-        "(bei Bedarf vorher sichern — die Sicherung selbst schafft keinen Platz).",
+        "Platz schafft nur Löschen: nicht mehr benötigte Einsätze sichern, den Papierkorb leeren oder einen gesicherten Einsatz dort endgültig löschen " +
+        "(die Sicherung selbst schafft keinen Platz; ins Papierkorb-Legen braucht bei vollem Speicher selbst etwas).",
     );
     this.name = "SpeicherVollFehler";
     (this as { cause?: unknown }).cause = ursache;
@@ -196,7 +196,7 @@ export function speicherVollMeldung(anzahl: number): string {
   return (
     `Nicht aufgenommen: ${anzahl === 1 ? "1 Bogen" : `${anzahl} Bögen`} — der Speicher dieses Geräts ist voll, ` +
     "die Datei selbst ist in Ordnung. Platz schafft nur Löschen: nicht mehr benötigte Einsätze sichern, " +
-    "in den Papierkorb legen und den Papierkorb leeren; danach dieselbe Datei noch einmal einlesen."
+    "den Papierkorb leeren oder einen gesicherten Einsatz dort endgültig löschen; danach dieselbe Datei noch einmal einlesen."
   );
 }
 

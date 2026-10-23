@@ -2771,7 +2771,28 @@ function AppInhalt() {
     const vorherDa = new Set(einsaetzeLaden().find((s) => s.id === ziel)?.eintraege.map((e) => e.id));
     // Manuell erfasster Bogen ist kein signierter Transport.
     const ok = await bogenInSammlung(ziel, b, "manuell", undefined, false, eigenerBogenWartetHinweis());
-    if (!ok) return;
+    if (!ok) {
+      // Voller Speicher: die Meldung stand oberhalb des Bildschirms, am Knopf
+      // geschah nichts Sichtbares. Ein Dialog nennt die Zahl, die sich sonst
+      // nirgends mehr findet (Audit Runde 6, R6-E2).
+      if (ablageFehler.current) {
+        await zeigeHinweis({
+          titel: "Nicht übernommen",
+          text: (
+            <>
+              <p>{ablageFehler.current}</p>
+              <p>
+                <strong>
+                  „{einheitAnzeigename(b.einheit) || "Einheit"}“, Stärke {staerkeKurz(b)}: bitte auf dem Meldeblock notieren, Platz schaffen und
+                  dann noch einmal übernehmen. Die Eingaben bleiben stehen.
+                </strong>
+              </p>
+            </>
+          ),
+        });
+      }
+      return;
+    }
     // Uhrzeit vom Blatt an die NEUE Einheit (R2-A5). Eine Folgemeldung erbt
     // die Eintreffzeit ihrer Vorgängerin, die bleibt maßgeblich.
     {

@@ -51,7 +51,7 @@ export function SpeicherWarnung({ stand }: { stand: unknown }) {
         ? `⚠ Gerätespeicher ist voll: ${speicherText(b)} — die App kann nichts mehr speichern.`
         : `⚠ Gerätespeicher zu ${speicherText(b)} belegt. Wird er voll, kann die App nichts mehr speichern.`}
       {groesste ? ` Am meisten belegen: ${groesste}.` : ""} Platz schafft nur Löschen: nicht mehr
-      benötigte Einsätze sichern, in den Papierkorb legen und den Papierkorb leeren.
+      benötigte Einsätze sichern, den Papierkorb leeren oder einen gesicherten Einsatz dort „Endgültig löschen…“ (bei vollem Speicher kostet schon das Ablegen in den Papierkorb Platz).
     </p>
   );
 }
@@ -73,8 +73,9 @@ export function SpeicherNimmtNichtsAn() {
   ) : (
     <p className="warnung" role="alert">
       ⚠ Der Speicher dieses Geräts ist voll — angezeigt wird der gespeicherte Stand, Änderungen lassen sich
-      nicht speichern. Platz schafft nur Löschen: nicht mehr benötigte Einsätze sichern, in den Papierkorb
-      legen und den Papierkorb leeren.
+      nicht speichern. Platz schafft nur Löschen: nicht mehr benötigte Einsätze sichern, den Papierkorb leeren
+      oder einen gesicherten Einsatz dort „Endgültig löschen…“ (bei vollem Speicher kostet schon das Ablegen
+      in den Papierkorb Platz).
     </p>
   );
 }

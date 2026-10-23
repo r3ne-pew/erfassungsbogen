@@ -1270,7 +1270,7 @@ function SpeicherStand() {
     <p className={b.anteil >= 0.7 ? "warnung" : "hinweis"} role="status">
       Belegter Speicher: etwa {speicherText(b)}.
       {b.anteil >= 0.7
-        ? `${istVoll(b) ? " Er ist voll — die App kann nichts mehr speichern." : " Wird er voll, kann die App nichts mehr speichern."}${groesste ? ` Am meisten belegen: ${groesste}.` : ""} Platz schafft nur Löschen — alte Einsätze sichern, in den Papierkorb legen und den Papierkorb leeren; die Sicherung selbst schafft keinen Platz.`
+        ? `${istVoll(b) ? " Er ist voll — die App kann nichts mehr speichern." : " Wird er voll, kann die App nichts mehr speichern."}${groesste ? ` Am meisten belegen: ${groesste}.` : ""} Platz schafft nur Löschen — alte Einsätze sichern, den Papierkorb leeren oder einen gesicherten Einsatz dort endgültig löschen; die Sicherung selbst schafft keinen Platz, und bei vollem Speicher kostet schon das Ablegen in den Papierkorb Platz.`
         : ""}
     </p>
   );

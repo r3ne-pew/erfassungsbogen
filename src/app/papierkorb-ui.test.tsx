@@ -8,7 +8,7 @@
  * darum nicht der Klick, sondern der Gerätespeicher danach.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useState } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -238,5 +238,38 @@ describe("Papierkorb der Vorlagen", () => {
     await nutzer.click(within(rueckfrage("Vorlage endgültig löschen?")).getByRole("button", { name: "Abbrechen" }));
 
     expect(vorlagenPapierkorb().map((x) => x.id)).toEqual([v.id]);
+  });
+});
+
+// Audit Runde 6, R6-O1: Bei vollem Speicher scheiterte „In den Papierkorb" ohne Meldung.
+describe("Löschen bei vollem Speicher (R6-O1)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("sagt, dass nichts gelöscht wurde, und lässt die Sammlung stehen", async () => {
+    const nutzer = userEvent.setup();
+    einsatzAnlegen("Hochwasser Wardenburg", EinsatzArt.EINSATZ, "Wardenburg");
+    render(
+      <>
+        <EinsatzListe einsaetze={einsaetzeLaden()} onOeffnen={() => {}} onGeaendert={() => {}} />
+        <Dialogschicht />
+      </>,
+    );
+    const echt = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === "eeb.einsaetze.v1") throw new DOMException("voll", "QuotaExceededError");
+      return echt.call(this, k, v);
+    });
+    try {
+      await nutzer.click(screen.getByRole("button", { name: "Löschen…" }));
+      await nutzer.click(within(rueckfrage("Einsatz löschen?")).getByRole("button", { name: "In den Papierkorb" }));
+      const hinweis = await screen.findByRole("dialog", { name: "Nicht gelöscht" });
+      expect(hinweis.textContent).toMatch(/Speicher/);
+    } finally {
+      vi.restoreAllMocks();
+    }
+    expect(einsaetzeLaden()).toHaveLength(1);
+    expect(einsaetzePapierkorb()).toHaveLength(0);
   });
 });

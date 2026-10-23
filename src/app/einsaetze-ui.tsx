@@ -405,8 +405,10 @@ export function EinsatzListe(props: {
     });
   }
 
-  function loeschen(s: Einsatzsammlung) {
-    einsatzLoeschen(s.id);
+  async function loeschen(s: Einsatzsammlung) {
+    // Bei vollem Speicher scheiterte das Ablegen im Papierkorb ohne Meldung
+    // (Audit Runde 6, R6-O1).
+    if (!(await gesichert("Nicht gelöscht", () => einsatzLoeschen(s.id)))) return;
     setGeloescht({ id: s.id, name: s.name });
     onGeaendert();
   }
@@ -1211,7 +1213,7 @@ export function EinsatzDetail(props: {
       gefahr: true,
     });
     if (!sicher) return;
-    einsatzLoeschen(einsatz.id);
+    if (!(await gesichert("Nicht gelöscht", () => einsatzLoeschen(einsatz.id)))) return;
     // Die Startseite quittiert mit Rückweg (R2-D6).
     zuletztGeloeschterEinsatz = { id: einsatz.id, name: einsatz.name };
     onGeloescht();
