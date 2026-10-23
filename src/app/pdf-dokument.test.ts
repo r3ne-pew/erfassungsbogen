@@ -23,7 +23,7 @@ import {
   type Erfassungsbogen,
 } from "@bos/eeb-format/model";
 import { einheitAnzeigename, neuesFahrzeug, zeitgruppe, type QrSatz } from "./hilfen";
-import { EEB_JSON_DATEINAME, aenderungFuerPapier, bogenAlsEingebetteteDatei, einsatzLageblattDokument, einsatzPdfDokument, pdfDokument, stiftHinweis, STIFT_KAESTCHEN, codeKopfzeile, meldekopfVermerk, ohneVorbelegung, erreichbarkeitZeilen } from "./pdf-dokument";
+import { EEB_JSON_DATEINAME, aenderungFuerPapier, bogenAlsEingebetteteDatei, einsatzLageblattDokument, einsatzPdfDokument, pdfDokument, stiftHinweis, STIFT_KAESTCHEN, codeKopfzeile, meldekopfVermerk, ohneVorbelegung, erreichbarkeitZeilen, nichtDarstellbareNamen } from "./pdf-dokument";
 
 const QR_BILD = "data:image/png;base64,QRTESTBILD";
 const QR_URL = "https://erfassungsbogen.app/#TESTPAYLOAD";
@@ -873,6 +873,19 @@ describe("ohneVorbelegung() (R6-A3)", () => {
     const b = basisBogen();
     b.fahrzeuge = [{ ...neuesFahrzeug(), stanKonform: true }];
     expect(ohneVorbelegung(b)).toBe(b);
+  });
+});
+
+// Audit Runde 6, R6-A5: Namen, die auf Papier als „?" stünden, werden gezählt.
+describe("nichtDarstellbareNamen() (R6-A5)", () => {
+  it("zählt kyrillische und Emoji-Namen, nicht lateinische Akzente", () => {
+    const b = basisBogen();
+    b.personal = [
+      { ...b.personal[0]!, vorname: "Дмитрий", nachname: "Иванов" },
+      { ...b.personal[0]!, vorname: "Łukasz", nachname: "Şahin" },
+      { ...b.personal[0]!, vorname: "Max", nachname: "😀" },
+    ];
+    expect(nichtDarstellbareNamen(b)).toBe(3);
   });
 });
 

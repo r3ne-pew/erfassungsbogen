@@ -1079,6 +1079,18 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
               Einheit im Stehen auf, oft mit Handschuh, und zählt sie durch.
               Tippen bleibt möglich (das Feld in der Mitte ist eins), nötig ist
               es nicht mehr. */}
+          {/* Die Zahlen starten mit der Vorbelegung nach Einheitstyp (StAN). Wer vom Zettel mit „+"
+              aufbaut, addiert sonst zur Sollstärke (Audit Runde 6, R6-A8). */}
+          {bogen.personal.length > 0 &&
+            bogen.personal.every(personLeer) &&
+            (() => {
+              const soll = staerke({ personal: bogen.personal });
+              return soll.fuehrer === sm.fuehrer && soll.unterfuehrer === sm.unterfuehrer && soll.mannschaft === sm.mannschaft;
+            })() && (
+              <p className="hinweis warnung-text">
+                Vorgabe nach Einheitstyp (Sollstärke), nicht gezählt: Mit der gezählten Stärke überschreiben, nicht dazuzählen.
+              </p>
+            )}
           <div className="stepper-zeile">
             <Stepper titel="Führer" wert={sm.fuehrer} setzen={(n) => setSm({ fuehrer: n })} />
             <Stepper titel="Unterführer" wert={sm.unterfuehrer} setzen={(n) => setSm({ unterfuehrer: n })} />

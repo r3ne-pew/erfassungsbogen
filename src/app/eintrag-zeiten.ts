@@ -748,10 +748,13 @@ export function papierAbgleichUebernehmen(einsatzId: string, zeilen: PapierAbgle
       vermerken(e, `Eintreffzeit korrigiert: ${zeitLang(vorher)} → ${zeitLang(z.eingetroffenAm)}`);
     }
     if (z.status === MeldeStatus.ABGERUECKT) {
-      const zeit = z.abgerueckAm ?? Date.now();
-      if (e.status !== MeldeStatus.ABGERUECKT) vermerken(e, "Abgerückt", zeit);
+      // Steht auf dem Blatt keine Abrückzeit, bleibt sie offen („nicht bestätigt") – die Uhrzeit
+      // des Einlesens wäre keine (R6-A6, wie bei der Eintreffzeit).
+      const zeit = z.abgerueckAm;
+      if (e.status !== MeldeStatus.ABGERUECKT) vermerken(e, zeit != null ? "Abgerückt" : "Abgerückt (Zeit vom Papier nicht bestätigt)", zeit ?? Date.now());
       e.status = MeldeStatus.ABGERUECKT;
-      e.abgerueckAm = zeit;
+      if (zeit != null) e.abgerueckAm = zeit;
+      else delete e.abgerueckAm;
     } else if (e.status === MeldeStatus.ABGERUECKT) {
       vermerken(e, "Wieder als anwesend geführt");
       e.status = MeldeStatus.ANWESEND;

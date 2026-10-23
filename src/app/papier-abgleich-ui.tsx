@@ -115,7 +115,7 @@ export function PapierAbgleich(props: {
     const daten = zeilen.map((z) => {
       const ein = ausLokal(z.eingetroffen);
       const ab = z.abgerueckt ? ausLokal(z.abgerueckAm) : null;
-      if (z.abgerueckt && ab == null) fehler.push(`${z.name}: Abrückzeit fehlt`);
+      // Eine fehlende Abrückzeit hält den Abgleich nicht auf: Sie bleibt „nicht bestätigt" (R6-A6).
       if (ein != null && ab != null && ab < ein) fehler.push(`${z.name}: Abrücken vor dem Eintreffen`);
       const nr = z.nummer.trim() === "" ? undefined : Number(z.nummer.trim());
       if (nr != null && (!Number.isInteger(nr) || nr < 1)) fehler.push(`${z.name}: „Nr.“ muss eine ganze Zahl ab 1 sein`);

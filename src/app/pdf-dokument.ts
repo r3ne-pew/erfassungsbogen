@@ -229,6 +229,19 @@ export function winAnsiText(text: string): string {
   return geaendert ? aus : text;
 }
 
+/**
+ * Wie viele Namen im Bogen Zeichen enthalten, die die PDF-Schrift nicht darstellen kann
+ * (kyrillisch, arabisch, Emoji …) und die als „?" gedruckt würden (Audit Runde 6, R6-A5).
+ */
+export function nichtDarstellbareNamen(b: Erfassungsbogen): number {
+  const namen = [
+    ...b.personal.flatMap((p) => [p.vorname, p.nachname]),
+    b.einheit.organisationName ?? "",
+    ...b.einheit.hierarchie.map((h) => h.name),
+  ];
+  return namen.filter((n) => n && !n.includes("?") && winAnsiText(n).includes("?")).length;
+}
+
 /** Läuft durch ein Dokument und wendet {@link winAnsiText} auf alle gedruckten Texte an (Schlüssel „text"). */
 function winAnsiKnoten<T>(k: T): T {
   if (Array.isArray(k)) {
@@ -1716,10 +1729,10 @@ function blankoMeldekopf(): Content {
           // Beiblatt (R5-A6): Der Vordruck fasst 4 Fahrzeuge und 6 Qualifikationen. Mehr gehört
           // auf einen zweiten Vordruck mit gleicher Einheit und Nr., nicht an den Rand.
           {
-            text: "Blatt ____ von ____   ·   Reicht der Platz nicht (mehr als 4 Fahrzeuge oder 6 Qualifikationen): weiteren Vordruck als Beiblatt nehmen, dort Einheit und Nr. eintragen und hier die Blattzahl nachtragen.",
+            text: "Blatt ____ von ____   ·   Reicht der Platz nicht (mehr als 29 Personen, 4 Fahrzeuge oder 6 Qualifikationen): weiteren Vordruck als Beiblatt nehmen, dort Einheit und Nr. eintragen und hier die Blattzahl nachtragen.",
             bold: false,
-            fontSize: 7,
-            margin: [0, 4, 0, 0],
+            fontSize: 7.5,
+            margin: [0, 5, 0, 0],
           },
         ],
         bold: true,

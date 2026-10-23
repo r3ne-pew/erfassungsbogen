@@ -462,7 +462,7 @@ export function Uebersicht(props: {
     const dateiname = `eeb-${natoZeitstempel()}_${bogenDateiname(bogen)}.pdf`;
     try {
       const { pdfErzeugen } = await import("../pdf");
-      await pdfErzeugen(bogen, dateiname, props.herkunft);
+      const nichtDarstellbar = (await pdfErzeugen(bogen, dateiname, props.herkunft))?.nichtDarstellbar ?? 0;
       // „PDF erzeugt", nicht „Übergeben": die Datei liegt erst auf diesem
       // Gerät (Audit Runde 3, R3-A7).
       props.onUebergeben?.("pdf");
@@ -473,6 +473,12 @@ export function Uebersicht(props: {
           ? `PDF erstellt und im Teilen-Fenster übergeben: ${dateiname}`
           : `PDF gespeichert: ${dateiname} — liegt im Download-Ordner des Browsers.`,
       );
+      // Zeichen, die die PDF-Schrift nicht kennt, stehen als „?" auf dem Papier (R6-A5).
+      if (nichtDarstellbar > 0) {
+        setPdfFehler(
+          `${nichtDarstellbar === 1 ? "1 Name enthält" : `${nichtDarstellbar} Namen enthalten`} Zeichen, die die PDF nicht darstellen kann (z. B. kyrillisch, arabisch, Emoji) – sie stehen dort als „?". Der QR-Code trägt die Namen unverändert.`,
+        );
+      }
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") return; // Abbruch im Teilen-Fenster
       // Der Ausweg gehört zur Meldung: Fehlt der PDF-Baustein (Netz weg vor dem
@@ -1019,7 +1025,7 @@ export function Uebersicht(props: {
           <button type="button" className={pdfLaeuft ? "arbeitet" : ""} aria-busy={pdfLaeuft || undefined} onClick={pdf} disabled={pdfLaeuft}>
             {pdfLaeuft ? "PDF wird erstellt…" : "PDF erzeugen"}
           </button>
-          <p className="hinweis">Zum Drucken oder Versenden, mit QR-Code auf der letzten Seite.</p>
+          <p className="hinweis">Zum Drucken oder Versenden, mit QR-Code auf der letzten Seite. Das PDF ist immer hell, für Papier — auch in der Ansicht „Nacht“.</p>
           {/* role="status": die Quittung kommt asynchron, nach dem Klick — ohne
               Ansage erführe ein Screenreader nichts davon. */}
           {pdfQuittung && <p className="hinweis pdf-quittung" role="status">✓ {pdfQuittung}</p>}

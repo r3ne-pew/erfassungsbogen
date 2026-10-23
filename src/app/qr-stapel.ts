@@ -377,9 +377,12 @@ const OHNE_CODE_NAMEN = 12;
 function ohneCodeZeile(namen: string[]): string {
   const zeigen = namen.slice(0, OHNE_CODE_NAMEN).join(", ");
   const rest = namen.length - OHNE_CODE_NAMEN;
+  // Bei einer vollständigen Sammel-PDF sind die meisten dieser Bilder Bogen- und Übersichtsseiten, die
+  // keinen Code tragen: Der Satz beginnt mit dem, was daran normal ist, und nennt den Fall, der Handeln
+  // verlangt, erst danach (Audit Runde 6, R6-A9: fünf von elf Dateien standen bei vollem Erfolg als Fehler da).
   return (
-    `${namen.length} Bilder ohne lesbaren QR-Code (${zeigen}${rest > 0 ? ` und ${rest} weitere` : ""}). ` +
-    "Bogen- und Übersichtsseiten tragen keinen — war eines davon eine Codeseite, ist das Foto zu unscharf, zu klein oder verwackelt: " +
+    `${namen.length} Bilder ohne lesbaren QR-Code (${zeigen}${rest > 0 ? ` und ${rest} weitere` : ""}) — bei Bogen- und Übersichtsseiten normal, sie tragen keinen. ` +
+    "Fehlt eine erwartete Einheit, war eines davon eine Codeseite, deren Foto zu unscharf, zu klein oder verwackelt ist: " +
     "diese Datei neu fotografieren, näher und im Licht."
   );
 }
