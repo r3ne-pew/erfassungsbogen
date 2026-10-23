@@ -10,6 +10,8 @@ import userEvent from "@testing-library/user-event";
 import { StaerkeRolle, type Person } from "@bos/eeb-format/model";
 import { neuePerson, neuerBogen, vokabularFuer } from "../hilfen";
 import { Uebersicht } from "./uebersicht";
+import { Dialogschicht } from "../dialoge";
+import { vorlagenLaden } from "../vorlagen";
 
 // pdfmake wird in der Übersicht nur nachgeladen, wenn jemand ein PDF anfordert;
 // im Test ist es teuer und hier ohne Belang.
@@ -303,5 +305,55 @@ describe("Übersicht — Hinweis zur Link-Übergabe", () => {
     const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Bogen übergeben']")!;
     expect(within(dialog).getByText(/schon einmal mit Netz geöffnet/)).toBeDefined();
     expect(within(dialog).getByText(/sonst QR-Code oder PDF weitergeben/)).toBeDefined();
+  });
+});
+
+describe("Übersicht — Rückweg und Rückfragen (R7)", () => {
+  it("hat am Seitenende einen Weg zurück zu Schritt 5 (R7-N9)", async () => {
+    const nutzer = userEvent.setup();
+    const geheZu = vi.fn();
+    render(<Uebersicht bogen={neuerBogen()} geheZu={geheZu} neu={() => {}} />);
+    await nutzer.click(screen.getByRole("button", { name: "← Zurück zu Schritt 5 (Sofortbedarf)" }));
+    expect(geheZu).toHaveBeenCalledWith(4);
+  });
+
+  it("legt bei gleichem Namen nicht still eine zweite Vorlage an, sondern fragt (R7-D8)", async () => {
+    localStorage.clear();
+    const nutzer = userEvent.setup();
+    const bogen = neuerBogen();
+    bogen.einheit.organisationName = "OV Test";
+    render(
+      <>
+        <Uebersicht bogen={bogen} geheZu={() => {}} neu={() => {}} />
+        <Dialogschicht />
+      </>,
+    );
+    const speichern = async (name: string) => {
+      await nutzer.click(screen.getByRole("button", { name: "Als Vorlage speichern" }));
+      const frage = await screen.findByRole("dialog", { name: "Als Vorlage speichern" });
+      const feld = within(frage).getByRole("textbox");
+      await nutzer.clear(feld);
+      await nutzer.type(feld, name);
+      await nutzer.click(within(frage).getByRole("button", { name: "Vorlage speichern" }));
+    };
+    await speichern("OV Test");
+    expect(vorlagenLaden()).toHaveLength(1);
+
+    await speichern("ov test");
+    const wahl = await screen.findByRole("dialog", { name: "Vorlage mit diesem Namen vorhanden" });
+    expect(wahl.textContent).toMatch(/Es gibt schon eine Vorlage „OV Test[“"]/);
+    // Abbrechen: Es bleibt bei einer.
+    await nutzer.click(within(wahl).getByRole("button", { name: "Abbrechen" }));
+    expect(vorlagenLaden()).toHaveLength(1);
+
+    await speichern("OV Test");
+    const wahl2 = await screen.findByRole("dialog", { name: "Vorlage mit diesem Namen vorhanden" });
+    await nutzer.click(within(wahl2).getByRole("button", { name: "Vorhandene ersetzen" }));
+    expect(vorlagenLaden()).toHaveLength(1);
+
+    await speichern("OV Test");
+    const wahl3 = await screen.findByRole("dialog", { name: "Vorlage mit diesem Namen vorhanden" });
+    await nutzer.click(within(wahl3).getByRole("button", { name: "Zusätzlich anlegen" }));
+    expect(vorlagenLaden()).toHaveLength(2);
   });
 });

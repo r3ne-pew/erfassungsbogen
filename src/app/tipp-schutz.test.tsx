@@ -210,3 +210,83 @@ describe("Ein verworfener Tipp zeigt sich (R5-S2, R5-G5)", () => {
     dialog.remove();
   });
 });
+
+// Audit Runde 7, R7-H5: Bei Browser-Zoom liegen die Reiter der Schrittleiste nur 25 bis 35 CSS-px auseinander;
+// der feste Radius von 40 px sperrte den Nachbarreiter mit.
+describe("Radius der Ortssperre folgt der Breite des Ziels (R7-H5)", () => {
+  function reiter(links: number, breite: number): HTMLButtonElement {
+    const b = document.createElement("button");
+    b.getBoundingClientRect = () =>
+      ({ left: links, right: links + breite, width: breite, top: 0, bottom: 44, height: 44, x: links, y: 0, toJSON: () => ({}) }) as DOMRect;
+    document.body.appendChild(b);
+    return b;
+  }
+  beforeEach(() => tippSchutzZuruecksetzen());
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.restoreAllMocks();
+  });
+
+  it("der Nachbarreiter in 25 px Abstand bleibt bei 25 px breiten Reitern bedienbar, derselbe Reiter ist gesperrt", () => {
+    const echt = Date.now();
+    const uhr = vi.spyOn(Date, "now").mockReturnValue(echt);
+    const fuenf = reiter(100, 25);
+    const vier = reiter(75, 25);
+    const treffer = vi.fn();
+    vier.addEventListener("click", treffer);
+    tipp(fuenf, 112, 20); // Reiter 5
+    ortSperren();
+    uhr.mockReturnValue(echt + 600);
+    tipp(vier, 87, 20); // Reiter 4, 25 px daneben: darf zählen
+    expect(treffer).toHaveBeenCalledTimes(1);
+    const nochmal = vi.fn();
+    fuenf.addEventListener("click", nochmal);
+    tipp(fuenf, 113, 22); // derselbe Reiter, zögernder zweiter Tipp: gesperrt
+    expect(nochmal).not.toHaveBeenCalled();
+  });
+
+  it("ein Ziel ohne Maß (Testumgebung) behält den festen Radius", () => {
+    const echt = Date.now();
+    const uhr = vi.spyOn(Date, "now").mockReturnValue(echt);
+    const b = document.createElement("button");
+    document.body.appendChild(b);
+    const treffer = vi.fn();
+    b.addEventListener("click", treffer);
+    tipp(b, 100, 300);
+    ortSperren();
+    uhr.mockReturnValue(echt + 600);
+    tipp(b, 100 + ORTSSPERRE_RADIUS_PX - 5, 300);
+    expect(treffer).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Audit Runde 7, R7-H4: Im QR-Vollbild quer lag die Pille über „Teil n von m".
+describe("Hinweis im QR-Vollbild (R7-H4)", () => {
+  it("trägt dort die Klasse, die ihn fest in die Spalte setzt; außerhalb nicht", () => {
+    vi.useFakeTimers();
+    tippSchutzZuruecksetzen();
+    const dialog = document.createElement("dialog");
+    dialog.className = "qr-vollbild";
+    dialog.setAttribute("open", "");
+    const knopf = document.createElement("button");
+    dialog.appendChild(knopf);
+    document.body.appendChild(dialog);
+    tipp(knopf, 100, 300);
+    ortSperren();
+    tipp(knopf, 102, 302);
+    expect(document.getElementById("tipp-moment")!.classList.contains("im-vollbild")).toBe(true);
+    vi.advanceTimersByTime(1000);
+    dialog.remove();
+    tippSchutzZuruecksetzen();
+    const b2 = document.createElement("button");
+    document.body.appendChild(b2);
+    tipp(b2, 100, 300);
+    ortSperren();
+    tipp(b2, 102, 302);
+    expect(document.getElementById("tipp-moment")!.classList.contains("im-vollbild")).toBe(false);
+    vi.advanceTimersByTime(1000);
+    b2.remove();
+    tippSchutzZuruecksetzen();
+    vi.useRealTimers();
+  });
+});

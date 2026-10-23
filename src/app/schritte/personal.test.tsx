@@ -290,6 +290,28 @@ describe("Schritt Personal", () => {
     expect(werte).toEqual(["Max", "Muster", "Erika", "Musterfrau"]);
   });
 
+  // Audit Runde 7, R7-E7: Was kein Name ist, trägt eine Marke und wird nicht ungefragt übernommen.
+  it("markiert Zeilen mit Ziffern oder Klammern als „kein Name?“ und übernimmt sie nur angehakt (R7-E7)", async () => {
+    const nutzer = userEvent.setup();
+    buehne();
+    await nutzer.click(screen.getByRole("button", { name: "Namen einfügen…" }));
+    const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Namen einfügen']")!;
+    await nutzer.type(within(dialog).getByRole("textbox"), "Müller, Hans\n12345\nMax Mustermann (Gf)");
+
+    expect(within(dialog).getAllByText("kein Name?")).toHaveLength(2);
+    expect(dialog.textContent).toContain("Zeilen sehen nicht nach einem Namen aus");
+    // Nur die echte Zeile zählt: 1 Person.
+    expect(within(dialog).getByRole("button", { name: "1 Person übernehmen" })).toBeDefined();
+
+    await nutzer.click(within(dialog).getByRole("checkbox", { name: /12345.*trotzdem als Name übernehmen/ }));
+    await nutzer.click(within(dialog).getByRole("button", { name: "2 Personen übernehmen" }));
+    const tabelle = screen.getByRole("table");
+    const werte = (within(tabelle).getAllByRole("textbox") as HTMLInputElement[]).map((f) => f.value);
+    expect(werte).toContain("Müller");
+    expect(werte).toContain("12345");
+    expect(werte.some((w) => w.includes("Gf"))).toBe(false);
+  });
+
   it("bietet Beispielnamen nur bei Übungsbögen an", async () => {
     const nutzer = userEvent.setup();
     render(<SchrittBuehne komponente={SchrittPersonal} bogen={{ ...neuerBogen(), uebung: true }} />);
@@ -560,14 +582,15 @@ describe("Schritt Personal", () => {
   });
 
   // Audit Runde 5, R5-H2: 38 Personen als Karten waren 88 Bildschirme hoch.
-  it("beginnt ab 13 Personen mit der Kurz-Liste, bei weniger mit den Karten samt Hinweis erst ab 13 (R5-H2)", () => {
-    const viele = Array.from({ length: 13 }, (_, i) => ({ ...neuePerson(), vorname: `V${i}`, nachname: "Zug" }));
+  // Audit Runde 7, R7-H6: Neun Karten maßen 14 000 px, zwölf 18 700 — die Grenze sank von 13 auf 8 Personen.
+  it("beginnt ab 8 Personen mit der Kurz-Liste, bei weniger mit den Karten samt Hinweis erst ab 8 (R5-H2, R7-H6)", () => {
+    const viele = Array.from({ length: 8 }, (_, i) => ({ ...neuePerson(), vorname: `V${i}`, nachname: "Zug" }));
     const { unmount } = render(<SchrittBuehne komponente={SchrittPersonal} bogen={{ ...neuerBogen(), personal: viele }} />);
     expect((screen.getByLabelText("Kurz-Liste (Tabelle)") as HTMLInputElement).checked).toBe(true);
     expect(screen.getByRole("table")).toBeDefined();
     unmount();
-    const zwoelf = viele.slice(0, 12);
-    render(<SchrittBuehne komponente={SchrittPersonal} bogen={{ ...neuerBogen(), personal: zwoelf }} />);
+    const sieben = viele.slice(0, 7);
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={{ ...neuerBogen(), personal: sieben }} />);
     expect((screen.getByLabelText("Alle Angaben (Karten)") as HTMLInputElement).checked).toBe(true);
     expect(screen.queryByText(/Viele Personen — die Kurz-Liste/)).toBeNull();
   });
@@ -1226,6 +1249,8 @@ describe("Vorbelegung entfernen (Schritt 3)", () => {
       />,
     );
 
+    // Ab 8 Personen beginnt die Liste als Kurz-Liste (R7-H6); dieser Test prüft die Karten.
+    await nutzer.click(screen.getByLabelText("Alle Angaben (Karten)"));
     await nutzer.click(screen.getByRole("button", { name: `Vorbelegung entfernen (${vorlage.length - 3} Personen ohne Namen)` }));
 
     expect(screen.getAllByLabelText("Vorname")).toHaveLength(3);

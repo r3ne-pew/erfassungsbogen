@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SchrittBuehne } from "../../test/schritt-buehne";
 import { neuePerson, neuerBogen } from "../hilfen";
@@ -28,6 +28,20 @@ describe("Schritt Sofortbedarf", () => {
 
     expect((screen.getByLabelText("Verpflegung (Personen)") as HTMLInputElement).value).toBe("3");
     expect(screen.getByText(/Verpflegung ist aus der Stärke vorbelegt und zieht mit ihr mit/)).toBeDefined();
+  });
+
+  // Audit Runde 7, R7-E6: Eine begrenzte Eingabe wird genannt.
+  it("sagt, wenn ein negativer Wert auf 0 gesetzt wurde (R7-E6)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    const benzin = screen.getByLabelText("Benzin (l)") as HTMLInputElement;
+    fireEvent.change(benzin, { target: { value: "-40" } });
+    expect(benzin.value).toBe("0");
+    expect(screen.getByText(/Mindestens 0 — dein Wert -40 wurde auf 0 gesetzt/)).toBeDefined();
+    await nutzer.clear(benzin);
+    await nutzer.type(benzin, "40");
+    expect(screen.queryByText(/Mindestens 0/)).toBeNull();
   });
 
   /** „Diesel 99 999 l" fiel vorher erst in der Übersicht auf — wenn überhaupt. */

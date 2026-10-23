@@ -717,10 +717,10 @@ describe("Abrücken mit Zeit, Quittung und Rückweg", () => {
     // Zweiter Tipp an derselben Stelle, 150 ms später: gesperrt.
     await nutzer.click(knopfAmPlatz());
     expect(gespeichert(einsatzId, "Crailsheim").status).toBe(MeldeStatus.ABGERUECKT);
-    expect(screen.queryByRole("textbox", { name: "Zug" })).toBeNull();
+    expect(screen.queryByLabelText("Zug")).toBeNull();
     // Auch ein anderer Knopf der Karte nimmt im Prellfenster nichts an.
     await nutzer.click(screen.getByRole("button", { name: "Zug zuordnen" }));
-    expect(screen.queryByRole("textbox", { name: "Zug" })).toBeNull();
+    expect(screen.queryByLabelText("Zug")).toBeNull();
 
     // Nach der Sperre wirkt der Rückweg wie gewohnt.
     const echt = Date.now.bind(Date);
@@ -1053,8 +1053,9 @@ describe("Einheitenkarten als Liste mit Überschrift und Knopfbezug", () => {
     localStorage.clear();
   });
 
-  it("setzt jede Einheit als Listeneintrag mit dem Namen als Überschrift der Ebene 3", () => {
+  it("setzt jede Einheit als Listeneintrag mit dem Namen als Überschrift der Ebene 3", async () => {
     buehne(["Wardenburg", "Ahlhorn"]);
+    await userEvent.setup().selectOptions(screen.getByRole("combobox", { name: "Sortierung" }), "Name (A–Z)");
     const liste = screen.getByRole("list");
     const eintraege = within(liste).getAllByRole("listitem");
     expect(eintraege).toHaveLength(2);
@@ -1064,8 +1065,9 @@ describe("Einheitenkarten als Liste mit Überschrift und Knopfbezug", () => {
     expect(ueberschriften[1]).toContain("Wardenburg");
   });
 
-  it("verbindet jeden Knopf einer Karte mit dem Einheitsnamen, ohne den sichtbaren Namen zu ändern", () => {
+  it("verbindet jeden Knopf einer Karte mit dem Einheitsnamen, ohne den sichtbaren Namen zu ändern", async () => {
     buehne(["Wardenburg", "Ahlhorn"]);
+    await userEvent.setup().selectOptions(screen.getByRole("combobox", { name: "Sortierung" }), "Name (A–Z)");
     const abruecken = screen.getAllByRole("button", { name: "Abrücken" });
     expect(abruecken).toHaveLength(2);
     const beschreibungen = abruecken.map((k) => {
@@ -2163,5 +2165,101 @@ describe("Moduswechsel von unten in der Einsatzansicht (R4-L3)", () => {
     expect(within(fest as HTMLElement).queryByRole("group", { name: "Anzeigemodus" })).toBeNull();
     document.documentElement.classList.remove("nacht-modus");
     localStorage.removeItem("eeb.anzeigemodus.v1");
+  });
+});
+
+describe("Zug zuordnen: Vorschläge und gleiche Schreibweise (R7-K4)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("bietet vergebene Züge zum Antippen an; „1.Zug“ und „1. zug“ landen im selben Zug", async () => {
+    const nutzer = userEvent.setup();
+    const b = buehne(["Wardenburg", "Oldenburg", "Aurich"]);
+    const { einsatzId } = b;
+    zugSetzen(einsatzId, gespeichert(einsatzId, "Wardenburg").einheitSchluessel, gespeichert(einsatzId, "Wardenburg").id, "1. Zug");
+    b.neuLaden();
+
+    // Zweite Einheit: Der erste Zug steht als Antippziel da und wird mit einem Tipp gespeichert.
+    const karte = (n: string) => screen.getByRole("heading", { level: 3, name: new RegExp(n) }).closest("li, .einheit-zeile")! as HTMLElement;
+    await nutzer.click(within(karte("Oldenburg")).getByRole("button", { name: "Zug zuordnen" }));
+    const gruppe = screen.getByRole("group", { name: "Schon vergebene Züge" });
+    await nutzer.click(within(gruppe).getByRole("button", { name: "1. Zug" }));
+    b.neuLaden();
+    expect(gespeichert(einsatzId, "Oldenburg").zugEtikett).toBe("1. Zug");
+
+    // Dritte Einheit: anders getippt, gleicher Zug.
+    await nutzer.click(within(karte("Aurich")).getByRole("button", { name: "Zug zuordnen" }));
+    await nutzer.type(screen.getByLabelText("Zug"), "1.zug");
+    await nutzer.click(screen.getByRole("button", { name: "Speichern" }));
+    b.neuLaden();
+    expect(gespeichert(einsatzId, "Aurich").zugEtikett).toBe("1. Zug");
+    const zuege = new Set(einsaetzeLaden().find((s) => s.id === einsatzId)!.eintraege.map((e) => e.zugEtikett));
+    expect(zuege).toEqual(new Set(["1. Zug"]));
+  });
+});
+
+describe("Auftrag und Zug auf einen Blick (R7-K6, R7-K9)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("zählt Einheiten ohne Auftrag und ohne Zug, filtert mit einem Tipp und zeigt den Auftragstext zugeklappt", async () => {
+    const nutzer = userEvent.setup();
+    const b = buehne(["Wardenburg", "Oldenburg", "Aurich"]);
+    const { einsatzId } = b;
+    const w = gespeichert(einsatzId, "Wardenburg");
+    notizSetzen(einsatzId, w.id, "Deichabschnitt Nord ab 14:00");
+    zugSetzen(einsatzId, w.einheitSchluessel, w.id, "1. Zug");
+    b.neuLaden();
+
+    expect(screen.getByRole("button", { name: "2 ohne Auftrag" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "2 ohne Zug" })).toBeDefined();
+    await nutzer.click(screen.getByRole("button", { name: "2 ohne Auftrag" }));
+    const namen = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent ?? "");
+    expect(namen).toHaveLength(2);
+    expect(namen.join(" ")).not.toContain("Wardenburg");
+    await nutzer.click(screen.getAllByRole("button", { name: "Filter aufheben" })[0]!);
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(3);
+    // Die Legende steht einmal über der Liste.
+    expect(screen.getByText(/Stärke auf den Karten: Führer \/ Unterführer \/ Mannschaft \/ Gesamt/)).toBeDefined();
+  });
+
+  it("sortiert die Liste standardmäßig nach Nr. wie das Lageblatt und bietet Name als Alternative", async () => {
+    const nutzer = userEvent.setup();
+    const angelegt = einsatzAnlegen("Hochwasser Nr", EinsatzArt.EINSATZ);
+    meldungHinzufuegen(angelegt.id, bogenMitName("Zeitz"));
+    const zweite = meldungHinzufuegen(angelegt.id, bogenMitName("Aalen"))!.eintrag;
+    // Aalen kam später: Nr. 2, obwohl sie nach Name oben stünde.
+    const liste = einsaetzeLaden();
+    liste[0]!.eintraege.find((e) => e.id === zweite.id)!.empfangenAm += 60_000;
+    localStorage.setItem("eeb.einsaetze.v1", JSON.stringify(liste));
+    ansicht(angelegt.id);
+    const namen = () => screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent ?? "");
+    expect(namen()[0]).toMatch(/^Nr\. 1 .*Zeitz/);
+    expect(namen()[1]).toMatch(/^Nr\. 2 .*Aalen/);
+    await nutzer.selectOptions(screen.getByRole("combobox", { name: "Sortierung" }), "Name (A–Z)");
+    expect(namen()[0]).toMatch(/Aalen/);
+  });
+});
+
+describe("Doppelte Karte erkennen (R7-N1)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("trägt an beiden Karten die Marke „ähnelt“, wenn Ort und Organisation gleich sind und kein Typ widerspricht", () => {
+    const angelegt = einsatzAnlegen("Hochwasser", EinsatzArt.EINSATZ);
+    const mitTyp = bogenMitName("Albstadt");
+    mitTyp.einheit.einheitsTyp = { code: 3 };
+    meldungHinzufuegen(angelegt.id, mitTyp);
+    const ohneTyp = bogenMitName("Albstadt");
+    ohneTyp.einheit.einheitsTyp = {};
+    ohneTyp.personal = [{ ...neuePerson(), nachname: "Anders" }];
+    meldungHinzufuegen(angelegt.id, ohneTyp);
+    meldungHinzufuegen(angelegt.id, bogenMitName("Ulm"));
+    ansicht(angelegt.id);
+    expect(screen.getAllByText(/ähnelt „THW /)).toHaveLength(2);
+    expect(screen.getAllByText(/zählt getrennt/).length).toBeGreaterThanOrEqual(2);
   });
 });

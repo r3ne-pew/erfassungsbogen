@@ -112,6 +112,23 @@ describe("Schritt Fahrzeuge", () => {
     }
   });
 
+  // Audit Runde 7, R7-E6: Die Begrenzung auf 0 bis 99 wird genannt, nicht still angewendet.
+  it("nennt die Grenze, wenn die Sitzplatzzahl begrenzt wird (R7-E6)", async () => {
+    const nutzer = userEvent.setup();
+    const start = neuerBogen();
+    start.fahrzeuge = [{ typ: { code: 3 } }];
+    render(<SchrittBuehne komponente={SchrittFahrzeuge} bogen={start} />);
+    const feld = screen.getByLabelText("Sitzplätze") as HTMLInputElement;
+
+    await nutzer.type(feld, "999");
+
+    expect(feld.value).toBe("99");
+    expect(screen.getByText(/Höchstens 99 — dein Wert 999 wurde auf 99 gesetzt/)).toBeDefined();
+    await nutzer.clear(feld);
+    await nutzer.type(feld, "12");
+    expect(screen.queryByText(/Höchstens 99/)).toBeNull();
+  });
+
   it("übernimmt eine abweichende Sitzplatzzahl und rechnet die Bilanz damit", async () => {
     const nutzer = userEvent.setup();
     // Ein FüKomKw (Richtwert 3) und zwei Personen: Ohne eigene Angabe fehlt

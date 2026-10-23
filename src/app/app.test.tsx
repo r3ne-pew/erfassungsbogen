@@ -828,6 +828,36 @@ describe("Assistenten-Durchlauf", () => {
   }, 20000);
 
   /**
+   * Audit Runde 7, R7-A1: „Nur Stärke" mit den unveränderten Zahlen der Vorbelegung legte die Sollstärke
+   * ohne Rückfrage und ohne Marke als gemeldet in die Lage.
+   */
+  it("fragt auch bei „Nur Stärke“ mit unveränderten Sollzahlen, und „so gezählt“ legt ohne Marke ab (R7-A1)", async () => {
+    const einsatz = einsatzImSpeicherAnlegen("Sammelhausen", EinsatzArt.EINSATZ);
+    const nutzer = userEvent.setup();
+    render(<App />);
+    await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
+    await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
+    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Sollhausen");
+    await nutzer.type(screen.getByRole("combobox", { name: "Einheitstyp" }), "Bergungsgruppe");
+    await nutzer.click(within(screen.getByRole("listbox", { name: "Vorschläge zu Einheitstyp" })).getAllByText(/Bergungsgruppe/)[0]!);
+    await nutzer.click(screen.getByRole("button", { name: /^3\. Personal/ }));
+    await nutzer.click(screen.getByLabelText(/Nur Stärke/));
+    // Bei „Bergungsgruppe" tragen zwei Karten schon Funktionen: die Umstellung fragt nach.
+    const umstellen = document.querySelector<HTMLDialogElement>("dialog[aria-label='Nur die Stärke melden?']");
+    if (umstellen) await nutzer.click(within(umstellen).getByRole("button", { name: "Nur Stärke melden" }));
+
+    // Der Hinweis über den Zählfeldern steht, auch wenn Karten schon Funktionen tragen.
+    expect(screen.getByText(/Vorgabe nach Einheitstyp \(Sollstärke\), nicht gezählt/)).toBeDefined();
+    await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
+    const frage = rueckfrage("Stärke nicht gezählt");
+    expect(frage.textContent).toMatch(/Zahlen der Vorbelegung nach Einheitstyp/);
+    await nutzer.click(within(frage).getByRole("button", { name: "Zahlen stimmen, so gezählt" }));
+
+    expect(einsaetzeLaden().find((x) => x.id === einsatz.id)!.eintraege).toHaveLength(1);
+    expect(screen.queryByText("Sollstärke, nicht gemeldet")).toBeNull();
+  }, 30000);
+
+  /**
    * Audit Runde 3, R3-E3/R3-G3: Ein Tipp auf „In Einsatz übernehmen" direkt
    * nach dem Öffnen legte eine namenlose Einheit „THW" mit Stärke 0 ab.
    */
@@ -1034,6 +1064,52 @@ describe("Assistenten-Durchlauf", () => {
 
     expect(localStorage.getItem("eeb.entwurf.v1")).toContain("TabB");
     expect(localStorage.getItem("eeb.entwurf.ersetzt.v1")).toContain("TabA");
+  }, 20000);
+
+  // Audit Runde 7, R7-D1: „Alle Daten löschen" im anderen Fenster – dieses zeigte die Entwurfskarte weiter
+  // und schrieb den gelöschten Bogen über „Neu anfangen" auf den Rückholplatz zurück.
+  it("legt einen im anderen Fenster gelöschten Bogen nicht auf den Rückholplatz zurück (R7-D1)", async () => {
+    const nutzer = userEvent.setup();
+    const { entwurfZuJson } = await import("./entwurf");
+    localStorage.setItem("eeb.entwurf.v1", entwurfZuJson(bogenMitName("Geloescht"), Date.now() - 60_000));
+    vi.resetModules();
+    const { App: AppNeu } = await import("./app");
+    render(<AppNeu />);
+    await screen.findByRole("button", { name: "Fortsetzen" });
+    // Das andere Fenster löscht alles.
+    localStorage.clear();
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: null }));
+    });
+
+    await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
+    const frage = await screen.findByRole("dialog", { name: "Neuen Bogen anfangen?" });
+    // Die Frage verspricht keinen Rückholplatz, den es nicht geben wird.
+    expect(frage.textContent).toContain("in einem anderen Fenster gelöscht");
+    expect(frage.textContent).not.toContain("Zuletzt geschlossenen Bogen zurückholen");
+    await nutzer.click(within(frage).getByRole("button", { name: "Neu anfangen" }));
+
+    expect(localStorage.getItem("eeb.entwurf.ersetzt.v1")).toBeNull();
+    expect(JSON.stringify(Object.values(localStorage))).not.toContain("Geloescht");
+  }, 20000);
+
+  // Audit Runde 7, R7-D3: Es gibt nur einen Rückholplatz — die Frage nennt den Verlust vor der Zusage.
+  it("nennt in der Rückfrage zuerst, dass der beiseitegelegte Bogen wegfällt (R7-D3)", async () => {
+    const nutzer = userEvent.setup();
+    const { entwurfZuJson } = await import("./entwurf");
+    localStorage.setItem("eeb.entwurf.v1", entwurfZuJson(bogenMitName("Zweiter"), Date.now() - 60_000));
+    localStorage.setItem("eeb.entwurf.ersetzt.v1", entwurfZuJson(bogenMitName("Eigener"), Date.now() - 120_000));
+    vi.resetModules();
+    const { App: AppNeu } = await import("./app");
+    render(<AppNeu />);
+    await nutzer.click(await screen.findByRole("button", { name: "Neuen Bogen erstellen" }));
+    const frage = await screen.findByRole("dialog", { name: "Neuen Bogen anfangen?" });
+    const text = frage.textContent!;
+    expect(text).toContain("fasst nur einen Bogen");
+    expect(text.indexOf("THW Eigener")).toBeLessThan(text.indexOf("Zuletzt geschlossenen Bogen zurückholen"));
+    expect(text).toContain("endgültig gelöscht");
+    await nutzer.click(within(frage).getByRole("button", { name: "Abbrechen" }));
+    expect(localStorage.getItem("eeb.entwurf.ersetzt.v1")).toContain("Eigener");
   }, 20000);
 
   it("lässt einen unberührten Bogen ohne Rückfrage ersetzen", async () => {

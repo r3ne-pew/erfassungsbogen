@@ -272,6 +272,50 @@ describe("Geräteschlüssel neu erzeugen", () => {
     expect(schluessel()).not.toBe(alt);
   });
 
+  // Audit Runde 7, R7-D6: wie bei „Alle Daten löschen" ein Weg zur Sicherung, und der Text passt zum Bestand.
+  it("bietet bei vorhandenem Schlüssel „Vorher Sicherung erstellen…“ an und fragt danach erneut (R7-D6)", async () => {
+    const nutzer = userEvent.setup();
+    // jsdom kennt keine Blob-Adressen: der Download der Sicherungsdatei wird nachgebildet.
+    const urlAlt = { c: URL.createObjectURL, r: URL.revokeObjectURL };
+    const erzeugt: Blob[] = [];
+    URL.createObjectURL = ((b: Blob) => (erzeugt.push(b), "blob:test")) as typeof URL.createObjectURL;
+    URL.revokeObjectURL = (() => {}) as typeof URL.revokeObjectURL;
+    const klick = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    try {
+    const alt = zuHex(await geraeteSchluesselSicherstellen());
+    buehne();
+
+    await nutzer.click(screen.getByRole("button", { name: "Geräteschlüssel neu erzeugen" }));
+    const dialog = await screen.findByRole("dialog", { name: "Geräteschlüssel neu erzeugen?" });
+    expect(dialog.textContent).toContain("wird gelöscht und durch ein neues Schlüsselpaar ersetzt");
+    await nutzer.click(within(dialog).getByRole("button", { name: "Vorher Sicherung erstellen…" }));
+
+    // Die Sicherung ist erzeugt; der Schlüssel steht noch, die Rückfrage kommt wieder.
+    const wieder = await screen.findByRole("dialog", { name: "Geräteschlüssel neu erzeugen?" });
+    expect(schluessel()).toBe(alt);
+    expect(erzeugt).toHaveLength(1); // eine Sicherungsdatei, die den Schlüssel enthält
+    expect(await erzeugt[0]!.text()).toContain(alt);
+    await nutzer.click(within(wieder).getByRole("button", { name: "Abbrechen" }));
+    expect(schluessel()).toBe(alt);
+    } finally {
+      URL.createObjectURL = urlAlt.c;
+      URL.revokeObjectURL = urlAlt.r;
+      klick.mockRestore();
+    }
+  });
+
+  it("sagt ohne vorhandenen Schlüssel, dass nichts gelöscht wird, und bietet keine Sicherung an (R7-D6)", async () => {
+    const nutzer = userEvent.setup();
+    buehne();
+
+    await nutzer.click(screen.getByRole("button", { name: "Geräteschlüssel neu erzeugen" }));
+    const dialog = await screen.findByRole("dialog", { name: "Geräteschlüssel neu erzeugen?" });
+    expect(dialog.textContent).toContain("noch kein Signaturschlüssel");
+    expect(dialog.textContent).not.toContain("wird gelöscht");
+    expect(within(dialog).queryByRole("button", { name: "Vorher Sicherung erstellen…" })).toBeNull();
+    await nutzer.click(within(dialog).getByRole("button", { name: "Abbrechen" }));
+  });
+
   it("lässt bei „Abbrechen“ den bisherigen Schlüssel stehen", async () => {
     const nutzer = userEvent.setup();
     const alt = zuHex(await geraeteSchluesselSicherstellen());

@@ -5050,10 +5050,21 @@
     /* R7-M4: Tabelle der Einsatzansicht bei großer Schrift: Die Schrift der Zellen ist gedeckelt (vorher Tabelle 3 223 px
        breit, „M" und „Ges." weit rechts); die klebende Spalte „Einheit" bleibt bei 40 %. */
     html.schrift-gross table.einheiten-tabelle { font-size: min(var(--t-s), 16px); }
+    html.schrift-gross table.einheiten-tabelle th, html.schrift-gross table.einheiten-tabelle td { padding-inline: min(0.5rem, 4px); }
+    html.schrift-gross table.einheiten-tabelle thead th > .spalten-sortierung { box-sizing: border-box; min-width: 44px; padding-inline: min(0.5rem, 3px); font-size: min(var(--t-xs), 14px); }
+    html.schrift-gross table.einheiten-tabelle > * > tr > :nth-child(2) { padding-left: 8px; }
+    html.schrift-gross table.einheiten-tabelle tbody th { font-size: min(var(--t-s), 14px); }
+    html.schrift-gross table.einheiten-tabelle > * > tr > :first-child { min-width: min(6rem, 27cqw); max-width: min(14rem, 30cqw); }
     /* R7-M8, R7-G4: Quer ist „◐" der Einsatzansicht eine Ecke (63 × 52 px) und lag beim Rollen über Knopfreihen und
        Randfeldern. Die Inhaltsspalte lässt rechts einen freien Streifen, die Ecke deckt nichts mehr ab. */
     @media (max-height: 30rem) {
-      html:has(.anzeige-balken) main { padding-right: max(var(--r-3), calc(76px + env(safe-area-inset-right))); }
+      html:has(.anzeige-balken) main, html:has(.anzeige-balken) footer.seite { padding-right: max(var(--r-3), calc(76px + env(safe-area-inset-right))); }
+    }
+
+    /* R7-H4: „Einen Moment …" im QR-Vollbild quer liegt fest unten in der rechten Spalte (tipp-schutz.ts setzt die Klasse),
+       nicht mehr über dem Tipport — dort lag sie über „Teil 2 von 7" und verdeckte die Gesamtzahl. */
+    @media (orientation: landscape) and (max-height: 540px) {
+      .tipp-moment.im-vollbild { top: auto !important; bottom: calc(3px + env(safe-area-inset-bottom)); padding-block: 3px; font-size: min(var(--t-xs), 15px); }
     }
     /* ===== Ende Runde 7 (Layout) ===== */
   </style>
