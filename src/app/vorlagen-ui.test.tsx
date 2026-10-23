@@ -4,7 +4,7 @@
  * Änderung geht es ohne Frage zurück, nach geänderten Haken erst nach „Verwerfen".
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Dialogschicht } from "./dialoge";
 import { Musterung } from "./vorlagen-ui";
@@ -95,6 +95,18 @@ describe("Musterung starten (R3-H4, R3-H7)", () => {
     await nutzer.click(screen.getByRole("button", { name: /^Bogen anlegen/ }));
     await nutzer.click(within(frage()!).getByRole("button", { name: "Ja, alle sind da" }));
     expect(onStart).toHaveBeenCalledTimes(1);
+  });
+
+  // Audit Runde 6, R6-H5: Beide Gruppen abgewählt legte einen Bogen „0 Pers · 0 Fz" ohne Rückfrage an.
+  it("fragt, wenn niemand angehakt ist (R6-H5)", async () => {
+    const nutzer = userEvent.setup();
+    const { onStart } = buehneMit(vorlage());
+    for (const knopf of screen.getAllByRole("button", { name: "Alle abwählen" })) fireEvent.click(knopf);
+    await nutzer.click(screen.getByRole("button", { name: /^Bogen anlegen/ }));
+    const f = document.querySelector<HTMLDialogElement>("dialog[aria-label='Keine Person aus der Vorlage?']")!;
+    expect(f).toBeTruthy();
+    await nutzer.click(within(f).getByRole("button", { name: "Zurück zur Liste" }));
+    expect(onStart).not.toHaveBeenCalled();
   });
 
   // Audit Runde 4, R4-S5: Ersetzt der Start einen offenen Bogen, fragt die App; „Alle dabei?" steht dann in derselben Rückfrage.

@@ -12,6 +12,7 @@
  *    zusammenstellen (Variante A) → frischer Arbeitsbogen.
  */
 
+import { ortSperren } from "./tipp-schutz";
 import { useEffect, useRef, useState } from "react";
 import { StaerkeRolle, staerke, type Erfassungsbogen, type Person } from "@bos/eeb-format/model";
 import {
@@ -360,6 +361,12 @@ export function Musterung(props: {
   const s = staerke({ personal: anwesendePersonen, staerkeManuell: b.staerkeManuell });
   const anzahlFz = vAn.filter(Boolean).length;
 
+  // Nach dem Umschalten rückt die Zeile darunter an die Stelle des Knopfs: Die Stelle nimmt
+  // kurz nichts an, ein Nachtipp hakte sonst die erste Person an (R6-G4).
+  const umschalten = (setzen: () => void) => {
+    ortSperren();
+    setzen();
+  };
   const toggleP = (i: number) => setPAn(pAn.map((x, j) => (j === i ? !x : x)));
   const toggleV = (i: number) => setVAn(vAn.map((x, j) => (j === i ? !x : x)));
 
@@ -370,6 +377,16 @@ export function Musterung(props: {
    * angehakt, fragt der Start einmal nach; wer abgewählt hat, hat gemustert.
    */
   async function starten() {
+    // Beide Gruppen abgewählt: ein Bogen „0 Pers · 0 Fz" nach einem Fehltipp (Audit Runde 6, R6-H5).
+    if (b.personal.length > 0 && s.gesamt === 0) {
+      const weiter = await frageJaNein({
+        titel: "Keine Person aus der Vorlage?",
+        text: `Es ist niemand angehakt: Der Bogen entsteht mit Stärke 0${anzahlFz === 0 ? " und ohne Fahrzeuge" : ""}. Wer da ist, steht in der Liste und lässt sich anhaken.`,
+        ok: "Ja, ohne Personal anlegen",
+        abbruch: "Zurück zur Liste",
+      });
+      if (!weiter) return;
+    }
     const allesDa = pAn.every(Boolean) && vAn.every(Boolean);
     if (allesDa && b.personal.length + b.fahrzeuge.length > 1) {
       const teile = [
@@ -467,7 +484,7 @@ export function Musterung(props: {
           {/* Umschalter statt „Alle anhaken" allein: Nach dem Öffnen sind alle
               angehakt, der Knopf tat sichtbar nichts, und wer nur eine Gruppe
               mitnimmt, wählte 35 Zeilen einzeln ab (R5-H1). */}
-          <button type="button" onClick={() => setPAn(b.personal.map(() => !pAn.every(Boolean)))}>
+          <button type="button" className="muster-umschalter" onClick={() => umschalten(() => setPAn(b.personal.map(() => !pAn.every(Boolean))))}>
             {pAn.every(Boolean) && b.personal.length > 0 ? "Alle abwählen" : "Alle anhaken"}
           </button>
         </div>
@@ -489,7 +506,7 @@ export function Musterung(props: {
       <section className="karte">
         <div className={`kopfzeile${b.fahrzeuge.length > VIELE_ZEILEN ? " klebend" : ""}`}>
           <h2>Fahrzeuge ({anzahlFz}/{b.fahrzeuge.length})</h2>
-          <button type="button" onClick={() => setVAn(b.fahrzeuge.map(() => !vAn.every(Boolean)))}>
+          <button type="button" className="muster-umschalter" onClick={() => umschalten(() => setVAn(b.fahrzeuge.map(() => !vAn.every(Boolean))))}>
             {vAn.every(Boolean) && b.fahrzeuge.length > 0 ? "Alle abwählen" : "Alle anhaken"}
           </button>
         </div>
