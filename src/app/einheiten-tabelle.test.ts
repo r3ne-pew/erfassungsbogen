@@ -296,6 +296,18 @@ describe("folgeAenderung / frischGemeldet (Audit Runde 3, R3-K1)", () => {
     expect(f).toMatchObject({ staerkeVorher: 12, staerkeNachher: 9, verlust: true });
   });
 
+  // Audit Runde 6, R6-E5: Bei zurückgestellter Geräteuhr trägt die neue Fassung die frühere Eingangszeit.
+  it("erkennt die Folgemeldung auch, wenn ihre Eingangszeit vor der der alten Fassung liegt (R6-E5)", () => {
+    const alt = bogen("Crailsheim", 11);
+    const neu = bogen("Crailsheim", 6);
+    neu.stand = alt.stand + 30;
+    const a = eintrag("c1", alt, { einheitSchluessel: "crailsheim", empfangenAm: 9000 });
+    const n = eintrag("c2", neu, { einheitSchluessel: "crailsheim", empfangenAm: 2000 });
+    const f = folgeAenderung(n, [a, n]);
+    expect(f).not.toBeNull();
+    expect(f).toMatchObject({ staerkeVorher: 12, staerkeNachher: 7, verlust: true });
+  });
+
   it("nennt Bedarfsänderungen mit Wert und die Bemerkung im Wortlaut statt „2 Änderungen“ (R4-K4)", () => {
     const b1 = bogen("Weinsberg", 3);
     b1.sofortbedarf = { verpflegungPersonen: 0, dieselLiter: 200, benzinLiter: 0, gemischLiter: 0, unterbringung: false, ruhezeitErforderlich: false };

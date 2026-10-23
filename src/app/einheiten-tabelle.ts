@@ -428,7 +428,15 @@ export function rueckkehrText(r: { abgerueckAm?: number }): string {
  */
 export function folgeAenderung(kopf: MeldeEintrag, alle: MeldeEintrag[]): FolgeAenderung | null {
   if (kopf.quelle === "aufteilung" || kopf.quelle === "zusammenfuehrung") return null;
-  const vorige = revisionenJe(alle, kopf.einheitSchluessel).find((r) => r.id !== kopf.id && r.empfangenAm <= kopf.empfangenAm);
+  // Nach der Fassungsfolge, nicht nach der Eingangszeit: Bei zurückgestellter Geräteuhr trägt die
+  // neue Fassung eine frühere Eingangszeit als die alte, und die Quittung hieß „neu gemeldet"
+  // (Audit Runde 6, R6-E5). Die Liste führt die geltende Fassung zuerst, die älteren dahinter.
+  const revs = revisionenJe(alle, kopf.einheitSchluessel);
+  const stelle = revs.findIndex((r) => r.id === kopf.id);
+  const vorige =
+    stelle >= 0
+      ? revs[stelle + 1]
+      : revs.find((r) => r.id !== kopf.id && r.empfangenAm <= kopf.empfangenAm);
   if (!vorige) return null;
   const d = bogenDiff(vorige.bogen, kopf.bogen);
   const vorher = staerke(vorige.bogen).gesamt;
