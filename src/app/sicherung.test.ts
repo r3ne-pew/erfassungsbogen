@@ -159,6 +159,7 @@ describe("datenUmfang()", () => {
       entwurf: false,
       rueckholplatz: null,
       absender: false,
+      beiseitegelegt: false,
       geraeteschluessel: false,
       ohneExport: [],
     });

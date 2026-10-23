@@ -555,6 +555,17 @@ export async function bogenLaden(datei: File): Promise<Erfassungsbogen> {
   } catch {
     throw new Error("Datei ist kein gültiges JSON.");
   }
+  // „Als Datei sichern" am beiseitegelegten Entwurf schreibt die Hülle des
+  // Entwurfs; der Bogen steckt darin (Audit Runde 6, R6-E3).
+  const huelle = daten as { schemaVersion?: unknown; bogen?: unknown } | null;
+  if (huelle && typeof huelle === "object" && huelle.schemaVersion === undefined && huelle.bogen && typeof huelle.bogen === "object") {
+    try {
+      return bogenPruefen(huelle.bogen);
+    } catch (e) {
+      const grund = e instanceof Error ? e.message.replace(/ Beim Absender neu anfordern.*$/, "") : "";
+      throw new Error(`Der gesicherte Entwurf lässt sich nicht öffnen. ${grund} In der App lässt sich das Fehlende nicht nachtragen; die Datei taugt dann nur noch für die Support-Stelle.`);
+    }
+  }
   return bogenPruefen(daten);
 }
 

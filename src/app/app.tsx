@@ -3881,13 +3881,18 @@ function AppInhalt() {
               <strong>Ein gespeicherter Bogen ließ sich nicht öffnen</strong>
               <span className="hinweis warnung-text">
                 Ursache: {beschaedigt.ursache}. Er ist nicht gelöscht, sondern beiseitegelegt — als Datei sichern, dann
-                lässt er sich später prüfen oder reparieren.
+                lässt er sich über „Aus Datei laden…“ wieder einlesen, sobald nichts Wesentliches mehr fehlt. Die App löscht ihn
+                am {new Date(beschaedigt.am + DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000).toLocaleDateString("de-DE")} von selbst
+                ({DATENSCHUTZFRIST_TAGE} Tage nach dem Beiseitelegen).
               </span>
             </span>
             <span className="entwurf-aktionen">
               <button
                 type="button"
-                onClick={() => blobAlsDownload("eeb-beschaedigter-entwurf.json", new Blob([beschaedigt.text], { type: "application/json" }))}
+                onClick={() => {
+                  blobAlsDownload("eeb-beschaedigter-entwurf.json", new Blob([beschaedigt.text], { type: "application/json" }));
+                  setMeldung("Datei „eeb-beschaedigter-entwurf.json“ gespeichert (Downloads). Der beiseitegelegte Bogen bleibt zusätzlich auf dem Gerät.");
+                }}
               >
                 Als Datei sichern
               </button>

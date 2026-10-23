@@ -374,6 +374,21 @@ describe("bogenLaden() (JSON-Datei)", () => {
     expect(b.verpflegungManuell).toEqual({ vegetarisch: 2, vegan: 0 });
   });
 
+  // Audit Runde 6, R6-E3: Die gesicherte Hülle des beiseitegelegten Entwurfs.
+  it("liest einen Bogen aus der gesicherten Entwurfs-Hülle", async () => {
+    const huelle = { gespeichert: 1, bogen: neuerBogen() };
+    const b = await bogenLaden(jsonDatei(JSON.stringify(huelle)));
+    expect(b.schemaVersion).toBe(SCHEMA_VERSION);
+  });
+
+  it("nennt bei unvollständigem Bogen in der Hülle, was fehlt, und dass die Datei nur dem Support dient", async () => {
+    const bogen = JSON.parse(JSON.stringify(neuerBogen()));
+    delete bogen.einheit.organisation;
+    await expect(bogenLaden(jsonDatei(JSON.stringify({ gespeichert: 1, bogen })))).rejects.toThrow(
+      /gesicherte Entwurf.*Organisation der Einheit fehlt.*Support/s,
+    );
+  });
+
   it("lehnt kaputtes JSON ab", async () => {
     await expect(bogenLaden(jsonDatei("{ kein json"))).rejects.toThrow(/kein gültiges JSON/i);
   });

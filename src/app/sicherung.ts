@@ -15,7 +15,7 @@
 
 import { absenderkarteGefuellt, absenderkarteLaden } from "./absenderkarte";
 import { einsaetzeLaden, einsaetzePapierkorb } from "./einsaetze-lesen";
-import { entwurfLaden, ersetztenEntwurfLaden } from "./entwurf";
+import { beschaedigterEntwurf, entwurfLaden, ersetztenEntwurfLaden } from "./entwurf";
 import { exportVorhanden } from "./export-stand";
 import { einheitAnzeigename } from "./hilfen";
 import { geraeteSchluesselPrivat } from "./geraete-schluessel";
@@ -360,6 +360,12 @@ export interface DatenUmfang {
    * „kein offener Bogen-Entwurf" (Audit Runde 3, R3-D4).
    */
   rueckholplatz: string | null;
+  /**
+   * Ein unlesbarer Entwurf liegt beiseitegelegt auf dem Gerät. Die Karte
+   * verspricht „nicht gelöscht"; die Aufzählung schwieg und löschte ihn mit
+   * (Audit Runde 6, R6-D2).
+   */
+  beiseitegelegt: boolean;
   absender: boolean;
   geraeteschluessel: boolean;
   /**
@@ -385,6 +391,7 @@ export function datenUmfang(): DatenUmfang {
     meldungen: einsaetze.reduce((summe, e) => summe + e.eintraege.length, 0),
     entwurf: entwurfLaden() != null,
     rueckholplatz: rueckholplatzName(),
+    beiseitegelegt: beschaedigterEntwurf() != null,
     absender: absenderkarteGefuellt(absenderkarteLaden()),
     geraeteschluessel: geraeteSchluesselPrivat() != null,
     ohneExport: einsaetze.filter((e) => e.eintraege.length > 0 && !exportVorhanden(e.id)).map((e) => e.name),

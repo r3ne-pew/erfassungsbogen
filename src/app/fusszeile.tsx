@@ -1005,6 +1005,9 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
                 {loeschUmfang.rueckholplatz != null && (
                   <li>der zuletzt geschlossene Bogen „{loeschUmfang.rueckholplatz}" (Startseite, zum Zurückholen)</li>
                 )}
+                {loeschUmfang.beiseitegelegt && (
+                  <li>ein beiseitegelegter, unlesbarer Bogen (Startseite, „Als Datei sichern“ vorher möglich)</li>
+                )}
                 <li>{loeschUmfang.absender ? "die hinterlegte Absenderkarte" : "keine Absenderkarte"}</li>
                 <li>
                   {loeschUmfang.geraeteschluessel
