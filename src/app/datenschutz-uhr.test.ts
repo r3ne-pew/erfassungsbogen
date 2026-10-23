@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { MINUTEN_JE_TAG } from "@bos/eeb-format/model";
 import { datenschutzZeitpunkt, uhrstandAusJson } from "./datenschutz-uhr";
+import { msAusZeitpunkt } from "./uhr-folgen";
 
 class MemStorage {
   private m = new Map<string, string>();
@@ -65,5 +66,22 @@ describe("datenschutzZeitpunkt()", () => {
   it("arbeitet ohne Speicher mit der ungeprüften Geräteuhr", () => {
     (globalThis as { localStorage?: Storage }).localStorage = undefined;
     expect(datenschutzZeitpunkt(JETZT)).toBe(JETZT);
+  });
+
+  // Audit Runde 6, R6-D7: Die Grenze von 60 Tagen ließ eine Sammlung mit 31 bis 59 Tagen
+  // Ruhe ohne Vorwarnung fallen (die Ankündigung beginnt erst bei Tag 60).
+  it("hält auch einen Sprung unter 60 Tagen zurück, wenn dabei etwas Unangekündigtes fällig würde (R6-D7)", () => {
+    datenschutzZeitpunkt(JETZT);
+    const heute = msAusZeitpunkt(JETZT);
+    localStorage.setItem("eeb.einsaetze.v1", JSON.stringify([{ id: "s", name: "Ruhend", geaendert: heute - 40 * 86_400_000, eintraege: [] }]));
+    expect(datenschutzZeitpunkt(JETZT + 55 * TAG)).toBe(JETZT);
+    expect(JSON.parse(localStorage.getItem("eeb.uhr.v1")!).sprung).toBe(JETZT + 55 * TAG);
+  });
+
+  it("übernimmt denselben Sprung, wenn die Löschung schon angekündigt war (R6-D7)", () => {
+    datenschutzZeitpunkt(JETZT);
+    const heute = msAusZeitpunkt(JETZT);
+    localStorage.setItem("eeb.einsaetze.v1", JSON.stringify([{ id: "s", name: "Angekündigt", geaendert: heute - 70 * 86_400_000, eintraege: [] }]));
+    expect(datenschutzZeitpunkt(JETZT + 55 * TAG)).toBe(JETZT + 55 * TAG);
   });
 });

@@ -16,7 +16,7 @@
 
 import { datenschutzfristAbgelaufen } from "@bos/eeb-format/datenschutzfrist";
 import { EEB_EPOCHE_MS, MINUTEN_JE_TAG, type EebZeitpunkt } from "@bos/eeb-format/model";
-import { AUFRAEUM_FRIST_MS } from "@bos/meldekopf/einsaetze";
+import { AUFRAEUM_FRIST_MS, AUFRAEUM_HINWEIS_MS } from "@bos/meldekopf/einsaetze";
 import { PAPIERKORB_FRIST_MS } from "@bos/meldekopf/papierkorb";
 
 const EINSAETZE = "eeb.einsaetze.v1";
@@ -30,6 +30,8 @@ export interface UhrFolgen {
   sammlungen: number;
   /** Deren Namen, für die Rückfrage vor dem Einspielen einer Sicherung (R5-D4). */
   namen: string[];
+  /** Name und letzte Änderung (Date.now()) je betroffener Sammlung, für Warnung und Rückfrage (R6-D3). */
+  betroffen: { name: string; geaendert: number }[];
   /** Einträge im Papierkorb (Sammlungen und Vorlagen), deren 30 Tage um wären. */
   papierkorb: number;
   /** Meldungen in Sammlungen, deren Personendaten anonymisiert würden. */
@@ -87,8 +89,13 @@ export function msAusZeitpunkt(z: EebZeitpunkt): number {
  * Folgen für den Speicher dieses Geräts, oder — mit `leser` — für beliebige
  * Einträge, etwa die einer Sicherungsdatei (R5-D4).
  */
-export function uhrFolgen(jetztMs: number = Date.now(), leser?: RohLeser): UhrFolgen {
-  const folgen: UhrFolgen = { sammlungen: 0, namen: [], papierkorb: 0, meldungen: 0, entwurf: false };
+export function uhrFolgen(
+  jetztMs: number = Date.now(),
+  leser?: RohLeser,
+  /** Nur Sammlungen zählen, die zu diesem Zeitpunkt noch nicht angekündigt waren (R6-D7). */
+  nichtAngekuendigtZu?: number,
+): UhrFolgen {
+  const folgen: UhrFolgen = { sammlungen: 0, namen: [], betroffen: [], papierkorb: 0, meldungen: 0, entwurf: false };
   let s = leser;
   if (!s) {
     const speicherRef = speicher();
@@ -107,8 +114,11 @@ export function uhrFolgen(jetztMs: number = Date.now(), leser?: RohLeser): UhrFo
         continue;
       }
       if (geaendert != null && jetztMs - geaendert >= AUFRAEUM_FRIST_MS) {
+        if (nichtAngekuendigtZu != null && nichtAngekuendigtZu - geaendert >= AUFRAEUM_HINWEIS_MS) continue;
         folgen.sammlungen++;
-        folgen.namen.push(typeof e.name === "string" && e.name ? e.name : "(ohne Namen)");
+        const name = typeof e.name === "string" && e.name ? e.name : "(ohne Namen)";
+        folgen.namen.push(name);
+        folgen.betroffen.push({ name, geaendert });
         continue;
       }
       if (Array.isArray(e.eintraege)) {
@@ -132,6 +142,36 @@ export function uhrFolgen(jetztMs: number = Date.now(), leser?: RohLeser): UhrFo
 
 export function folgenVorhanden(f: UhrFolgen): boolean {
   return f.sammlungen > 0 || f.papierkorb > 0 || f.meldungen > 0 || f.entwurf;
+}
+
+/** „vor 1 Stunde" / „vor 3 Tagen" — Alter gegenüber `bezugMs` (R6-D3). */
+export function vorText(geaendert: number, bezugMs: number): string {
+  const min = Math.max(0, Math.round((bezugMs - geaendert) / 60_000));
+  if (min < 2) return "vor 1 Minute";
+  if (min < 60) return `vor ${min} Minuten`;
+  const std = Math.round(min / 60);
+  if (std < 48) return std === 1 ? "vor 1 Stunde" : `vor ${std} Stunden`;
+  const tage = Math.round(std / 24);
+  return tage === 1 ? "vor 1 Tag" : `vor ${tage} Tagen`;
+}
+
+/**
+ * Die betroffenen Sammlungen mit Namen und letzter Änderung (höchstens fünf, dann
+ * „und 2 weitere"). Ist eine in den letzten 7 Tagen noch bearbeitet worden, sagt der
+ * Zusatz, dass das Datum dann nicht stimmen kann (R6-D3). `bezugMs`: der letzte
+ * akzeptierte Zeitpunkt, nicht die Geräteuhr — sonst sähe jede Sammlung uralt aus.
+ */
+export function betroffeneText(f: UhrFolgen, bezugMs: number): { liste: string; laufend: string } {
+  if (f.betroffen.length === 0) return { liste: "", laufend: "" };
+  const sortiert = [...f.betroffen].sort((a, b) => b.geaendert - a.geaendert);
+  const gezeigt = sortiert.slice(0, 5).map((b) => `„${b.name}" (${vorText(b.geaendert, bezugMs)} geändert)`);
+  const rest = sortiert.length - gezeigt.length;
+  const liste = gezeigt.join(", ") + (rest > 0 ? ` und ${rest} weitere` : "");
+  const frisch = sortiert.filter((b) => bezugMs - b.geaendert < 7 * 24 * 60 * 60 * 1000);
+  const laufend = frisch.length
+    ? `${frisch.length === 1 ? `„${frisch[0]!.name}" wurde` : `${frisch.length} Sammlungen wurden`} beim letzten Start noch bearbeitet (${vorText(frisch[0]!.geaendert, bezugMs)}) — dann kann das neue Datum kaum stimmen.`
+    : "";
+  return { liste, laufend };
 }
 
 /** „2 Sammlungen, 3 Papierkorb-Einträge, die Namen in 5 Meldungen und die Namen im eigenen Bogen" — leer, wenn nichts. */

@@ -12,7 +12,7 @@
 import { useMemo, useState } from "react";
 import { EEB_EPOCHE_MS, type EebZeitpunkt } from "@bos/eeb-format/model";
 import { uhrBestaetigen, uhrWarnung } from "./datenschutz-uhr";
-import { folgenText, folgenVorhanden } from "./uhr-folgen";
+import { betroffeneText, folgenText, folgenVorhanden, msAusZeitpunkt } from "./uhr-folgen";
 import { frageJaNein } from "./dialoge";
 
 function tag(z: EebZeitpunkt): string {
@@ -32,12 +32,14 @@ export function UhrWarnung({ neuLaden = () => window.location.reload() }: { neuL
   const vor = w.richtung === "vor";
   const folgen = folgenText(w.folgen);
   const hatFolgen = folgenVorhanden(w.folgen);
+  // Alter gegenüber dem letzten akzeptierten Zeitpunkt, nicht der Geräteuhr (R6-D3).
+  const betroffen = betroffeneText(w.folgen, msAusZeitpunkt(w.zuletzt));
 
   async function stimmt() {
     if (hatFolgen) {
       const ja = await frageJaNein({
         titel: "Datum stimmt — jetzt aufräumen?",
-        text: `Das Gerät zeigt den ${tag(w!.geraet)}. Damit werden ${folgen} endgültig gelöscht — nicht im Papierkorb. Eine Sammlung, die du noch brauchst, vorher exportieren: Dazu „Abbrechen" und die Sammlung öffnen.`,
+        text: `Das Gerät zeigt den ${tag(w!.geraet)}. Damit werden ${folgen} endgültig gelöscht — nicht im Papierkorb. ${betroffen.liste ? `Betroffen: ${betroffen.liste}. ${betroffen.laufend} ` : ""}Eine Sammlung, die du noch brauchst, vorher exportieren: Dazu „Abbrechen" und die Sammlung öffnen.`,
         ok: "Ja, Datum stimmt — löschen",
         abbruch: "Abbrechen",
         gefahr: true,
@@ -58,6 +60,11 @@ export function UhrWarnung({ neuLaden = () => window.location.reload() }: { neuL
       {hatFolgen && (
         <p>
           Wenn das Datum stimmt, werden {folgen} endgültig gelöscht. Wenn die Uhr falsch geht, bleibt alles.
+        </p>
+      )}
+      {betroffen.liste && (
+        <p>
+          Betroffen: {betroffen.liste}. {betroffen.laufend}
         </p>
       )}
       {korrigieren && (

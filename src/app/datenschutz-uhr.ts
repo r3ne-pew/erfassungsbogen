@@ -73,6 +73,12 @@ export function geraeteuhrPruefen(
   jetzt: EebZeitpunkt,
   bisher: Uhrstand | null,
   faelligWuerde: () => boolean = () => true,
+  /**
+   * Würde der Sprung etwas fällig machen, das noch nicht angekündigt war (Ruhe bei
+   * Tag 30 bis 59 vor dem letzten Start; die Ankündigung beginnt bei Tag 60)? Dann
+   * fragt die App schon bei kürzeren Sprüngen (Audit Runde 6, R6-D7).
+   */
+  unangekuendigt: () => boolean = () => false,
 ): Uhrpruefung {
   const annehmen = (): Uhrpruefung => ({
     zeitpunkt: jetzt,
@@ -83,7 +89,11 @@ export function geraeteuhrPruefen(
   });
   if (!bisher) return annehmen();
   const abstand = jetzt - bisher.zuletzt;
-  if (Math.abs(abstand) <= UHR_SPRUNG_TAGE * MINUTEN_JE_TAG) return annehmen();
+  if (Math.abs(abstand) <= UHR_SPRUNG_TAGE * MINUTEN_JE_TAG) {
+    // Unter 30 Tagen Sprung kann nichts Unangekündigtes fällig werden (90 − 60 Tage).
+    const kannUeberraschen = abstand > 30 * MINUTEN_JE_TAG && bisher.sprung == null && unangekuendigt();
+    if (!kannUeberraschen) return annehmen();
+  }
   const vor = abstand > 0;
   if (bisher.sprung == null && vor && !faelligWuerde()) return annehmen();
   return {
@@ -133,7 +143,15 @@ export function geprueftesJetzt(jetzt: EebZeitpunkt = jetztZeitpunkt(), schreibe
   } catch {
     /* blockierter Speicher — dann gilt die Geräteuhr ungeprüft */
   }
-  const r = geraeteuhrPruefen(jetzt, uhrstandAusJson(alt), () => folgenVorhanden(uhrFolgen(msAusZeitpunkt(jetzt))));
+  const bisher = uhrstandAusJson(alt);
+  const r = geraeteuhrPruefen(
+    jetzt,
+    bisher,
+    () => folgenVorhanden(uhrFolgen(msAusZeitpunkt(jetzt))),
+    () =>
+      bisher != null &&
+      folgenVorhanden(uhrFolgen(msAusZeitpunkt(jetzt), undefined, msAusZeitpunkt(bisher.zuletzt))),
+  );
   const neu = JSON.stringify(r.stand);
   if (schreiben && neu !== alt) {
     try {

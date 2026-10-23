@@ -145,7 +145,7 @@ describe("alte Sicherung (R5-D4)", () => {
 
   it("eine junge Datei hat nichts, was fällt", () => {
     const b = bestandUmfang({ "eeb.einsaetze.v1": JSON.stringify([sammlungVor(10)]) });
-    expect(b.faellig).toEqual({ sammlungen: 0, namen: [], papierkorb: 0, meldungen: 0, entwurf: false });
+    expect(b.faellig).toEqual({ sammlungen: 0, namen: [], betroffen: [], papierkorb: 0, meldungen: 0, entwurf: false });
   });
 });
 
@@ -273,7 +273,7 @@ describe("bestandUmfang() / geraetBestand() — für die Einspiel-Rückfrage (R2
       rueckholplatz: null,
       absender: false,
       geraeteschluessel: null,
-      faellig: { sammlungen: 0, namen: [], papierkorb: 0, meldungen: 0, entwurf: false },
+      faellig: { sammlungen: 0, namen: [], betroffen: [], papierkorb: 0, meldungen: 0, entwurf: false },
     });
   });
 

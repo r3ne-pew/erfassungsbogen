@@ -48,6 +48,21 @@ describe("UhrWarnung", () => {
     expect(screen.getByRole("button", { name: "Uhr korrigieren" })).toBeTruthy();
   });
 
+  // Audit Runde 6, R6-D3: Namen und letzte Änderung statt nur einer Zahl.
+  it("nennt die betroffenen Sammlungen mit Namen und dem Alter ihrer letzten Änderung (R6-D3)", () => {
+    const zuletzt = jetztZeitpunkt() - 365 * MINUTEN_JE_TAG;
+    localStorage.setItem("eeb.uhr.v1", JSON.stringify({ zuletzt }));
+    const zuletztMs = Date.now() - 365 * 86_400_000;
+    localStorage.setItem(
+      "eeb.einsaetze.v1",
+      JSON.stringify([{ id: "a", name: "Hochwasser Test", geaendert: zuletztMs - 60 * 60_000, eintraege: [] }]),
+    );
+    render(<UhrWarnung />);
+    const w = screen.getByRole("alert").textContent!;
+    expect(w).toContain("„Hochwasser Test\" (vor 1 Stunde geändert)");
+    expect(w).toContain("noch bearbeitet");
+  });
+
   it("nennt bei zurückgestellter Uhr keine Löschfolgen und den Abstand in Tagen", () => {
     const zuletzt = jetztZeitpunkt() + 400 * MINUTEN_JE_TAG;
     localStorage.setItem("eeb.uhr.v1", JSON.stringify({ zuletzt }));
