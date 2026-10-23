@@ -3113,9 +3113,9 @@ function AppInhalt() {
         const { blankoPdfErzeugen } = await import("./pdf");
         if (await blankoPdfErzeugen()) {
           const text = "Blanko-Vordruck erzeugt (2 Seiten A4, zum Ausfüllen mit der Hand).";
-          // In der Einsatzansicht direkt unter den Knöpfen, auf der Startseite wie bisher oben (R5-L4).
-          if (offenerEinsatzId) setAusgabeQuittung(`✓ ${text}`);
-          else setMeldung(text);
+          // Direkt unter dem Knopf, in der Einsatzansicht wie auf der Startseite: Oben über der Karte schob
+          // die Quittung den eben getippten Knopf um 66 px nach unten (Audit Runde 6, R6-N10).
+          setAusgabeQuittung(`✓ ${text}`);
         }
       } catch (e) {
         setFehler(`Blanko-Vordruck: ${fehlerText(e)}`);
@@ -4114,6 +4114,11 @@ function AppInhalt() {
                 </span>
               </button>
             </div>
+            {ausgabeQuittung && !offenerEinsatzId && (
+              <p className="hinweis" role="status">
+                {ausgabeQuittung}
+              </p>
+            )}
             {erststart && offlineHinweis}
           </section>
           <section className="weiche-weg" aria-labelledby="weg-meldekopf">
