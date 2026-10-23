@@ -503,3 +503,22 @@ describe("Vergleich gegen eine Schnellerfassung (Audit Runde 5, R5-W9)", () => {
     expect(text).not.toContain("abgemeldet");
   });
 });
+
+// Audit Runde 6, R6-K7: Zwei abweichende Einheiten mit demselben Wort decken sich nicht gegenseitig zu.
+describe("abweichenderOrt — gemeinsames Wort zweier Fremdmeldungen (R6-K7)", () => {
+  it("markiert beide, wenn die Mehrheit der übrigen Einheiten etwas anderes nennt", () => {
+    const lage = { name: "Hochwasser Neckar", ort: "Heilbronn" };
+    const mit = (name: string, ort: string, schl: string) => {
+      const b = bogen(name, 3);
+      b.einsatz = { ...b.einsatz, ortAuftrag: ort };
+      return eintrag(`id-${schl}`, b, { einheitSchluessel: schl, empfangenAm: 1 });
+    };
+    const eigene = ["a", "b", "c", "d", "e", "f"].map((k) => mit(`Eigene ${k}`, "Hochwasser Heilbronn Neckarvorland", k));
+    const cottbus = mit("Cottbus", "Stromausfall Cottbus", "c1");
+    const langenhagen = mit("Langenhagen", "Stromausfall Langenhagen", "l1");
+    const alle = [...eigene, cottbus, langenhagen];
+    expect(abweichenderOrt(cottbus, lage, alle)).toBe("Stromausfall Cottbus");
+    expect(abweichenderOrt(langenhagen, lage, alle)).toBe("Stromausfall Langenhagen");
+  });
+});
+

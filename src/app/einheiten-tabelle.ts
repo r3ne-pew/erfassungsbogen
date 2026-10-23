@@ -270,8 +270,13 @@ export function abweichenderOrt(
     if (woerter.size > 0) mitText++;
     for (const w of woerter) haeufigkeit.set(w, (haeufigkeit.get(w) ?? 0) + 1);
   }
-  if (bezug.size > 0) for (const w of haeufigkeit.keys()) bezug.add(w); // Ort bekannt: jedes Wort der Nachbarn zählt als passend
-  else if (mitText >= VERGLEICH_MIN_EINHEITEN) for (const [w, n] of haeufigkeit) if (n >= 2) bezug.add(w);
+  // Ort bekannt: Ein Wort der Nachbarn zählt nur als „passend", wenn mindestens die Hälfte der
+  // übrigen Einheiten mit Text es nennt. Vorher genügte jedes Wort einer einzigen Nachbarin: Der
+  // Hinweis verschwand, sobald eine zweite abweichende Einheit dasselbe Wort nannte („Stromausfall
+  // Cottbus" und „Stromausfall Langenhagen" in einer Lage am Neckar, Audit Runde 6, R6-K7).
+  if (bezug.size > 0) {
+    for (const [w, n] of haeufigkeit) if (n * 2 >= mitText) bezug.add(w);
+  } else if (mitText >= VERGLEICH_MIN_EINHEITEN) for (const [w, n] of haeufigkeit) if (n >= 2) bezug.add(w);
   if (bezug.size === 0) return null; // keine Basis: lieber keine Marke als eine falsche
   // Der Name der Sammlung macht einen Bogen zusätzlich „passend", begründet aber keinen Verdacht.
   for (const w of ortWoerter(sammlung.name)) bezug.add(w);
