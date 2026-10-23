@@ -43,6 +43,7 @@ import {
   neuerBogen,
   natoZeitstempel,
   neuesFahrzeug,
+  nurSollstaerke,
   personUnbenannt,
   plausibilitaet,
   pruefpunkte,
@@ -1007,5 +1008,45 @@ describe("einheitAnzeigename() — jeder Teil einmal (R5-N6)", () => {
     // „Ulm“ steckt in „Neu-Ulm“ nur als Wortteil mit Bindestrich — dort ist es ein eigenes Wort und entfällt zu Recht;
     // „Ulmen“ aber ist ein anderes Wort.
     expect(einheitAnzeigename(einheit(OrganisationsTyp.SONSTIGE, "FF Ulmen", "Ulm", "Gruppe"))).toBe("FF Ulmen Ulm Gruppe");
+  });
+});
+
+// Audit Runde 7, R7-A1: „Nur Stärke" mit den unveränderten Zahlen der Vorbelegung ist keine Zählung.
+describe("nurSollstaerke() bei der Schnellerfassung (R7-A1)", () => {
+  const vorbelegt = (): Erfassungsbogen => {
+    const b = neuerBogen();
+    b.einheit.einheitsTyp = { code: 4 };
+    b.personal = [
+      { ...neuePerson(), staerkeRolle: StaerkeRolle.UNTERFUEHRER },
+      { ...neuePerson(), staerkeRolle: StaerkeRolle.MANNSCHAFT },
+      { ...neuePerson(), staerkeRolle: StaerkeRolle.MANNSCHAFT },
+    ];
+    b.personalErfassung = PersonalErfassung.NUR_STAERKE;
+    return b;
+  };
+
+  it("gilt als Sollstärke, solange die Zahlen noch der Vorbelegung gleichen", () => {
+    const b = vorbelegt();
+    b.staerkeManuell = { fuehrer: 0, unterfuehrer: 1, mannschaft: 2, gesamt: 3 };
+    expect(nurSollstaerke(b)).toBe(true);
+    delete b.staerkeManuell;
+    expect(nurSollstaerke(b)).toBe(true);
+  });
+
+  it("gilt nicht mehr, sobald eine Zahl angefasst wurde oder eine Karte einen Namen trägt", () => {
+    const b = vorbelegt();
+    b.staerkeManuell = { fuehrer: 0, unterfuehrer: 1, mannschaft: 3, gesamt: 4 };
+    expect(nurSollstaerke(b)).toBe(false);
+    const c = vorbelegt();
+    c.staerkeManuell = { fuehrer: 0, unterfuehrer: 1, mannschaft: 2, gesamt: 3 };
+    c.personal[0] = { ...c.personal[0]!, nachname: "Meyer" };
+    expect(nurSollstaerke(c)).toBe(false);
+  });
+
+  it("gilt ohne Vorbelegungskarten nie (die Zahl ist dann die Angabe)", () => {
+    const b = vorbelegt();
+    b.personal = [];
+    b.staerkeManuell = { fuehrer: 0, unterfuehrer: 1, mannschaft: 2, gesamt: 3 };
+    expect(nurSollstaerke(b)).toBe(false);
   });
 });

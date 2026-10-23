@@ -52,6 +52,18 @@ afterEach(() => {
   mindestzeigeSetzen(mindestAlt);
 });
 
+describe("QR-Vollbild: Stärke nach Soll (R7-N7)", () => {
+  it("nennt die Plätze ohne Namen, solange es welche gibt", () => {
+    render(<QrVollbild qr={satz(1)} einheit="THW" staerke="0 / 3 / 9 / 12" ohneNamen={9} teilIndex={0} onTeil={() => {}} onSchliessen={() => {}} onZurueck={() => {}} />);
+    expect(screen.getByRole("dialog", { name: "QR-Code im Vollbild" }).textContent).toContain("9 Plätze ohne Namen — Stärke nach Soll");
+  });
+
+  it("schweigt, wenn alle Plätze Namen tragen", () => {
+    render(<QrVollbild qr={satz(1)} einheit="THW" staerke="0 / 3 / 9 / 12" ohneNamen={0} teilIndex={0} onTeil={() => {}} onSchliessen={() => {}} onZurueck={() => {}} />);
+    expect(screen.getByRole("dialog", { name: "QR-Code im Vollbild" }).textContent).not.toContain("ohne Namen");
+  });
+});
+
 describe("QR-Vollbild (R3-H2, R3-H3)", () => {
   it("nennt den Teil über dem Code und im Knopf", async () => {
     render(<Rahmen n={2} onSchliessen={() => {}} />);

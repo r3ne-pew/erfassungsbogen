@@ -5039,8 +5039,21 @@
     html.schrift-gross .muster-zeile { font-size: min(var(--t-m), 18px); }
     html.schrift-gross .muster-name { font-size: min(var(--t-m), 18px); }
     html.schrift-gross .muster-sub { font-size: min(var(--t-s), 15px); }
+    html.schrift-gross .muster-zeile { padding-block: min(0.55rem, 9px); gap: min(0.7rem, 12px); }
+    html.schrift-gross .muster-zeile input[type=checkbox] { width: min(1.25rem, 26px); height: min(1.25rem, 26px); }
+    html.schrift-gross .muster-zeile .rolle-badge { font-size: min(var(--t-s), 15px); }
     @media (max-height: 31.25rem) {
       .musterung .kopfzeile.klebend { position: static; box-shadow: none; }
+      html.schrift-gross .musterung .staerke-leiste { position: static; }
+    }
+
+    /* R7-M4: Tabelle der Einsatzansicht bei großer Schrift: Die Schrift der Zellen ist gedeckelt (vorher Tabelle 3 223 px
+       breit, „M" und „Ges." weit rechts); die klebende Spalte „Einheit" bleibt bei 40 %. */
+    html.schrift-gross table.einheiten-tabelle { font-size: min(var(--t-s), 16px); }
+    /* R7-M8, R7-G4: Quer ist „◐" der Einsatzansicht eine Ecke (63 × 52 px) und lag beim Rollen über Knopfreihen und
+       Randfeldern. Die Inhaltsspalte lässt rechts einen freien Streifen, die Ecke deckt nichts mehr ab. */
+    @media (max-height: 30rem) {
+      html:has(.anzeige-balken) main { padding-right: max(var(--r-3), calc(76px + env(safe-area-inset-right))); }
     }
     /* ===== Ende Runde 7 (Layout) ===== */
   </style>
