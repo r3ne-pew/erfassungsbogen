@@ -1680,7 +1680,7 @@ describe("Neuen Einsatz anlegen", () => {
       // Die CSV hat nichts mehr zu liefern, Excel und PDF noch alles.
       expect((screen.getByRole("button", { name: "Übersicht als CSV" }) as HTMLButtonElement).disabled).toBe(true);
       expect((screen.getByRole("button", { name: /^Excel-Liste/ }) as HTMLButtonElement).disabled).toBe(false);
-      expect((screen.getByRole("button", { name: "Sammel-PDF (nur neue Bögen)" }) as HTMLButtonElement).disabled).toBe(false);
+      expect((screen.getByRole("button", { name: /^Sammel-PDF \((nur neue Bögen|erste Lieferung: alle Bögen)\)$/ }) as HTMLButtonElement).disabled).toBe(false);
       expect(screen.getByText(/Excel-Liste: noch nicht in diesem Format exportiert/)).toBeDefined();
 
       // Abrücken nach dem CSV-Export: Änderung, und die CSV lässt sich wieder laden.

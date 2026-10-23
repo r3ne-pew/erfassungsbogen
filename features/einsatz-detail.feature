@@ -199,7 +199,7 @@ Funktionalität: Einsatz-Sammlung führen (Meldekopf)
     Dann sehe ich den Hinweis "seitdem keine neuen Bögen"
     Wenn ich "Nur neue Bögen seit dem letzten Export" ankreuze
     Dann ist die Schaltfläche "Übersicht als CSV" gesperrt
-    Und ist die Schaltfläche "Sammel-PDF (nur neue Bögen)" bedienbar
+    Und ist die Schaltfläche "Sammel-PDF (erste Lieferung: alle Bögen)" bedienbar
     Und ist die Schaltfläche "Excel-Liste (Format „Oldenburg“)" bedienbar
     Wenn ich die Einheit "DLRG" "Wardenburg" manuell in den Einsatz aufnehme
     Dann sehe ich den Hinweis "seitdem 1 neuer Bogen"

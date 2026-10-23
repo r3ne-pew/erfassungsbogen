@@ -922,7 +922,7 @@ describe("Ausgabewege der Einsatzansicht", () => {
     // zweite Knopf erzeugte dieselbe Datei (R2-A3). Der Nachtrag bleibt.
     expect(screen.queryByRole("button", { name: "Sammel-PDF (alle Bögen)" })).toBeNull();
     await nutzer.click(screen.getByRole("checkbox", { name: /Nur neue Bögen seit dem letzten Export/ }));
-    await nutzer.click(screen.getByRole("button", { name: "Sammel-PDF (nur neue Bögen)" }));
+    await nutzer.click(screen.getByRole("button", { name: /^Sammel-PDF \((nur neue Bögen|erste Lieferung: alle Bögen)\)$/ }));
     expect(sammelPdf).toHaveBeenCalledWith("neue");
   });
 
@@ -1014,7 +1014,7 @@ describe("Nur neue Bögen seit dem letzten Export", () => {
     expect(screen.getAllByText(/seitdem 2 neue Bögen/)).toHaveLength(4);
     await nutzer.click(screen.getByRole("checkbox", { name: /Nur neue Bögen seit dem letzten Export/ }));
 
-    await nutzer.click(screen.getByRole("button", { name: "Sammel-PDF (nur neue Bögen)" }));
+    await nutzer.click(screen.getByRole("button", { name: /^Sammel-PDF \((nur neue Bögen|erste Lieferung: alle Bögen)\)$/ }));
     expect(sammelPdf).toHaveBeenCalledWith("neue");
     await nutzer.click(screen.getByRole("button", { name: "Übersicht als CSV" }));
     expect(csvExport).toHaveBeenCalledWith("neue");
@@ -1035,10 +1035,10 @@ describe("Nur neue Bögen seit dem letzten Export", () => {
 
     await nutzer.click(screen.getByRole("checkbox", { name: /Nur neue Bögen seit dem letzten Export/ }));
 
-    for (const name of ["Sammel-PDF (nur neue Bögen)", "Übersicht als CSV", "Alle Daten als CSV", /^Excel-Liste/]) {
+    for (const name of [/^Sammel-PDF \(nur neue Bögen\)$/, "Übersicht als CSV", "Alle Daten als CSV", /^Excel-Liste/]) {
       expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
     }
-    await nutzer.click(screen.getByRole("button", { name: "Sammel-PDF (nur neue Bögen)" }));
+    await nutzer.click(screen.getByRole("button", { name: /^Sammel-PDF \((nur neue Bögen|erste Lieferung: alle Bögen)\)$/ }));
     expect(sammelPdf).not.toHaveBeenCalled();
   });
 });

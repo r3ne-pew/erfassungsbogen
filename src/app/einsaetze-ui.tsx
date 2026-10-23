@@ -1989,7 +1989,8 @@ export function EinsatzDetail(props: {
                 ? "Nur die seit dem letzten Export neuen Bögen als eine PDF — mit eingebetteten Daten dieser Bögen. Auf dem Zielgerät über „Einsatz importieren…“ einlesbar."
                 : "Alle Bögen als eine PDF — mit eingebetteter kompletter Sammlung (Züge, Status, Historie). Auf dem Zielgerät über „Einsatz importieren…“ einlesbar."}
             >
-              {nurNeue ? "Sammel-PDF (nur neue Bögen)" : "Sammel-PDF (alle Bögen)"}
+              {/* Ohne früheren Stab-Export ist „nur neue Bögen" die ganze Lage; der Knopf sagt es (R6-K9). */}
+              {nurNeue ? (exportStaende.pdf ? "Sammel-PDF (nur neue Bögen)" : "Sammel-PDF (erste Lieferung: alle Bögen)") : "Sammel-PDF (alle Bögen)"}
             </button>{" "}
           </>
         )}
