@@ -22,8 +22,8 @@ import {
   zeitpunktAusIso,
   type Erfassungsbogen,
 } from "@bos/eeb-format/model";
-import { einheitAnzeigename, neuesFahrzeug, zeitgruppe, type QrSatz } from "./hilfen";
-import { EEB_JSON_DATEINAME, aenderungFuerPapier, bogenAlsEingebetteteDatei, einsatzLageblattDokument, einsatzPdfDokument, pdfDokument, stiftHinweis, STIFT_KAESTCHEN, codeKopfzeile, meldekopfVermerk, ohneVorbelegung, erreichbarkeitZeilen, nichtDarstellbareNamen } from "./pdf-dokument";
+import { einheitAnzeigename, neuePerson, neuesFahrzeug, zeitgruppe, type QrSatz } from "./hilfen";
+import { EEB_JSON_DATEINAME, aenderungFuerPapier, bogenAlsEingebetteteDatei, einsatzLageblattDokument, einsatzPdfDokument, pdfDokument, stiftHinweis, STIFT_KAESTCHEN, codeKopfzeile, meldekopfVermerk, ohneVorbelegung, erreichbarkeitZeilen, nichtDarstellbareNamen, nichtDarstellbareBetroffene } from "./pdf-dokument";
 
 const QR_BILD = "data:image/png;base64,QRTESTBILD";
 const QR_URL = "https://erfassungsbogen.app/#TESTPAYLOAD";
@@ -889,3 +889,31 @@ describe("nichtDarstellbareNamen() (R6-A5)", () => {
   });
 });
 
+
+// Audit Runde 7, R7-A2: Eine fehlende Abrückzeit steht als solche auf dem Papier.
+describe("Abrückzeit nicht bestätigt (R7-A2)", () => {
+  it("nennt im Kasten „Stand am Meldekopf“ die fehlende Abrückzeit", () => {
+    const vom = meldekopfVermerk({ bogen: basisBogen(), nummer: 2, eingetroffenAm: 1, abgerueckt: true, zeitUnbestaetigt: true }, "Hochwasser", Date.now());
+    expect(vom.stand).toContain("Abrückzeit nicht bestätigt (vom Papier)");
+    const ohne = meldekopfVermerk({ bogen: basisBogen(), nummer: 2, eingetroffenAm: 1, abgerueckt: true }, "Hochwasser", Date.now());
+    expect(ohne.stand).toContain("Abrückzeit nicht festgehalten");
+    const mit = meldekopfVermerk({ bogen: basisBogen(), nummer: 2, eingetroffenAm: 1, abgerueckt: true, abgerueckAm: 2 }, "Hochwasser", Date.now());
+    expect(mit.stand).not.toContain("Abrückzeit nicht");
+  });
+});
+
+// Audit Runde 7, R7-A4: Die Quittung nennt die Person mit nicht darstellbarem Namen.
+describe("nichtDarstellbareBetroffene() (R7-A4)", () => {
+  it("nennt die Person und kennzeichnet die Ansprechperson", () => {
+    const b = basisBogen();
+    b.personal = [
+      { ...neuePerson(), vorname: "Владимир", nachname: "Lehmann" },
+      { ...neuePerson(), vorname: "Anna", nachname: "Beispiel" },
+      { ...neuePerson(), vorname: "Zoë", nachname: "Ärger" },
+    ];
+    expect(nichtDarstellbareBetroffene(b)).toEqual(["Владимир Lehmann (Ansprechperson)"]);
+    expect(nichtDarstellbareNamen(b)).toBe(1);
+    b.personal.push({ ...neuePerson(), vorname: "Анна", nachname: "Meyer" });
+    expect(nichtDarstellbareBetroffene(b)).toEqual(["Владимир Lehmann (Ansprechperson)", "Анна Meyer"]);
+  });
+});

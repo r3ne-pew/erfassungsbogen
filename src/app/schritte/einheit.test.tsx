@@ -720,6 +720,25 @@ describe("Schritt Einheit — Organisation wechseln", () => {
     expect(screen.getAllByLabelText(/^Name/)).toHaveLength(1);
   });
 
+  // Audit Runde 7, R7-E5: Nach dem Wechsel gibt es einen Tipp zurück.
+  it("bietet nach dem Wechsel „Rückgängig“ an und stellt Typ und Zugehörigkeit wieder her (R7-E5)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittEinheit} bogen={ausgefuellt()} />);
+
+    await nutzer.selectOptions(screen.getByLabelText("Organisation"), "Feuerwehr");
+    const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Organisation auf „Feuerwehr\" wechseln?']")!;
+    expect(dialog.textContent).toContain("Rückgängig");
+    await nutzer.click(within(dialog).getByRole("button", { name: "Organisation wechseln" }));
+    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("");
+    expect(screen.getByText(/Organisation auf „Feuerwehr" gewechselt/)).toBeDefined();
+
+    await nutzer.click(screen.getByRole("button", { name: "Rückgängig" }));
+
+    expect((screen.getByLabelText("Organisation") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("THW");
+    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("Wardenburg");
+    expect(screen.getAllByLabelText(/^Name/)).toHaveLength(2);
+  });
+
   it("wechselt ohne Rückfrage, solange nichts ausgefüllt ist", async () => {
     const nutzer = userEvent.setup();
     buehne();

@@ -5022,6 +5022,26 @@
     .knopfreihe > button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
     html.schrift-gross ul.vorschlaege li { font-size: min(var(--t-m), 18px); }
     html.schrift-gross ul.vorschlaege li small { font-size: min(var(--t-s), 16px); }
+
+    /* R7-G7, R7-H7: Musterung. „Alle abwählen" bleibt an seinem Platz: Knopf und Zähler haben feste Breite, die
+       Kopfzeile ändert ihre Höhe nicht, wenn „(38/38)" zu „(0/38)" wird (vorher sprang der Knopf um 33 px, und ein
+       zweiter Tipp an der alten Stelle hakte eine Person an). Die klebende Kopfzeile einer Gruppe hängt unter der
+       Stärke-Leiste statt auf ihr (die Leiste schien durch). Bei großer Schrift sind Leiste, Überschrift und Knopf
+       gedeckelt, und im niedrigen Bild klebt die Kopfzeile nicht (200 % quer: 186 von 360 px). */
+    .musterung .staerke-leiste { top: var(--fest-warnung-hoehe, 0px); }
+    .musterung .kopfzeile.klebend { top: calc(var(--fest-warnung-hoehe, 0px) + var(--muster-leiste-hoehe, 0px)); }
+    .musterung .kopfzeile > .muster-umschalter:last-child { min-width: calc(9.5em + 20px); white-space: nowrap; text-align: center; flex: 0 0 auto; }
+    .musterung .kopfzeile h2 .zaehler { display: inline-block; min-width: 7ch; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    html.schrift-gross .musterung .kopfzeile h2 { font-size: min(var(--t-xl), 22px); }
+    html.schrift-gross .musterung .muster-umschalter { font-size: min(var(--t-s), 16px); min-height: calc(44px + var(--ziel)); }
+    html.schrift-gross .musterung .staerke-leiste strong { font-size: min(calc(var(--t-zahl) * 0.8), 24px); }
+    html.schrift-gross .musterung .staerke-leiste span { font-size: min(var(--t-xs), 12px); }
+    html.schrift-gross .muster-zeile { font-size: min(var(--t-m), 18px); }
+    html.schrift-gross .muster-name { font-size: min(var(--t-m), 18px); }
+    html.schrift-gross .muster-sub { font-size: min(var(--t-s), 15px); }
+    @media (max-height: 31.25rem) {
+      .musterung .kopfzeile.klebend { position: static; box-shadow: none; }
+    }
     /* ===== Ende Runde 7 (Layout) ===== */
   </style>
 </head>

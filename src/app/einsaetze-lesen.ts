@@ -96,6 +96,15 @@ export function ausgelasseneMeldungenGesamt(): number {
   return n;
 }
 
+/** Ohne eingehängte Hülle (Tests, Privatmodus-Rückfall): der Text direkt aus dem lokalen Speicher. */
+function lokalRoh(): string | null | undefined {
+  try {
+    return globalThis.localStorage?.getItem(SAMMLUNGEN_SCHLUESSEL);
+  } catch {
+    return undefined;
+  }
+}
+
 let beiseiteGeprueft: string | null | undefined;
 
 /**
@@ -112,7 +121,7 @@ function unlesbaresRetten(roh: string | null | undefined): void {
 function gelesen(art: "aktiv" | "papierkorb", kern: () => Einsatzsammlung[]): Einsatzsammlung[] {
   const minute = Math.floor(Date.now() / 60_000);
   const roh = rohText(SAMMLUNGEN_SCHLUESSEL);
-  unlesbaresRetten(roh);
+  unlesbaresRetten(roh !== undefined ? roh : lokalRoh());
   const alt = gemerkt.get(art);
   if (roh !== undefined && alt && alt.minute === minute && alt.text === roh) return [...alt.liste];
 

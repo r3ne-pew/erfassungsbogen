@@ -16,6 +16,7 @@ import {
   einheitenFiltern,
   einheitenSortieren,
   nachQualifikationFiltern,
+  passtZuLueckenfilter,
   personenMitQualifikation,
   qualifikationenImEinsatz,
 } from "./einheiten-liste";
@@ -336,5 +337,25 @@ describe("nachQualifikationFiltern", () => {
     expect(ids(einheitenAnsicht(gemischt, "", "name", "agt"))).toEqual(["b", "a"]);
     expect(ids(einheitenAnsicht(gemischt, "oldenburg", "name", "agt"))).toEqual(["a"]);
     expect(ids(einheitenAnsicht(gemischt, "bremen", "name", "agt"))).toEqual([]);
+  });
+});
+
+describe("Sortierung nach Nr. und Lückenfilter (R7-K9, R7-K6)", () => {
+  it("ordnet nach der Nummer des Lageblatts, ohne Nummer ans Ende, bei Gleichstand nach Name", () => {
+    const nummern = new Map([["c", 1], ["a", 2]]);
+    expect(ids(einheitenSortieren(liste, "nummer", nummern))).toEqual(["c", "a", "b"]);
+    expect(ids(einheitenSortieren(liste, "nummer"))).toEqual(ids(einheitenSortieren(liste, "name")));
+    expect(ids(einheitenAnsicht(liste, "", "nummer", "", nummern))).toEqual(["c", "a", "b"]);
+  });
+
+  it("findet anwesende Einheiten ohne Auftrag bzw. ohne Zug; abgerückte zählen nicht", () => {
+    const mitAuftrag = { ...thwOldenburg, notiz: "Deich Nord" };
+    const abgerueckt = { ...fwMuenchen, status: MeldeStatus.ABGERUECKT };
+    expect(passtZuLueckenfilter(mitAuftrag, "ohne-auftrag")).toBe(false);
+    expect(passtZuLueckenfilter(drkBremen, "ohne-auftrag")).toBe(true);
+    expect(passtZuLueckenfilter(thwOldenburg, "ohne-zug")).toBe(false);
+    expect(passtZuLueckenfilter(fwMuenchen, "ohne-zug")).toBe(true);
+    expect(passtZuLueckenfilter(abgerueckt, "ohne-auftrag")).toBe(false);
+    expect(passtZuLueckenfilter({ ...drkBremen, notiz: "   " }, "ohne-auftrag")).toBe(true);
   });
 });

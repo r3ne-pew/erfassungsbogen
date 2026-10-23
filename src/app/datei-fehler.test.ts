@@ -83,3 +83,24 @@ describe("dateiFehlerMeldung", () => {
     expect(t).toMatch(/ließ sich nicht lesen\. Bitte beim Absender neu anfordern/);
   });
 });
+
+describe("Hülle des beiseitegelegten Entwurfs (R7-E1)", () => {
+  const huelle = JSON.stringify({ gespeichert: 1, bogen: { schemaVersion: SCHEMA_VERSION, einheit: {}, einsatz: {}, personal: [] } });
+
+  it("erkennt die Hülle als gesicherten Entwurf, nicht als fremde Datei", () => {
+    expect(dateiArt(huelle)).toBe("entwurf");
+    expect(dateiArt('{"gespeichert":"gestern","bogen":{}}')).toBe("json-fremd");
+  });
+
+  it("lässt über „Aus Datei laden…“ die genaue Ursache der Hülle zu Wort kommen", async () => {
+    // Für den Weg „bogen" erklärt dateiFehlerText nichts → die Meldung der Stelle, die ablehnte, bleibt.
+    expect(dateiFehlerText("e.json", "entwurf", "bogen")).toBeNull();
+    const datei = new File([huelle], "e.json");
+    const fehler = new Error("Der gesicherte Entwurf lässt sich nicht öffnen. Der Bogen ist unvollständig: die Organisation der Einheit fehlt.");
+    const meldung = await dateiFehlerMeldung(datei, fehler, "bogen");
+    expect(meldung).toContain("Organisation der Einheit fehlt");
+    expect(meldung).not.toContain("stammt nicht aus dieser App");
+    // Über den falschen Knopf: Wohin die Datei gehört.
+    expect(dateiFehlerText("e.json", "entwurf", "einsatz")).toContain("Aus Datei laden");
+  });
+});

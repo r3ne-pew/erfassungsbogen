@@ -239,3 +239,26 @@ describe("Stände der Exporte im Umschlag (Audit Runde 5, R5-W6)", () => {
     expect(einsatzAusDatei(einsatzDateiInhalt(s)).exportStaende).toBeUndefined();
   });
 });
+
+describe("Einsatzbeginn und Funkrufname reisen mit (R7-K5)", () => {
+  it("steht im Umschlag der Datei, wird gelesen, geprüft und nie in die Sammlung geschrieben", () => {
+    const s = einsatzAnlegen("Hochwasser", 0);
+    meldungHinzufuegen(s.id, bogen());
+    const sammlung = einsaetzeLaden().find((x) => x.id === s.id)!;
+    const text = einsatzDateiInhalt(sammlung, undefined, { beginn: 1_790_000_000_000, funkruf: "Salus Führung 1" });
+    expect(JSON.parse(text).lage).toEqual({ beginn: 1_790_000_000_000, funkruf: "Salus Führung 1" });
+    expect(JSON.parse(text).einsatz.lageAngaben).toBeUndefined();
+    const gelesen = einsatzAusDatei(text);
+    expect(gelesen.lageAngaben).toEqual({ beginn: 1_790_000_000_000, funkruf: "Salus Führung 1" });
+  });
+
+  it("lässt das Feld ohne Angaben weg und verwirft Unbrauchbares", () => {
+    const s = einsatzAnlegen("Hochwasser", 0);
+    meldungHinzufuegen(s.id, bogen());
+    const sammlung = einsaetzeLaden().find((x) => x.id === s.id)!;
+    expect(JSON.parse(einsatzDateiInhalt(sammlung)).lage).toBeUndefined();
+    const roh = JSON.parse(einsatzDateiInhalt(sammlung));
+    roh.lage = { beginn: "gestern", funkruf: 5 };
+    expect(einsatzAusDatei(JSON.stringify(roh)).lageAngaben).toBeUndefined();
+  });
+});
