@@ -16,11 +16,15 @@ import { FensterKonflikt, useFensterAbgleich } from "./fenster-abgleich";
 /** Nachbau des Autosave aus app.tsx: speichert bei jeder Änderung und bei jeder Entscheidung. */
 function Buehne({ onEinsaetze = () => {} }: { onEinsaetze?: () => void }) {
   const [ort, setOrt] = useState("Ort A");
-  const fenster = useFensterAbgleich(true, onEinsaetze);
-  useEffect(() => {
+  const eigener = () => {
     const b = neuerBogen();
     b.einsatz.ortAuftrag = ort;
-    entwurfSpeichern(b);
+    return b;
+  };
+  const fenster = useFensterAbgleich(true, onEinsaetze, { eigenerBogen: eigener });
+  useEffect(() => {
+    entwurfSpeichern(eigener());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- wie app.tsx: nur bei Änderung und Entscheidung
   }, [ort, fenster.runde]);
   return (
     <>
@@ -199,5 +203,59 @@ describe("Fensterabgleich", () => {
     localStorage.clear();
     entwurfSpeichern(b);
     expect(entwurfAusAnderemFenster()).toBeNull();
+  });
+
+  // Audit Runde 6, R6-S2: Die Warnung nennt beide Stände.
+  it("nennt in der Warnung auch den eigenen Stand und die Personenzahl beider Fenster (R6-S2)", () => {
+    render(<Buehne />);
+    const b = neuerBogen();
+    b.personal = [];
+    anderesFensterSchreibt(ENTWURF_SCHLUESSEL, entwurfZuJson(b));
+    const warnung = screen.getByRole("alert").textContent!;
+    expect(warnung).toMatch(/dort: .*Stand .* Uhr, \d+ Personen? · hier: Stand .* Uhr, \d+ Personen?/);
+  });
+
+  // Audit Runde 6, R6-S1: „Stand laden" verwarf die eigene, nicht gespeicherte Arbeit still.
+  it("fragt vor „Stand aus dem anderen Fenster laden“ und legt die eigene Fassung auf den Rückholplatz (R6-S1)", async () => {
+    const nutzer = userEvent.setup();
+    const neuladen = vi.fn();
+    Object.defineProperty(window, "location", { value: { ...window.location, reload: neuladen }, configurable: true });
+    render(
+      <>
+        <Buehne />
+        <Dialogschicht />
+      </>,
+    );
+    const b = neuerBogen();
+    b.einsatz.ortAuftrag = "Ort aus Fenster B";
+    anderesFensterSchreibt(ENTWURF_SCHLUESSEL, entwurfZuJson(b));
+    await nutzer.type(screen.getByLabelText("Ort"), " viel Arbeit");
+
+    await nutzer.click(screen.getByRole("button", { name: "Stand aus dem anderen Fenster laden" }));
+    const frage = await screen.findByRole("dialog", { name: "Stand aus dem anderen Fenster laden?" });
+    expect(frage.textContent).toContain("Rückholplatz");
+    await nutzer.click(within(frage).getByRole("button", { name: "Abbrechen" }));
+    expect(neuladen).not.toHaveBeenCalled();
+    expect(ersetztenEntwurfLaden()).toBeNull();
+
+    await nutzer.click(screen.getByRole("button", { name: "Stand aus dem anderen Fenster laden" }));
+    const nochmal = await screen.findByRole("dialog", { name: "Stand aus dem anderen Fenster laden?" });
+    await nutzer.click(within(nochmal).getByRole("button", { name: "Stand laden" }));
+    expect(ersetztenEntwurfLaden()?.bogen.einsatz.ortAuftrag).toBe("Ort A viel Arbeit");
+    expect(neuladen).toHaveBeenCalledOnce();
+  });
+
+  // Audit Runde 6, R6-D1: Die Startseite des zweiten Fensters arbeitete nach „Alle Daten löschen" mit den alten Karten weiter.
+  it("baut die Seite neu auf, wenn das andere Fenster alles löscht und hier kein Bogen offen ist (R6-D1)", () => {
+    const neu = vi.fn();
+    function Start() {
+      useFensterAbgleich(false, () => {}, { beiAllesGeloescht: neu });
+      return null;
+    }
+    render(<Start />);
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: null }));
+    });
+    expect(neu).toHaveBeenCalledOnce();
   });
 });

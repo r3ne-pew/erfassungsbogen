@@ -43,6 +43,7 @@ import {
 import { FesteWarnung } from "./feste-warnung";
 import { bogenHatInhalt, einheitAnzeigename } from "./hilfen";
 import { frageJaNein } from "./dialoge";
+import { zeitpunktZuMs } from "./eintrag-zeiten";
 
 /**
  * Merker in der Sitzung: Nach „Stand aus dem anderen Fenster laden" öffnet
@@ -70,6 +71,16 @@ function zeitKurz(e: Entwurf): string {
   return new Date(e.gespeichert).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
 }
 
+/** Letzte Änderung eines Bogens als Uhrzeit — die Wandzeit steht im Bogen selbst. */
+function standKurz(b: Erfassungsbogen): string {
+  return new Date(zeitpunktZuMs(b.stand)).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
+}
+
+function personenText(b: Erfassungsbogen): string {
+  const n = b.personal.length;
+  return `${n} ${n === 1 ? "Person" : "Personen"}`;
+}
+
 const EINSAETZE_SCHLUESSEL = "eeb.einsaetze.v1";
 
 export interface FensterAbgleich {
@@ -79,13 +90,19 @@ export interface FensterAbgleich {
   art: KonfliktArt | null;
   /** Zählt jede Entscheidung „behalten" hoch — gehört in die Abhängigkeiten des Autosave. */
   runde: number;
+  /** Der offene Bogen dieses Fensters (für die Warnung, die beide Stände nennt). */
+  eigenerBogen?: () => Erfassungsbogen | null;
   /**
    * Eigene Fassung behalten: Der Stand des anderen Fensters kommt auf den
    * Rückholplatz, die eigene Fassung überschreibt beim nächsten Speichern.
    */
   behalten: () => Promise<void>;
-  /** Stand aus dem anderen Fenster übernehmen: die App lädt neu und öffnet den gespeicherten Entwurf. */
-  neuLaden: () => void;
+  /**
+   * Stand aus dem anderen Fenster übernehmen: die App lädt neu und öffnet den
+   * gespeicherten Entwurf. Hat dieses Fenster eigene, ungespeicherte Änderungen,
+   * fragt es vorher und legt sie auf den Rückholplatz.
+   */
+  neuLaden: () => Promise<void>;
 }
 
 export function useFensterAbgleich(
@@ -96,6 +113,8 @@ export function useFensterAbgleich(
     eigenerBogen?: () => Erfassungsbogen | null;
     /** Der Rückholplatz hat sich geändert (Startseite neu lesen). */
     onRueckholung?: () => void;
+    /** Das andere Fenster hat den ganzen Speicher geleert und hier ist kein Bogen offen (Vorgabe: Seite neu laden). */
+    beiAllesGeloescht?: () => void;
   } = {},
 ): FensterAbgleich {
   const [konflikt, setKonflikt] = useState<KonfliktArt | null>(null);
@@ -112,6 +131,11 @@ export function useFensterAbgleich(
     function beiSpeicher(e: StorageEvent) {
       // key === null: das andere Fenster hat den ganzen Speicher geleert.
       if (e.key === null || e.key === EINSAETZE_SCHLUESSEL) einsaetze.current();
+      // „Alle Daten löschen" im anderen Fenster: Die Startseite hier hielte
+      // Vorlagen, Entwurf und Rückholplatz weiter im Arbeitsspeicher und
+      // schriebe sie über „Bogen anlegen" zurück (Audit Runde 6, R6-D1). Ohne
+      // offenen Bogen gibt es hier nichts, was verloren ginge: neu aufbauen.
+      if (e.key === null && !offen.current) (optRef.current.beiAllesGeloescht ?? (() => window.location.reload()))();
       if ((e.key === null || e.key === ENTWURF_SCHLUESSEL) && offen.current) {
         if (entwurfFremdGeaendert()) setKonflikt("geaendert");
         else if (entwurfFremdEntfernt()) setKonflikt("entfernt");
@@ -133,6 +157,7 @@ export function useFensterAbgleich(
     konflikt: konflikt != null && bogenOffen,
     art: bogenOffen ? konflikt : null,
     runde,
+    eigenerBogen: () => optRef.current.eigenerBogen?.() ?? null,
     behalten: async () => {
       if (konflikt === "entfernt") {
         // Das andere Fenster hat den Entwurf gelöscht; „behalten" schreibt ihn
@@ -173,7 +198,31 @@ export function useFensterAbgleich(
       setKonflikt(null);
       setRunde((r) => r + 1);
     },
-    neuLaden: () => {
+    neuLaden: async () => {
+      // Was hier nach der Warnung weiter getippt wurde, steht nirgends im
+      // Speicher: Mit dem Neuladen wäre es still weg („Meine Fassung behalten"
+      // fragte, dieser Weg nicht, Audit Runde 6, R6-S1). Darum fragen und die
+      // eigene Fassung auf den Rückholplatz legen.
+      const anderes = entwurfAusAnderemFenster();
+      const eigener = optRef.current.eigenerBogen?.() ?? null;
+      if (konflikt !== "entfernt" && eigener && bogenHatInhalt(eigener) && !gleich(anderes?.bogen, eigener)) {
+        const alt = ersetztenEntwurfLaden();
+        const nimmt = rueckholungNimmt(false, alt);
+        const altFaellt = nimmt && !!alt && bogenHatInhalt(alt.bogen) && !gleich(alt.bogen, eigener) && !gleich(alt.bogen, anderes?.bogen);
+        const name = einheitAnzeigename(eigener.einheit) || "(Bogen ohne Namen)";
+        const ja = await frageJaNein({
+          titel: "Stand aus dem anderen Fenster laden?",
+          text: !nimmt
+            ? `Deine Änderungen in diesem Fenster („${name}", Stand ${standKurz(eigener)} Uhr) gehen dabei verloren — auf dem Rückholplatz liegt dein eigener Bogen „${einheitAnzeigename(alt!.bogen.einheit)}", und der bleibt.`
+            : altFaellt
+              ? `Deine Fassung hier („${name}", Stand ${standKurz(eigener)} Uhr) kommt auf den Rückholplatz der Startseite. Der dort bisher liegende Bogen „${einheitAnzeigename(alt!.bogen.einheit)}" wird dabei endgültig gelöscht.`
+              : `Deine Fassung hier („${name}", Stand ${standKurz(eigener)} Uhr) wird nicht übernommen; sie kommt auf den Rückholplatz der Startseite und lässt sich von dort zurückholen.`,
+          ok: "Stand laden",
+          gefahr: !nimmt || altFaellt,
+        });
+        if (!ja) return;
+        if (nimmt) ersetztenEntwurfMerken(eigener, undefined, { tausch: true });
+      }
       try {
         sessionStorage.setItem(NACH_ABGLEICH_SCHLUESSEL, "1");
       } catch {
@@ -194,6 +243,7 @@ export function useFensterAbgleich(
 export function FensterKonflikt({ abgleich }: { abgleich: FensterAbgleich }) {
   const entfernt = abgleich.art === "entfernt";
   const anderes = entfernt ? null : entwurfAusAnderemFenster();
+  const eigener = abgleich.eigenerBogen?.() ?? null;
   return (
     <FesteWarnung
       klasse="speicher-fehler fenster-konflikt"
@@ -201,17 +251,21 @@ export function FensterKonflikt({ abgleich }: { abgleich: FensterAbgleich }) {
       kurz={
         entfernt
           ? "⚠ Dieser Bogen wurde in einem anderen Fenster gelöscht oder geschlossen. Hier wird nichts gespeichert, bis du entscheidest."
-          : `⚠ Dieser Bogen wurde in einem anderen Fenster geändert${anderes ? ` (dort: „${einheitAnzeigename(anderes.bogen.einheit)}", Stand ${zeitKurz(anderes)} Uhr)` : ""}. Eingaben hier werden erst wieder gespeichert, wenn du entscheidest.`
+          : `⚠ Dieser Bogen wurde in einem anderen Fenster geändert${
+              anderes
+                ? ` (dort: „${einheitAnzeigename(anderes.bogen.einheit)}", Stand ${zeitKurz(anderes)} Uhr, ${personenText(anderes.bogen)} · hier: Stand ${eigener ? standKurz(eigener) : "?"} Uhr, ${eigener ? personenText(eigener) : "?"})`
+                : ""
+            }. Eingaben hier werden erst wieder gespeichert, wenn du entscheidest.`
       }
       aktionen={
         entfernt ? (
           <>
-            <button type="button" onClick={abgleich.neuLaden}>Neu laden, hier verwerfen</button>
+            <button type="button" onClick={() => void abgleich.neuLaden()}>Neu laden, hier verwerfen</button>
             <button type="button" onClick={() => void abgleich.behalten()}>Bogen hier wieder speichern</button>
           </>
         ) : (
           <>
-            <button type="button" onClick={abgleich.neuLaden}>Stand aus dem anderen Fenster laden</button>
+            <button type="button" onClick={() => void abgleich.neuLaden()}>Stand aus dem anderen Fenster laden</button>
             <button type="button" onClick={() => void abgleich.behalten()}>Meine Fassung behalten</button>
           </>
         )
