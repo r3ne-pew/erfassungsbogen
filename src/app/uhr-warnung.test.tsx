@@ -9,6 +9,7 @@ import { EEB_EPOCHE_MS, MINUTEN_JE_TAG, jetztZeitpunkt } from "@bos/eeb-format/m
 import { uhrPruefungZuruecksetzen } from "./datenschutz-uhr";
 import { Dialogschicht, dialogeZuruecksetzen } from "./dialoge";
 import { UhrWarnung } from "./uhr-warnung";
+import { msAusZeitpunkt } from "./uhr-folgen";
 
 beforeEach(() => {
   localStorage.clear();
@@ -43,7 +44,7 @@ describe("UhrWarnung", () => {
     expect(w.textContent).toContain("beim letzten Start war der " + tagText(zuletzt));
     expect(w.textContent).toContain("Stimmt das heutige Datum?");
     expect(w.textContent).toContain("löscht und anonymisiert die App nichts");
-    expect(w.textContent).toContain("werden 1 Sammlung endgültig gelöscht");
+    expect(w.textContent).toContain("wird 1 Sammlung endgültig gelöscht");
     expect(screen.getByRole("button", { name: "Geräteuhr stimmt" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Uhr korrigieren" })).toBeTruthy();
   });
@@ -52,7 +53,7 @@ describe("UhrWarnung", () => {
   it("nennt die betroffenen Sammlungen mit Namen und dem Alter ihrer letzten Änderung (R6-D3)", () => {
     const zuletzt = jetztZeitpunkt() - 365 * MINUTEN_JE_TAG;
     localStorage.setItem("eeb.uhr.v1", JSON.stringify({ zuletzt }));
-    const zuletztMs = Date.now() - 365 * 86_400_000;
+    const zuletztMs = msAusZeitpunkt(zuletzt);
     localStorage.setItem(
       "eeb.einsaetze.v1",
       JSON.stringify([{ id: "a", name: "Hochwasser Test", geaendert: zuletztMs - 60 * 60_000, eintraege: [] }]),

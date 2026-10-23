@@ -34,12 +34,21 @@ export function UhrWarnung({ neuLaden = () => window.location.reload() }: { neuL
   const hatFolgen = folgenVorhanden(w.folgen);
   // Alter gegenüber dem letzten akzeptierten Zeitpunkt, nicht der Geräteuhr (R6-D3).
   const betroffen = betroffeneText(w.folgen, msAusZeitpunkt(w.zuletzt));
+  const f = w.folgen;
+  const mehrere = [f.sammlungen, f.papierkorb, f.meldungen, f.entwurf ? 1 : 0].filter((n) => n > 0).length > 1 || Math.max(f.sammlungen, f.papierkorb, f.meldungen) > 1;
+  // Der Satz zur Rettung passt zum Fall (R6-O8): Sammlungen lassen sich exportieren, der eigene Bogen übergeben.
+  const rettung = [
+    f.sammlungen > 0 ? "Eine Sammlung, die du noch brauchst, vorher exportieren: Dazu „Abbrechen“ und die Sammlung öffnen." : "",
+    f.entwurf ? "Den eigenen Bogen vorher sichern: Dazu „Abbrechen“, auf der Startseite „Fortsetzen“ und dort „Bogen übergeben…“." : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   async function stimmt() {
     if (hatFolgen) {
       const ja = await frageJaNein({
         titel: "Datum stimmt — jetzt aufräumen?",
-        text: `Das Gerät zeigt den ${tag(w!.geraet)}. Damit werden ${folgen} endgültig gelöscht — nicht im Papierkorb. ${betroffen.liste ? `Betroffen: ${betroffen.liste}. ${betroffen.laufend} ` : ""}Eine Sammlung, die du noch brauchst, vorher exportieren: Dazu „Abbrechen" und die Sammlung öffnen.`,
+        text: `Das Gerät zeigt den ${tag(w!.geraet)}. Damit ${mehrere ? "werden" : "wird"} ${folgen} endgültig gelöscht — nicht im Papierkorb. ${betroffen.liste ? `Betroffen: ${betroffen.liste}. ${betroffen.laufend} ` : ""}${rettung}`,
         ok: "Ja, Datum stimmt — löschen",
         abbruch: "Abbrechen",
         gefahr: true,
@@ -59,7 +68,7 @@ export function UhrWarnung({ neuLaden = () => window.location.reload() }: { neuL
       </p>
       {hatFolgen && (
         <p>
-          Wenn das Datum stimmt, werden {folgen} endgültig gelöscht. Wenn die Uhr falsch geht, bleibt alles.
+          Wenn das Datum stimmt, {mehrere ? "werden" : "wird"} {folgen} endgültig gelöscht. Wenn die Uhr falsch geht, bleibt alles.
         </p>
       )}
       {betroffen.liste && (

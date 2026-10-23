@@ -110,7 +110,7 @@ export function uhrFolgen(
       const geloescht = zahl(e.geloeschtAm);
       const geaendert = zahl(e.geaendert);
       if (geloescht != null) {
-        if (jetztMs - geloescht >= PAPIERKORB_FRIST_MS) folgen.papierkorb++;
+        if (nichtAngekuendigtZu == null && jetztMs - geloescht >= PAPIERKORB_FRIST_MS) folgen.papierkorb++;
         continue;
       }
       if (geaendert != null && jetztMs - geaendert >= AUFRAEUM_FRIST_MS) {
@@ -122,10 +122,13 @@ export function uhrFolgen(
         continue;
       }
       if (Array.isArray(e.eintraege)) {
-        for (const m of e.eintraege as { bogen?: unknown }[]) if (bogenAbgelaufen(m?.bogen, jetztZ)) folgen.meldungen++;
+        if (nichtAngekuendigtZu == null) for (const m of e.eintraege as { bogen?: unknown }[]) if (bogenAbgelaufen(m?.bogen, jetztZ)) folgen.meldungen++;
       }
     }
   }
+  // Papierkorb der Vorlagen und die Datenschutzfrist sind mit ihren 30 bzw. 90 Tagen bekannt;
+  // „nicht angekündigt" betrifft nur die ruhenden Sammlungen (R6-D7).
+  if (nichtAngekuendigtZu != null) return folgen;
   const vorlagen = lesen(s, VORLAGEN);
   if (Array.isArray(vorlagen)) {
     for (const v of vorlagen as Record<string, unknown>[]) {

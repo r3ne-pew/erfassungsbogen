@@ -239,7 +239,10 @@ describe("Aufräum- und Papierkorbfrist bei vorgestellter Geräteuhr (R4-D1)", (
     neuStart(START + 40 * TAG);
     expect(einsaetzeLaden()).toHaveLength(1);
     expect(einsaetzePapierkorb()).toHaveLength(0); // 30 Tage Papierkorb
-    neuStart(START + 91 * TAG); // 51 Tage nach dem letzten Start: plausibel
+    // Die Ankündigung (ab Tag 60) liegt dazwischen, so fällt nichts Unangekündigtes (R6-D7).
+    neuStart(START + 65 * TAG);
+    expect(einsaetzeLaden()).toHaveLength(1);
+    neuStart(START + 91 * TAG); // 26 Tage nach dem letzten Start: plausibel
     expect(einsaetzeLaden()).toHaveLength(0);
     expect(aufgeraeumteLaden(mem)).toHaveLength(1);
   });
