@@ -94,4 +94,6 @@ main.lm h1, main.lm h2, main.lm th, main.lm summary, main.lm dt { color: var(--l
 }
 .lm-leer .lm-knopf { align-self: center; margin-top: 1em; }
 /* Block in der Einsatzansicht: das Datumsfeld bleibt im Bild (R6-G3, R6-M3). */
-.lm-block input { max-width: 100%; box-sizing: border-box; }
+.lm-block label { display: block; max-width: 100%; }
+.lm-block input { width: 100%; max-width: 100%; box-sizing: border-box; }
+.lm-block .vorlage-aktionen { flex-wrap: wrap; }
