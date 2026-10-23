@@ -12,6 +12,29 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-23:** Audit Runde 6 (89 Befunde, sechs Pakete) — Kap.
+> 5, 8.2, 8.5, 8.6, 9: Gelesener Bestand wird wie an den Eingängen geprüft
+> (`einsaetze-lesen.ts`, `vorlagen.ts` über `bogen-pruefung.ts`); die Hülle um
+> die Ablage bleibt unverändert, der Kern in `vendor/` auch. Zurück-Geste: Ein
+> Beobachter legt für jedes offene `<dialog>` den Verlaufseintrag an
+> (`dialogVerlaufVerdrahten`, `modal-overlay.ts`), eine Folgerückfrage
+> übernimmt den Eintrag der vorigen, ein Ansichtswechsel ersetzt den Eintrag
+> einer beantworteten Rückfrage. Zwei Fenster: „Stand laden" fragt und legt die
+> eigene Fassung auf den Rückholplatz; ein Fenster ohne offenen Bogen baut
+> sich nach „Alle Daten löschen" im anderen neu auf. Exportstand: Nur die
+> geltende Fassung zählt als neuer Bogen (`export-stand.ts`). Geräteuhr: Sprung
+> unter 60 Tagen fragt, wenn Unangekündigtes fällig würde
+> (`datenschutz-uhr.ts`, `uhr-folgen.ts`); R6-O9 (Uhrstand in der Zukunft,
+> frische Sammlung) bleibt als Grenze der Hülle offen. Offline: HTML-Themenseiten
+> `NetworkFirst` mit 1 s Zeitgrenze (`vite.config.ts`), Nachladepause höchstens
+> 20 s, Hinweis „Netz hakt" beim Kern, Lücke bleibt nach Neuladen sichtbar
+> (`eeb.offline-zusatz.v1`). Lagemonitor: Bewegungen, Datenstand, Übung,
+> Start schwarz über das Boot-Skript in `index.html`. Neue
+> Stilregeln in `index.html` (Fußleiste, Schrittleiste, Deckel bei großer
+> Schrift), geschützt durch `stilregeln-r6.test.ts`. Bundle-Budget angehoben
+> (Startbündel +14 KB durch Texte und Rückfragen, `scripts/bundle-budget.json`).
+> Kein neuer Host, Transportformat und Schema unverändert.
+
 > **Nachgezogen 2026-10-17:** Lagemonitor — reine Anzeigeseite für einen am
 > Meldekopf-Gerät angeschlossenen Fernseher (`lagemonitor.ts`,
 > `lagemonitor-ui.tsx`, `lagemonitor-beginn.ts`; Aufruf über

@@ -11,6 +11,26 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-23 — Audit Runde 6:** Zwei Speicherorte sind neu oder
+> erweitert, ein Löschweg ist vollständiger. (1) Der Rückweg im Schritt
+> „Personal" (`eeb.personal.rueckweg`, `sessionStorage` des Tabs): Die zuletzt
+> entfernten Personen bleiben mit Namen, Funktionen und Erreichbarkeiten bis zu
+> 15 Minuten abrufbar — auch nach Schrittwechsel und Neuladen —, nur für
+> dieselbe Einheit; nicht in der Datensicherung, weg mit dem Tab und mit „Alle
+> Daten löschen" (Datenkategorien 5.4, Speicherung 5.7). (2) Der letzte Stand
+> des Offline-Vorrats (`eeb.offline-zusatz.v1`): zwei Zähler, keine
+> Personendaten. (3) Der beiseitegelegte, unlesbare Entwurf nennt seine
+> Löschfrist von 90 Tagen auf der Karte, taucht in der Aufzählung von „Alle
+> Daten löschen" auf und lässt sich als Datei wieder einlesen (5.7). Die
+> Löschfristen verlängern sich nirgends; die Geräteuhr-Rückfrage nennt die
+> betroffenen Sammlungen mit Namen und fragt auch bei Sprüngen unter 60 Tagen,
+> wenn Unangekündigtes fällig würde. Der Lagemonitor zeigt zusätzlich Datenstand,
+> Bewegungen (Abrücken, Rückkehr, Folgemeldung) und „ÜBUNG" — Einheitsnamen und
+> Zahlen, weiterhin keine Personen. Im PDF werden Vorbelegungen nach StAN und
+> Funkrufname einer nur nach Stärke erfassten Einheit nicht mehr als gemeldet
+> gedruckt (Richtigkeit, Art. 5 Abs. 1 lit. d DSGVO). Keine neuen Empfänger,
+> keine Netzverbindung (5.8 unverändert).
+>
 > **Nachgezogen 2026-10-17 — Lagemonitor:** Die Einsatzansicht öffnet auf
 > Wunsch ein zweites Fenster mit der Lage für einen am Gerät angeschlossenen
 > Fernseher (`?lagemonitor=`). Es liest denselben lokalen Speicher, hat kein

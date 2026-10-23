@@ -343,6 +343,28 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > und `vendor/` unverändert. Der Entwurf trägt zusätzlich die Marke „über die
 > Startseite verlassen" (`fremd.startseite`, R5-N3, 3.3 D1) — keine Daten.
 
+> **Nachgezogen 2026-10-23:** Audit Runde 6 (Behebung der 89 Befunde). Neu sind
+> ein Speicherort ohne Personendaten und die Erweiterung eines Merkers im
+> `sessionStorage` (3.3 D2o, D2m (c)): der letzte bekannte Stand des
+> Offline-Vorrats (`eeb.offline-zusatz.v1`, nur zwei Zähler) und der Rückweg
+> von „Person entfernen" und „Vorbelegung entfernen" über den Schrittwechsel
+> und das Neuladen (`eeb.personal.rueckweg`, enthält die entfernten Personen
+> samt Namen — 15 Minuten, nur für denselben Bogen, weg mit dem Tab). Der
+> beiseitegelegte Entwurf (3.3 D2l) nennt seine Frist von 90 Tagen auf der Karte,
+> erscheint in der Aufzählung von „Alle Daten löschen" und ist als Datei
+> wieder einlesbar; ein Fenster, das „Alle Daten löschen" meldet, baut seine
+> Startseite neu auf, statt mit den alten Vorlagen weiterzuarbeiten (5.5). Was
+> schon im Speicher liegt, wird beim Lesen wie an den Eingängen geprüft
+> (`einsaetze-lesen.ts`, `vorlagen.ts`; 6.2). Die Geräteuhr-Rückfrage nennt die
+> betroffenen Sammlungen mit Alter und fragt auch bei Sprüngen unter 60 Tagen,
+> wenn Unangekündigtes fällig würde (5.5). Der Lagemonitor zeigt Datenstand,
+> Bewegungen und „ÜBUNG" (Einheitsnamen, keine Personen; 5.7). Der Service
+> Worker holt HTML-Themenseiten bei hängendem Netz nach 1 s statt nach 5 s aus
+> dem Gerät (6.1). PDF: Kopfzeile 5,6 mm vom Rand, Vorbelegung nach StAN und
+> Funkrufname einer nur nach Stärke erfassten Einheit stehen nicht als
+> gemeldet auf Papier, nicht darstellbare Namen werden beim Erzeugen genannt
+> (5.4). Keine neuen Hosts, CSP und Transportformat unverändert.
+
 ## Hinweis zu diesem Dokument
 
 Dies ist eine KI-gestützt erstellte Entwurfsvorlage, keine geprüfte oder
@@ -480,8 +502,9 @@ dem Vite-Build); es gibt keine serverseitige Variante.
 | D2j | Kenntnis-Stand je Einsatz-Sammlung (seit 2026-10-04, R3-K1) | Zeitpunkt der letzten Kenntnisnahme („Zur Kenntnis genommen" in der Einsatzansicht, beim ersten Öffnen einer Sammlung vorbelegt) und Kennungen der Meldungen, die da schon in der Sammlung standen — Grundlage der Sammelquittung „Neu seit der letzten Kenntnisnahme" und der Marken „neu"/„neue Fassung" (seit 2026-10-06 mit dem Vermerk, ob die Kenntnisnahme getippt wurde, R4-K7); je Gerät, reist nicht mit der Sammlung; keine Personendaten | `localStorage` des Geräts (`eeb.kenntnis-stand.v1`), fällt mit „Alle Daten löschen" weg |
 | D2k | Haken einer unterbrochenen Musterung (seit 2026-10-06, R4-E7) | Kennung und Fassung (`geaendert`) der Vorlage, die gemustert wird, die angehakten Plätze als Wahrheitswerte nach Stelle (Personal, Fahrzeuge, Sofortbedarf, Bemerkung) und der Zeitpunkt des letzten Hakens — damit die Auswahl ein Neuladen übersteht; gilt höchstens einen Tag und nur für dieselbe Fassung der Vorlage, wird mit dem Ende der Musterung (Start, Abbrechen, Wechsel der Ansicht) gelöscht (`src/app/musterung-stand.ts`); keine Namen, keine Personendaten | `localStorage` des Geräts (`eeb.musterung.v1`), wandert mit der Datensicherung mit, fällt mit „Alle Daten löschen" weg |
 | D2l | Beiseitegelegter, unlesbarer Entwurf (seit 2026-10-14, R5-E1) | Der unveränderte Text eines gespeicherten Entwurfs, den die App nicht lesen kann (abgeschnitten, Pflichtfeld des Bogens fehlt), mit Ursache und Zeitpunkt — damit der nächste Entwurf ihn nicht überschreibt und die Startseite ihn nennen und als Datei sichern lässt. **Kann Personendaten enthalten**, die die Datenschutzfrist nicht erreicht (die App kann nicht anonymisieren): Er fällt deshalb nach 90 Tagen selbst weg, auf Wunsch früher („Entfernen…" mit Rückfrage), und mit „Alle Daten löschen" (`src/app/entwurf.ts`) | `localStorage` des Geräts (`eeb.entwurf.beschaedigt.v1`), wandert mit der Datensicherung mit |
-| D2m | Merker im Sitzungsspeicher (seit 2026-10-14, R5-S6, R5-D5) | (a) Der Link einer eingegangenen Meldung, auf deren „Wohin damit?" noch gewartet wird (`eeb.wartet.fragment`, `src/app/wartender-link.ts`): enthält den Bogen samt Personendaten wie jeder Link, damit ein Neuladen erneut fragt; gelöscht mit jeder Antwort (aufnehmen, öffnen, abbrechen), mit „Alle Daten löschen" und mit dem Schließen des Tabs. (b) Der Rückweg von „Vorbelegung entfernen" (`eeb.vorbelegung.rueckweg`, `src/app/vorbelegung-rueckweg.ts`): nur unbenannte Sollplätze (kein Name, keine Rufnummer), 15 Minuten, nur solange Personal und Fahrzeuge unverändert sind | `sessionStorage` des Tabs, nicht in der Datensicherung, nicht im `localStorage` |
+| D2m | Merker im Sitzungsspeicher (seit 2026-10-14, R5-S6, R5-D5) | (a) Der Link einer eingegangenen Meldung, auf deren „Wohin damit?" noch gewartet wird (`eeb.wartet.fragment`, `src/app/wartender-link.ts`): enthält den Bogen samt Personendaten wie jeder Link, damit ein Neuladen erneut fragt; gelöscht mit jeder Antwort (aufnehmen, öffnen, abbrechen), mit „Alle Daten löschen" und mit dem Schließen des Tabs. (b) Der Rückweg von „Vorbelegung entfernen" (`eeb.vorbelegung.rueckweg`, `src/app/vorbelegung-rueckweg.ts`): nur unbenannte Sollplätze (kein Name, keine Rufnummer), 15 Minuten, nur solange Personal und Fahrzeuge unverändert sind. (c) Der Rückweg im Schritt „Personal" (`eeb.personal.rueckweg`, `src/app/schritte/personal.tsx`, seit 2026-10-23, R6-S4, R6-D4): die zuletzt entfernte(n) Person(en) **mit Namen, Funktionen und Erreichbarkeiten** bzw. die Liste vor „Vorbelegung entfernen"; 15 Minuten, nur für dieselbe Einheit und solange die Namen der übrigen Personen unverändert sind | `sessionStorage` des Tabs, nicht in der Datensicherung, nicht im `localStorage` |
 | D2n | Einsatzbeginn und Funkrufname für den Lagemonitor (seit 2026-10-17) | Je Einsatz-Kennung der von Hand gesetzte Beginn als Zeitpunkt und der von Hand eingetragene, optionale Funkrufname der eigenen Führungsstelle als Freitext bis 60 Zeichen (`src/app/lagemonitor-beginn.ts`, `lagemonitor-speicher.ts`); beim Schreiben fallen Einträge zu nicht mehr vorhandenen Einsätzen weg; keine Namen von Personen vorgesehen | `localStorage` des Geräts (`eeb.lagebeginn.v1`, `eeb.lagefunkruf.v1`), wandert mit der Datensicherung mit, fällt mit „Alle Daten löschen" weg |
+| D2o | Letzter Stand des Offline-Vorrats (seit 2026-10-23, R6-O7) | Zwei Zähler: wie viele Dateien der zweiten Stufe (Beispielbögen, Themenseiten) im Gerät liegen und wie viele es gibt (`src/app/offline-bereit.ts`) — damit die Zeile nach einem Neuladen ohne Netz weiter sagt, was fehlt; keine Namen, keine Personendaten | `localStorage` des Geräts (`eeb.offline-zusatz.v1`), wandert mit der Datensicherung mit, fällt mit „Alle Daten löschen" weg |
 | D3 | Absenderkarte | Freiwillige Kontaktangabe (Name/E-Mail/Telefon) der meldenden Person | `localStorage` des Geräts |
 | D4 | Privater Geräteschlüssel | Ed25519-Schlüssel zur Signatur weitergereichter Bögen | `localStorage` des Geräts, **unverschlüsselt als Hex**; lässt er sich beim ersten Erzeugen nicht speichern (Speicher voll/gesperrt), nur im Arbeitsspeicher der offenen Seite, bis Platz ist (seit 2026-10-05, R3-E1) |
 | D5 | QR-Payload / Exportdatei | Binär kodierter, komprimierter Bogen zur Übergabe an ein zweites Gerät; ebenso eine geteilte Vorlage (QR/Link mit Marker `V.`, oder JSON-Datei `eeb-vorlage-*.json`) | Transient (QR-Code-Anzeige) bzw. Datei auf dem Gerät oder in einer vom Nutzer gewählten Ablage (z. B. Cloud-Ordner) |
