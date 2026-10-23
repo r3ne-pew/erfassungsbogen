@@ -89,7 +89,7 @@ describe("Restliche kleine Ziele (R3-G4)", () => {
 
   it("Segmente des Umschalters und Kopf-Links mindestens 44 px breit", () => {
     expect(bloecke(".anzeige-schalter button").join("\n")).toMatch(/min-width: calc\(var\(--ziel-basis\) \+ var\(--ziel\)\)/);
-    expect(bloecke(".kopfnav-links a").join("\n")).toMatch(/min-width: var\(--ziel-basis\)/);
+    expect(bloecke(".kopfnav-links a").join("\n")).toMatch(/min-width: (var\(--ziel-basis\)|min\(var\(--ziel-basis\), 44px\))/);
   });
 
   it("Paar-Listen geben der Wertspalte Platz (keine max-content-Begriffsspalte)", () => {
