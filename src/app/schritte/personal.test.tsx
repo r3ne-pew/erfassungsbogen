@@ -4,7 +4,7 @@
  * geprüft wird, dass jeder davon Personal bzw. Stärke tatsächlich verändert.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
@@ -30,6 +30,11 @@ const dlrgBogen = () => {
   const b = neuerBogen();
   return { ...b, einheit: { ...b.einheit, organisation: OrganisationsTyp.DLRG } };
 };
+
+beforeEach(() => {
+  // Der Rückweg liegt im Sitzungsspeicher (R6-S4) und darf nicht in den nächsten Test hineinragen.
+  sessionStorage.clear();
+});
 
 describe("Schritt Personal", () => {
   it("sagt, dass auf dem Papier die Fahrzeuge vor dem Personal stehen (R4-A8)", () => {
@@ -460,6 +465,30 @@ describe("Schritt Personal", () => {
     const zurueck = daumen();
     expect(zurueck.textContent).toMatch(/^Zurückgeholt: Stein, Paul \(wieder Person 1\)/);
     expect(within(zurueck).queryByRole("button", { name: "Rückgängig" })).toBeNull();
+  });
+
+  // Audit Runde 6, R6-S4: „Rückgängig" nach „Person entfernen" verschwand beim Schrittwechsel.
+  it("hält „Rückgängig“ über den Schrittwechsel hinweg bereit (R6-S4)", async () => {
+    const nutzer = userEvent.setup();
+    const ausgang = {
+      ...neuerBogen(),
+      personal: [
+        { ...neuePerson(), vorname: "Paul", nachname: "Stein" },
+        { ...neuePerson(), vorname: "Eva", nachname: "Berg" },
+      ],
+    };
+    const erste = render(<SchrittBuehne komponente={SchrittPersonal} bogen={ausgang} />);
+    await nutzer.click(screen.getByRole("button", { name: "Berg, Eva entfernen" }));
+    const frage = document.querySelector<HTMLDialogElement>("dialog[aria-label='Berg, Eva entfernen?']")!;
+    await nutzer.click(within(frage).getByRole("button", { name: "Person entfernen" }));
+    await waitFor(() => expect(screen.queryByDisplayValue("Eva")).toBeNull());
+    erste.unmount(); // Schrittwechsel: Die Komponente verschwindet
+    const ohneEva = { ...ausgang, personal: [ausgang.personal[0]!] };
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={ohneEva} />);
+    const leiste = document.querySelector<HTMLElement>(".quittung-daumen")!;
+    expect(leiste.textContent).toMatch(/^Entfernt: Berg, Eva/);
+    await nutzer.click(within(leiste).getByRole("button", { name: "Rückgängig" }));
+    expect(screen.getAllByLabelText("Vorname").map((f) => (f as HTMLInputElement).value)).toEqual(["Paul", "Eva"]);
   });
 
   // Audit Runde 5, R5-S3: Wer in einer Reihe zwei Personen entfernt, konnte nur

@@ -15,6 +15,7 @@ import {
   Kontakt,
   KontaktArt,
   OrganisationsTyp,
+  Einheit,
   Person,
   PersonalErfassung,
   StaerkeRolle,
@@ -701,6 +702,70 @@ function platzText(p: Person, org: OrganisationsTyp): string {
 /** Ab dieser Personenzahl beginnt die Liste als Kurz-Liste statt als Karten (R5-H2). */
 const VIELE_PERSONEN = 12;
 
+/** Rückweg nach einer Handlung, die Erfasstes wegnimmt – siehe {@link SchrittPersonal}. */
+type Rueckweg =
+  | { art: "liste"; text: string; personal: Person[] }
+  | { art: "person"; entfernte: { person: Person; index: number; name: string }[]; nonce: number };
+
+/**
+ * Der Rückweg überlebt den Wechsel des Schritts und das Neuladen (Audit Runde 6, R6-S4, R6-D4):
+ * „Rückgängig" nach „Person entfernen" verschwand mit „Weiter →" und „←", die entfernte
+ * Person war dann nirgends mehr zu holen. Er liegt im Sitzungsspeicher dieses Tabs (nicht in
+ * `localStorage`, nicht in der Datensicherung, weg mit dem Schließen des Tabs; „Alle Daten
+ * löschen" leert ihn mit) und gilt für 15 Minuten und nur für dieselbe Einheit.
+ */
+const WEG_SCHLUESSEL = "eeb.personal.rueckweg";
+const WEG_FRIST_MS = 15 * 60 * 1000;
+
+interface GemerkterWeg {
+  rueckweg: Rueckweg;
+  einheit: string;
+  /**
+   * Fingerabdruck der Liste NACH der Handlung – ändert sie sich, gilt der Rückweg nach einem
+   * Neuladen oder Schrittwechsel nicht mehr. Bei einer entfernten Person genügen die Namen: Ein
+   * anderer Bogen mit derselben Einheit bekommt so keinen fremden „Rückgängig"-Knopf.
+   */
+  danach?: string;
+  zeit: number;
+}
+
+function abdruck(r: Rueckweg, personal: readonly Person[]): string {
+  return r.art === "liste" ? JSON.stringify(personal) : JSON.stringify(personal.map((p) => [p.vorname, p.nachname]));
+}
+
+function wegSichern(r: Rueckweg | null, einheit: Einheit, personal: readonly Person[]): void {
+  try {
+    const sitzung = globalThis.sessionStorage;
+    if (!sitzung) return;
+    if (!r) {
+      sitzung.removeItem(WEG_SCHLUESSEL);
+      return;
+    }
+    const gemerkt: GemerkterWeg = {
+      rueckweg: r,
+      einheit: JSON.stringify(einheit),
+      danach: abdruck(r, personal),
+      zeit: Date.now(),
+    };
+    sitzung.setItem(WEG_SCHLUESSEL, JSON.stringify(gemerkt));
+  } catch {
+    /* gesperrt oder voll – dann gilt der Rückweg nur bis zum Schrittwechsel, wie bisher */
+  }
+}
+
+function wegLesen(einheit: Einheit, personal: readonly Person[], jetzt = Date.now()): Rueckweg | null {
+  try {
+    const roh = globalThis.sessionStorage?.getItem(WEG_SCHLUESSEL);
+    if (!roh) return null;
+    const g = JSON.parse(roh) as Partial<GemerkterWeg>;
+    if (!g.rueckweg || typeof g.zeit !== "number" || jetzt - g.zeit > WEG_FRIST_MS || g.einheit !== JSON.stringify(einheit)) return null;
+    if (g.danach !== abdruck(g.rueckweg, personal)) return null;
+    return g.rueckweg;
+  } catch {
+    return null;
+  }
+}
+
 export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
   /**
    * Rückweg nach einer Handlung, die Erfasstes wegnimmt: Person entfernen,
@@ -721,10 +786,11 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
    * wird. „Rückgängig" fügt die Person an ihrer alten Stelle wieder ein und
    * lässt alles später Eingetragene stehen.
    */
-  type Rueckweg =
-    | { art: "liste"; text: string; personal: Person[] }
-    | { art: "person"; entfernte: { person: Person; index: number; name: string }[]; nonce: number };
-  const [rueckweg, setRueckweg] = useState<Rueckweg | null>(null);
+  const [rueckweg, setRueckweg] = useState<Rueckweg | null>(() => wegLesen(bogen.einheit, bogen.personal));
+  useEffect(() => {
+    wegSichern(rueckweg, bogen.einheit, bogen.personal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nur bei Änderung des Rückwegs (Liste/Einheit gehören zum Zeitpunkt der Handlung)
+  }, [rueckweg]);
   // Quittung des Zurückholens (ohne weiteren Rückweg, wie in der Einsatzansicht).
   const [zurueckgeholt, setZurueckgeholt] = useState<{ text: string; nonce: number } | null>(null);
   // Jede Änderung hier kann die Stärke verschieben — der Verpflegungs-Bedarf
