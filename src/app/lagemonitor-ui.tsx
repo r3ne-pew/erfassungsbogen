@@ -10,9 +10,9 @@
  * Gezeigt werden Zahlen und Einheitsnamen, keine Personen.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import "./lagemonitor.css";
-import { einsaetzeLaden } from "./einsaetze-lesen";
+import { einsaetzeLaden, einsaetzePapierkorb } from "./einsaetze-lesen";
 import {
   BEGINN_SCHLUESSEL,
   FUNKRUF_MAX,
@@ -22,9 +22,32 @@ import {
   einsatzbeginnLaden,
   einsatzbeginnSetzen,
 } from "./lagemonitor-beginn";
-import { alterText, ausEingabeWert, dauerText, dtgTeile, lagebild, zuEingabeWert } from "./lagemonitor";
+import { alterText, ausEingabeWert, dauerText, dtgTeile, lagebild, zuEingabeWert, type EinheitZeile } from "./lagemonitor";
 
 const URL_PARAMETER = "lagemonitor";
+/** Gemerkte Helligkeitsstufe des Monitors („dunkel" oder „gedimmt"; „hell" wird nie gemerkt, R7-L3). */
+export const STUFE_SCHLUESSEL = "eeb.lagestufe.v1";
+/** Mehr Bewegungszeilen als das gibt es nicht im Bild; der Rest steht als „+ n weitere" (R7-K2). */
+const BEWEGUNGEN_MAX = 3;
+/** Ab diesem Alter der letzten Meldung wird der Datenstand abgesetzt (R7-K8). */
+const VERALTET_MIN = 60;
+
+type Stufe = "dunkel" | "gedimmt" | "hell";
+const STUFEN_NAME: Record<Stufe, string> = { dunkel: "Dunkel", gedimmt: "Gedimmt", hell: "Hell" };
+
+function stufeLesen(): Stufe {
+  try {
+    const v = globalThis.localStorage?.getItem(STUFE_SCHLUESSEL);
+    if (v === "dunkel" || v === "gedimmt") return v;
+  } catch { /* gesperrter Speicher: Vorgabe */ }
+  // Ohne gemerkte Wahl folgt der Monitor dem Modus der App: Nacht -> gedimmt (R7-L3).
+  return document.documentElement.classList.contains("nacht-modus") ? "gedimmt" : "dunkel";
+}
+
+function stufeMerken(stufe: Stufe): void {
+  if (stufe === "hell") return;
+  try { globalThis.localStorage?.setItem(STUFE_SCHLUESSEL, stufe); } catch { /* nicht gemerkt, der Monitor läuft trotzdem */ }
+}
 /** Takt für Uhr, Dauer und „vor X Min". */
 const TAKT_MS = 5_000;
 
@@ -105,6 +128,74 @@ function vollbild() {
   else void doc.documentElement.requestFullscreen?.().catch(() => {});
 }
 
+/**
+ * Einheitentabelle, die auf den Platz im Bild begrenzt ist: Was nicht mehr passt,
+ * wird durch „+ n weitere Einheiten" ersetzt statt unter die Bildkante zu laufen
+ * (R7-K1). Gemessen wird im Browser; wo es keine Messung gibt (kein Layout) oder
+ * der Behälter mitwächst (Telefon), stehen alle Zeilen da.
+ */
+function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] }) {
+  const behaelter = useRef<HTMLDivElement>(null);
+  const [weitere, setWeitere] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = behaelter.current;
+    if (!el) return;
+    const messen = () => {
+      const zeilen = Array.from(el.querySelectorAll<HTMLElement>("tbody tr"));
+      for (const z of zeilen) z.style.display = "";
+      const hoehe = el.clientHeight;
+      if (hoehe === 0 || zeilen.length === 0) return setWeitere(0);
+      const oben = el.getBoundingClientRect().top;
+      const hinweis = parseFloat(getComputedStyle(el).fontSize) * 2;
+      let zeigen = 0;
+      zeilen.forEach((z, i) => {
+        const unten = z.getBoundingClientRect().bottom - oben;
+        const letzte = i === zeilen.length - 1;
+        if (unten <= hoehe - (letzte ? 0 : hinweis) + 0.5) zeigen = i + 1;
+      });
+      if (zeigen === zeilen.length) return setWeitere(0);
+      zeigen = Math.max(1, zeigen);
+      zeilen.forEach((z, i) => { if (i >= zeigen) z.style.display = "none"; });
+      setWeitere(zeilen.length - zeigen);
+    };
+    messen();
+    if (typeof ResizeObserver === "undefined") return;
+    const beobachter = new ResizeObserver(messen);
+    beobachter.observe(el);
+    return () => beobachter.disconnect();
+  });
+
+  return (
+    <div className="lm-tabelle" ref={behaelter}>
+      <table className="lm-einheiten">
+        <thead>
+          <tr>
+            <th className="lm-orga">Orga</th><th>Ort</th><th>Funkrufname</th><th>Einheitentyp</th>
+            <th className="lm-zahl" title="Führer">F</th>
+            <th className="lm-zahl" title="Unterführer">U</th>
+            <th className="lm-zahl" title="Mannschaft">M</th>
+          </tr>
+        </thead>
+        <tbody>
+          {einheiten.map((e) => (
+            <tr key={e.id}>
+              <td className="lm-orga">{e.orga}</td>
+              <td>{e.ort || "–"}</td>
+              <td>{e.funkruf || "–"}</td>
+              <td>{e.typ || "–"}</td>
+              <td className="lm-zahl">{e.fuehrer}</td>
+              <td className="lm-zahl">{e.unterfuehrer}</td>
+              <td className="lm-zahl">{e.mannschaft}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {weitere > 0 && <div className="lm-weitere">+ {weitere} weitere {weitere === 1 ? "Einheit" : "Einheiten"}</div>}
+    </div>
+  );
+}
+
 export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
   const jetzt = usePuls();
   const stand = useSpeicherAenderung();
@@ -120,16 +211,26 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
   }, [einsatz]);
 
   // Dunkel → Gedimmt → Hell: Die helle Stufe liegt am Ende, ein Tipp blendet nicht mehr sofort voll (R6-L4).
-  const [stufe, setStufe] = useState<"dunkel" | "gedimmt" | "hell">("dunkel");
+  const [stufe, setStufe] = useState<Stufe>(stufeLesen);
   const klasse = `lm${stufe === "hell" ? " lm-hell" : stufe === "gedimmt" ? " lm-gedimmt" : ""}`;
-  const naechsteStufe = stufe === "dunkel" ? "gedimmt" : stufe === "gedimmt" ? "hell" : "dunkel";
+  const naechsteStufe: Stufe = stufe === "dunkel" ? "gedimmt" : stufe === "gedimmt" ? "hell" : "dunkel";
+  function stufeWechseln() {
+    setStufe(naechsteStufe);
+    stufeMerken(naechsteStufe);
+  }
 
   if (!einsatz) {
+    const imPapierkorb = einsaetzePapierkorb().some((s) => s.id === einsatzId);
     // Auch hier läuft die Uhr weiter, damit ein Monitor ohne Daten nicht wie ein eingefrorener aussieht (R6-L6).
     const leer = dtgTeile(new Date(jetzt));
     return (
       <main className={`${klasse} lm-leer`}>
-        <div className="lm-zeile lm-r1">Dieser Einsatz ist auf diesem Gerät nicht (mehr) vorhanden.</div>
+        <div className="lm-zeile lm-r1">
+          {/* Im Papierkorb ist nichts verloren: Das Hauptfenster stellt ihn wieder her (R7-O3). */}
+          {imPapierkorb
+            ? "Dieser Einsatz liegt im Papierkorb (30 Tage) — im Hauptfenster wiederherstellen."
+            : "Dieser Einsatz ist auf diesem Gerät nicht (mehr) vorhanden."}
+        </div>
         <div className="lm-zeile lm-dtg" aria-label="Datum-Zeit-Gruppe">
           <div className="lm-dtg-text">
             <span>{leer.tag}</span> <strong>{leer.zeit}</strong> <span>{leer.monat}</span> <span>{leer.jahr}</span>
@@ -145,19 +246,34 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
   const dtg = dtgTeile(new Date(jetzt));
   // Ohne gesetzten Beginn gilt die erste Meldung als Vorschlag, statt einen Fehler auf den Fernseher zu schreiben (R6-K4).
   const dauer = beginn != null ? dauerText(beginn, jetzt) : bild.ersteMeldung != null ? dauerText(bild.ersteMeldung, jetzt) : null;
-  const dauerZeile =
+  // Eine Aussage je Zeile: leer -> nur die Lagezeile sagt es (R7-K8); Zeiten in der Zukunft werden genannt statt verschwiegen (R7-K3).
+  const dauerZeile: string | null =
     beginn != null
-      ? (dauer ?? "Einsatz beginnt noch")
+      ? dauer != null
+        ? `seit Beginn: ${dauer}`
+        : jetzt < beginn
+          ? "Einsatz beginnt noch"
+          : null
       : dauer != null
         ? `seit erster Meldung: ${dauer}`
-        : "Noch nichts gemeldet";
+        : bild.zeitenPruefen
+          ? "Dauer unklar – Zeiten prüfen (Geräteuhr?)"
+          : null;
   const lage =
     s.einheiten === 0
       ? bild.abgerueckt > 0
         ? `Alle ${bild.abgerueckt} Einheiten abgerückt`
         : "Noch nichts gemeldet"
       : `${s.einheiten} ${s.einheiten === 1 ? "Einheit" : "Einheiten"} · ${s.fahrzeuge} ${s.fahrzeuge === 1 ? "Fahrzeug" : "Fahrzeuge"}${bild.abgerueckt > 0 ? ` · ${bild.abgerueckt} abgerückt` : ""}`;
-  const datenstand = bild.letzteMeldung != null ? `letzte Meldung ${alterText(bild.letzteMeldung, jetzt)}` : "";
+  const datenstand = bild.zeitenPruefen
+    ? "Meldezeiten liegen in der Zukunft – Zeiten prüfen (Geräteuhr?)"
+    : bild.letzteMeldung != null
+      ? `letzte Meldung ${alterText(bild.letzteMeldung, jetzt)}`
+      : "";
+  const veraltet = bild.zeitenPruefen || (bild.letzteMeldung != null && jetzt - bild.letzteMeldung >= VERALTET_MIN * 60_000);
+  const ortText = bild.ort?.trim() ? <span className="lm-ort"> · {bild.ort.trim()}</span> : null;
+  const sichtbareBewegungen = bild.bewegungen.slice(0, BEWEGUNGEN_MAX);
+  const weitereBewegungen = bild.bewegungen.length - sichtbareBewegungen.length;
 
   return (
     <main className={klasse}>
@@ -165,11 +281,12 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
       {bild.uebung && <div className="lm-zeile lm-r2 lm-uebung" role="status">ÜBUNG – keine Echtlage</div>}
       {funkruf && <h1 className="lm-zeile lm-r1">{funkruf}</h1>}
       {funkruf ? (
-        <div className="lm-zeile lm-r2">{einsatz.name}</div>
+        <div className="lm-zeile lm-r2">{einsatz.name}{ortText}</div>
       ) : (
-        <h1 className="lm-zeile lm-r1">{einsatz.name}</h1>
+        <h1 className="lm-zeile lm-r1">{einsatz.name}{ortText}</h1>
       )}
       <div className="lm-zeile lm-dtg" aria-label="Datum-Zeit-Gruppe">
+        <span className="lm-label lm-dtg-label">Uhr</span>
         <div className="lm-dtg-text">
           <span>{dtg.tag}</span> <strong>{dtg.zeit}</strong> <span>{dtg.monat}</span> <span>{dtg.jahr}</span>
         </div>
@@ -180,46 +297,37 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
       </div>
       <div className="lm-zeile lm-r3 lm-stand">
         {lage}
-        {datenstand && <span className="lm-label">{datenstand}</span>}
+        {datenstand && <span className={`lm-label${veraltet ? " lm-veraltet" : ""}`}>{datenstand}</span>}
       </div>
-      {bild.bewegungen.slice(0, 3).map((b) => (
-        <div key={b.id} className="lm-zeile lm-r2 lm-bewegung">
-          {b.art}: {b.name} <span className="lm-label">{alterText(b.zeit, jetzt)}</span>
+      {dauerZeile && <div className="lm-zeile lm-r2 lm-dauer">{dauerZeile}</div>}
+      {sichtbareBewegungen.length > 0 && (
+        <div className="lm-zeile lm-bewegungen">
+          {sichtbareBewegungen.map((b) => (
+            <div key={b.id} className="lm-bewegung">
+              {b.art}: {b.name}
+              {b.detail ? ` – ${b.detail}` : ""} <span className="lm-label lm-inline">{alterText(b.zeit, jetzt)}</span>
+            </div>
+          ))}
+          {weitereBewegungen > 0 && (
+            <div className="lm-bewegung lm-weitere-bewegungen">
+              + {weitereBewegungen} weitere {weitereBewegungen === 1 ? "Bewegung" : "Bewegungen"}
+            </div>
+          )}
         </div>
-      ))}
-      <div className="lm-zeile lm-r3">{dauerZeile}</div>
+      )}
 
-      <details className="lm-zeile lm-klapp" open>
-        <summary>Einheiten</summary>
+      <section className="lm-zeile lm-einheiten-block" aria-labelledby="lm-einheiten-titel">
+        <h2 id="lm-einheiten-titel" className="lm-titel">Einheiten</h2>
         {bild.einheiten.length === 0 ? (
-          <p className="lm-leer-hinweis">Noch keine Einheit gemeldet.</p>
+          <p className="lm-leer-hinweis">
+            {bild.abgerueckt > 0 ? "Alle Einheiten sind abgerückt." : "Noch keine Einheit gemeldet."}
+          </p>
         ) : (
-          <div className="lm-tabelle"><table className="lm-einheiten">
-            <thead>
-              <tr>
-                <th>Orga</th><th>Ort</th><th>Funkrufname</th><th>Einheitentyp</th>
-                <th className="lm-zahl" title="Führer">F</th>
-                <th className="lm-zahl" title="Unterführer">U</th>
-                <th className="lm-zahl" title="Mannschaft">M</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bild.einheiten.map((e) => (
-                <tr key={e.id}>
-                  <td>{e.orga}</td>
-                  <td>{e.ort || "–"}</td>
-                  <td>{e.funkruf || "–"}</td>
-                  <td>{e.typ || "–"}</td>
-                  <td className="lm-zahl">{e.fuehrer}</td>
-                  <td className="lm-zahl">{e.unterfuehrer}</td>
-                  <td className="lm-zahl">{e.mannschaft}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table></div>
+          <EinheitenTabelle einheiten={bild.einheiten} />
         )}
-      </details>
+      </section>
 
+      <div className="lm-fuss">
       <details className="lm-zeile lm-klapp">
         <summary>Einsatzdaten</summary>
         <dl className="lm-daten">
@@ -239,13 +347,14 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
       <details className="lm-zeile lm-klapp">
         <summary>Optionen</summary>
         <div className="lm-optionen">
-          <button type="button" className="lm-knopf" onClick={() => setStufe(naechsteStufe)}>
-            {naechsteStufe === "dunkel" ? "Dunkel" : naechsteStufe === "gedimmt" ? "Gedimmt" : "Hell"}
+          <button type="button" className="lm-knopf" onClick={stufeWechseln}>
+            Stufe: {STUFEN_NAME[stufe]} · weiter: {STUFEN_NAME[naechsteStufe]}
           </button>
           <button type="button" className="lm-knopf" onClick={vollbild}>Vollbild</button>
           <button type="button" className="lm-knopf" onClick={schliessen}>Schließen</button>
         </div>
       </details>
+      </div>
     </main>
   );
 }

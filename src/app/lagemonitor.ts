@@ -59,9 +59,14 @@ export interface EinheitZeile {
 export interface Bewegung {
   id: string;
   name: string;
-  art: "Abgerückt" | "Wieder da" | "Folgemeldung";
+  art: "Eingetroffen" | "Abgerückt" | "Wieder da" | "Folgemeldung";
   zeit: number;
+  /** Bei Folgemeldungen die Stärkeänderung: „Stärke 4 → 1 (−3)" (R7-K2). */
+  detail?: string;
 }
+
+/** Eine Meldezeit, die weiter als das in der Zukunft liegt, deutet auf eine falsche Geräteuhr (R7-K3). */
+export const ZUKUNFT_TOLERANZ_MS = 5 * 60_000;
 
 /** So lange gilt eine Bewegung als „gerade eben" und steht im Hauptbild. */
 export const BEWEGUNG_FENSTER_MS = 15 * 60_000;
@@ -83,6 +88,8 @@ export interface Lagebild {
   ersteMeldung: number | null;
   /** Abrücken, Rückkehr und Folgemeldungen der letzten Minuten, jüngste zuerst. */
   bewegungen: Bewegung[];
+  /** Meldezeiten liegen in der Zukunft (Geräteuhr nachgestellt?) — der Monitor nennt das, statt „gerade eben" zu behaupten. */
+  zeitenPruefen: boolean;
 }
 
 export function lagebildArt(art: EinsatzArt): string {
@@ -98,8 +105,24 @@ function bewegungenSeit(einsatz: Einsatzsammlung, jetzt: number): Bewegung[] {
       if (v.text === "Abgerückt") aus.push({ id: `${k.id}-a-${v.zeit}`, name, art: "Abgerückt", zeit: v.zeit });
       else if (/^Wieder als anwesend/.test(v.text)) aus.push({ id: `${k.id}-w-${v.zeit}`, name, art: "Wieder da", zeit: v.zeit });
     }
-    if (jetzt - k.empfangenAm <= BEWEGUNG_FENSTER_MS && revisionen(einsatz.eintraege, k.einheitSchluessel).length > 1) {
-      aus.push({ id: `${k.id}-f`, name, art: "Folgemeldung", zeit: k.empfangenAm });
+    if (jetzt - k.empfangenAm <= BEWEGUNG_FENSTER_MS) {
+      const revs = revisionen(einsatz.eintraege, k.einheitSchluessel);
+      if (revs.length > 1) {
+        const davor = revs.find((r) => r.id !== k.id);
+        const alt = davor ? staerke(davor.bogen).gesamt : null;
+        const neu = staerke(k.bogen).gesamt;
+        const diff = alt != null && alt !== neu ? ` (${neu - alt > 0 ? "+" : "−"}${Math.abs(neu - alt)})` : "";
+        aus.push({
+          id: `${k.id}-f`,
+          name,
+          art: "Folgemeldung",
+          zeit: k.empfangenAm,
+          detail: alt != null && alt !== neu ? `Stärke ${alt} → ${neu}${diff}` : undefined,
+        });
+      } else if (k.status !== MeldeStatus.ABGERUECKT) {
+        // Neue Einheit: erklärt, warum Zahl und Tabelle springen (R7-W4).
+        aus.push({ id: `${k.id}-e`, name, art: "Eingetroffen", zeit: k.empfangenAm });
+      }
     }
   }
   return aus.sort((a, b) => b.zeit - a.zeit);
@@ -134,6 +157,8 @@ export function lagebild(einsatz: Einsatzsammlung, jetzt: number = Date.now()): 
     letzteMeldung: einsatz.eintraege.length > 0 ? Math.max(...einsatz.eintraege.map((e) => e.empfangenAm)) : null,
     ersteMeldung: geltend.length > 0 ? Math.min(...geltend.map(eintreffzeit)) : null,
     bewegungen: bewegungenSeit(einsatz, jetzt),
+    zeitenPruefen: einsatz.eintraege.some((e) => e.empfangenAm - jetzt > ZUKUNFT_TOLERANZ_MS) ||
+      geltend.some((e) => eintreffzeit(e) - jetzt > ZUKUNFT_TOLERANZ_MS),
   };
 }
 
@@ -152,6 +177,7 @@ export function ausEingabeWert(wert: string): number | null {
 
 /** „vor 4 Min" / „gerade eben" / „vor 2 Std 5 Min" — Alter einer Meldung für die Datenstand-Zeile. */
 export function alterText(zeit: number, jetzt: number): string {
+  if (zeit - jetzt > ZUKUNFT_TOLERANZ_MS) return "liegt in der Zukunft";
   const min = Math.max(0, Math.floor((jetzt - zeit) / 60_000));
   if (min < 1) return "gerade eben";
   if (min < 60) return `vor ${min} Min`;

@@ -3,7 +3,10 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { EinsatzArt, MeldeStatus, einsatzAnlegen, meldungHinzufuegen } from "@bos/meldekopf/einsaetze";
 import { statusMitZeitSetzen } from "./eintrag-zeiten";
 import { neuerBogen, neuesFahrzeug } from "./hilfen";
-import { Lagemonitor, lagemonitorKennung } from "./lagemonitor-ui";
+import { Lagemonitor, lagemonitorKennung, STUFE_SCHLUESSEL } from "./lagemonitor-ui";
+import { fireEvent } from "@testing-library/react";
+import { einsaetzeLaden } from "./einsaetze-lesen";
+import { einsaetzeSpeichern } from "@bos/meldekopf/einsaetze";
 import {
   BEGINN_SCHLUESSEL,
   FUNKRUF_MAX,
@@ -142,6 +145,95 @@ describe("Lagemonitor", () => {
     einsatzbeginnSetzen(e.id, Date.now() - 95 * 60_000, [e.id]);
     render(<Lagemonitor einsatzId={e.id} />);
     expect(screen.getByText(/1 Stunde, 3\d Minuten/)).toBeTruthy();
+  });
+});
+
+describe("Lagemonitor, Runde 7", () => {
+  beforeEach(() => { localStorage.clear(); document.documentElement.classList.remove("nacht-modus"); });
+  afterEach(() => { cleanup(); document.documentElement.classList.remove("nacht-modus"); });
+
+  function mitEinheiten(n: number) {
+    const e = einsatzAnlegen("Lage", EinsatzArt.EINSATZ, "Heilbronn");
+    const ids: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const b = neuerBogen();
+      b.einheit.hierarchie[0]!.name = `Ort${i}`;
+      ids.push(meldungHinzufuegen(e.id, b)!.eintrag.id);
+    }
+    return { e, ids };
+  }
+
+  it("nennt mehr als drei Bewegungen mit „+ n weitere“ (R7-K2)", () => {
+    const { e, ids } = mitEinheiten(5);
+    for (const id of ids) statusMitZeitSetzen(e.id, id, MeldeStatus.ABGERUECKT);
+    render(<Lagemonitor einsatzId={e.id} />);
+    expect(document.querySelectorAll(".lm-bewegung:not(.lm-weitere-bewegungen)")).toHaveLength(3);
+    expect(document.querySelector(".lm-weitere-bewegungen")!.textContent).toBe("+ 2 weitere Bewegungen");
+  });
+
+  it("führt das Eintreffen einer neuen Einheit als Bewegung (R7-W4) und setzt die Folgemeldung mit Betrag (R7-K2)", () => {
+    const { e } = mitEinheiten(1);
+    render(<Lagemonitor einsatzId={e.id} />);
+    expect(document.querySelector(".lm-bewegung")!.textContent).toMatch(/^Eingetroffen: .*Ort0/);
+  });
+
+  it("widerspricht sich bei Meldezeiten in der Zukunft nicht (R7-K3)", () => {
+    const { e } = mitEinheiten(2);
+    const liste = structuredClone(einsaetzeLaden());
+    for (const x of liste.find((s) => s.id === e.id)!.eintraege) x.empfangenAm = Date.now() + 2 * 3_600_000;
+    einsaetzeSpeichern(liste);
+    render(<Lagemonitor einsatzId={e.id} />);
+    const text = document.body.textContent!;
+    expect(text).not.toMatch(/gerade eben/);
+    expect(text).not.toMatch(/Noch nichts gemeldet/);
+    expect(text).toMatch(/Zeiten prüfen \(Geräteuhr\?\)/);
+  });
+
+  it("sagt je Zustand nur eine Sache und nennt den Ort im Hauptbild (R7-K8)", () => {
+    const leer = einsatzAnlegen("Leer", EinsatzArt.EINSATZ, "Heilbronn");
+    render(<Lagemonitor einsatzId={leer.id} />);
+    expect(screen.getAllByText(/Noch nichts gemeldet/)).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/Leer.*Heilbronn/);
+    cleanup();
+    const { e, ids } = mitEinheiten(1);
+    for (const id of ids) statusMitZeitSetzen(e.id, id, MeldeStatus.ABGERUECKT);
+    render(<Lagemonitor einsatzId={e.id} />);
+    expect(screen.queryByText("Noch keine Einheit gemeldet.")).toBeNull();
+    expect(screen.getByText("Alle Einheiten sind abgerückt.")).toBeTruthy();
+  });
+
+  it("beschriftet die Dauer mit Wort und die Uhr als „Uhr“ (R7-K8, R7-N5)", () => {
+    const e = einsatzAnlegen("Tag", EinsatzArt.UEBUNG);
+    einsatzbeginnSetzen(e.id, Date.now() - 5 * 60_000, [e.id]);
+    render(<Lagemonitor einsatzId={e.id} />);
+    expect(screen.getByText(/^seit Beginn: 0 Stunden, 5 Minuten/)).toBeTruthy();
+    expect(screen.getByText("Uhr")).toBeTruthy();
+  });
+
+  it("hebt einen Datenstand ab einer Stunde hervor (R7-K8)", () => {
+    const { e } = mitEinheiten(1);
+    const liste = structuredClone(einsaetzeLaden());
+    for (const x of liste.find((s) => s.id === e.id)!.eintraege) x.empfangenAm = Date.now() - 5 * 3_600_000;
+    einsaetzeSpeichern(liste);
+    render(<Lagemonitor einsatzId={e.id} />);
+    expect(document.querySelector(".lm-stand .lm-veraltet")!.textContent).toMatch(/vor 5 Std/);
+  });
+
+  it("übernimmt den Nacht-Modus als Stufe „Gedimmt“, merkt die Wahl und nennt die Stufe auf der Taste (R7-L3)", () => {
+    document.documentElement.classList.add("nacht-modus");
+    const e = einsatzAnlegen("Nacht", EinsatzArt.EINSATZ);
+    render(<Lagemonitor einsatzId={e.id} />);
+    expect(document.querySelector("main.lm")!.className).toContain("lm-gedimmt");
+    const taste = screen.getByRole("button", { name: /Stufe: Gedimmt · weiter: Hell/ });
+    fireEvent.click(taste); // -> Hell, wird nicht gemerkt
+    expect(document.querySelector("main.lm")!.className).toContain("lm-hell");
+    expect(localStorage.getItem(STUFE_SCHLUESSEL)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Stufe: Hell · weiter: Dunkel/ }));
+    expect(localStorage.getItem(STUFE_SCHLUESSEL)).toBe("dunkel");
+    cleanup();
+    render(<Lagemonitor einsatzId={e.id} />);
+    expect(document.querySelector("main.lm")!.className).not.toContain("lm-gedimmt");
+    expect(screen.getByRole("button", { name: /Stufe: Dunkel · weiter: Gedimmt/ })).toBeTruthy();
   });
 });
 
