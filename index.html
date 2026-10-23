@@ -4999,6 +4999,15 @@
       footer.nav.assistent-nav.mit-uebernehmen > .uebernehmen { grid-row: 1; grid-column: 1 / -1; justify-self: stretch; white-space: normal; }
       footer.nav.assistent-nav .nav-weiter-wort { display: none; }
     }
+    /* Noch enger (Zoom 250 % im Feld-Modus, 160 px): Der Pfeil vorwärts bekommt wieder eine eigene Zeile, statt über den Rand zu ragen. */
+    @media (max-width: 12rem) {
+      footer.nav.assistent-nav:not(.mit-uebernehmen) > .primaer { grid-row: 1; grid-column: 1 / -1; }
+      footer.nav.assistent-nav:not(.mit-uebernehmen) > .nav-zurueck,
+      footer.nav.assistent-nav:not(.mit-uebernehmen) > .anzeige-leiste { grid-row: 2; }
+      footer.nav.assistent-nav.mit-uebernehmen > .primaer { grid-row: 2; grid-column: 1 / -1; }
+      footer.nav.assistent-nav.mit-uebernehmen > .nav-zurueck,
+      footer.nav.assistent-nav.mit-uebernehmen > .anzeige-leiste { grid-row: 3; }
+    }
     /* R7-M3 (Kopf): Bei 180 px Layoutbreite bleiben im Kopf „‹ Startseite" und die Schrittleiste; das Zeichen und der
        zweite „Ansicht"-Knopf entfallen (die Fußleiste trägt „◐"), die Reiter brechen ihren Status unter die Ziffer. */
     @media (max-width: 16rem) {
@@ -5015,6 +5024,7 @@
        (in Schritt 5 schrumpfte er sonst auf 102 px und schnitt sein Wort ab). */
     @container assistent-nav (max-width: 22rem) {
       footer.nav.assistent-nav .anzeige-leiste-text { display: none; }
+      footer.nav.assistent-nav .anzeige-leiste-knopf { min-width: min(calc(var(--ziel-basis) + var(--ziel)), calc(44px + var(--ziel))); }
     }
 
     /* R7-G5: Feld-Modus bei Browser-Zoom 200 % (180 px): Die Knöpfe einer Knopfreihe („+ übergeordnete Ebene") brechen um,
@@ -5066,6 +5076,8 @@
     @media (orientation: landscape) and (max-height: 540px) {
       .tipp-moment.im-vollbild { top: auto !important; bottom: calc(3px + env(safe-area-inset-bottom)); padding-block: 3px; font-size: min(var(--t-xs), 15px); }
     }
+    /* R7-G5: Die Fußzeilen-Spalten brauchen bei Zoom 200 bis 250 % im Feld-Modus keine 9rem (161 px) Mindestbreite. */
+    .fuss-gruppen { grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr)); }
     /* ===== Ende Runde 7 (Layout) ===== */
   </style>
 </head>

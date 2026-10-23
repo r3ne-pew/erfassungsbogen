@@ -60,6 +60,8 @@ Funktionalität: Einsatzweg einer Fachgruppe — Vorbereitung, Fahrt, Meldekopf
     Dann sehe ich den Hinweis "Fahrzeuge erfasst, aber kein Kraftfahrer"
     Wenn ich auf "Fahrzeuge erfasst, aber kein Kraftfahrer: Bei keiner Person ist eine Fahrerlaubnisklasse eingetragen." klicke
     Dann sehe ich den Schritt "3. Personal"
+    # Ab acht Personen beginnt der Schritt als Kurz-Liste (R7-H6); das Feld steht auf der Karte.
+    Und ich "Alle Angaben (Karten)" ankreuze
     Wenn ich das Feld "Fahrerlaubnis" auf "CE" stelle
     Und ich zum Schritt "6. Übersicht" wechsle
     Dann sehe ich den Hinweis "Fahrzeuge erfasst, aber kein Kraftfahrer" nicht

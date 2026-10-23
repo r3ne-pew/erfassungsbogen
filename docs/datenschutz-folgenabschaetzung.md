@@ -11,6 +11,28 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-24 — Audit Runde 7:** Drei Speicherorte sind neu.
+> (1) `eeb.unlesbar.v1` (`localStorage`): Unlesbare Sammlungen, Meldungen und
+> Vorlagen werden unverändert beiseitegelegt, statt beim nächsten Schreiben
+> zu verschwinden. Der Inhalt kann Personendaten tragen (Namen, Funktionen,
+> Erreichbarkeiten), die Frist beträgt 90 Tage ab Beiseitelegen nach der
+> geprüften Uhr; der Eintrag ist Teil der Datensicherung und fällt unter „Alle
+> Daten löschen"; ein eigener Weg „Beiseitegelegtes entfernen…" fragt vorher
+> zurück (Datenkategorien 5.4, Speicherung 5.7). (2) Die Eingaben des
+> Papier-Abgleichs (`eeb.papierabgleich.v1.<Einsatz-ID>`, `sessionStorage`
+> des Tabs): Nummer, Zeiten, Status, Zug, Notiz; weg mit dem Tab, mit
+> Übernehmen, mit „Eingaben verwerfen…" und mit „Alle Daten löschen"; nicht in
+> der Datensicherung. (3) `eeb.lagestufe.v1`: die Helligkeitsstufe des
+> Lagemonitors, keine Personendaten. Einsatz-Datei und Sammel-PDF tragen im
+> Umschlag zusätzlich Einsatzbeginn und Funkrufname (`lage`), ohne
+> Personenbezug. Ein im anderen Fenster gelöschter Bogen wird nicht mehr auf
+> den Rückholplatz zurückgeschrieben, und der Rückweg im Schritt „Personal"
+> wird beim Verwerfen, Schließen und Übergeben des Bogens entfernt (5.7). Die
+> Löschfristen verlängern sich nirgends; der Geräteuhr-Halt gilt jetzt auch
+> beim zweiten Lesen, sodass eine Sammlung nach einem Uhrsprung nicht ohne
+> Frage gelöscht wird. Keine neuen Empfänger, keine Netzverbindung (5.8
+> unverändert).
+>
 > **Nachgezogen 2026-10-23 — Audit Runde 6:** Zwei Speicherorte sind neu oder
 > erweitert, ein Löschweg ist vollständiger. (1) Der Rückweg im Schritt
 > „Personal" (`eeb.personal.rueckweg`, `sessionStorage` des Tabs): Die zuletzt

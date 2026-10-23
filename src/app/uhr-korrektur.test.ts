@@ -17,7 +17,7 @@ import {
 } from "@bos/meldekopf/einsaetze";
 import { aufgeraeumteLaden, aufraeumBeobachter } from "./aufraeum-hinweis";
 import { datenschutzUhrSetzen } from "@bos/meldekopf/einsaetze";
-import { datenschutzZeitpunkt, geraeteuhrPruefen, geprueftesJetzt, uhrBestaetigen, uhrPruefungZuruecksetzen, uhrWarnung } from "./datenschutz-uhr";
+import { datenschutzZeitpunkt, geraeteuhrPruefen, geprueftesJetzt, uhrstandAusJson, uhrBestaetigen, uhrPruefungZuruecksetzen, uhrWarnung } from "./datenschutz-uhr";
 import { uhrKorrigierteHuelle, zeitstempelVerschieben } from "./uhr-korrektur";
 import { schonendeHuelle } from "./speicher-schonend";
 import { MINUTEN_JE_TAG, OrganisationsTyp, PersonalErfassung, SCHEMA_VERSION, type Erfassungsbogen } from "@bos/eeb-format/model";
@@ -77,6 +77,15 @@ afterEach(() => {
   vi.useRealTimers();
   speicherhuelleSetzen(null);
   datenschutzUhrSetzen(null);
+});
+
+describe("uhrstandAusJson()", () => {
+  it("verwirft unplausible Werte wie einen ersten Start (R7-O7)", () => {
+    expect(uhrstandAusJson('{"zuletzt":1238983256000}')).toBeNull();
+    expect(uhrstandAusJson('{"zuletzt":-5}')).toBeNull();
+    expect(uhrstandAusJson('{"zuletzt":30000000}')).toEqual({ zuletzt: 30000000 });
+    expect(uhrstandAusJson('{"zuletzt":30000000,"sprung":1e99}')).toEqual({ zuletzt: 30000000 });
+  });
 });
 
 describe("geraeteuhrPruefen()", () => {

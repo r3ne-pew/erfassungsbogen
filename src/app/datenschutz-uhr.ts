@@ -109,13 +109,22 @@ export function geraeteuhrPruefen(
   };
 }
 
+/**
+ * Ein Zeitpunkt in Minuten seit 1970, der als Uhrstand taugt: endlich und
+ * zwischen 1970 und rund 2084. Ein Wert aus einer fremden Fassung wäre sonst
+ * „Invalid Date (1238983256 Tage danach)" in der Rückfrage (R7-O7).
+ */
+function zeitpunktPlausibel(wert: unknown): wert is number {
+  return typeof wert === "number" && Number.isFinite(wert) && wert > 0 && wert < 60_000_000;
+}
+
 /** JSON-String → Uhrstand. Defensiv: Müll ergibt null (wie ein erster Start). */
 export function uhrstandAusJson(text: string | null): Uhrstand | null {
   if (!text) return null;
   try {
     const roh = JSON.parse(text) as Partial<Uhrstand> | null;
-    if (typeof roh?.zuletzt !== "number") return null;
-    return typeof roh.sprung === "number" ? { zuletzt: roh.zuletzt, sprung: roh.sprung } : { zuletzt: roh.zuletzt };
+    if (!zeitpunktPlausibel(roh?.zuletzt)) return null;
+    return zeitpunktPlausibel(roh.sprung) ? { zuletzt: roh.zuletzt, sprung: roh.sprung } : { zuletzt: roh.zuletzt };
   } catch {
     return null;
   }

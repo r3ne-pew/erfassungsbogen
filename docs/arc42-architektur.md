@@ -12,6 +12,31 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-24:** Audit Runde 7 (85 Befunde, vier Pakete) — Kap.
+> 5, 8.2, 8.4, 8.5, 8.6, 9: Geräteuhr: Der Halt bei Sprüngen unter 60 Tagen
+> gilt, bis jemand antwortet, nicht nur beim ersten Lesen
+> (`geraeteuhrPruefen`, `datenschutz-uhr.ts`, R7-D2). Unlesbarer Bestand wird
+> nicht mehr still verworfen: `eeb.unlesbar.v1` hält unlesbare Sammlungen,
+> Meldungen und Vorlagen unverändert 90 Tage (`unlesbar.ts`,
+> `einsaetze-lesen.ts`, `vorlagen.ts`); Zähler und „Daten sichern…" an
+> Startseite und Sammlung. Zwei Fenster: Ein Konflikt entsteht nur bei
+> Inhaltsunterschied (`fenster-unterschied.ts`), die Leiste nennt Felder und
+> Zeit; ein im anderen Fenster gelöschter Bogen wird nicht auf den
+> Rückholplatz zurückgeschrieben (`entwurfFremdEntfernt`); der Rückholplatz
+> fasst weiter einen Bogen, die Rückfrage nennt den Verlust vorher. Der Bogen
+> auf dem Rückholplatz trägt optional `ersetztGrund` (Schema und QR-Format
+> unverändert). Umschlag der Einsatz-Datei und der Sammel-PDF: `lage`
+> (Einsatzbeginn, Funkrufname; `lage-angaben.ts`), beim Einlesen nur
+> ergänzend. Papier-Abgleich: Eingaben im Sitzungsspeicher
+> (`eeb.papierabgleich.v1.<Einsatz-ID>`, `papier-abgleich-entwurf.ts`).
+> Lagemonitor: Tabelle im Bild mit Rest als „+ n weitere", Stufe gemerkt
+> (`eeb.lagestufe.v1`), Folgemeldungen mit Betrag. Service Worker: HTML-
+> Themenseiten `StaleWhileRevalidate` (vorher `NetworkFirst`, 1 s;
+> `vite.config.ts`). Musterung als eigene Verlaufsansicht. Stilregeln
+> geschützt durch `stilregeln-r7-layout.test.ts`. Bundle-Budget erneut
+> angehoben (Startbündel +30 KB). Offen: R6-O9 (Uhrstand in der Zukunft,
+> frische Sammlung) als Grenze der Hülle. Kein neuer Host.
+>
 > **Nachgezogen 2026-10-23:** Audit Runde 6 (89 Befunde, sechs Pakete) — Kap.
 > 5, 8.2, 8.5, 8.6, 9: Gelesener Bestand wird wie an den Eingängen geprüft
 > (`einsaetze-lesen.ts`, `vorlagen.ts` über `bogen-pruefung.ts`); die Hülle um
@@ -1050,7 +1075,7 @@ App verlinkten Seiten) bleibt im Workbox-Precache und ist Bedingung für
 Themen- und Länderseiten) schreibt der Build nach `offline-zusatz.json`; die
 Startseite lädt sie nach der Aktivierung nach (`src/app/offline-vorrat.ts`),
 der Service Worker legt sie über zwei Laufzeit-Routen in den Cache
-`eeb-zusatz` (Beispielbögen `CacheFirst`, Seiten und Liste `NetworkFirst`).
+`eeb-zusatz` (Beispielbögen `CacheFirst`, Seiten `StaleWhileRevalidate` seit Runde 7, Liste `NetworkFirst`).
 *Nachgezogen 2026-10-06 (Audit Runde 4, R4-O1):* Bricht das Erstladen im
 Funkloch ab, scheitert der Service Worker an der Installation, und der Browser
 verwirft die Registrierung; ein späteres `update()` ginge ins Leere und die

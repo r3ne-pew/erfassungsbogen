@@ -343,6 +343,23 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > und `vendor/` unverändert. Der Entwurf trägt zusätzlich die Marke „über die
 > Startseite verlassen" (`fremd.startseite`, R5-N3, 3.3 D1) — keine Daten.
 
+> **Nachgezogen 2026-10-24:** Audit Runde 7 (Behebung der 85 Befunde). Neu sind
+> zwei Speicherorte mit möglichen Personendaten und ein Merker ohne (3.3 D2o,
+> D2m (c)): `eeb.unlesbar.v1` hält unlesbare Sammlungen, Meldungen und Vorlagen
+> unverändert für 90 Tage (Sicherung und „Alle Daten löschen" über das Präfix
+> `eeb.`, eigener Weg „Beiseitegelegtes entfernen…"), `eeb.papierabgleich.v1.<ID>`
+> im `sessionStorage` hält die Eingaben des Papier-Abgleichs bis zum Tab-Ende
+> (kein Teil der Sicherung, wird von „Alle Daten löschen" geleert) und
+> `eeb.lagestufe.v1` die Helligkeitsstufe des Lagemonitors. Der Rückweg im
+> Schritt „Personal" wird beim Verwerfen, Schließen und Übergeben des Bogens
+> gelöscht. Der Geräteuhr-Halt (5.5) gilt, bis jemand antwortet; der
+> Service Worker holt HTML-Themenseiten mit `StaleWhileRevalidate` (6.1).
+> Zwei Fenster (5.5): Konflikt nur bei Inhaltsunterschied, ein gelöschter Bogen
+> kommt nicht über den Rückholplatz zurück. Einsatz-Datei und Sammel-PDF
+> tragen im Umschlag `lage` (Einsatzbeginn, Funkrufname; 5.4). Quittungen
+> sagen „erzeugt" statt „übergeben"; der Exportstand zählt „zuletzt erzeugt"
+> (5.4). Keine neuen Hosts, CSP und Transportformat unverändert.
+
 > **Nachgezogen 2026-10-23:** Audit Runde 6 (Behebung der 89 Befunde). Neu sind
 > ein Speicherort ohne Personendaten und die Erweiterung eines Merkers im
 > `sessionStorage` (3.3 D2o, D2m (c)): der letzte bekannte Stand des

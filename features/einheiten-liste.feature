@@ -18,9 +18,9 @@ Funktionalität: Einheitenliste durchsuchen, filtern und sortieren
   Szenario: Ab der zweiten Meldung steht die Filterleiste bereit
     Dann sehe ich den Text "Suche"
     Und führt die Einheitenliste genau 3 Einheiten
-    Und führt die Einheitenliste "DLRG Wardenburg" an Stelle 1
-    Und führt die Einheitenliste "Feuerwehr Aschhausen" an Stelle 2
-    Und führt die Einheitenliste "THW" an Stelle 3
+    Und führt die Einheitenliste "THW" an Stelle 1
+    Und führt die Einheitenliste "DLRG Wardenburg" an Stelle 2
+    Und führt die Einheitenliste "Feuerwehr Aschhausen" an Stelle 3
 
   Szenario: Die Suche grenzt auf die gesuchte Einheit ein
     Wenn ich das Feld "Suche" mit "wardenburg" fülle
@@ -131,7 +131,8 @@ Funktionalität: Einheitenliste durchsuchen, filtern und sortieren
 
   Szenario: Der Spaltenkopf sortiert die Tabelle und dreht beim zweiten Klick
     Wenn ich auf "Tabelle" klicke
+    Dann führt die Einheitentabelle "THW" an Stelle 1
+    Wenn ich die Tabelle nach "Einheit" sortiere
     Dann führt die Einheitentabelle "DLRG Wardenburg" an Stelle 1
     Wenn ich die Tabelle nach "Einheit" sortiere
-    Und ich die Tabelle nach "Einheit" sortiere
     Dann führt die Einheitentabelle "THW" an Stelle 1
