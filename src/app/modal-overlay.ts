@@ -122,8 +122,27 @@ export function ebeneBetreten(kennung: string): void {
 
 /** Overlay schließen und, falls sein Eintrag obenauf liegt, ihn verbrauchen. */
 export function ebeneVerlassen(kennung: string, schliessen: () => void): void {
-  if (ebeneImVerlauf() === kennung) history.back();
+  if (ebeneImVerlauf() === kennung) eigenesZurueck();
   schliessen();
+}
+
+/**
+ * Ein `history.back()`, das die App selbst auslöst, um den Eintrag eines Fensters zu verbrauchen.
+ * Der Browser liefert es asynchron: Tippt jemand davor schon auf „Startseite", zöge die späte
+ * Rückkehr den neuen Eintrag wieder ab und die App sprang zurück in den Bogen (e2e-Ausfall in
+ * Runde 7). `eigenesZurueckVerbrauchen` erkennt diesen Pop im Lauscher der App.
+ */
+let eigenesZurueckBis = 0;
+function eigenesZurueck(): void {
+  eigenesZurueckBis = Date.now() + 1500;
+  history.back();
+}
+
+/** War der Pop eben die späte Rückkehr eines eigenen `back()`? Verbraucht die Marke. */
+export function eigenesZurueckVerbrauchen(): boolean {
+  const war = eigenesZurueckBis > Date.now();
+  eigenesZurueckBis = 0;
+  return war;
 }
 
 /** Solange das Overlay offen ist: Zurück (Gerät, Browser) schließt es. */
@@ -193,7 +212,7 @@ export function ersteEbeneVerlassen(): void {
   ausstehendeRueckkehr = setTimeout(() => {
     ausstehendeRueckkehr = null;
     try {
-      if (ebeneImVerlauf() === RUECKFRAGE_EBENE) history.back();
+      if (ebeneImVerlauf() === RUECKFRAGE_EBENE) eigenesZurueck();
     } catch {
       /* ohne Verlauf */
     }

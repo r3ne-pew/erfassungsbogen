@@ -58,7 +58,7 @@ import { fehlerText } from "./nachladen";
 import { dateiFehlerMeldung } from "./datei-fehler";
 import { FehlerImBild } from "./fehler-im-bild";
 import { entfernteImImportKlaeren } from "./entfernte-meldungen";
-import { rueckfrageEintragErsetzbar } from "./modal-overlay";
+import { eigenesZurueckVerbrauchen, rueckfrageEintragErsetzbar } from "./modal-overlay";
 import { FensterKonflikt, nachAbgleichFortsetzen, useFensterAbgleich } from "./fenster-abgleich";
 import { entwirreScanText } from "./tastaturbelegung";
 import { ortSperren } from "./tipp-schutz";
@@ -1068,6 +1068,20 @@ function AppInhalt() {
       // stehen und wirkte von dort, ohne „Rückgängig" (Audit Runde 4, R4-S1).
       // Der verbrauchte Verlaufseintrag wird für die stehende Ansicht neu
       // angelegt, damit das nächste Zurück wieder einen Schritt zurück führt.
+      // Die späte Rückkehr eines eigenen `back()` (Fenster geschlossen, schon weitergetippt): Sie
+      // zog den Eintrag der inzwischen gezeigten Ansicht ab; der wird wieder angelegt, die Ansicht
+      // bleibt (e2e-Ausfall „Startseite" nach „Vorlage speichern", Runde 7).
+      if (eigenesZurueckVerbrauchen()) {
+        const jetzt = ansichtRef.current;
+        if (jetzt && !(ziel && ansichtGleich(ziel, jetzt))) {
+          try {
+            history.pushState({ eeb: jetzt }, "");
+          } catch {
+            /* ohne Verlauf */
+          }
+        }
+        return;
+      }
       if (offenesFensterAbbrechen()) {
         const jetzt = ansichtRef.current;
         if (jetzt && !(ziel && ansichtGleich(ziel, jetzt))) {

@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
-import { dialogVerlaufVerdrahten, ersteEbeneBetreten, ersteEbeneVerlassen, useModalesOverlay } from "./modal-overlay";
+import { dialogVerlaufVerdrahten, ebeneBetreten, ebeneVerlassen, eigenesZurueckVerbrauchen, ersteEbeneBetreten, ersteEbeneVerlassen, useModalesOverlay } from "./modal-overlay";
 
 function Overlay(props: { onSchliessen: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -149,3 +149,19 @@ describe("Fenster der Startseite tragen einen Verlaufseintrag (R6-S3)", () => {
   });
 });
 
+
+describe("Späte Rückkehr eines eigenen back() (Runde 7)", () => {
+  it("erkennt den Pop des eigenen back() einmal und danach nicht mehr", () => {
+    eigenesZurueckVerbrauchen();
+    ebeneBetreten("probe");
+    ebeneVerlassen("probe", () => {});
+    expect(eigenesZurueckVerbrauchen()).toBe(true);
+    expect(eigenesZurueckVerbrauchen()).toBe(false);
+  });
+
+  it("setzt keine Marke, wenn kein Eintrag des Fensters obenauf liegt", () => {
+    eigenesZurueckVerbrauchen();
+    ebeneVerlassen("nie-betreten", () => {});
+    expect(eigenesZurueckVerbrauchen()).toBe(false);
+  });
+});
