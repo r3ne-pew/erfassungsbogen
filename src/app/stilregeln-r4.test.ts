@@ -33,7 +33,7 @@ describe("Fußleiste des Assistenten: Raster mit festen Plätzen (R4-M2, R4-M3, 
 
   it("ist ein Raster mit vier Spalten und bricht nie um", () => {
     expect(leiste()).toMatch(/display:\s*grid/);
-    expect(leiste()).toMatch(/grid-template-columns:\s*auto auto minmax\(0, 1fr\) minmax\(0, auto\)/);
+    expect(leiste()).toMatch(/grid-template-columns:\s*auto minmax\(0, auto\) minmax\(0, 1fr\) auto/);
     expect(leiste()).not.toMatch(/flex-wrap/);
   });
 
@@ -73,7 +73,7 @@ describe("Fußleiste des Assistenten: Raster mit festen Plätzen (R4-M2, R4-M3, 
   });
 
   it("deckelt die Bedienelemente des Kopfes bei großer Schrift (Container „kopf“)", () => {
-    expect(css).toMatch(/@container kopf \(max-width: 17\.5rem\)[\s\S]*?\.seiten-kopf\.assistent-kopf \.schritte button\s*\{[^}]*min\(var\(--t-s\), 18px\)/);
+    expect(css).toMatch(/@container kopf \(max-width: 17\.5rem\)[\s\S]*?\.seiten-kopf\.assistent-kopf \.schritte button\s*\{[^}]*min\(var\(--t-s\), 15px\)/);
   });
 });
 

@@ -948,6 +948,8 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
   // zweite Klick hebt dann die falsche. Gemerkt wird die Zielstelle, der
   // Effekt sucht den Knopf, wenn die Liste neu steht.
   const [fokusSortierung, setFokusSortierung] = useState<string | null>(null);
+  /** Höhe des gedrückten Knopfs im Bild – die verschobene Person soll unter dem Finger bleiben (R6-G5). */
+  const sortierAnker = useRef<number | null>(null);
   const namenDialog = useRef<HTMLDialogElement>(null);
   const [namenText, setNamenText] = useState("");
   const namenVorschau = parseNamen(namenText);
@@ -1017,7 +1019,22 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
     // Am Listenrand ist der gedrückte Knopf gesperrt — dann den anderen nehmen,
     // damit der Fokus nicht auf den Seitenanfang zurückfällt.
     const ziel = knopf(fokusSortierung);
-    (ziel && !ziel.disabled ? ziel : knopf(fokusSortierung.replace(/(hoch|runter)$/, ersatz)))?.focus();
+    const nehmen = ziel && !ziel.disabled ? ziel : knopf(fokusSortierung.replace(/(hoch|runter)$/, ersatz));
+    nehmen?.focus({ preventScroll: true });
+    // Die Person ist mit dem Tausch gewandert, der Finger blieb: Die Ansicht rollt um die
+    // Strecke mit, sodass ihre Knopfreihe wieder an der Fingerstelle steht (R6-G5).
+    const vorher = sortierAnker.current;
+    sortierAnker.current = null;
+    if (nehmen && vorher != null) {
+      const diff = nehmen.getBoundingClientRect().top - vorher;
+      if (Math.abs(diff) > 1) {
+        try {
+          window.scrollBy(0, diff);
+        } catch {
+          /* Testumgebung ohne Layout */
+        }
+      }
+    }
   }, [fokusSortierung]);
 
   /**
@@ -1031,6 +1048,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
     // ein Nachtipp schob sie zurück, und die Reihenfolge war wieder die alte
     // (R5-G4). Die Stelle nimmt kurz nichts an, der Tipp zeigt „Einen Moment …".
     ortSperren();
+    sortierAnker.current = document.querySelector<HTMLElement>(`[data-sortier="${gruppe}-${von}-${art}"]`)?.getBoundingClientRect().top ?? null;
     aendern({ personal: verschoben(bogen.personal, von, nach) });
     setFokusSortierung(`${gruppe}-${nach}-${art}`);
   }
