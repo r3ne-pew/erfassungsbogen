@@ -191,4 +191,22 @@ describe("Ein verworfener Tipp zeigt sich (R5-S2, R5-G5)", () => {
     expect(pille.hidden).toBe(true);
     knopf.remove();
   });
+
+  // Audit Runde 6, R6-H1: Im modalen Fenster (QR-Vollbild) verdeckte die oberste Ebene den Hinweis.
+  it("hängt den Hinweis in das oberste offene Fenster, damit er nicht verdeckt bleibt (R6-H1)", () => {
+    vi.useFakeTimers();
+    tippSchutzZuruecksetzen();
+    const dialog = document.createElement("dialog");
+    dialog.setAttribute("open", "");
+    const knopf = document.createElement("button");
+    dialog.appendChild(knopf);
+    document.body.appendChild(dialog);
+    tipp(knopf, 100, 300);
+    ortSperren();
+    tipp(knopf, 102, 302);
+    const pille = document.getElementById("tipp-moment")!;
+    expect(pille.parentElement).toBe(dialog);
+    vi.advanceTimersByTime(1000);
+    dialog.remove();
+  });
 });

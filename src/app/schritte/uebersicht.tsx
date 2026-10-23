@@ -1256,7 +1256,8 @@ export function QrVollbild(props: {
       {phase === "fehlt" && fehlend >= 0 && (
         <div className="qr-vollbild-frage" role="group" aria-label="Teil fehlt">
           <p className="warnung">
-            <strong>{teilText(fehlend)} wurde noch nicht gezeigt.</strong> Ohne ihn hat die Gegenstelle den Bogen nicht.
+            <strong>{teilText(fehlend)} wurde noch nicht gezeigt.</strong> Ein Teil gilt als gezeigt, wenn er mindestens{" "}
+            {(mindestzeigeDauer() / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 })} s im Bild stand. Ohne ihn hat die Gegenstelle den Bogen nicht.
           </p>
           <div className="qr-vollbild-nav">
             <button

@@ -104,8 +104,12 @@ function verworfenZeigen(e: MouseEvent): void {
     pille.className = "tipp-moment";
     pille.setAttribute("role", "status");
     pille.textContent = "Einen Moment …";
-    document.body.appendChild(pille);
   }
+  // Im QR-Vollbild (und jedem anderen modalen Fenster) liegt der Hinweis IM Fenster: Ein
+  // Element im Seitenkörper bleibt unter der obersten Ebene verdeckt (Audit Runde 6, R6-H1).
+  const offene = document.querySelectorAll("dialog[open]");
+  const host: Element = offene.length > 0 ? offene[offene.length - 1]! : document.body;
+  if (pille.parentElement !== host) host.appendChild(pille);
   const breite = window.innerWidth || 360;
   pille.style.left = `${Math.round(Math.min(Math.max(e.clientX, 72), Math.max(72, breite - 72)))}px`;
   pille.style.top = `${Math.round(Math.max(8, e.clientY - 72))}px`;
