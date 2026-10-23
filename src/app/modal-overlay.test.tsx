@@ -98,3 +98,27 @@ describe("Rückfrage auf dem ersten Verlaufseintrag (R5-S5)", () => {
     }
   });
 });
+
+// Audit Runde 6, R6-N1: Eine Rückfrage, die direkt auf die vorige folgt, wurde
+// von deren verzögerter Rückkehr geschlossen.
+describe("Folgerückfrage übernimmt den Eintrag der vorigen (R6-N1)", () => {
+  it("verbraucht den Eintrag nicht, solange die nächste Rückfrage offen ist", () => {
+    vi.useFakeTimers();
+    try {
+      history.replaceState({ eeb: { schritt: 0 }, eebErste: true }, "");
+      expect(ersteEbeneBetreten()).toBe(true);
+      const zurueck = vi.spyOn(history, "back").mockImplementation(() => {});
+      ersteEbeneVerlassen(); // erste Rückfrage zu
+      expect(ersteEbeneBetreten()).toBe(true); // zweite übernimmt den Eintrag
+      vi.advanceTimersByTime(200);
+      expect(zurueck).not.toHaveBeenCalled();
+      ersteEbeneVerlassen(); // zweite zu: jetzt wird er verbraucht
+      vi.advanceTimersByTime(200);
+      expect(zurueck).toHaveBeenCalledTimes(1);
+      zurueck.mockRestore();
+    } finally {
+      vi.useRealTimers();
+      history.replaceState(null, "");
+    }
+  });
+});

@@ -147,8 +147,19 @@ export function useEbeneZurueck(kennung: string, schliessen: () => void): void {
  * Rückfrage. Gibt zurück, ob ein Eintrag angelegt wurde.
  */
 export const RUECKFRAGE_EBENE = "rueckfrage";
+/** Die verzögerte Rückkehr der eben geschlossenen Rückfrage, solange sie aussteht. */
+let ausstehendeRueckkehr: ReturnType<typeof setTimeout> | null = null;
 export function ersteEbeneBetreten(): boolean {
   try {
+    // Folgt direkt eine zweite Rückfrage („Wohin damit?" → „Ist das dieselbe
+    // Einheit?"), liegt der Eintrag der ersten noch obenauf: Die zweite
+    // übernimmt ihn, statt dass die späte Rückkehr sie als „Zurück" liest und
+    // schließt (Audit Runde 6, R6-N1).
+    if (ausstehendeRueckkehr !== null && ebeneImVerlauf() === RUECKFRAGE_EBENE) {
+      clearTimeout(ausstehendeRueckkehr);
+      ausstehendeRueckkehr = null;
+      return true;
+    }
     if (!(history.state as { eebErste?: boolean } | null)?.eebErste || ebeneImVerlauf()) return false;
     ebeneBetreten(RUECKFRAGE_EBENE);
     return true;
@@ -164,7 +175,9 @@ export function ersteEbeneBetreten(): boolean {
  * (dann bleibt der Eintrag stehen, und ein Zurück mehr führt auf dieselbe Seite).
  */
 export function ersteEbeneVerlassen(): void {
-  setTimeout(() => {
+  if (ausstehendeRueckkehr !== null) clearTimeout(ausstehendeRueckkehr);
+  ausstehendeRueckkehr = setTimeout(() => {
+    ausstehendeRueckkehr = null;
     try {
       if (ebeneImVerlauf() === RUECKFRAGE_EBENE) history.back();
     } catch {
