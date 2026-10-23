@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { EinsatzArt, einsatzAnlegen, meldungHinzufuegen } from "@bos/meldekopf/einsaetze";
+import { EinsatzArt, MeldeStatus, einsatzAnlegen, meldungHinzufuegen } from "@bos/meldekopf/einsaetze";
+import { statusMitZeitSetzen } from "./eintrag-zeiten";
 import { neuerBogen, neuesFahrzeug } from "./hilfen";
 import { Lagemonitor, lagemonitorKennung } from "./lagemonitor-ui";
 import {
@@ -37,8 +38,50 @@ describe("Lagemonitor", () => {
     meldungHinzufuegen(e.id, b);
     render(<Lagemonitor einsatzId={e.id} />);
     expect(screen.getByRole("heading", { name: "Hochwasser Süd" })).toBeTruthy();
-    expect(screen.getByText("Einsatzbeginn nicht gesetzt")).toBeTruthy();
+    // R6-K4: Ohne gesetzten Beginn gilt die erste Meldung als Vorschlag, kein Fehler auf dem Fernseher.
+    expect(screen.queryByText("Einsatzbeginn nicht gesetzt")).toBeNull();
+    expect(screen.getByText(/seit erster Meldung/)).toBeTruthy();
     expect(screen.getAllByText(/OV Musterstadt/).length).toBeGreaterThan(0);
+  });
+
+  // Audit Runde 6, R6-K1: Der Fernseher sagt, was sich bewegt, und unterscheidet „leer" von „alle abgerückt".
+  it("unterscheidet eine leere Lage von einer, in der alle abgerückt sind (R6-K1)", () => {
+    const leer = einsatzAnlegen("Leer", EinsatzArt.EINSATZ);
+    render(<Lagemonitor einsatzId={leer.id} />);
+    expect(screen.getByText("Noch nichts gemeldet", { selector: ".lm-stand" })).toBeTruthy();
+    cleanup();
+    const e = einsatzAnlegen("Alle fort", EinsatzArt.EINSATZ);
+    const b = neuerBogen();
+    b.einheit.hierarchie[0]!.name = "OV Fort";
+    const r = meldungHinzufuegen(e.id, b);
+    statusMitZeitSetzen(e.id, r!.eintrag.id, MeldeStatus.ABGERUECKT);
+    render(<Lagemonitor einsatzId={e.id} />);
+    expect(document.querySelector(".lm-stand")!.textContent).toMatch(/Alle 1 Einheiten abgerückt/);
+    expect(document.querySelector(".lm-bewegung")!.textContent).toMatch(/Abgerückt: .*OV Fort/);
+  });
+
+  it("nennt Zahl der Einheiten und Fahrzeuge, abgerückte und das Alter der letzten Meldung (R6-K1, R6-K2)", () => {
+    const e = einsatzAnlegen("Lage", EinsatzArt.EINSATZ);
+    const b = neuerBogen();
+    b.einheit.hierarchie[0]!.name = "OV Da";
+    meldungHinzufuegen(e.id, b);
+    render(<Lagemonitor einsatzId={e.id} />);
+    const stand = document.querySelector(".lm-stand")!.textContent!;
+    expect(stand).toMatch(/1 Einheit · \d+ Fahrzeuge?/);
+    expect(stand).toMatch(/letzte Meldung gerade eben/);
+    expect(screen.getByText(/Stärke F \/ U \/ M/)).toBeTruthy();
+  });
+
+  it("kennzeichnet eine Übung im Hauptbild, auch wenn der Name es nicht tut (R6-K3)", () => {
+    const e = einsatzAnlegen("Heilbronn", EinsatzArt.UEBUNG, "Neckarvorland");
+    render(<Lagemonitor einsatzId={e.id} />);
+    expect(screen.getByRole("status").textContent).toMatch(/ÜBUNG/);
+  });
+
+  it("zeigt im Fehlerzustand weiter die Uhr und eine Taste in Monitorschrift (R6-L6)", () => {
+    render(<Lagemonitor einsatzId="gibt-es-nicht" />);
+    expect(screen.getByLabelText("Datum-Zeit-Gruppe")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Schließen" }).className).toContain("lm-knopf");
   });
 
   it("setzt den Funkrufnamen in die erste Zeile und den Einsatznamen in die zweite", () => {

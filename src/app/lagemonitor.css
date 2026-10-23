@@ -7,7 +7,8 @@
 main.lm {
   --lm-grund: #000;
   --lm-text: #fff;
-  --lm-rahmen: #0000ff;
+  /* Linien heller als das reine Blau (2,4:1 auf Schwarz, R6-L4): 6:1. */
+  --lm-rahmen: #5b8cff;
   --lm-zeit: #ff0000;
   width: 100%;
   max-width: none;
@@ -19,6 +20,12 @@ main.lm {
   flex-direction: column;
   background: var(--lm-grund);
   color: var(--lm-text);
+}
+/* Gedimmt: für abgedunkelte Fahrzeuge — gedämpftes Weiß und Rot statt Vollblendung (R6-L4). */
+main.lm.lm-gedimmt {
+  --lm-text: #c9c2b8;
+  --lm-rahmen: #4a64b0;
+  --lm-zeit: #c04040;
 }
 main.lm.lm-hell {
   --lm-grund: #fff;
@@ -67,3 +74,24 @@ main.lm.lm-hell {
 /* Ränder um die Zeilen bekommen den Grund des Monitors, nicht den der App. */
 body:has(main.lm) { background: #000; }
 body:has(main.lm.lm-hell) { background: #fff; }
+
+/* Beschriftungen und Überschriften nehmen die Farbe des Monitors, nicht die des App-Modus (R6-L1). */
+main.lm h1, main.lm h2, main.lm th, main.lm summary, main.lm dt { color: var(--lm-text); }
+.lm-label { display: block; font-size: 0.45em; opacity: 0.85; line-height: 1.2; }
+.lm-uebung { color: var(--lm-zeit); font-weight: 700; letter-spacing: 0.05em; }
+.lm-bewegung { text-align: center; }
+/* Liste bleibt im Bild: ab dieser Höhe rollt sie in sich (kein Überlauf der Seite, R6-L2). */
+.lm-klapp[open] .lm-tabelle { max-height: 38vh; overflow-y: auto; }
+/* Knöpfe in der Schrift des Monitors, nicht als weiße App-Knöpfe (R6-L6). */
+.lm-knopf {
+  font-size: min(3.2vh, 2.2vw);
+  min-height: 2.4em;
+  padding: 0.2em 0.9em;
+  background: transparent;
+  color: var(--lm-text);
+  border: 2px solid var(--lm-rahmen);
+  border-radius: 0.3em;
+}
+.lm-leer .lm-knopf { align-self: center; margin-top: 1em; }
+/* Block in der Einsatzansicht: das Datumsfeld bleibt im Bild (R6-G3, R6-M3). */
+.lm-block input { max-width: 100%; box-sizing: border-box; }

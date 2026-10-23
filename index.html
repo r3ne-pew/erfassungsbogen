@@ -176,6 +176,13 @@
         document.querySelector('meta[name="theme-color"]').content = "#221f16";
     } catch (e) { /* Privatmodus/blockierter Speicher: Standard-Darstellung */ }
 
+    // Lagemonitor (?lagemonitor=…): schwarz von der ersten Sekunde an. Bis das
+    // Bundle da ist, stünde sonst der helle Grund des App-Modus auf dem
+    // Fernseher im abgedunkelten Fahrzeug (Audit Runde 6, R6-L3).
+    try {
+      if (/[?&]lagemonitor=/.test(location.search)) document.documentElement.classList.add("lagemonitor-start");
+    } catch (e) { /* ohne Adresse eben ohne */ }
+
     // Installierte Fassung (Desktop-App, iOS, Android) VOR dem ersten Malen
     // kennzeichnen: Der erklärende Text unten ist Web-Inhalt für Erstbesucher
     // und Suchmaschinen. React blendet ihn dort ohnehin aus (imWebBrowser() in
@@ -190,6 +197,9 @@
     } catch (e) { /* Im Zweifel bleibt es beim Web-Verhalten. */ }
   </script>
   <style>
+    html.lagemonitor-start, html.lagemonitor-start body { background: #000 !important; }
+    html.lagemonitor-start body { visibility: hidden; }
+    html.lagemonitor-start main.lm { visibility: visible; }
     /* ===============================================================
        Design-Token — die eine Quelle für Farbe, Schrift, Maß und Form der
        Web-Oberfläche. Die Plattform-Layer (.platform-ios/.platform-android)

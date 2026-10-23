@@ -9,9 +9,11 @@
 
 import { staerke } from "@bos/eeb-format/model";
 import { einheitOrt } from "@bos/meldekopf/darstellung";
-import { EinsatzArt, type Einsatzsammlung } from "@bos/meldekopf/einsaetze";
+import { EinsatzArt, MeldeStatus, revisionen, type Einsatzsammlung } from "@bos/meldekopf/einsaetze";
 import { aggregiere, aktuelleMeldungen, type EinsatzSummen } from "./auswertung";
-import { funkrufText, natoZeitstempel, orgLabel, vokabText, vokabularFuer } from "./hilfen";
+import { eintreffzeit } from "./eintrag-zeiten";
+import { geltendeJeEinheit } from "./fassung-vorrang";
+import { einheitAnzeigename, funkrufText, natoZeitstempel, orgLabel, vokabText, vokabularFuer } from "./hilfen";
 
 /** Datum-Zeit-Gruppe in ihren Teilen: „17" „1806" „feb" „24" (Tag, Uhrzeit, Monat, Jahr). */
 export function dtgTeile(d: Date): { tag: string; zeit: string; monat: string; jahr: string } {
@@ -53,16 +55,58 @@ export interface EinheitZeile {
   mannschaft: number;
 }
 
+/** Was sich zuletzt in der Lage bewegt hat — der Fernseher soll nicht nur Zahlen ändern, sondern sagen, warum (Audit Runde 6, R6-K1). */
+export interface Bewegung {
+  id: string;
+  name: string;
+  art: "Abgerückt" | "Wieder da" | "Folgemeldung";
+  zeit: number;
+}
+
+/** So lange gilt eine Bewegung als „gerade eben" und steht im Hauptbild. */
+export const BEWEGUNG_FENSTER_MS = 15 * 60_000;
+
 export interface Lagebild {
   name: string;
   ort?: string;
   uebung: boolean;
+  /** Art der Sammlung als Wort („Einsatz", „Übung", „Veranstaltung"). */
+  art: string;
   summen: EinsatzSummen;
   /** Anwesende Einheiten in der Reihenfolge, in der sie gemeldet wurden. */
   einheiten: EinheitZeile[];
+  /** Einheiten, die abgerückt sind (zählen nicht mehr mit). */
+  abgerueckt: number;
+  /** Wann zuletzt etwas in die Sammlung kam (Date.now()), sonst `null`. */
+  letzteMeldung: number | null;
+  /** Früheste Eintreffzeit aller Meldungen — Vorschlag für den Beginn, wenn keiner gesetzt ist. */
+  ersteMeldung: number | null;
+  /** Abrücken, Rückkehr und Folgemeldungen der letzten Minuten, jüngste zuerst. */
+  bewegungen: Bewegung[];
 }
 
-export function lagebild(einsatz: Einsatzsammlung): Lagebild {
+export function lagebildArt(art: EinsatzArt): string {
+  return art === EinsatzArt.UEBUNG ? "Übung" : art === EinsatzArt.VERANSTALTUNG ? "Veranstaltung" : "Einsatz";
+}
+
+function bewegungenSeit(einsatz: Einsatzsammlung, jetzt: number): Bewegung[] {
+  const aus: Bewegung[] = [];
+  for (const k of geltendeJeEinheit(einsatz.eintraege)) {
+    const name = einheitAnzeigename(k.bogen.einheit);
+    for (const v of k.vermerke ?? []) {
+      if (jetzt - v.zeit > BEWEGUNG_FENSTER_MS) continue;
+      if (v.text === "Abgerückt") aus.push({ id: `${k.id}-a-${v.zeit}`, name, art: "Abgerückt", zeit: v.zeit });
+      else if (/^Wieder als anwesend/.test(v.text)) aus.push({ id: `${k.id}-w-${v.zeit}`, name, art: "Wieder da", zeit: v.zeit });
+    }
+    if (jetzt - k.empfangenAm <= BEWEGUNG_FENSTER_MS && revisionen(einsatz.eintraege, k.einheitSchluessel).length > 1) {
+      aus.push({ id: `${k.id}-f`, name, art: "Folgemeldung", zeit: k.empfangenAm });
+    }
+  }
+  return aus.sort((a, b) => b.zeit - a.zeit);
+}
+
+export function lagebild(einsatz: Einsatzsammlung, jetzt: number = Date.now()): Lagebild {
+  const geltend = geltendeJeEinheit(einsatz.eintraege);
   const einheiten = [...aktuelleMeldungen(einsatz.eintraege, einsatz.art)]
     .sort((a, b) => a.empfangenAm - b.empfangenAm)
     .map((m): EinheitZeile => {
@@ -83,8 +127,13 @@ export function lagebild(einsatz: Einsatzsammlung): Lagebild {
     name: einsatz.name,
     ort: einsatz.ort,
     uebung: einsatz.art === EinsatzArt.UEBUNG,
+    art: lagebildArt(einsatz.art),
     summen: aggregiere(einsatz.eintraege, einsatz.art),
     einheiten,
+    abgerueckt: geltend.filter((e) => e.status === MeldeStatus.ABGERUECKT).length,
+    letzteMeldung: einsatz.eintraege.length > 0 ? Math.max(...einsatz.eintraege.map((e) => e.empfangenAm)) : null,
+    ersteMeldung: geltend.length > 0 ? Math.min(...geltend.map(eintreffzeit)) : null,
+    bewegungen: bewegungenSeit(einsatz, jetzt),
   };
 }
 
@@ -99,4 +148,15 @@ export function ausEingabeWert(wert: string): number | null {
   if (!wert) return null;
   const ms = new Date(wert).getTime();
   return Number.isFinite(ms) ? ms : null;
+}
+
+/** „vor 4 Min" / „gerade eben" / „vor 2 Std 5 Min" — Alter einer Meldung für die Datenstand-Zeile. */
+export function alterText(zeit: number, jetzt: number): string {
+  const min = Math.max(0, Math.floor((jetzt - zeit) / 60_000));
+  if (min < 1) return "gerade eben";
+  if (min < 60) return `vor ${min} Min`;
+  const std = Math.floor(min / 60);
+  if (std < 24) return `vor ${std} Std ${min % 60} Min`;
+  const tage = Math.floor(std / 24);
+  return `vor ${tage} ${tage === 1 ? "Tag" : "Tagen"}`;
 }

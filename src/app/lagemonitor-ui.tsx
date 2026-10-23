@@ -22,8 +22,7 @@ import {
   einsatzbeginnLaden,
   einsatzbeginnSetzen,
 } from "./lagemonitor-beginn";
-import { ausEingabeWert, dauerText, dtgTeile, lagebild, zuEingabeWert } from "./lagemonitor";
-import { EinsatzArt } from "@bos/meldekopf/einsaetze";
+import { alterText, ausEingabeWert, dauerText, dtgTeile, lagebild, zuEingabeWert } from "./lagemonitor";
 
 const URL_PARAMETER = "lagemonitor";
 /** Takt für Uhr, Dauer und „vor X Min". */
@@ -120,27 +119,50 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
     document.title = einsatz ? `Lage – ${einsatz.name}` : "Lagemonitor";
   }, [einsatz]);
 
-  const [hell, setHell] = useState(false);
-  const klasse = `lm${hell ? " lm-hell" : ""}`;
+  // Dunkel → Gedimmt → Hell: Die helle Stufe liegt am Ende, ein Tipp blendet nicht mehr sofort voll (R6-L4).
+  const [stufe, setStufe] = useState<"dunkel" | "gedimmt" | "hell">("dunkel");
+  const klasse = `lm${stufe === "hell" ? " lm-hell" : stufe === "gedimmt" ? " lm-gedimmt" : ""}`;
+  const naechsteStufe = stufe === "dunkel" ? "gedimmt" : stufe === "gedimmt" ? "hell" : "dunkel";
 
   if (!einsatz) {
+    // Auch hier läuft die Uhr weiter, damit ein Monitor ohne Daten nicht wie ein eingefrorener aussieht (R6-L6).
+    const leer = dtgTeile(new Date(jetzt));
     return (
       <main className={`${klasse} lm-leer`}>
         <div className="lm-zeile lm-r1">Dieser Einsatz ist auf diesem Gerät nicht (mehr) vorhanden.</div>
-        <button type="button" onClick={schliessen}>Schließen</button>
+        <div className="lm-zeile lm-dtg" aria-label="Datum-Zeit-Gruppe">
+          <div className="lm-dtg-text">
+            <span>{leer.tag}</span> <strong>{leer.zeit}</strong> <span>{leer.monat}</span> <span>{leer.jahr}</span>
+          </div>
+        </div>
+        <button type="button" className="lm-knopf" onClick={schliessen}>Schließen</button>
       </main>
     );
   }
 
-  const bild = lagebild(einsatz);
+  const bild = lagebild(einsatz, jetzt);
   const s = bild.summen;
   const dtg = dtgTeile(new Date(jetzt));
-  const dauer = dauerText(beginn, jetzt);
-  const art = einsatz.art === EinsatzArt.UEBUNG ? "Übung" : einsatz.art === EinsatzArt.VERANSTALTUNG ? "Veranstaltung" : "Einsatz";
+  // Ohne gesetzten Beginn gilt die erste Meldung als Vorschlag, statt einen Fehler auf den Fernseher zu schreiben (R6-K4).
+  const dauer = beginn != null ? dauerText(beginn, jetzt) : bild.ersteMeldung != null ? dauerText(bild.ersteMeldung, jetzt) : null;
+  const dauerZeile =
+    beginn != null
+      ? (dauer ?? "Einsatz beginnt noch")
+      : dauer != null
+        ? `seit erster Meldung: ${dauer}`
+        : "Noch nichts gemeldet";
+  const lage =
+    s.einheiten === 0
+      ? bild.abgerueckt > 0
+        ? `Alle ${bild.abgerueckt} Einheiten abgerückt`
+        : "Noch nichts gemeldet"
+      : `${s.einheiten} ${s.einheiten === 1 ? "Einheit" : "Einheiten"} · ${s.fahrzeuge} ${s.fahrzeuge === 1 ? "Fahrzeug" : "Fahrzeuge"}${bild.abgerueckt > 0 ? ` · ${bild.abgerueckt} abgerückt` : ""}`;
+  const datenstand = bild.letzteMeldung != null ? `letzte Meldung ${alterText(bild.letzteMeldung, jetzt)}` : "";
 
   return (
     <main className={klasse}>
       {/* Erste Zeile: eigener Funkrufname, optional — ohne ihn rückt der Einsatzname nach oben. */}
+      {bild.uebung && <div className="lm-zeile lm-r2 lm-uebung" role="status">ÜBUNG – keine Echtlage</div>}
       {funkruf && <h1 className="lm-zeile lm-r1">{funkruf}</h1>}
       {funkruf ? (
         <div className="lm-zeile lm-r2">{einsatz.name}</div>
@@ -153,16 +175,26 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
         </div>
       </div>
       <div className="lm-zeile lm-r3" aria-label="Stärke Führer, Unterführer, Mannschaft, gesamt">
+        <span className="lm-label">Stärke F / U / M // gesamt</span>
         {s.staerke.fuehrer} / {s.staerke.unterfuehrer} / {s.staerke.mannschaft} // <u>{s.staerke.gesamt}</u>
       </div>
-      <div className="lm-zeile lm-r3">{dauer ?? (beginn != null ? "Einsatz beginnt noch" : "Einsatzbeginn nicht gesetzt")}</div>
+      <div className="lm-zeile lm-r3 lm-stand">
+        {lage}
+        {datenstand && <span className="lm-label">{datenstand}</span>}
+      </div>
+      {bild.bewegungen.slice(0, 3).map((b) => (
+        <div key={b.id} className="lm-zeile lm-r2 lm-bewegung">
+          {b.art}: {b.name} <span className="lm-label">{alterText(b.zeit, jetzt)}</span>
+        </div>
+      ))}
+      <div className="lm-zeile lm-r3">{dauerZeile}</div>
 
-      <details className="lm-zeile lm-klapp">
+      <details className="lm-zeile lm-klapp" open>
         <summary>Einheiten</summary>
         {bild.einheiten.length === 0 ? (
           <p className="lm-leer-hinweis">Noch keine Einheit gemeldet.</p>
         ) : (
-          <table className="lm-einheiten">
+          <div className="lm-tabelle"><table className="lm-einheiten">
             <thead>
               <tr>
                 <th>Orga</th><th>Ort</th><th>Funkrufname</th><th>Einheitentyp</th>
@@ -184,14 +216,14 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </details>
 
       <details className="lm-zeile lm-klapp">
         <summary>Einsatzdaten</summary>
         <dl className="lm-daten">
-          <dt>Art</dt><dd>{art}{bild.ort ? ` · ${bild.ort}` : ""}</dd>
+          <dt>Art</dt><dd>{bild.art}{bild.ort ? ` · ${bild.ort}` : ""}</dd>
           <dt>Funkrufname</dt><dd>{funkruf ?? "nicht gesetzt (in der Einsatzansicht einstellen)"}</dd>
           <dt>Einsatzbeginn</dt>
           <dd>
@@ -207,9 +239,11 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
       <details className="lm-zeile lm-klapp">
         <summary>Optionen</summary>
         <div className="lm-optionen">
-          <button type="button" onClick={() => setHell((h) => !h)}>{hell ? "Dunkel" : "Hell"}</button>
-          <button type="button" onClick={vollbild}>Vollbild</button>
-          <button type="button" onClick={schliessen}>Schließen</button>
+          <button type="button" className="lm-knopf" onClick={() => setStufe(naechsteStufe)}>
+            {naechsteStufe === "dunkel" ? "Dunkel" : naechsteStufe === "gedimmt" ? "Gedimmt" : "Hell"}
+          </button>
+          <button type="button" className="lm-knopf" onClick={vollbild}>Vollbild</button>
+          <button type="button" className="lm-knopf" onClick={schliessen}>Schließen</button>
         </div>
       </details>
     </main>

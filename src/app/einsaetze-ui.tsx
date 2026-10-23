@@ -1907,7 +1907,6 @@ export function EinsatzDetail(props: {
             : "Noch kein Lageblatt aus diesem Einsatz."}
         </p>
       )}
-      <LagemonitorBlock einsatzId={einsatz.id} alleIds={einsaetzeLaden().map((x) => x.id)} />
       {onWeitergeben && (
         <p className="hinweis einsatz-ausgaben-hinweis">
           {/* Ein Knopf für die ganze Sammel-PDF: „Sammel-PDF (alle Bögen)"
@@ -2017,6 +2016,9 @@ export function EinsatzDetail(props: {
         )}
       </div>
       </div>
+
+      {/* Hinter den Export-Knöpfen, nicht mitten in deren Erklärung (Audit Runde 6, R6-K5). */}
+      <LagemonitorBlock einsatzId={einsatz.id} alleIds={einsaetzeLaden().map((x) => x.id)} />
 
       {/* Das Löschen gehört ans Ende des Inhalts, nicht in die feste Leiste am
           Daumen: Es ist die seltenste und folgenschwerste Handlung dieser
