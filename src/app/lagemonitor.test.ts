@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dauerText, dtgTeile, vorText, zuEingabeWert, ausEingabeWert } from "./lagemonitor";
+import { dauerText, dtgTeile, zuEingabeWert, ausEingabeWert } from "./lagemonitor";
 
 describe("dtgTeile", () => {
   it("zerlegt die Datum-Zeit-Gruppe wie im Funk", () => {
@@ -22,17 +22,6 @@ describe("dauerText", () => {
   it("liefert nichts ohne Beginn oder bei einem Beginn in der Zukunft", () => {
     expect(dauerText(null, t0)).toBeNull();
     expect(dauerText(t0 + 1, t0)).toBeNull();
-  });
-});
-
-describe("vorText", () => {
-  it("rechnet in Minuten, Stunden und Tagen", () => {
-    const j = 10_000_000_000;
-    expect(vorText(j - 20_000, j)).toBe("gerade eben");
-    expect(vorText(j - 7 * 60_000, j)).toBe("vor 7 Min");
-    expect(vorText(j - 125 * 60_000, j)).toBe("vor 2 Std 5 Min");
-    expect(vorText(j - 120 * 60_000, j)).toBe("vor 2 Std");
-    expect(vorText(j - 3 * 86_400_000, j)).toBe("vor 3 d");
   });
 });
 

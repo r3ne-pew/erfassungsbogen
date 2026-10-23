@@ -28,11 +28,11 @@ const ORG_FARBEN: Partial<Record<OrganisationsTyp, string>> = {
   [OrganisationsTyp.FEUERWEHR]: "#c8102e", // Feuerrot (RAL 3000)
   [OrganisationsTyp.POLIZEI]: "#2d6a2e", // Polizeigrün, heller als die Bundespolizei
   [OrganisationsTyp.BUNDESPOLIZEI]: "#00694e", // Grün in der BGS-Tradition
-  [OrganisationsTyp.DRK]: "#e30613", // DRK-Rot
-  [OrganisationsTyp.JUH]: "#1a1a1a", // Johanniter-Schwarz
-  [OrganisationsTyp.MHD]: "#7d1128", // Malteser-Bordeaux
-  [OrganisationsTyp.ASB]: "#a34700", // dunkles ASB-Orange
-  [OrganisationsTyp.DLRG]: "#9c6b00", // dunkles DLRG-Gelb
+  [OrganisationsTyp.DRK]: "#e60005", // DRK-Rot (offiziell; gilt auch für Bereitschaften und Wasserwacht)
+  [OrganisationsTyp.JUH]: "#e30613", // Johanniter-Rot (Näherungswert)
+  [OrganisationsTyp.MHD]: "#dd040c", // Malteser-Rot (Drittquelle)
+  [OrganisationsTyp.ASB]: "#e30613", // ASB-Rot (Näherungswert)
+  [OrganisationsTyp.DLRG]: "#e30613", // DLRG-Rot (offiziell)
   [OrganisationsTyp.BUNDESWEHR]: "#4b5320", // Oliv
   [OrganisationsTyp.RETTUNGSDIENST]: "#ffffff", // Weiß (Rettungsdienst-Fahrzeuglackierung)
   [OrganisationsTyp.SONSTIGE]: "#4d4d4d", // neutrales Grau

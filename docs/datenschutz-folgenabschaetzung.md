@@ -15,8 +15,10 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > Wunsch ein zweites Fenster mit der Lage für einen am Gerät angeschlossenen
 > Fernseher (`?lagemonitor=`). Es liest denselben lokalen Speicher, hat kein
 > Netz und keinen neuen Empfänger und zeigt nur Summen und Einheitsnamen, keine
-> Personen. Neu ist ein Speicherort ohne Personendaten: der von Hand gesetzte
-> Einsatzbeginn je Einsatz (`eeb.lagebeginn.v1`). Geändert: 5.7.
+> Personen. Neu sind zwei Speicherorte ohne Personendaten, je Einsatz: der von Hand
+> gesetzte Einsatzbeginn (`eeb.lagebeginn.v1`) und der optionale Funkrufname der
+> eigenen Führungsstelle (`eeb.lagefunkruf.v1`, Freitext, kein Personenbezug
+> vorgesehen). Geändert: 5.7.
 >
 > **Nachgezogen 2026-09-13 — Datenschutzfrist:** Die App anonymisiert
 > Personaldaten 90 Tage nach der letzten Änderung eines Bogens, Übungsbögen und

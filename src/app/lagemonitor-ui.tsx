@@ -13,8 +13,16 @@
 import { useEffect, useState } from "react";
 import "./lagemonitor.css";
 import { einsaetzeLaden } from "./einsaetze-lesen";
-import { BEGINN_SCHLUESSEL, einsatzbeginnLaden, einsatzbeginnSetzen } from "./lagemonitor-beginn";
-import { ausEingabeWert, dauerText, dtgTeile, lagebild, vorText, zuEingabeWert } from "./lagemonitor";
+import {
+  BEGINN_SCHLUESSEL,
+  FUNKRUF_MAX,
+  FUNKRUF_SCHLUESSEL,
+  einsatzFunkrufLaden,
+  einsatzFunkrufSetzen,
+  einsatzbeginnLaden,
+  einsatzbeginnSetzen,
+} from "./lagemonitor-beginn";
+import { ausEingabeWert, dauerText, dtgTeile, lagebild, zuEingabeWert } from "./lagemonitor";
 import { EinsatzArt } from "@bos/meldekopf/einsaetze";
 
 const URL_PARAMETER = "lagemonitor";
@@ -77,7 +85,9 @@ function useSpeicherAenderung(): number {
   const [stand, setStand] = useState(0);
   useEffect(() => {
     const horcher = (e: StorageEvent) => {
-      if (e.key === null || e.key === "eeb.einsaetze.v1" || e.key === BEGINN_SCHLUESSEL) setStand((n) => n + 1);
+      if (e.key === null || e.key === "eeb.einsaetze.v1" || e.key === BEGINN_SCHLUESSEL || e.key === FUNKRUF_SCHLUESSEL) {
+        setStand((n) => n + 1);
+      }
     };
     window.addEventListener("storage", horcher);
     return () => window.removeEventListener("storage", horcher);
@@ -104,6 +114,7 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
   void stand;
   const einsatz = einsaetzeLaden().find((s) => s.id === einsatzId);
   const beginn = einsatzbeginnLaden(einsatzId);
+  const funkruf = einsatzFunkrufLaden(einsatzId);
 
   useEffect(() => {
     document.title = einsatz ? `Lage – ${einsatz.name}` : "Lagemonitor";
@@ -121,7 +132,7 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
     );
   }
 
-  const bild = lagebild(einsatz, jetzt);
+  const bild = lagebild(einsatz);
   const s = bild.summen;
   const dtg = dtgTeile(new Date(jetzt));
   const dauer = dauerText(beginn, jetzt);
@@ -129,8 +140,13 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
 
   return (
     <main className={klasse}>
-      <h1 className="lm-zeile lm-r1">{einsatz.name}</h1>
-      <div className="lm-zeile lm-r2">{bild.ort ? bild.ort : art}</div>
+      {/* Erste Zeile: eigener Funkrufname, optional — ohne ihn rückt der Einsatzname nach oben. */}
+      {funkruf && <h1 className="lm-zeile lm-r1">{funkruf}</h1>}
+      {funkruf ? (
+        <div className="lm-zeile lm-r2">{einsatz.name}</div>
+      ) : (
+        <h1 className="lm-zeile lm-r1">{einsatz.name}</h1>
+      )}
       <div className="lm-zeile lm-dtg" aria-label="Datum-Zeit-Gruppe">
         <div className="lm-dtg-text">
           <span>{dtg.tag}</span> <strong>{dtg.zeit}</strong> <span>{dtg.monat}</span> <span>{dtg.jahr}</span>
@@ -143,47 +159,40 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
 
       <details className="lm-zeile lm-klapp">
         <summary>Einheiten</summary>
-        <div className="lm-spalten">
-          <section aria-label="Züge">
-            <h2>Züge</h2>
-            <table className="lm-tabelle">
-              <thead>
-                <tr><th>Zug / Verband</th><th>Einh.</th><th>Stärke</th><th>Fzg.</th></tr>
-              </thead>
-              <tbody>
-                {bild.zuege.map((z) => (
-                  <tr key={z.zugEtikett ?? ""}>
-                    <td>{z.zugEtikett ?? "Einzeln"}</td>
-                    <td>{z.summen.einheiten}</td>
-                    <td>{z.summen.staerke.fuehrer}/{z.summen.staerke.unterfuehrer}/{z.summen.staerke.mannschaft}//{z.summen.staerke.gesamt}</td>
-                    <td>{z.summen.fahrzeuge}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-          <section aria-label="Letzte Meldungen">
-            <h2>Zuletzt gemeldet</h2>
-            {bild.letzte.length === 0 ? (
-              <p>Noch keine Einheit gemeldet.</p>
-            ) : (
-              <ul className="lm-liste">
-                {bild.letzte.map((m) => (
-                  <li key={`${m.name}-${m.empfangenAm}`} className={m.neu ? "lm-neu" : ""}>
-                    <span>{m.name}{m.zug ? ` · ${m.zug}` : ""}</span>
-                    <span className="lm-vor">{vorText(m.empfangenAm, jetzt)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
+        {bild.einheiten.length === 0 ? (
+          <p className="lm-leer-hinweis">Noch keine Einheit gemeldet.</p>
+        ) : (
+          <table className="lm-einheiten">
+            <thead>
+              <tr>
+                <th>Orga</th><th>Ort</th><th>Funkrufname</th><th>Einheitentyp</th>
+                <th className="lm-zahl" title="Führer">F</th>
+                <th className="lm-zahl" title="Unterführer">U</th>
+                <th className="lm-zahl" title="Mannschaft">M</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bild.einheiten.map((e) => (
+                <tr key={e.id}>
+                  <td>{e.orga}</td>
+                  <td>{e.ort || "–"}</td>
+                  <td>{e.funkruf || "–"}</td>
+                  <td>{e.typ || "–"}</td>
+                  <td className="lm-zahl">{e.fuehrer}</td>
+                  <td className="lm-zahl">{e.unterfuehrer}</td>
+                  <td className="lm-zahl">{e.mannschaft}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </details>
 
       <details className="lm-zeile lm-klapp">
         <summary>Einsatzdaten</summary>
         <dl className="lm-daten">
           <dt>Art</dt><dd>{art}{bild.ort ? ` · ${bild.ort}` : ""}</dd>
+          <dt>Funkrufname</dt><dd>{funkruf ?? "nicht gesetzt (in der Einsatzansicht einstellen)"}</dd>
           <dt>Einsatzbeginn</dt>
           <dd>
             {beginn != null
@@ -214,6 +223,12 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
 export function LagemonitorBlock({ einsatzId, alleIds }: { einsatzId: string; alleIds: readonly string[] }) {
   const [beginn, setBeginn] = useState<number | null>(() => einsatzbeginnLaden(einsatzId));
   const [fehler, setFehler] = useState(false);
+  const [funkruf, setFunkruf] = useState(() => einsatzFunkrufLaden(einsatzId) ?? "");
+
+  function setzeFunkruf(text: string) {
+    setFunkruf(text.slice(0, FUNKRUF_MAX));
+    setFehler(!einsatzFunkrufSetzen(einsatzId, text, alleIds));
+  }
 
   function setze(ms: number | null) {
     const ok = einsatzbeginnSetzen(einsatzId, ms, alleIds);
@@ -225,9 +240,22 @@ export function LagemonitorBlock({ einsatzId, alleIds }: { einsatzId: string; al
     <div className="lm-block">
       <p className="lm-block-titel"><strong>Lagemonitor für den Fernseher</strong></p>
       <p className="hinweis">
-        Zweites Fenster mit der Lage in großer Schrift, ohne Personennamen — auf den Fernseher ziehen (HDMI, erweiterter
-        Bildschirm). Es aktualisiert sich von selbst, solange es auf diesem Gerät läuft.
+        Zweites Fenster mit der Lage in großer Schrift, ohne Personennamen — auf den Fernseher ziehen (HDMI,
+        erweiterter Bildschirm). Es aktualisiert sich von selbst, solange es auf diesem Gerät läuft. In der ersten
+        Zeile steht der Funkrufname (wenn eingetragen), darunter der Name dieses Einsatzes.
       </p>
+      <div className="vorlage-aktionen">
+        <label>
+          Funkrufname (optional){" "}
+          <input
+            type="text"
+            value={funkruf}
+            maxLength={FUNKRUF_MAX}
+            placeholder="z. B. Salus Übungsleitung"
+            onChange={(e) => setzeFunkruf(e.target.value)}
+          />
+        </label>
+      </div>
       <div className="vorlage-aktionen">
         <label>
           Einsatzbeginn{" "}
