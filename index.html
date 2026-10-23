@@ -1057,7 +1057,10 @@
       .seiten-kopf.assistent-kopf .kopf-oberzeile .zur-start { font-size: min(var(--t-m), 20px); line-height: calc(44px + var(--ziel) - 0.4rem); min-height: calc(44px + var(--ziel)); min-width: min(100%, 6em); }
       .seiten-kopf.assistent-kopf .anzeige-schalter button { font-size: min(var(--t-xs), 16px); min-height: calc(44px + var(--ziel)); min-width: calc(44px + var(--ziel)); padding-block: 0.15rem; padding-inline: min(0.7rem, 12px); }
       .seiten-kopf.assistent-kopf .anzeige-schalter .anzeige-klappe { font-size: min(var(--t-s), 18px); }
-      .seiten-kopf.assistent-kopf .schritte button { font-size: min(var(--t-s), 18px); padding-block: 0.15rem; min-height: calc(44px + var(--ziel)); }
+      /* R6-M2: Sechs Reiter müssen in die Breite des Kopfes passen — bei 200 % Schrift
+         schnitt die Leiste „6. Übersicht" ab. Innenabstand in px gedeckelt, Mindestbreite
+         höchstens ein Sechstel der Leiste (gerade noch 42 bis 44 px). */
+      :root .seiten-kopf.assistent-kopf .schritte button { font-size: min(var(--t-s), 15px); flex: 1 1 0; overflow: hidden; padding-block: 0.15rem; padding-inline: min(0.3rem, 3px); gap: min(0.25rem, 3px); min-height: calc(44px + var(--ziel)); min-width: 0; }
       .seiten-kopf.assistent-kopf .modus-marke { font-size: min(var(--t-xs), 15px); }
       .seiten-kopf.assistent-kopf img.einheit-avatar { height: min(1.8rem, 36px); }
     }
