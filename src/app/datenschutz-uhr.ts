@@ -91,7 +91,8 @@ export function geraeteuhrPruefen(
   const abstand = jetzt - bisher.zuletzt;
   if (Math.abs(abstand) <= UHR_SPRUNG_TAGE * MINUTEN_JE_TAG) {
     // Unter 30 Tagen Sprung kann nichts Unangekündigtes fällig werden (90 − 60 Tage).
-    const kannUeberraschen = abstand > 30 * MINUTEN_JE_TAG && bisher.sprung == null && unangekuendigt();
+    // Auch bei schon vermerktem Sprung (R7-D2): Der Halt gilt, bis jemand antwortet.
+    const kannUeberraschen = abstand > 30 * MINUTEN_JE_TAG && unangekuendigt();
     if (!kannUeberraschen) return annehmen();
   }
   const vor = abstand > 0;

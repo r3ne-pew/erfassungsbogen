@@ -108,6 +108,16 @@ describe("geraeteuhrPruefen()", () => {
     }
   });
 
+  it("hält einen kurzen Sprung mit unangekündigten Folgen auch beim zweiten Lesen (R7-D2)", () => {
+    const unangekuendigt = () => true;
+    const erst = geraeteuhrPruefen(Z + 59 * MINUTEN_JE_TAG, { zuletzt: Z }, () => true, unangekuendigt);
+    expect(erst.gehalten).toBe(true);
+    const zweit = geraeteuhrPruefen(Z + 59 * MINUTEN_JE_TAG, erst.stand, () => true, unangekuendigt);
+    expect(zweit.gehalten).toBe(true);
+    expect(zweit.zeitpunkt).toBe(Z);
+    expect(zweit.stand).toEqual(erst.stand);
+  });
+
   it("hält eine weit zurückgestellte Uhr fest, auch wenn nichts fällig wäre, und dreht den Stand nicht zurück", () => {
     const r = geraeteuhrPruefen(Z - 400 * MINUTEN_JE_TAG, { zuletzt: Z }, () => false);
     expect(r.gehalten).toBe(true);
