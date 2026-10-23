@@ -666,15 +666,15 @@
        Zeilenhöhe (--ziel-basis = 2.75rem, DESIGN.md) — sonst käme das Maß oben
        drauf und die Leiste wüchse. */
     .kopfnav-logo {
-      display: inline-flex; align-items: center; min-height: var(--ziel-basis);
-      margin-right: auto; font-weight: 700; font-size: var(--t-s);
+      display: inline-flex; align-items: center; min-height: min(var(--ziel-basis), 44px);
+      margin-right: auto; font-weight: 700; font-size: min(var(--t-s), 18px); /* Deckel (R6-M6): stand weiter oben, wurde hier überschrieben */
       color: var(--akzent); text-decoration: none;
     }
     .kopfnav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--r-3); }
     /* min-width (R3-G4): „THW" war 29 px breit. */
     .kopfnav-links a {
-      display: inline-flex; align-items: center; justify-content: center; min-height: var(--ziel-basis); min-width: var(--ziel-basis);
-      font-size: var(--t-xs); color: var(--text-2); text-decoration: none; white-space: nowrap;
+      display: inline-flex; align-items: center; justify-content: center; min-height: min(var(--ziel-basis), 44px); min-width: min(var(--ziel-basis), 44px);
+      font-size: min(var(--t-xs), 16px); color: var(--text-2); text-decoration: none; white-space: nowrap;
     }
     .kopfnav-links a:hover { color: var(--akzent-hell); text-decoration: underline; }
     .kopfnav-eintrag { position: relative; display: inline-flex; }
@@ -2040,6 +2040,19 @@
     /* Der zuletzt verdrängte Bogen ist der Ausweg, nicht das Angebot: gedämpfter
        Rahmen, kein Farbbalken — er soll neben der aktiven Entwurfskarte nicht um
        den ersten Tipp konkurrieren. */
+    /* R6-M6: Bei großer Schrift lag „Fortsetzen" auf dem zweiten bis sechsten Bildschirm, das Logo
+       nahm 130 px, „Bergungsgruppe" brach im Wort, und die Knopfbeschriftungen liefen über. */
+    /* R6-M5: Die Deckel-Regel gilt auch für die Ansicht-Wahl, das Typ-Feld und die Kurz-Liste. */
+    html.schrift-gross .anzeige-leiste-wahl button, html.schrift-gross .anzeige-schalter button { font-size: min(var(--t-xs), 15px); }
+    html.schrift-gross .anzeige-leiste-wahl .modus-kurz { font-size: min(var(--t-xs), 12px); }
+    html.schrift-gross .schnell-tabelle td input, html.schrift-gross .schnell-tabelle td select { font-size: min(var(--t-s), 16px); }
+    html.schrift-gross .schritt-inhalt input, html.schrift-gross .schritt-inhalt select { font-size: min(var(--t-s), 18px); }
+    html.schrift-gross .entwurf-karte img.einheit-avatar { display: none; }
+    html.schrift-gross .entwurf-karte { padding: var(--r-3); gap: var(--r-2); }
+    html.schrift-gross .entwurf-karte .entwurf-text strong { font-size: min(var(--t-l), 22px); line-height: 1.2; overflow-wrap: break-word; hyphens: auto; }
+    html.schrift-gross .entwurf-karte .entwurf-text .hinweis { font-size: min(var(--t-s), 16px); }
+    html.schrift-gross .entwurf-karte .entwurf-aktionen { flex-direction: column; width: 100%; gap: var(--r-2); }
+    html.schrift-gross .entwurf-karte .entwurf-aktionen button, html.schrift-gross .entwurf-karte > button { width: 100%; font-size: min(var(--t-m), 20px); min-height: calc(44px + var(--ziel)); }
     .entwurf-karte.verdraengt { border-top: var(--strich) solid var(--linie); background: var(--flaeche-2, var(--flaeche)); margin-top: var(--r-3); }
     /* Papierkorb: „Endgültig löschen" steht bewusst abgesetzt unter der Karte,
        mit deutlichem Abstand zum Wiederherstellen in der Kopfzeile. */
