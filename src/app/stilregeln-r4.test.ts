@@ -107,8 +107,9 @@ describe("Daumen-Quittung und Rückfragen bei großer Schrift (R4-M1)", () => {
     expect(b).toMatch(/padding:\s*min\(var\(--r-4\), 16px\) min\(var\(--r-5\), 24px\)/);
   });
 
-  it("die Antwortknöpfe einer Rückfrage kleben am unteren Rand des rollenden Dialogs", () => {
-    expect(bloecke("dialog.abfrage .abfrage-aktionen:not(.abgesetzt)").join("\n")).toMatch(/position:\s*sticky/);
+  it("die Antwortzeile einer Rückfrage steht fest am Fuß, nur der Rumpf rollt (R4-M1, R7-W1)", () => {
+    expect(bloecke("dialog.abfrage .abfrage-rumpf").join("\n")).toMatch(/overflow-y:\s*auto/);
+    expect(bloecke("dialog.abfrage .abfrage-fuss, dialog.abfrage form > .abfrage-aktionen").join("\n")).toMatch(/flex:\s*0 0 auto/);
   });
 
   it("unter 260 px Leistenbreite (Browser-Zoom 200 %) bekommt der Primärknopf eine eigene Zeile", () => {

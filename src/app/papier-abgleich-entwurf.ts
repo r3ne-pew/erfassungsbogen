@@ -82,15 +82,21 @@ export function abgleichEntwurfLaden(einsatzId: string): AbgleichZeile[] {
 }
 
 /**
- * Zwischenstand ablegen — aber nur, wenn gegenüber der Ausgangslage etwas
- * eingetragen ist; sonst wird er entfernt (nichts Leeres im Speicher).
+ * Zwischenstand ablegen — nur die Zeilen mit Eingaben; ist nichts eingetragen,
+ * wird er entfernt (nichts Leeres im Speicher).
  */
 export function abgleichEntwurfSpeichern(einsatzId: string, zeilen: AbgleichZeile[], basis: AbgleichZeile[]): void {
   try {
     const s = speicher();
     if (!s) return;
-    if (geaenderteZeilen(zeilen, basis) === 0) s.removeItem(abgleichSchluessel(einsatzId));
-    else s.setItem(abgleichSchluessel(einsatzId), JSON.stringify(zeilen));
+    // Nur die Zeilen, bei denen etwas steht: Die Zahl der gespeicherten Zeilen ist dann die
+    // Zahl der Einheiten mit Eingaben.
+    const mitEingaben = zeilen.filter((z) => {
+      const b = basis.find((x) => x.eintragId === z.eintragId);
+      return b ? zeileGeaendert(z, b) : false;
+    });
+    if (mitEingaben.length === 0) s.removeItem(abgleichSchluessel(einsatzId));
+    else s.setItem(abgleichSchluessel(einsatzId), JSON.stringify(mitEingaben));
   } catch {
     /* Speicher voll oder gesperrt — der Abgleich arbeitet dann wie bisher ohne Zwischenstand */
   }

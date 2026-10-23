@@ -5020,6 +5020,8 @@
     /* R7-G5: Feld-Modus bei Browser-Zoom 200 % (180 px): Die Knöpfe einer Knopfreihe („+ übergeordnete Ebene") brechen um,
        statt die Seite über die Bildbreite zu weiten (188 statt 180 px). */
     .knopfreihe > button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+    html.schrift-gross ul.vorschlaege li { font-size: min(var(--t-m), 18px); }
+    html.schrift-gross ul.vorschlaege li small { font-size: min(var(--t-s), 16px); }
     /* ===== Ende Runde 7 (Layout) ===== */
   </style>
 </head>

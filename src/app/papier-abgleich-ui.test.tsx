@@ -4,11 +4,13 @@
  * (Audit Runde 4, R4-A6).
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { OrganisationsTyp, PersonalErfassung, SCHEMA_VERSION, type Erfassungsbogen } from "@bos/eeb-format/model";
 import { EinsatzArt, einsaetzeLaden, einsatzAnlegen, speicherhuelleSetzen } from "@bos/meldekopf/einsaetze";
 import { meldungAufnehmen, vomPapierMarkieren } from "./eintrag-zeiten";
 import { PapierAbgleich } from "./papier-abgleich-ui";
+import { Dialogschicht } from "./dialoge";
 
 class MemStorage {
   private m = new Map<string, string>();
@@ -79,5 +81,68 @@ describe("Ein Weg zum Abgleich (R5-N9)", () => {
     expect(screen.getByText(/steht im Bericht darüber/)).toBeTruthy();
     rerender(<PapierAbgleich {...props} knopfImBericht={false} />);
     expect(screen.getByRole("button", { name: "Lage vom Papier abgleichen…" })).toBeTruthy();
+  });
+});
+
+describe("Eingaben gehen nicht still verloren (R7-S1, R7-G1)", () => {
+  function aufbau() {
+    const s = einsatzAnlegen("Hochwasser", EinsatzArt.EINSATZ);
+    const ids = ["Ansbach", "Ulm"].map((n) => meldungAufnehmen(s.id, bogen(n), { quelle: "scan" })!.eintrag.id);
+    vomPapierMarkieren(s.id, ids, 999);
+    const eintraege = einsaetzeLaden().find((x) => x.id === s.id)!.eintraege;
+    return { einsatzId: s.id, eintraege, zuege: [], onGeaendert: () => {} };
+  }
+  beforeEach(() => sessionStorage.clear());
+
+  it("„Später\" schließt nur das Formular; beim Öffnen stehen die Eingaben wieder da", async () => {
+    const nutzer = userEvent.setup();
+    const props = aufbau();
+    render(<PapierAbgleich {...props} />);
+    await nutzer.click(screen.getByRole("button", { name: "Lage vom Papier abgleichen…" }));
+    const nr = screen.getAllByLabelText(/Nr\. laut Blatt/)[0] as HTMLInputElement;
+    await nutzer.type(nr, "77");
+    await nutzer.click(screen.getAllByLabelText("abgerückt")[0]!);
+    await nutzer.click(screen.getByRole("button", { name: "Später" }));
+    // Zu — aber die Karte sagt, dass etwas wartet.
+    expect(screen.queryByRole("heading", { name: /Lage vom Papier abgleichen \(2\)/ })).toBeNull();
+    expect(screen.getByText(/Angefangene Eingaben für 1 Einheit sind noch da/)).toBeTruthy();
+    await nutzer.click(screen.getByRole("button", { name: "Lage vom Papier abgleichen…" }));
+    expect((screen.getAllByLabelText(/Nr\. laut Blatt/)[0] as HTMLInputElement).value).toBe("77");
+    expect((screen.getAllByLabelText("abgerückt")[0] as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("überlebt ein Neuladen (neue Komponente, derselbe Sitzungsspeicher) und die Startseite", async () => {
+    const nutzer = userEvent.setup();
+    const props = aufbau();
+    const erste = render(<PapierAbgleich {...props} />);
+    await nutzer.click(screen.getByRole("button", { name: "Lage vom Papier abgleichen…" }));
+    await nutzer.type(screen.getAllByLabelText(/Nr\. laut Blatt/)[1]!, "5");
+    erste.unmount();
+    render(<PapierAbgleich {...props} />);
+    expect(screen.getByText(/Angefangene Eingaben für 1 Einheit sind noch da/)).toBeTruthy();
+    await nutzer.click(screen.getByRole("button", { name: "Lage vom Papier abgleichen…" }));
+    expect((screen.getAllByLabelText(/Nr\. laut Blatt/)[1] as HTMLInputElement).value).toBe("5");
+  });
+
+  it("„Später\" liegt eine eigene Zeile unter „Abgleich übernehmen\"; Verwerfen fragt vorher zurück", async () => {
+    const nutzer = userEvent.setup();
+    const props = aufbau();
+    render(
+      <>
+        <PapierAbgleich {...props} />
+        <Dialogschicht />
+      </>,
+    );
+    await nutzer.click(screen.getByRole("button", { name: "Lage vom Papier abgleichen…" }));
+    const spaeter = screen.getByRole("button", { name: "Später" });
+    const uebernehmen = screen.getByRole("button", { name: "Abgleich übernehmen" });
+    expect(spaeter.parentElement).not.toBe(uebernehmen.parentElement);
+    await nutzer.type(screen.getAllByLabelText(/Nr\. laut Blatt/)[0]!, "3");
+    await nutzer.click(screen.getByRole("button", { name: /Eingaben verwerfen/ }));
+    const frage = await screen.findByRole("dialog", { name: "Eingaben verwerfen?" });
+    expect(frage.textContent).toContain("1 Einheit");
+    await nutzer.click(within(frage).getByRole("button", { name: "Verwerfen" }));
+    expect(sessionStorage.length).toBe(0);
+    expect(screen.queryByRole("heading", { name: /Lage vom Papier abgleichen \(2\)/ })).toBeNull();
   });
 });
