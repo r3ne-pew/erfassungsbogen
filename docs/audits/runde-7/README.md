@@ -52,3 +52,52 @@ Geräteuhr-Sprünge und Safari.
 9. „Bedarf:" bricht im Wort (R7-M1, G9, K7, N5).
 10. Zwischensummen nach Zug, Übergabe ohne Funkrufname und Einsatzbeginn
     (R7-K4, R7-K5).
+
+## Stand der Behebung (24.10.2026)
+
+Alle 85 Befunde bearbeitet: 79 behoben, 6 teilweise (R7-G4, G8, H9, M8, N1, N9),
+keiner offen. Offen bleibt aus Runde 6 die Grenze R6-O9 (Uhrstand in der
+Zukunft, frische Sammlung; Grenze der Ablage-Hülle, in Arc42 vermerkt).
+Bundle-Budget erneut angehoben (Startbündel 1 157 883 → 1 187 670 Byte). Neue
+Speicherorte sind in ISK, DSFA und Arc42 nachgezogen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| D2 Geräteuhr-Halt nur beim ersten Lesen | behoben | Halt gilt, bis jemand antwortet; Test mit zwei Aufrufen |
+| O7 Uhrstand in der Zukunft, „Invalid Date" | behoben, Rest offen | Unplausibler Uhrstand wird verworfen; Aufräumen unter gehaltener Uhr bleibt R6-O9 |
+| K1, L1 Tabelle unter der Bildkante | behoben | Tabelle füllt den Rest der Bildhöhe, Rest als „+ n weitere Einheiten" |
+| K2 Bewegungen still gekürzt | behoben | höchstens drei Zeilen, „+ n weitere Bewegungen", Folgemeldung mit Betrag |
+| K3 Zukunftszeiten | behoben | Warnung „Meldezeiten liegen in der Zukunft" statt „gerade eben" |
+| K7, N5 Wortbruch „Orga" | behoben | Zellen brechen nur an Leerstellen, Beschriftung „Uhr" |
+| K8 Widersprüche im Hauptbild | behoben | Einmal „Noch nichts gemeldet", „seit Beginn", Datenstand ab 60 Min. in Warnfarbe |
+| L2, G3, M6 Lagemonitor am Telefon | behoben | Schrift ab 14 px, Knöpfe 44 px, Seite rollt |
+| L3 Nacht-Modus | behoben | Start gedimmt bei Nacht, Stufe gemerkt (`eeb.lagestufe.v1`) |
+| W4 Eintreffen als Bewegung | behoben | „Eingetroffen: …" |
+| M2, O1, G6 Zwei-Fenster-Leiste | behoben | 17 bis 24 % der Höhe bei 200 %, beide Knöpfe ohne Aufklappen |
+| O2, W5, N6, S2, H3 Gleiche Stände | behoben | Leiste und Rückfragen nennen Feld und Sekunden (`fenster-unterschied.ts`) |
+| E3 Warnung beim bloßen Öffnen | behoben | Konflikt nur bei Inhaltsunterschied |
+| W1, E4 Rückfragen überdecken Wahl | behoben | Rollender Rumpf, fester Fuß, Fokus auf „Abbrechen" |
+| W2 Geräteuhr nur auf der Startseite | behoben | Hinweis im Assistenten und im Dialog „Bogen übergeben" |
+| G8, H9 Geräteuhr-Warnung bei 200 % | teilweise | Knöpfe direkt nach dem ersten Satz; bei 320 × 568 knapp unter der Kante (Kopfhöhe der Startseite) |
+| O4, D5, S5, N4, S3, W3, N8, O3, D7 Texte und Wortlaut | behoben | Grammatik, einheitlich „Zuletzt geschlossener Bogen", Werte statt Zähler, Sicherung vor der Aufzählung |
+| D1 Gelöschter Bogen kehrt zurück | behoben | `entwurfFremdEntfernt` verhindert das Zurückschreiben |
+| D3 Rückholplatz verdrängt Bogen | behoben | Rückfrage nennt den Verlust vorher |
+| D4, D6, D8 Datum, Schlüssel, gleichnamige Vorlage | behoben | `datumZweistellig`, „Vorher sichern", Rückfrage bei gleichem Namen |
+| S1, G1 Papier-Abgleich verliert Eingaben | behoben | Sitzungsspeicher, „Später" abgesetzt, „Eingaben verwerfen…" fragt |
+| G2 „Für neuen Einsatz vorbereiten" | behoben | Rückfrage mit Folgen (kein „Rückgängig") |
+| E1, E2, N3 Unlesbares | behoben | `eeb.unlesbar.v1`, Zähler, „Daten sichern…", Hülle des Entwurfs erkannt |
+| E5, E6, E7 | behoben | Rückgängig beim Organisationswechsel, Grenzen sichtbar, Marke „kein Name?" |
+| N1 Stapelimport nennt Doppelung | teilweise | Quittung und Marke „ähnelt"; kein Zusammenführen-Tipp |
+| N7 QR-Vollbild | behoben | „n Plätze ohne Namen — Stärke nach Soll" |
+| N9 Übersicht ohne Fußleiste | teilweise | „← Zurück zu Schritt 5" am Ende; Ziffern der Schrittleiste bleiben |
+| A1 „Nur Stärke" legt Sollzahlen ab | behoben | Hinweis und Rückfrage an die Gleichheit der Zahlen gebunden |
+| A2, A3, A4 Quittungen und Papier | behoben | „Abrückzeit nicht bestätigt", „erzeugt — Download-Ordner", Person genannt |
+| K4, K5, K6, K9 Führung | behoben | Zug normalisiert, `lage` im Umschlag, Auftrag auf der Karte mit Filter, Sortierung nach Nr. |
+| M1, G9 „Bedarf:" | behoben | unteilbar, auch bei 200 % |
+| M3, M4, M5, M7 Telefon, Zoom, Kopf | behoben | Fußleiste einzeilig bei 180 px, Tabellenspalte gedeckelt, Kopf 123 px bei 200 % |
+| M8, G4 Ecken-Knopf | teilweise | Quer überdeckt nichts mehr; hochkant liegt der feste Balken über dem Inhalt (Bauart) |
+| H1, S4 Entwurfskarte, „Fortsetzen" | behoben | Umbruchregel bei großer Schrift, quer und am Tablet im Bild |
+| H2 Musterung verlässt die App | behoben | eigene Verlaufsansicht |
+| H4, H5, H7, H8 Vollbild, Sperrradius, Kopf, Knopf quer | behoben | siehe `stilregeln-r7-layout.test.ts` |
+| H6 Karten bis 12 Personen | behoben | Kurz-Liste ab 8 Personen |
+| G5, G7, N2, E8, L4, O5, O6 | behoben | kein Überlauf im Feld-Modus, feste Knopfbreite, Vorschlagsliste im Bild, „offen" mit Rand, Rückweg gelöscht, Themenseiten `StaleWhileRevalidate` (im Funkloch nicht gemessen) |
