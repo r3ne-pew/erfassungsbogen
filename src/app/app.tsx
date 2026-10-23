@@ -538,7 +538,7 @@ type Ansicht = { schritt: number; zeigeStart: boolean; einsatz: string | null; s
  * und kein Fahrzeug gemeinsam haben. Steht im `<p>` der Rückfrage, darum nur
  * Inline-Elemente.
  */
-function MeldungsGegenueberstellung({ vergleich }: { vergleich: MeldungsVergleich }) {
+function MeldungsGegenueberstellung({ vergleich, warAbgerueckt = false }: { vergleich: MeldungsVergleich; warAbgerueckt?: boolean }) {
   return (
     <>
       <br />
@@ -546,6 +546,18 @@ function MeldungsGegenueberstellung({ vergleich }: { vergleich: MeldungsVergleic
         <strong>Bisher:</strong> {steckbriefZeile(vergleich.bisher)}
         <br />
         <strong>Neu:</strong> {steckbriefZeile(vergleich.neu)}
+        {vergleich.geaendert && (
+          <>
+            <br />
+            <strong>Geändert:</strong> {vergleich.geaendert}
+          </>
+        )}
+        {warAbgerueckt && (
+          <>
+            <br />
+            <strong className="rueckkehr-hinweis">⚠ Die Einheit war abgerückt – mit der neuen Fassung zählt sie wieder mit.</strong>
+          </>
+        )}
       </span>
       {vergleich.keineUeberschneidung && (
         <>
@@ -1827,7 +1839,7 @@ function AppInhalt() {
         text: (
           <>
             „{einheitAnzeigename(b.einheit)}" steht in diesem Einsatz schon. Wie soll der neue Bogen dazu stehen?
-            {vergleich && <MeldungsGegenueberstellung vergleich={vergleich} />}
+            {vergleich && <MeldungsGegenueberstellung vergleich={vergleich} warAbgerueckt={bisherKopf?.status === MeldeStatus.ABGERUECKT} />}
           </>
         ),
         wege: vergleich?.keineUeberschneidung

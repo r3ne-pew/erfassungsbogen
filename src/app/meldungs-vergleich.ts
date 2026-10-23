@@ -11,6 +11,7 @@
  */
 
 import { staerke, type Erfassungsbogen } from "@bos/eeb-format/model";
+import { bogenDiff, diffKurzfassung } from "@bos/meldekopf/meldung-diff";
 import { zeitpunktDeutsch } from "./hilfen";
 
 export interface MeldungsSteckbrief {
@@ -32,6 +33,8 @@ export interface MeldungsVergleich {
    * gemeinsam — eher eine andere Gruppe als eine Folgemeldung.
    */
   keineUeberschneidung: boolean;
+  /** Was sich zwischen den Meldungen geändert hat („Personal 1 neu · …"); leer ohne Unterschied (R6-W2). */
+  geaendert: string;
 }
 
 function personName(p: { nachname: string; vorname: string }): string {
@@ -72,7 +75,13 @@ export function meldungenVergleichen(bisher: Erfassungsbogen, neu: Erfassungsbog
     (namenVergleichbar || kzVergleichbar) &&
     !(namenVergleichbar && gemeinsamePerson) &&
     !(kzVergleichbar && gemeinsamesFahrzeug);
-  return { bisher: steckbrief(bisher), neu: steckbrief(neu), keineUeberschneidung };
+  let geaendert = "";
+  try {
+    geaendert = diffKurzfassung(bogenDiff(bisher, neu));
+  } catch {
+    /* der Vergleich ist Zugabe – ohne ihn bleibt die Gegenüberstellung wie sie war */
+  }
+  return { bisher: steckbrief(bisher), neu: steckbrief(neu), keineUeberschneidung, geaendert };
 }
 
 /** Eine Zeile der Gegenüberstellung: „Stärke 0 / 2 / 6 / 8 · Lehmann, Karsten · THW-84397 · Stand …". */

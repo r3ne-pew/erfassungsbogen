@@ -475,7 +475,8 @@ export function abgleichGliederung(r: Pick<AbgleichErgebnis, "aktualisiert" | "w
   }
   if (klein.length > 0) {
     kurz.push(`${klein.length === 1 ? "1 kleine Abweichung" : `${klein.length} kleine Abweichungen`} bei der Eintreffzeit (Minuten, weil beide Geräte sie beim Empfang selbst vergeben).`);
-    einzelheiten.push({ titel: `Eintreffzeit: ${klein.length} Abweichungen`, zeilen: klein.map(wid) });
+    // Der Titel wiederholt nicht die Zahl aus dem Satz darüber (R6-W3: stand doppelt, auch „1 Abweichungen").
+    einzelheiten.push({ titel: "Einzelheiten zur Eintreffzeit", zeilen: klein.map(wid) });
   }
   return { kurz, einzelheiten };
 }

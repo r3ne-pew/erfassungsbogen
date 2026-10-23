@@ -18,6 +18,14 @@ describe("meldungenVergleichen", () => {
     expect(steckbriefZeile(v.bisher)).toMatch(/^Stärke \d+ \/ \d+ \/ \d+ \/ \d+ · Lehmann, Karsten · THW-84397 · Stand /);
   });
 
+  // Audit Runde 6, R6-W2: Die Rückfrage nennt, was sich geändert hat.
+  it("nennt die Änderung zwischen den Fassungen, leer bei gleichem Inhalt", () => {
+    const v = meldungenVergleichen(bogen([["Lehmann", "Karsten"]]), bogen([["Lehmann", "Karsten"], ["Neu", "Nina"]]));
+    expect(v.geaendert).not.toBe("");
+    const gleich = meldungenVergleichen(bogen([["Lehmann", "Karsten"]]), bogen([["Lehmann", "Karsten"]]));
+    expect(gleich.geaendert).toBe("");
+  });
+
   it("echte Folgemeldung (gleiche Person, eine dazu): kein Warnhinweis", () => {
     const v = meldungenVergleichen(bogen([["Lehmann", "Karsten"]]), bogen([["Lehmann", "Karsten"], ["Neu", "Nina"]]));
     expect(v.keineUeberschneidung).toBe(false);
