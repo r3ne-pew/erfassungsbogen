@@ -148,48 +148,69 @@ export function PapierAbgleich(props: {
       await zeigeHinweis({ titel: "Abgleich", text: e instanceof SpeicherVollFehler ? e.message : String(e) });
       return;
     }
-    const ohneNummer = zeilen.filter((z) => z.nummer.trim() === "").length;
-    const ohneZeit = zeilen.filter((z) => z.eingetroffen.trim() === "").length;
+    const namenOhneNummer = zeilen.filter((z) => z.nummer.trim() === "").map((z) => z.name);
+    const namenOhneZeit = zeilen.filter((z) => z.eingetroffen.trim() === "").map((z) => z.name);
+    const ohneNummer = namenOhneNummer.length;
+    const ohneZeit = namenOhneZeit.length;
     setZeilen(null);
     onGeaendert();
     // Ohne „Nr. laut Blatt" vergibt die App die Nummern nach dem Eingang — das
     // sind nach einem Wiederanlauf vom Papier meist andere als auf dem Blatt
     // an der Wand (R4-A1). Das gehört gesagt, bevor jemand „Nr. 3 rückt ab"
     // funkt.
-    if (ohneZeit > 0) {
+    // Ein Fenster statt zwei hintereinander, mit den betroffenen Einheiten (R6-N3).
+    const nenne = (namen: string[]) => `${namen.slice(0, 5).join(", ")}${namen.length > 5 ? ` und ${namen.length - 5} weitere` : ""}`;
+    const zeitText =
+      `Für ${ohneZeit === 1 ? "1 Einheit" : `${ohneZeit} Einheiten`} stand keine Eintreffzeit im Abgleich (${nenne(namenOhneZeit)}). ` +
+      "Es gilt weiter die Zeit des Einlesens; die Karte trägt „vom Papier, Zeiten prüfen“ und das Lageblatt kennzeichnet die Zeit als nicht bestätigt, bis die Zeit vom Blatt eingetragen ist.";
+    const nummerText =
+      `Für ${ohneNummer === 1 ? "1 Einheit" : `${ohneNummer} Einheiten`} stand keine „Nr. laut Blatt“ im Abgleich (${nenne(namenOhneNummer)}). ` +
+      "Ihre Nummern vergibt die App neu, sie können von denen auf dem alten Lageblatt abweichen: " +
+      "neues Lageblatt drucken und das alte abnehmen.";
+    if (ohneZeit > 0 && ohneNummer > 0) {
       await zeigeHinweis({
-        titel: "Eintreffzeit nicht bestätigt",
-        text:
-          `Für ${ohneZeit === 1 ? "1 Einheit" : `${ohneZeit} Einheiten`} stand keine Eintreffzeit im Abgleich. ` +
-          "Es gilt weiter die Zeit des Einlesens; die Karte trägt „vom Papier, Zeiten prüfen“ und das Lageblatt kennzeichnet die Zeit als nicht bestätigt, bis die Zeit vom Blatt eingetragen ist.",
+        titel: "Abgleich übernommen – zwei Hinweise",
+        text: (
+          <>
+            <p>{zeitText}</p>
+            <p>{nummerText}</p>
+          </>
+        ),
       });
-    }
-    if (ohneNummer > 0) {
-      await zeigeHinweis({
-        titel: "Nummern neu vergeben",
-        text:
-          `Für ${ohneNummer === 1 ? "1 Einheit" : `${ohneNummer} Einheiten`} stand keine „Nr. laut Blatt“ im Abgleich. ` +
-          "Ihre Nummern vergibt die App neu, sie können von denen auf dem alten Lageblatt abweichen: " +
-          "neues Lageblatt drucken und das alte abnehmen.",
-      });
+    } else if (ohneZeit > 0) {
+      await zeigeHinweis({ titel: "Eintreffzeit nicht bestätigt", text: zeitText });
+    } else if (ohneNummer > 0) {
+      await zeigeHinweis({ titel: "Nummern neu vergeben", text: nummerText });
     }
   }
 
   if (!zeilen) {
+    // Nach dem Abgleich fehlt allenfalls die Eintreffzeit: Die Karte sagt nur noch das (R6-N3).
+    const nurZeitOffen = offen.length > 0 && offen.every((e) => e.papierAbgeglichen);
     return (
       <section className="karte papier-abgleich" aria-label="Lage vom Papier abgleichen" ref={karte}>
-        <p>
-          <strong>
-            Vom Papier eingelesen, Lage noch nicht abgeglichen: {offen.length === 1 ? "1 Einheit" : `${offen.length} Einheiten`}.
-          </strong>{" "}
-          Die Eintreffzeit ist die Zeit des Einlesens und gilt als nicht bestätigt, alle stehen als anwesend, ohne Zug, Auftrag und Nummer. Die Angaben vom
-          Blatt (Seite 1 bzw. Kasten „Stand am Meldekopf“) hier in einem Schritt eintragen.
-        </p>
+        {nurZeitOffen ? (
+          <p>
+            <strong>
+              Abgeglichen bis auf die Eintreffzeit: {offen.length === 1 ? "1 Einheit" : `${offen.length} Einheiten`}.
+            </strong>{" "}
+            Nr., Zug, Status und Notiz stehen; die Eintreffzeit ist noch die Zeit des Einlesens und gilt als nicht bestätigt. Sie lässt sich hier
+            nachtragen.
+          </p>
+        ) : (
+          <p>
+            <strong>
+              Vom Papier eingelesen, Lage noch nicht abgeglichen: {offen.length === 1 ? "1 Einheit" : `${offen.length} Einheiten`}.
+            </strong>{" "}
+            Die Eintreffzeit ist die Zeit des Einlesens und gilt als nicht bestätigt, alle stehen als anwesend, ohne Zug, Auftrag und Nummer. Die Angaben vom
+            Blatt (Seite 1 bzw. Kasten „Stand am Meldekopf“) hier in einem Schritt eintragen.
+          </p>
+        )}
         {props.knopfImBericht ? (
           <p className="hinweis">Der Knopf „Lage vom Papier abgleichen…“ steht im Bericht darüber.</p>
         ) : (
           <button type="button" className="primaer" onClick={oeffnen}>
-            Lage vom Papier abgleichen…
+            {nurZeitOffen ? "Eintreffzeiten nachtragen…" : "Lage vom Papier abgleichen…"}
           </button>
         )}
       </section>

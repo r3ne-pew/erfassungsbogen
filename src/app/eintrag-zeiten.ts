@@ -66,6 +66,12 @@ declare module "@bos/meldekopf/einsaetze" {
      */
     vomPapier?: number;
     /**
+     * Der Papier-Abgleich hat Nr., Zug, Status und Notiz übernommen; offen ist allenfalls die
+     * Eintreffzeit (Audit Runde 6, R6-N3). Die Karte „Lage noch nicht abgeglichen" nennt dann
+     * nur noch das Fehlende.
+     */
+    papierAbgeglichen?: boolean;
+    /**
      * Laufende Nummer, wie sie auf dem gedruckten Lageblatt stand — nur gesetzt,
      * wenn der Papier-Abgleich sie übernommen hat (Audit Runde 4, R4-A1). Ohne
      * sie zählt die App nach dem Eingang (`meldungsNummern`); nach einem
@@ -780,6 +786,7 @@ export function papierAbgleichUebernehmen(einsatzId: string, zeilen: PapierAbgle
     }
     // Die Marke fällt nur, wenn die Zeit vom Blatt eingetragen wurde (R5-A1).
     if (z.eingetroffenAm != null) delete e.vomPapier;
+    else e.papierAbgeglichen = true;
   }
   if (n > 0) {
     s.geaendert = Date.now();

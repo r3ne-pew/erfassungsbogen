@@ -2130,14 +2130,19 @@ describe("Papier-Abgleich ohne Eintreffzeit (Audit Runde 5, R5-A1)", () => {
     for (const z of screen.getAllByLabelText(/Eingetroffen am/)) expect((z as HTMLInputElement).value).toBe("");
     await user.type(screen.getAllByLabelText("Zug (leer = ohne)")[0]!, "1. TZ");
     await user.click(screen.getByRole("button", { name: "Abgleich übernehmen" }));
-    const hinweis = await screen.findByRole("dialog", { name: "Eintreffzeit nicht bestätigt" });
-    expect(within(hinweis).getByText(/Für 2 Einheiten stand keine Eintreffzeit/)).toBeTruthy();
+    // R6-N3: ein Fenster für beide Hinweise, mit den Namen der Einheiten.
+    const hinweis = await screen.findByRole("dialog", { name: "Abgleich übernommen – zwei Hinweise" });
+    expect(within(hinweis).getByText(/Für 2 Einheiten stand keine Eintreffzeit.*Ansbach/)).toBeTruthy();
+    expect(within(hinweis).getByText(/Für 2 Einheiten stand keine „Nr\. laut Blatt“/)).toBeTruthy();
     await user.click(within(hinweis).getByRole("button", { name: "Alles klar" }));
     const e = einsaetzeLaden().find((s) => s.id === angelegt.id)!.eintraege;
     expect(e.find((x) => x.id === ids[0])!.zugEtikett).toBe("1. TZ");
     expect(e.every((x) => x.vomPapier != null)).toBe(true);
     a.neuLaden();
     expect(screen.getAllByText("vom Papier, Zeiten prüfen")).toHaveLength(2);
+    // R6-N3: Die Karte nennt nur noch das Fehlende.
+    expect(screen.getByText(/Abgeglichen bis auf die Eintreffzeit: 2 Einheiten/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Eintreffzeiten nachtragen…" })).toBeTruthy();
   });
 });
 
