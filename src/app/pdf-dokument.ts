@@ -242,6 +242,23 @@ export function nichtDarstellbareNamen(b: Erfassungsbogen): number {
   return namen.filter((n) => n && !n.includes("?") && winAnsiText(n).includes("?")).length;
 }
 
+/**
+ * Wer betroffen ist: „Владимир Lehmann (Ansprechperson)" — für die Quittung (R7-A4). Die erste
+ * Person steht im Feld „Ansprechpartner/in", also dort, wo der Meldekopf zurückruft.
+ */
+export function nichtDarstellbareBetroffene(b: Erfassungsbogen): string[] {
+  const betrifft = (...teile: string[]) => teile.some((n) => n && !n.includes("?") && winAnsiText(n).includes("?"));
+  const wer: string[] = [];
+  b.personal.forEach((p, i) => {
+    if (betrifft(p.vorname, p.nachname)) {
+      wer.push(`${[p.vorname, p.nachname].filter(Boolean).join(" ")}${i === 0 ? " (Ansprechperson)" : ""}`);
+    }
+  });
+  if (betrifft(b.einheit.organisationName ?? "")) wer.push(`Organisationsname „${b.einheit.organisationName}"`);
+  for (const h of b.einheit.hierarchie) if (betrifft(h.name)) wer.push(`Zugehörigkeit „${h.name}"`);
+  return wer;
+}
+
 /** Läuft durch ein Dokument und wendet {@link winAnsiText} auf alle gedruckten Texte an (Schlüssel „text"). */
 function winAnsiKnoten<T>(k: T): T {
   if (Array.isArray(k)) {
@@ -687,6 +704,10 @@ function uebersichtsTabelle(
           { text: blattZeit(e.eingetroffenAm) },
           ...(e.zeitUnbestaetigt ? [{ text: "Zeit nicht bestätigt (vom Papier)", italics: true, fontSize: 7 }] : []),
           ...(e.abgerueckAm != null ? [{ text: `ab ${blattZeit(e.abgerueckAm)}`, bold: true }] : []),
+          // Ohne Abrückzeit steht auf dem Wandblatt eine leere Stelle: Sie soll nicht wie „nie bekannt" wirken (R7-A2).
+          ...(e.abgerueckt && e.abgerueckAm == null
+            ? [{ text: e.zeitUnbestaetigt ? "Abrückzeit nicht bestätigt (vom Papier)" : "Abrückzeit nicht festgehalten", italics: true, fontSize: 7 }]
+            : []),
         ],
       },
       { text: zeitpunktDeutsch(b.stand) },
@@ -1145,7 +1166,11 @@ export function meldekopfVermerk(e: UebersichtEintrag, name: string, erstellt: n
     `Eingetroffen ${e.eingetroffenAm == null ? "(nicht festgehalten)" : `${zeitLang(e.eingetroffenAm)}${e.zeitUnbestaetigt ? " (nicht bestätigt, vom Papier)" : ""}`}`,
   ];
   if (e.abgerueckt) {
-    teile.push(e.abgerueckAm == null ? "ABGERÜCKT (nicht mehr vor Ort)" : `ABGERÜCKT ${zeitLang(e.abgerueckAm)}`);
+    teile.push(
+      e.abgerueckAm == null
+        ? `ABGERÜCKT (nicht mehr vor Ort) — Abrückzeit ${e.zeitUnbestaetigt ? "nicht bestätigt (vom Papier)" : "nicht festgehalten"}`
+        : `ABGERÜCKT ${zeitLang(e.abgerueckAm)}`,
+    );
   } else {
     teile.push(e.zaehlt === false ? "anwesend, zählt nicht in diese Lage" : "anwesend");
   }

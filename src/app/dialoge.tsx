@@ -60,6 +60,8 @@ type Wahlabfrage = {
   wege: Antwortweg[];
   /** Beschriftung des Abbruchknopfes. */
   abbruch: string;
+  /** `abbruch`: Der Fokus liegt beim Öffnen auf „Abbrechen", auch ohne zerstörende Wahl (R7-E4). */
+  fokus?: "abbruch";
 };
 
 type Hinweisabfrage = {
@@ -155,8 +157,9 @@ export function frageWahl(a: {
   text: ReactNode;
   wege: Antwortweg[];
   abbruch?: string;
+  fokus?: "abbruch";
 }): Promise<string | null> {
-  return stellen({ art: "wahl", titel: a.titel, text: a.text, wege: a.wege, abbruch: a.abbruch ?? "Abbrechen" });
+  return stellen({ art: "wahl", titel: a.titel, text: a.text, wege: a.wege, abbruch: a.abbruch ?? "Abbrechen", fokus: a.fokus });
 }
 
 /** Ja/Nein-Rückfrage — der Ersatz für `window.confirm`. */
@@ -168,11 +171,14 @@ export async function frageJaNein(a: {
   abbruch?: string;
   /** Zerstörende Aktion: Knopf in der Alarmfarbe. */
   gefahr?: boolean;
+  /** `abbruch`: Der Fokus liegt auf „Abbrechen", der Wahl, die nichts verändert (R7-E4). */
+  fokus?: "abbruch";
 }): Promise<boolean> {
   const wahl = await frageWahl({
     titel: a.titel,
     text: a.text,
     abbruch: a.abbruch,
+    fokus: a.fokus,
     wege: [{ wert: "ja", label: a.ok ?? "Fortfahren", gefahr: a.gefahr }],
   });
   return wahl === "ja";
@@ -248,6 +254,7 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const erstes = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const abbruchKnopf = useRef<HTMLButtonElement>(null);
+  const rumpf = useRef<HTMLDivElement>(null);
   const geoeffnetUm = useRef(Date.now());
   const eigeneEbene = useRef(false);
 
@@ -281,13 +288,20 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
     // weitertippen ersetzt sie, ohne sie erst löschen zu müssen. Vor dem
     // `showModal()` geht das nicht — ein geschlossener Dialog ist unsichtbar
     // und nichts darin fokussierbar.
-    erstes.current?.focus();
+    // preventScroll: Der Fokus auf einen Knopf am Ende riss den Dialog bis ganz
+    // unten; die Überschrift und die Frage lagen dann über der Kante (R7-E4).
+    erstes.current?.focus({ preventScroll: true });
     erstes.current?.select();
     // Steht eine zerstörende Antwort im Dialog, liegt der Fokus auf dem Weg,
     // der nichts verändert: Vorher hatte der rote Knopf ihn, und ein Enter
     // oder ein Tipp auf den hervorgehobenen Knopf ersetzte (Audit Runde 4,
     // R4-E2).
-    if (abfrage.art === "wahl" && abfrage.wege.some((w) => w.gefahr)) abbruchKnopf.current?.focus();
+    if (abfrage.art === "wahl" && (abfrage.fokus === "abbruch" || abfrage.wege.some((w) => w.gefahr))) {
+      abbruchKnopf.current?.focus({ preventScroll: true });
+    }
+    // Die Frage steht beim Öffnen zuerst im Bild, auch bei großer Schrift.
+    rumpf.current?.scrollTo?.(0, 0);
+    if (dialog.current) dialog.current.scrollTop = 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- nur beim Öffnen; jede Abfrage hat ein eigenes Fenster
   }, []);
 
@@ -344,9 +358,25 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
     </button>
   );
 
+  // Ein oder zwei Wege ohne Erklärtext stehen mit „Abbrechen" am festen Fuß; Wege mit
+  // Erklärtext rollen im Rumpf, damit die Erklärung beim Knopf bleibt (R7-W1).
+  const wegeImFuss = abfrage.art === "wahl" && abfrage.wege.length <= 2 && abfrage.wege.every((w) => !w.hinweis);
+  const wegKnopf = (w: Antwortweg, i: number) => (
+    <div className="abfrage-weg" key={w.wert}>
+      <button type="submit" value={w.wert} className={w.gefahr ? "gefahr" : i === 0 ? "primaer" : ""}>
+        {w.label}
+      </button>
+      {w.hinweis && <p className="hinweis">{w.hinweis}</p>}
+    </div>
+  );
+
   return (
     <dialog ref={dialog} className="abfrage" aria-label={abfrage.titel} onClose={beiSchluss}>
       <form onSubmit={absenden} onClickCapture={prellschutz}>
+        {/* Zwei Bereiche: Frage und Wege rollen im Rumpf, die Antwortzeile am
+            Fuß steht fest. Der Fuß klebte vorher per `sticky` im selben
+            Rollbereich und deckte bei großer Schrift die Wahl darüber (R7-W1). */}
+        <div className="abfrage-rumpf" ref={rumpf}>
         <h2>{abfrage.titel}</h2>
 
         {abfrage.art === "eingabe" && (
@@ -390,38 +420,13 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
                 )}
               </label>
             ))}
-            <div className="abfrage-aktionen">
-              <button type="submit" value="ok" className="primaer" disabled={unvollstaendig}>
-                {abfrage.ok}
-              </button>
-              {abbrechen}
-            </div>
           </>
         )}
 
         {abfrage.art === "wahl" && (
           <>
             <p>{abfrage.text}</p>
-            {abfrage.wege.map((w, i) => (
-              <div className="abfrage-weg" key={w.wert}>
-                <button
-                  type="submit"
-                  value={w.wert}
-                  className={w.gefahr ? "gefahr" : i === 0 ? "primaer" : ""}
-                >
-                  {w.label}
-                </button>
-                {w.hinweis && <p className="hinweis">{w.hinweis}</p>}
-              </div>
-            ))}
-            {/* Steht eine zerstörende Antwort im Dialog, rückt „Abbrechen"
-                sichtbar ab: Beide Knöpfe lagen keine zwei Fingerbreit
-                auseinander, und der obere ist der, der nichts zurücknimmt. */}
-            <div className={`abfrage-aktionen${abfrage.wege.some((w) => w.gefahr) ? " abgesetzt" : ""}`}>
-              <button type="button" ref={abbruchKnopf} onClick={() => dialog.current?.close("")}>
-                {abfrage.abbruch}
-              </button>
-            </div>
+            {!wegeImFuss && abfrage.wege.map((w, i) => wegKnopf(w, i))}
           </>
         )}
 
@@ -437,12 +442,39 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
                 ref={merkeErstes}
               />
             )}
-            <div className="abfrage-aktionen">
-              <button type="submit" value="ok" className="primaer">
-                {abfrage.ok}
+          </>
+        )}
+        </div>
+
+        {abfrage.art === "eingabe" && (
+          <div className="abfrage-aktionen">
+            <button type="submit" value="ok" className="primaer" disabled={unvollstaendig}>
+              {abfrage.ok}
+            </button>
+            {abbrechen}
+          </div>
+        )}
+
+        {abfrage.art === "wahl" && (
+          <div className="abfrage-fuss">
+            {wegeImFuss && abfrage.wege.map((w, i) => wegKnopf(w, i))}
+            {/* Steht eine zerstörende Antwort im Dialog, rückt „Abbrechen"
+                sichtbar ab: Beide Knöpfe lagen keine zwei Fingerbreit
+                auseinander, und der obere ist der, der nichts zurücknimmt. */}
+            <div className={`abfrage-aktionen${abfrage.wege.some((w) => w.gefahr) ? " abgesetzt" : ""}`}>
+              <button type="button" ref={abbruchKnopf} onClick={() => dialog.current?.close("")}>
+                {abfrage.abbruch}
               </button>
             </div>
-          </>
+          </div>
+        )}
+
+        {abfrage.art === "hinweis" && (
+          <div className="abfrage-aktionen">
+            <button type="submit" value="ok" className="primaer">
+              {abfrage.ok}
+            </button>
+          </div>
         )}
       </form>
     </dialog>

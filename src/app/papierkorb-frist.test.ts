@@ -9,13 +9,13 @@ describe("papierkorbRest()", () => {
   it("nennt bei frischem Eintrag das Datum und die Tage, ohne Hervorhebung", () => {
     const r = papierkorbRest(JETZT - 2 * TAG, JETZT);
     expect(r.bald).toBe(false);
-    expect(r.text).toBe("Wird am 3.11.2026 endgültig entfernt (in 28 Tagen).");
+    expect(r.text).toBe("Wird am 03.11.2026 endgültig entfernt (in 28 Tagen).");
   });
 
   it("hebt ab drei Tagen vor dem Ende hervor und rät zum Wiederherstellen", () => {
     const r = papierkorbRest(JETZT - 27 * TAG, JETZT);
     expect(r.bald).toBe(true);
-    expect(r.text).toMatch(/^Wird am 9\.10\.2026 endgültig entfernt \(in 3 Tagen\) — jetzt wiederherstellen/);
+    expect(r.text).toMatch(/^Wird am 09\.10\.2026 endgültig entfernt \(in 3 Tagen\) — jetzt wiederherstellen/);
   });
 
   it("sagt bei 29,7 Tagen „morgen“ und danach „beim nächsten Start“", () => {

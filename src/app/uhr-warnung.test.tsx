@@ -8,7 +8,9 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { EEB_EPOCHE_MS, MINUTEN_JE_TAG, jetztZeitpunkt } from "@bos/eeb-format/model";
 import { uhrPruefungZuruecksetzen } from "./datenschutz-uhr";
 import { Dialogschicht, dialogeZuruecksetzen } from "./dialoge";
-import { UhrWarnung } from "./uhr-warnung";
+import { UhrHinweis, UhrWarnung } from "./uhr-warnung";
+import { neuerBogen } from "./hilfen";
+import { entwurfZuJson } from "./entwurf";
 import { msAusZeitpunkt } from "./uhr-folgen";
 
 beforeEach(() => {
@@ -69,7 +71,7 @@ describe("UhrWarnung", () => {
     localStorage.setItem("eeb.uhr.v1", JSON.stringify({ zuletzt }));
     render(<UhrWarnung />);
     const w = screen.getByRole("alert");
-    expect(w.textContent).toContain("400 Tage danach");
+    expect(w.textContent).toContain("Die Uhr ist 400 Tage zurückgegangen");
     expect(w.textContent).not.toContain("endgültig gelöscht");
   });
 
@@ -102,5 +104,54 @@ describe("UhrWarnung", () => {
     expect(screen.getByRole("alert").textContent).toContain("Geräteeinstellungen");
     expect(screen.getByRole("button", { name: "Neu prüfen" })).toBeTruthy();
     expect(JSON.parse(localStorage.getItem("eeb.uhr.v1")!)).toEqual({ zuletzt });
+  });
+
+  // Audit Runde 7, R7-D5, R7-O4: Grammatik und der betroffene Bogen.
+  it("sagt bei nur einem betroffenen Bogen „werden die Namen“ und nennt den Bogen (R7-D5, R7-O4)", () => {
+    const zuletzt = jetztZeitpunkt() - 365 * MINUTEN_JE_TAG;
+    localStorage.setItem("eeb.uhr.v1", JSON.stringify({ zuletzt }));
+    const b = neuerBogen();
+    b.stand = jetztZeitpunkt() - 400 * MINUTEN_JE_TAG;
+    localStorage.setItem("eeb.entwurf.v1", entwurfZuJson(b, Date.now() - 400 * 86_400_000));
+    render(<UhrWarnung />);
+    const w = screen.getByRole("alert").textContent!;
+    expect(w).toContain("werden die Namen im eigenen Bogen endgültig gelöscht");
+    expect(w).not.toContain("wird die Namen");
+    expect(w).toContain("Eigener Bogen: Bogen „");
+    expect(w).toContain("zuletzt bearbeitet");
+  });
+
+  // Audit Runde 7, R7-H9, R7-G8: Die Antwort steht vor den Folgen.
+  it("zeigt die zwei Knöpfe direkt nach dem ersten Satz, vor den Folgen (R7-H9)", () => {
+    const zuletzt = jetztZeitpunkt() - 365 * MINUTEN_JE_TAG;
+    localStorage.setItem("eeb.uhr.v1", JSON.stringify({ zuletzt }));
+    localStorage.setItem("eeb.einsaetze.v1", JSON.stringify([{ id: "a", name: "Alt", geaendert: Date.now() - 200 * 86_400_000, eintraege: [] }]));
+    render(<UhrWarnung />);
+    const knopf = screen.getByRole("button", { name: "Geräteuhr stimmt" });
+    const folgen = screen.getByText(/Wenn das Datum stimmt/);
+    expect(knopf.compareDocumentPosition(folgen) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("nennt die Richtung des Sprungs in Worten (R7-S5)", () => {
+    const zuletzt = jetztZeitpunkt() - 365 * MINUTEN_JE_TAG;
+    localStorage.setItem("eeb.uhr.v1", JSON.stringify({ zuletzt }));
+    localStorage.setItem("eeb.einsaetze.v1", JSON.stringify([{ id: "a", name: "Alt", geaendert: Date.now() - 200 * 86_400_000, eintraege: [] }]));
+    render(<UhrWarnung />);
+    expect(screen.getByRole("alert").textContent).toContain("Die Uhr ist 365 Tage vorgesprungen.");
+  });
+});
+
+// Audit Runde 7, R7-W2: Solange die Uhrfrage offen ist, trägt auch der Bogen einen Hinweis.
+describe("UhrHinweis", () => {
+  it("steht nur, solange die Geräteuhr nicht bestätigt ist, und nennt das Datum des Geräts", () => {
+    const { container, unmount } = render(<UhrHinweis />);
+    expect(container.textContent).toBe("");
+    unmount();
+    const zuletzt = jetztZeitpunkt() + 400 * MINUTEN_JE_TAG;
+    localStorage.setItem("eeb.uhr.v1", JSON.stringify({ zuletzt }));
+    render(<UhrHinweis />);
+    const h = screen.getByRole("status").textContent!;
+    expect(h).toContain("Geräteuhr nicht bestätigt");
+    expect(h).toContain("Datum und Stand dieses Bogens stimmen vielleicht nicht");
   });
 });

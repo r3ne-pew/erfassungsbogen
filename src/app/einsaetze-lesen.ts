@@ -36,6 +36,7 @@ import {
 } from "@bos/meldekopf/einsaetze";
 import { bogenBefund } from "./bogen-pruefung";
 import { bekannterText, huellenZugriffe, nurLesend, rohText } from "./speicher-schonend";
+import { unlesbareSammlungsteile, unlesbaresBeiseitelegen } from "./unlesbar";
 
 /** Speicherschlüssel der Sammlungen im Kern (einsaetze.ts, nicht exportiert). */
 const SAMMLUNGEN_SCHLUESSEL = "eeb.einsaetze.v1";
@@ -65,25 +66,58 @@ function einfrieren<T>(wert: T): T {
  * Im Speicher selbst ändert das nichts; was der Kern zurückschreibt, liest er
  * selbst.
  */
-function geprueft(liste: Einsatzsammlung[]): Einsatzsammlung[] {
+function geprueft(liste: Einsatzsammlung[], art: "aktiv" | "papierkorb"): Einsatzsammlung[] {
+  // Neu zählen: was die App nicht anzeigen kann, bleibt nicht unbemerkt (R7-N3).
+  for (const k of [...ausgelassen.keys()]) if (k.startsWith(`${art}:`)) ausgelassen.delete(k);
   for (const sammlung of liste) {
     if (!Array.isArray(sammlung.eintraege)) {
       sammlung.eintraege = [];
       continue;
     }
+    const vorher = sammlung.eintraege.length;
     sammlung.eintraege = sammlung.eintraege.filter((e) => e && bogenBefund(e.bogen).ok);
+    if (sammlung.eintraege.length < vorher) ausgelassen.set(`${art}:${sammlung.id}`, vorher - sammlung.eintraege.length);
   }
   return liste;
+}
+
+/** Je „art:Sammlungs-ID": Meldungen, die der Kern behält, die die App aber nicht anzeigen kann. */
+const ausgelassen = new Map<string, number>();
+
+/** Wie viele Meldungen dieser Sammlung lassen sich nicht anzeigen (Pflichtangabe fehlt)? */
+export function ausgelasseneMeldungen(sammlungId: string): number {
+  return (ausgelassen.get(`aktiv:${sammlungId}`) ?? 0) + (ausgelassen.get(`papierkorb:${sammlungId}`) ?? 0);
+}
+
+/** Summe über alle Sammlungen (aktiv und Papierkorb). */
+export function ausgelasseneMeldungenGesamt(): number {
+  let n = 0;
+  for (const v of ausgelassen.values()) n += v;
+  return n;
+}
+
+let beiseiteGeprueft: string | null | undefined;
+
+/**
+ * Was der Kern beim Lesen überspringt, liegt danach nur noch hier: vor dem
+ * ersten Lesen eines geänderten Textes beiseitelegen (R7-E2).
+ */
+function unlesbaresRetten(roh: string | null | undefined): void {
+  if (roh === undefined || roh === beiseiteGeprueft) return;
+  beiseiteGeprueft = roh;
+  const teile = unlesbareSammlungsteile(roh);
+  if (teile.sammlungen.length > 0 || teile.meldungen.length > 0) unlesbaresBeiseitelegen(teile);
 }
 
 function gelesen(art: "aktiv" | "papierkorb", kern: () => Einsatzsammlung[]): Einsatzsammlung[] {
   const minute = Math.floor(Date.now() / 60_000);
   const roh = rohText(SAMMLUNGEN_SCHLUESSEL);
+  unlesbaresRetten(roh);
   const alt = gemerkt.get(art);
   if (roh !== undefined && alt && alt.minute === minute && alt.text === roh) return [...alt.liste];
 
   const vorher = huellenZugriffe();
-  const liste = geprueft(nurLesend(kern));
+  const liste = geprueft(nurLesend(kern), art);
   // Nur merken, wenn der Kern wirklich über die schonende Hülle gelesen hat
   // (Tests hängen mitunter eine eigene Ablage ein) und bekannt ist, was nun
   // im Speicher steht (nach einem gescheiterten Zurückschreiben nicht).
@@ -109,4 +143,6 @@ export function einsaetzePapierkorb(): Einsatzsammlung[] {
 /** Nur für Tests: gemerkte Ergebnisse vergessen. */
 export function einsaetzeLesenZuruecksetzen(): void {
   gemerkt.clear();
+  ausgelassen.clear();
+  beiseiteGeprueft = undefined;
 }

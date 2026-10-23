@@ -31,6 +31,7 @@ import {
 } from "@bos/meldekopf/einsaetze";
 import { entfernteMerken } from "./entfernte-meldungen";
 import { geltendeJeEinheit } from "./fassung-vorrang";
+import { zugNormalisiert } from "./zug-name";
 import { EEB_EPOCHE_MS, type EebZeitpunkt } from "@bos/eeb-format/model";
 
 declare module "@bos/meldekopf/einsaetze" {
@@ -391,7 +392,8 @@ export function zugSetzen(einsatzId: string, einheitSchl: string, kopfId: string
   const liste = alleSammlungen();
   const s = liste.find((x) => x.id === einsatzId);
   if (!s) return;
-  const wert = etikett.trim() || undefined;
+  // Schreibweise der schon vergebenen Züge übernehmen (R7-K4).
+  const wert = zugNormalisiert(etikett, s.eintraege.map((e) => e.zugEtikett)) || undefined;
   const kopf = s.eintraege.find((e) => e.id === kopfId);
   const vorher = kopf?.zugEtikett;
   let geaendert = false;
@@ -766,7 +768,7 @@ export function papierAbgleichUebernehmen(einsatzId: string, zeilen: PapierAbgle
       e.status = MeldeStatus.ANWESEND;
       delete e.abgerueckAm;
     }
-    const zug = z.zug.trim() || undefined;
+    const zug = zugNormalisiert(z.zug, s.eintraege.map((x) => x.zugEtikett)) || undefined;
     if (zug !== e.zugEtikett) {
       const war = e.zugEtikett;
       for (const x of s.eintraege) if (x.einheitSchluessel === e.einheitSchluessel) x.zugEtikett = zug;

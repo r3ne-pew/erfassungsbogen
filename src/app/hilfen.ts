@@ -1133,15 +1133,19 @@ export function bogenHatInhalt(b: Erfassungsbogen): boolean {
  * Steht die Stärke nur aus unbenannten Sollplätzen? Dann hat niemand die
  * Einheit gezählt — die Zahl ist die Soll-, nicht die gemeldete Stärke. Am
  * Meldekopf wirkte so eine Erfassung in der Summe wie eine Meldung von neun
- * Helfern (Audit Runde 2, R2-E2). Die Schnellerfassung (nur Stärke) ist
- * ausgenommen: dort ist die Zahl die Angabe.
+ * Helfern (Audit Runde 2, R2-E2). Die Schnellerfassung (nur Stärke) zählt
+ * nur dann, wenn die Zahlen noch genau der Vorbelegung gleichen (R7-A1) —
+ * sonst ist die Zahl die Angabe.
  */
 export function nurSollstaerke(b: Erfassungsbogen): boolean {
-  return (
-    b.personalErfassung !== PersonalErfassung.NUR_STAERKE &&
-    b.personal.length > 0 &&
-    b.personal.every(personUnbenannt)
-  );
+  if (b.personal.length === 0 || !b.personal.every(personUnbenannt)) return false;
+  if (b.personalErfassung !== PersonalErfassung.NUR_STAERKE) return true;
+  // Schnellerfassung: Die Zahl ist die Angabe — aber nur, wenn sie angefasst wurde.
+  // Gleicht sie noch der Vorbelegung nach Einheitstyp, hat niemand gezählt (R7-A1).
+  const m = b.staerkeManuell;
+  if (!m) return true;
+  const soll = staerke({ personal: b.personal });
+  return soll.fuehrer === m.fuehrer && soll.unterfuehrer === m.unterfuehrer && soll.mannschaft === m.mannschaft;
 }
 
 // ------------------------------------------------------------- Neuer Bogen

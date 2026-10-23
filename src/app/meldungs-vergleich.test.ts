@@ -26,6 +26,27 @@ describe("meldungenVergleichen", () => {
     expect(gleich.geaendert).toBe("");
   });
 
+  // Audit Runde 7, R7-W3: Werte statt „3 Änderungen".
+  it("nennt Namenstausch und Bedarf mit Wert statt „n Änderungen“ (R7-W3)", () => {
+    const alt = bogen([["Lang", "Sabine"]]);
+    const neu = bogen([["Neumann", "Nora"]]);
+    alt.sofortbedarf = { ...(alt.sofortbedarf ?? {}), dieselLiter: 80 } as typeof alt.sofortbedarf;
+    neu.sofortbedarf = { ...(neu.sofortbedarf ?? {}), dieselLiter: 100 } as typeof neu.sofortbedarf;
+    const v = meldungenVergleichen(alt, neu);
+    expect(v.geaendert).toContain("Personal: 1 getauscht");
+    expect(v.geaendert).toContain("Diesel 80 l → 100 l");
+    expect(v.geaendert).not.toMatch(/^\d+ Änderungen$/);
+  });
+
+  it("nennt eine Änderung der Einheit im Wortlaut (R7-N8)", () => {
+    const alt = bogen([["Lang", "Sabine"]]);
+    const neu = bogen([["Lang", "Sabine"]]);
+    neu.einheit = { ...neu.einheit, einheitsTyp: undefined } as unknown as typeof neu.einheit;
+    alt.einheit = { ...alt.einheit, einheitsTyp: { freitext: "Zugtrupp" } } as typeof alt.einheit;
+    const v = meldungenVergleichen(alt, neu);
+    expect(v.geaendert).toMatch(/Einheit: „.*Zugtrupp.*“? → /);
+  });
+
   it("echte Folgemeldung (gleiche Person, eine dazu): kein Warnhinweis", () => {
     const v = meldungenVergleichen(bogen([["Lehmann", "Karsten"]]), bogen([["Lehmann", "Karsten"], ["Neu", "Nina"]]));
     expect(v.keineUeberschneidung).toBe(false);

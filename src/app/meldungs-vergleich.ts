@@ -11,7 +11,7 @@
  */
 
 import { staerke, type Erfassungsbogen } from "@bos/eeb-format/model";
-import { bogenDiff, diffKurzfassung } from "@bos/meldekopf/meldung-diff";
+import { bogenDiff, FELD_GESAMTSTAERKE, type BogenDiff } from "@bos/meldekopf/meldung-diff";
 import { zeitpunktDeutsch } from "./hilfen";
 
 export interface MeldungsSteckbrief {
@@ -60,6 +60,47 @@ export function steckbrief(b: Erfassungsbogen): MeldungsSteckbrief {
   };
 }
 
+/** „…" mit höchstens 40 Zeichen. */
+function kurzZitat(text: string): string {
+  const t = text.trim();
+  if (t === "" || t === "—") return "leer";
+  return `„${t.length > 40 ? `${t.slice(0, 39).trimEnd()} …` : t}"`;
+}
+
+/**
+ * Was sich zwischen den Meldungen ändert, mit Werten — dieselbe Art Angabe wie
+ * die Quittung danach („Diesel 80 l → 100 l · Personal: 1 getauscht"). „3 Änderungen"
+ * ließ offen, welche (Audit Runde 7, R7-W3, R7-N8). Leer ohne Unterschied.
+ */
+export function aenderungsText(d: BogenDiff, hoechstens = 4): string {
+  if (d.anzahl === 0) return "";
+  const teile: string[] = [];
+  const gesamt = d.staerke.find((a) => a.feld === FELD_GESAMTSTAERKE);
+  if (gesamt) teile.push(`Stärke ${gesamt.vorher} → ${gesamt.nachher}`);
+  const tausch = Math.min(d.personalZugang.length, d.personalAbgang.length);
+  const personal: string[] = [];
+  if (tausch > 0) personal.push(`${tausch} getauscht`);
+  if (d.personalZugang.length > tausch) personal.push(`${d.personalZugang.length - tausch} neu`);
+  if (d.personalAbgang.length > tausch) personal.push(`${d.personalAbgang.length - tausch} weg`);
+  if (d.personalGeaendert.length > 0) personal.push(`${d.personalGeaendert.length} geändert`);
+  if (personal.length > 0) teile.push(`Personal: ${personal.join(", ")}`);
+  const fz: string[] = [];
+  if (d.fahrzeugeZugang.length > 0) fz.push(`${d.fahrzeugeZugang.length} dazu`);
+  if (d.fahrzeugeAbgang.length > 0) fz.push(`${d.fahrzeugeAbgang.length} abgemeldet`);
+  if (d.fahrzeugeGeaendert.length > 0) fz.push(`${d.fahrzeugeGeaendert.length} geändert`);
+  if (fz.length > 0) teile.push(`Fahrzeuge: ${fz.join(", ")}`);
+  for (const a of d.bedarf) if (a.feld !== "Unterbringung M/W/D" || !gesamt) teile.push(`${a.feld} ${a.vorher} → ${a.nachher}`);
+  for (const a of d.sonstiges) {
+    // Kurze Werte im Wortlaut (Einheit, Zeitraum), lange Freitexte nur mit Namen.
+    const kurz = a.vorher.length <= 40 && a.nachher.length <= 40;
+    teile.push(kurz ? `${a.feld}: ${kurzZitat(a.vorher)} → ${kurzZitat(a.nachher)}` : `${a.feld} geändert`);
+  }
+  if (teile.length === 0) return `${d.anzahl} ${d.anzahl === 1 ? "Änderung" : "Änderungen"}`;
+  const gezeigt = teile.slice(0, hoechstens);
+  const rest = teile.length - gezeigt.length;
+  return gezeigt.join(" · ") + (rest > 0 ? ` · ${rest} weitere` : "");
+}
+
 export function meldungenVergleichen(bisher: Erfassungsbogen, neu: Erfassungsbogen): MeldungsVergleich {
   const namenBisher = new Set(bisher.personal.filter((p) => personName(p)).map(namensSchluessel));
   const namenNeu = neu.personal.filter((p) => personName(p)).map(namensSchluessel);
@@ -77,7 +118,7 @@ export function meldungenVergleichen(bisher: Erfassungsbogen, neu: Erfassungsbog
     !(kzVergleichbar && gemeinsamesFahrzeug);
   let geaendert = "";
   try {
-    geaendert = diffKurzfassung(bogenDiff(bisher, neu));
+    geaendert = aenderungsText(bogenDiff(bisher, neu));
   } catch {
     /* der Vergleich ist Zugabe – ohne ihn bleibt die Gegenüberstellung wie sie war */
   }

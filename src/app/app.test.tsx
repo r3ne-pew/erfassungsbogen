@@ -1005,6 +1005,11 @@ describe("Assistenten-Durchlauf", () => {
 
     await nutzer.click(screen.getByRole("button", { name: /^Bogen übergeben/ }));
     await nutzer.click(screen.getByRole("button", { name: "Für neuen Einsatz vorbereiten" }));
+    // R7-G2: erst die Rückfrage mit den Feldern, die zurückgesetzt werden; „Abbrechen" ändert nichts.
+    const frage = await screen.findByRole("dialog", { name: "Für neuen Einsatz vorbereiten?" });
+    expect(frage.textContent).toContain("Gebäudeschaden Ulm");
+    expect(frage.textContent).toContain("Personal und Fahrzeuge bleiben");
+    await nutzer.click(within(frage).getByRole("button", { name: "Zurücksetzen" }));
     expect(await screen.findByRole("heading", { level: 2, name: "2. Einsatz" })).toBeDefined();
     expect(screen.getByText(/Einsatzdaten für den neuen Einsatz zurückgesetzt/)).toBeDefined();
     expect(screen.queryByText(/ist vorbei — gilt dieser Bogen noch/)).toBeNull();

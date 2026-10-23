@@ -26,13 +26,15 @@
  */
 
 import { OrganisationsTyp, alleFahrerlaubnisse, type Person } from "@bos/eeb-format/model";
-import type { MeldeEintrag } from "@bos/meldekopf/einsaetze";
+import { MeldeStatus, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { FE_EINGESCHLOSSEN, FE_TEXT, einheitAnzeigename, funkrufText, kennzeichenText, orgLabel, vokabularFuer } from "./hilfen";
 import { eintreffzeit } from "./eintrag-zeiten";
 
-export type EinheitenSortierung = "name" | "zuletzt" | "eintreffzeit" | "zug" | "organisation";
+export type EinheitenSortierung = "nummer" | "name" | "zuletzt" | "eintreffzeit" | "zug" | "organisation";
 
 export const SORTIERUNGEN: { wert: EinheitenSortierung; label: string }[] = [
+  // Die Nummer, die am Funk genannt wird und das Lageblatt ordnet (R7-K9).
+  { wert: "nummer", label: "Nr. (wie auf dem Lageblatt)" },
   { wert: "name", label: "Name (A–Z)" },
   // „Zuletzt gemeldet" ordnet nach dem Eingang der aktuellen Fassung, auch
   // einer Folgemeldung. Die Eintreffzeit vererbt sich auf die Folgemeldung
@@ -214,9 +216,18 @@ function nameVergleich(a: MeldeEintrag, b: MeldeEintrag): number {
 export function einheitenSortieren(
   eintraege: MeldeEintrag[],
   sortierung: EinheitenSortierung,
+  /** Laufende Nummern je Einheitsschlüssel (meldungsNummern) — nur für „nummer". */
+  nummern?: ReadonlyMap<string, number>,
 ): MeldeEintrag[] {
   const liste = [...eintraege];
   switch (sortierung) {
+    case "nummer":
+      // Ohne Nummer ans Ende; sonst aufsteigend wie das Lageblatt.
+      return liste.sort((a, b) => {
+        const na = nummern?.get(a.einheitSchluessel) ?? Number.MAX_SAFE_INTEGER;
+        const nb = nummern?.get(b.einheitSchluessel) ?? Number.MAX_SAFE_INTEGER;
+        return na - nb || nameVergleich(a, b);
+      });
     case "zuletzt":
       // Eingang der aktuellen Fassung (Geräteuhr), nicht das Eintreffen.
       return liste.sort((a, b) => b.empfangenAm - a.empfangenAm || nameVergleich(a, b));
@@ -255,9 +266,20 @@ export function einheitenAnsicht(
   suche: string,
   sortierung: EinheitenSortierung,
   qualifikation = "",
+  nummern?: ReadonlyMap<string, number>,
 ): MeldeEintrag[] {
   return einheitenSortieren(
     nachQualifikationFiltern(einheitenFiltern(eintraege, suche), qualifikation),
     sortierung,
+    nummern,
   );
+}
+
+/** Einschränkung auf Einheiten, denen noch etwas fehlt (R7-K6). */
+export type LueckenFilter = "ohne-auftrag" | "ohne-zug";
+
+/** Ohne Auftrag/Notiz bzw. ohne Zug — nur anwesende Einheiten; abgerückte brauchen keinen Auftrag mehr. */
+export function passtZuLueckenfilter(e: MeldeEintrag, f: LueckenFilter): boolean {
+  if (e.status !== MeldeStatus.ANWESEND) return false;
+  return f === "ohne-auftrag" ? !(e.notiz ?? "").trim() : !(e.zugEtikett ?? "").trim();
 }

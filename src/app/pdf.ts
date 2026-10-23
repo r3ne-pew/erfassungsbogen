@@ -16,8 +16,9 @@ import type { Erfassungsbogen } from "@bos/eeb-format/model";
 import { base64UrlDekodieren } from "@bos/eeb-format/codec";
 import { einheitAnzeigename, natoZeitstempel, qrErzeugen } from "./hilfen";
 import { istNativ, binaerTeilen } from "./nativ";
-import { einsatzLageblattSeiteFuellen, einsatzPdfDokumentGesetzt, einzelPdfDokument, nichtDarstellbareNamen, pdfDokument, type SammelBogen, type UebersichtEintrag } from "./pdf-dokument";
+import { einsatzLageblattSeiteFuellen, einsatzPdfDokumentGesetzt, einzelPdfDokument, nichtDarstellbareBetroffene, nichtDarstellbareNamen, pdfDokument, type SammelBogen, type UebersichtEintrag } from "./pdf-dokument";
 import { einsatzDateiInhalt } from "./einsatz-transport";
+import { lageAngabenLaden } from "./lage-angaben";
 import { BLANKO_DATEINAME, BLANKO_INFO, BLANKO_ZEILEN, leererBogen } from "./blanko";
 import { MeldeStatus, type Einsatzsammlung, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit, fassungenJeEinheit } from "./fassung-vorrang";
@@ -75,10 +76,11 @@ export async function pdfErzeugen(
   b: Erfassungsbogen,
   name?: string,
   herkunft?: Uint8Array | null,
-): Promise<{ nichtDarstellbar: number }> {
+): Promise<{ nichtDarstellbar: number; betroffen: string[] }> {
   const qr = await qrErzeugen(b, herkunft);
   const dd = await einzelDokument(b, qr);
   const nichtDarstellbar = nichtDarstellbareNamen(b);
+  const betroffen = nichtDarstellbareBetroffene(b);
   const rumpf = einheitAnzeigename(b.einheit).replace(/[^\wäöüÄÖÜß-]+/g, "_");
   const dateiname = name ?? `eeb-${natoZeitstempel()}_${rumpf}.pdf`;
   if (istNativ()) {
@@ -88,7 +90,7 @@ export async function pdfErzeugen(
   } else {
     pdfMake.createPdf(dd).download(dateiname);
   }
-  return { nichtDarstellbar };
+  return { nichtDarstellbar, betroffen };
 }
 
 /**
@@ -258,7 +260,7 @@ export async function einsatzPdfErzeugen(
     boegenMitQr,
     // Die Stände der Exporte reisen mit (R5-W6): auf der Ablösung weiß der
     // erste Nachtrag dann, was der Stab schon hat.
-    einsatzDateiInhalt(nachtrag && nachtragSeit != null ? { ...einsatz, nachtragSeit } : einsatz, exportStaendeLaden(einsatz.id)),
+    einsatzDateiInhalt(nachtrag && nachtragSeit != null ? { ...einsatz, nachtragSeit } : einsatz, exportStaendeLaden(einsatz.id), lageAngabenLaden(einsatz.id)),
     Date.now(),
     nachtrag ? nachtragSeit : undefined,
     (probe) => pdfMake.createPdf(probe).getBuffer(),

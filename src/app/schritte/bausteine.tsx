@@ -4,7 +4,7 @@
  * einem einzelnen Schritt — alles hier wird von mehreren Schritten genutzt.
  */
 
-import { createContext, useContext, useEffect, useId, useState, type ComponentProps, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { Erfassungsbogen, VokabularWert } from "@bos/eeb-format/model";
 import type { VokabularEintrag } from "@bos/vokabulare/thw";
 import { vokabSortiert, type Pruefpunkt } from "../hilfen";
@@ -250,6 +250,40 @@ export const KENNUNG_EINGABE = {
  */
 export const FREMDE_DATEN = { autoComplete: "off" } as const;
 
+/**
+ * Die offene Vorschlagsliste soll über den festen Leisten am unteren Rand (Fußleiste des
+ * Assistenten, Ansicht-Balken, Bildschirmtastatur) im Bild stehen: In der Schnellerfassung lag
+ * „FGr W (B)" ganz unter der zweizeiligen Fußleiste (R7-E8). Erst rollt die Seite so weit, wie
+ * es das Feld oben im Bild lässt, dann wird die Liste auf den Rest begrenzt (sie rollt in sich).
+ */
+function listeInsBildHalten(liste: HTMLElement, eingabe: HTMLElement | null) {
+  liste.style.maxHeight = "";
+  if (typeof window === "undefined") return;
+  const vv = window.visualViewport;
+  let grenze = vv ? vv.offsetTop + vv.height : window.innerHeight;
+  for (const fest of document.querySelectorAll<HTMLElement>("footer.nav, .anzeige-balken")) {
+    const r = fest.getBoundingClientRect();
+    if (r.height > 0 && r.top > 0 && r.top < grenze) grenze = r.top;
+  }
+  const rand = 8;
+  const unten = liste.getBoundingClientRect().bottom;
+  if (unten <= grenze - rand) return;
+  const feldOben = eingabe?.getBoundingClientRect().top ?? 0;
+  // Das Feld bleibt im Bild: höchstens so weit rollen, dass seine Oberkante bei 8 px steht.
+  const rollen = Math.max(0, Math.min(unten - (grenze - rand), feldOben - rand));
+  if (rollen > 0) {
+    try {
+      window.scrollBy(0, rollen);
+    } catch {
+      /* Testumgebung ohne Layout */
+    }
+  }
+  const oben = liste.getBoundingClientRect().top;
+  const platz = grenze - rand - oben;
+  // Mindestens eine Zeile (Grundmaß) bleibt, auch wenn der Platz knapp ist.
+  if (platz > 0 && platz < liste.getBoundingClientRect().height) liste.style.maxHeight = `${Math.max(platz, 48)}px`;
+}
+
 export function VorschlagFeld<T>(props: {
   /** id des Eingabefelds (Sprungziel); die Listen-IDs bleiben eigene. */
   id?: string;
@@ -292,6 +326,19 @@ export function VorschlagFeld<T>(props: {
 
   const sichtbar = offen ? treffer : [];
   const aufgeklappt = sichtbar.length > 0;
+  const listeRef = useRef<HTMLUListElement>(null);
+  const eingabeRef = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => {
+    const liste = listeRef.current;
+    if (!aufgeklappt || !liste) return;
+    listeInsBildHalten(liste, eingabeRef.current);
+    // Die Bildschirmtastatur fährt erst nach dem Öffnen auf und verkleinert das Bild.
+    const vv = typeof window === "undefined" ? null : window.visualViewport;
+    if (!vv) return;
+    const neu = () => listeInsBildHalten(liste, eingabeRef.current);
+    vv.addEventListener("resize", neu);
+    return () => vv.removeEventListener("resize", neu);
+  }, [aufgeklappt, sichtbar.length]);
   const nehmen = (v: T) => {
     waehlen(v);
     setOffen(false);
@@ -302,6 +349,7 @@ export function VorschlagFeld<T>(props: {
     <span className={["autocomplete", imFluss ? "im-fluss" : "", picker ? "picker" : ""].filter(Boolean).join(" ")}>
       <input
         id={feldId}
+        ref={eingabeRef}
         // Wie bei <Auswahl>: im umschließenden <label> zählt sonst der ganze
         // Textinhalt (hier die schon gesetzten Chips) als Feldname.
         aria-label={beschriftung ?? ausFeld}
@@ -364,7 +412,7 @@ export function VorschlagFeld<T>(props: {
         }}
       />
       {aufgeklappt && (
-        <ul className="vorschlaege" id={listeId} role="listbox" aria-label={`Vorschläge zu ${beschriftung ?? ausFeld ?? "der Eingabe"}`}>
+        <ul className="vorschlaege" ref={listeRef} id={listeId} role="listbox" aria-label={`Vorschläge zu ${beschriftung ?? ausFeld ?? "der Eingabe"}`}>
           {sichtbar.map((v, k) => (
             // onMouseDown statt onClick, damit die Auswahl vor dem blur greift
             <li
@@ -531,6 +579,23 @@ export const zahl = (s: string): number => {
   const n = parseInt(s, 10);
   return Number.isFinite(n) && n >= 0 ? n : 0;
 };
+
+/**
+ * Satz für ein Zahlenfeld, dessen Eingabe begrenzt wurde — leer, wenn der Wert
+ * unverändert übernommen wird (Audit Runde 7, R7-E6: 999 wurde still zu 99,
+ * −5 zu 0, 1,5 zu 1).
+ */
+export function zahlBegrenzung(eingabe: string, opt: { min?: number; max?: number } = {}): string {
+  const t = eingabe.trim().replace(",", ".");
+  if (t === "") return "";
+  const n = Number(t);
+  if (!Number.isFinite(n)) return "";
+  const min = opt.min ?? 0;
+  if (n < min) return `Mindestens ${min} — dein Wert ${eingabe.trim()} wurde auf ${min} gesetzt.`;
+  if (opt.max != null && n > opt.max) return `Höchstens ${opt.max} — dein Wert ${eingabe.trim()} wurde auf ${opt.max} gesetzt.`;
+  if (!Number.isInteger(n)) return `Nur ganze Zahlen — ${eingabe.trim()} wurde auf ${Math.trunc(n)} gesetzt.`;
+  return "";
+}
 
 // Die Stärke-Notation „x / x / x / x" ist BOS-Konvention, aber nicht jedem
 // geläufig — Tooltip/aria erklären sie, ohne die Anzeige aufzublähen.

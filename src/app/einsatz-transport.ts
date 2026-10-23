@@ -16,6 +16,7 @@ import { bogenBefund } from "./bogen-pruefung";
 import type { Einsatzsammlung } from "@bos/meldekopf/einsaetze";
 import { entpackt, pdfStroeme } from "./pdf-stroeme";
 import type { ExportStand, ExportZiel } from "./export-stand";
+import { lageAngabenPruefen, type LageAngaben } from "./lage-angaben";
 
 declare module "@bos/meldekopf/einsaetze" {
   interface Einsatzsammlung {
@@ -34,6 +35,13 @@ declare module "@bos/meldekopf/einsaetze" {
      * und entfernt das Feld.
      */
     exportStaende?: Partial<Record<ExportZiel, ExportStand>>;
+    /**
+     * Nur im Umschlag der Datei (nie im Speicher): Einsatzbeginn und
+     * Funkrufname des Lagemonitors des abgebenden Geräts (R7-K5). Das Einlesen
+     * setzt sie, wenn hier noch nichts gesetzt ist (`lageAngabenUebernehmen`),
+     * und entfernt das Feld.
+     */
+    lageAngaben?: LageAngaben;
   }
 }
 
@@ -45,6 +53,8 @@ interface EinsatzDatei {
   einsatz: Einsatzsammlung;
   /** Stände der Exporte je Format (R5-W6); fehlt in Dateien älterer Versionen. */
   staende?: Partial<Record<ExportZiel, ExportStand>>;
+  /** Einsatzbeginn und Funkrufname des Lagemonitors (R7-K5); fehlt in Dateien älterer Versionen. */
+  lage?: LageAngaben;
 }
 
 /**
@@ -53,15 +63,21 @@ interface EinsatzDatei {
  * nicht in der Sammlung. Ein zugeschnittener Nachtrag (`nachtragGruende`) trägt
  * seine Gründe nicht in die Datei.
  */
-export function einsatzDateiInhalt(s: Einsatzsammlung, staende?: Partial<Record<ExportZiel, ExportStand>>): string {
+export function einsatzDateiInhalt(s: Einsatzsammlung, staende?: Partial<Record<ExportZiel, ExportStand>>, lage?: LageAngaben): string {
   // Jeder enthaltene Bogen mit seiner Transport-Version: nur Übungsbögen
   // fordern das neue Schema, alles andere bleibt für alte Stände lesbar.
-  const { nachtragGruende: _gruende, exportStaende: _staende, fremdeOrte: _orte, ...rest } = s;
+  const { nachtragGruende: _gruende, exportStaende: _staende, lageAngaben: _lage, fremdeOrte: _orte, ...rest } = s;
   const einsatz: Einsatzsammlung = {
     ...rest,
     eintraege: s.eintraege.map((e) => ({ ...e, bogen: mitTransportVersion(e.bogen) })),
   };
-  const datei: EinsatzDatei = { typ: "eeb-einsatz", version: 1, einsatz, ...(staende && Object.keys(staende).length > 0 ? { staende } : {}) };
+  const datei: EinsatzDatei = {
+    typ: "eeb-einsatz",
+    version: 1,
+    einsatz,
+    ...(staende && Object.keys(staende).length > 0 ? { staende } : {}),
+    ...(lage && (lage.beginn != null || lage.funkruf != null) ? { lage } : {}),
+  };
   return JSON.stringify(datei, null, 2);
 }
 
@@ -113,6 +129,9 @@ function einsatzAusRoh(roh: unknown): Einsatzsammlung {
   delete (s as { fremdeOrte?: unknown }).fremdeOrte;
   if (alsDatei?.typ === "eeb-einsatz" && alsDatei.staende && typeof alsDatei.staende === "object") s.exportStaende = alsDatei.staende;
   else delete s.exportStaende;
+  const lage = alsDatei?.typ === "eeb-einsatz" ? lageAngabenPruefen(alsDatei.lage) : undefined;
+  if (lage) s.lageAngaben = lage;
+  else delete s.lageAngaben;
   const gesamt = s.eintraege.length;
   const abgelehnt: string[] = [];
   const angenommen: typeof s.eintraege = [];

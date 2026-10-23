@@ -3,6 +3,7 @@
  * prüfung und die Übergabewege (QR, PDF, Link, Datei).
  */
 
+import { UhrHinweis } from "../uhr-warnung";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Erfassungsbogen,
@@ -13,7 +14,7 @@ import {
   unterbringungMWD,
   verpflegung,
 } from "@bos/eeb-format/model";
-import { vorlageAnlegen } from "../vorlagen";
+import { vorlageAktualisieren, vorlageAnlegen, vorlagenLaden } from "../vorlagen";
 import { TabellenScroll } from "../tabellen-scroll";
 import { RolleMarke } from "../rolle-marke";
 import {
@@ -33,6 +34,7 @@ import {
   natoZeitstempel,
   orgLabel,
   heuteDatum,
+  personUnbenannt,
   pruefpunkte,
   zeitraumDeutsch,
   qrErzeugen,
@@ -56,7 +58,7 @@ import { AbsenderkarteFeld } from "../absenderkarte-ui";
 import { geraeteKurzform, geraeteSchluesselNurSitzung, geraeteOeffentlichHex } from "../geraete-schluessel";
 import { istNativ, linkTeilen, nahbereichDienst, pdfEinbettbar, shareSheetVerfuegbar, textTeilen } from "../nativ";
 import { fehlerText, istNachladeFehler } from "../nachladen";
-import { frageJaNein, frageText, zeigeHinweis } from "../dialoge";
+import { frageJaNein, frageText, frageWahl, zeigeHinweis } from "../dialoge";
 import { mindestzeigeDauer, ortSperren } from "../tipp-schutz";
 import { arbeiten, useArbeitet } from "../arbeitet";
 import { SpeicherVollFehler, istSpeicherVoll } from "../eintrag-zeiten";
@@ -137,9 +139,26 @@ export function Uebersicht(props: {
       ok: "Vorlage speichern",
     });
     if (name == null) return;
+    // Gleicher Name wie eine vorhandene Vorlage: nicht still eine zweite
+    // anlegen, die sich in der Liste nicht unterscheiden lässt (R7-D8).
+    const gleichnamig = vorlagenLaden().find((x) => x.name.trim().toLowerCase() === name.trim().toLowerCase());
+    let ersetzen: string | null = null;
+    if (gleichnamig) {
+      const stand = new Date(gleichnamig.geaendert).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+      const wahl = await frageWahl({
+        titel: "Vorlage mit diesem Namen vorhanden",
+        text: `Es gibt schon eine Vorlage „${gleichnamig.name}" (gespeichert ${stand} Uhr). Zwei gleich benannte Karten sind beim Mustern kaum zu unterscheiden.`,
+        wege: [
+          { wert: "zusaetzlich", label: "Zusätzlich anlegen", hinweis: "Die vorhandene bleibt, wie sie ist." },
+          { wert: "ersetzen", label: "Vorhandene ersetzen", hinweis: "Ihr Inhalt wird durch diesen Bogen überschrieben.", gefahr: true },
+        ],
+      });
+      if (wahl == null) return;
+      if (wahl === "ersetzen") ersetzen = gleichnamig.id;
+    }
     let v;
     try {
-      v = vorlageAnlegen(name, bogen);
+      v = (ersetzen ? vorlageAktualisieren(ersetzen, bogen) : null) ?? vorlageAnlegen(name, bogen);
     } catch (e) {
       // Voller Speicher: der Dialog schloss ohne jede Meldung, nur die
       // Konsole wusste Bescheid (Audit Runde 2, R2-O2).
@@ -462,7 +481,9 @@ export function Uebersicht(props: {
     const dateiname = `eeb-${natoZeitstempel()}_${bogenDateiname(bogen)}.pdf`;
     try {
       const { pdfErzeugen } = await import("../pdf");
-      const nichtDarstellbar = (await pdfErzeugen(bogen, dateiname, props.herkunft))?.nichtDarstellbar ?? 0;
+      const pdfErgebnis = await pdfErzeugen(bogen, dateiname, props.herkunft);
+      const nichtDarstellbar = pdfErgebnis?.nichtDarstellbar ?? 0;
+      const betroffen = pdfErgebnis?.betroffen ?? [];
       // „PDF erzeugt", nicht „Übergeben": die Datei liegt erst auf diesem
       // Gerät (Audit Runde 3, R3-A7).
       props.onUebergeben?.("pdf");
@@ -476,7 +497,9 @@ export function Uebersicht(props: {
       // Zeichen, die die PDF-Schrift nicht kennt, stehen als „?" auf dem Papier (R6-A5).
       if (nichtDarstellbar > 0) {
         setPdfFehler(
-          `${nichtDarstellbar === 1 ? "1 Name enthält" : `${nichtDarstellbar} Namen enthalten`} Zeichen, die die PDF nicht darstellen kann (z. B. kyrillisch, arabisch, Emoji) – sie stehen dort als „?". Der QR-Code trägt die Namen unverändert.`,
+          `${nichtDarstellbar === 1 ? "1 Name enthält" : `${nichtDarstellbar} Namen enthalten`} Zeichen, die die PDF nicht darstellen kann (z. B. kyrillisch, arabisch, Emoji) – sie stehen dort als „?".${
+            betroffen.length > 0 ? ` Betroffen: ${betroffen.slice(0, 4).join("; ")}${betroffen.length > 4 ? `; und ${betroffen.length - 4} weitere` : ""}.` : ""
+          } Der QR-Code trägt die Namen unverändert.`,
         );
       }
     } catch (e) {
@@ -922,6 +945,11 @@ export function Uebersicht(props: {
           <AbsenderkarteFeld karte={absender} onGespeichert={setAbsender} />
         </div>
       </section>
+      {/* Die Übersicht hat keine feste Fußleiste: der Weg zurück steht am Ende
+          der Seite, an der gewohnten Stelle (R7-N9). */}
+      <p className="uebersicht-zurueck">
+        <button type="button" onClick={() => geheZu(4)}>← Zurück zu Schritt 5 (Sofortbedarf)</button>
+      </p>
       </div>
 
       <dialog
@@ -939,6 +967,8 @@ export function Uebersicht(props: {
           <h2>Bogen übergeben</h2>
           <button type="button" onClick={() => teilenDialog.current?.close()}>Schließen</button>
         </div>
+        {/* Solange die Frage der Geräteuhr offen ist, trägt der Bogen vielleicht ein falsches Datum (R7-W2). */}
+        <UhrHinweis />
         {/* Die Lücken stehen VOR den Wegen, nicht danach: hinter dem QR-Knopf
             gelesen wären sie eine Nachricht an jemanden, der schon zeigt.
             Gesperrt wird nichts — eine Teilmeldung ist manchmal richtig, und
@@ -1007,7 +1037,24 @@ export function Uebersicht(props: {
                 die Übergabe bleibt der eine Primärknopf, er steht jetzt vorn. */}
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
+                // Rückfrage mit den Feldern, die verloren gehen (R7-G2): Der Knopf
+                // steht neben QR-Code und PDF, ein Fehltipp setzte sonst Auftrag
+                // und Sofortbedarf ohne Frage zurück.
+                const ort = bogen.einsatz.ortAuftrag.trim();
+                const verloren = [
+                  `Zeitraum ${zeitraumDeutsch(bogen)} (wird auf heute gesetzt)`,
+                  ort ? `Ort/Auftrag „${ort.length > 60 ? `${ort.slice(0, 59)}…` : ort}"` : "",
+                  bogen.sofortbedarf ? "der Sofortbedarf" : "",
+                ].filter(Boolean);
+                const ja = await frageJaNein({
+                  titel: "Für neuen Einsatz vorbereiten?",
+                  text: `Zurückgesetzt werden: ${verloren.join("; ")}. Personal und Fahrzeuge bleiben. Das lässt sich hier nicht zurücknehmen — wer die Angaben noch braucht, gibt den Bogen vorher weiter.`,
+                  ok: "Zurücksetzen",
+                  abbruch: "Abbrechen, Bogen behalten",
+                  gefahr: true,
+                });
+                if (!ja) return;
                 teilenDialog.current?.close();
                 props.onNeuerEinsatz?.();
               }}
@@ -1100,6 +1147,7 @@ export function Uebersicht(props: {
           qr={qr}
           einheit={`${orgLabel(org)} · ${vokabText(bogen.einheit.einheitsTyp, vokabularFuer(org, "einheitstyp"), "name") || "(Einheitstyp offen)"} · ${einheitOrt(bogen.einheit) || "(Standort offen)"}`}
           staerke={staerkeText}
+          ohneNamen={nurStaerke ? 0 : bogen.personal.filter(personUnbenannt).length}
           teilIndex={vollbildTeil}
           onTeil={setVollbildTeil}
           bereitsGezeigt={vollbildGezeigt}
@@ -1140,6 +1188,8 @@ export function QrVollbild(props: {
   einheit: string;
   /** Stärke „F / UF / M / Ges" als Zahlen. */
   staerke: string;
+  /** Personenkarten ohne Namen: Die Stärke zählt dann Sollplätze, keine benannten Personen (R7-N7). */
+  ohneNamen?: number;
   teilIndex: number;
   onTeil: (i: number) => void;
   /** Teile, die bei einem früheren Öffnen schon gezeigt wurden. */
@@ -1226,6 +1276,14 @@ export function QrVollbild(props: {
         <strong>{props.einheit}</strong>
         <br />
         Stärke <strong>{props.staerke}</strong> <span className="hinweis">(F / UF / M / Ges) · Stand {stand} Uhr</span>
+        {props.ohneNamen != null && props.ohneNamen > 0 && (
+          <>
+            <br />
+            <span className="warnung-text">
+              ⚠ {props.ohneNamen} {props.ohneNamen === 1 ? "Platz" : "Plätze"} ohne Namen — Stärke nach Soll
+            </span>
+          </>
+        )}
       </p>
       {/* „Teil 1 von 2" ÜBER dem Code: darunter verdeckte ihn die klebende
           Knopfleiste, und der zweite Teil wurde leicht vergessen (R3-H2). */}

@@ -17,13 +17,18 @@ const TAG_MS = 24 * 60 * 60 * 1000;
 /** Ab so vielen verbleibenden Tagen wird die Frist hervorgehoben. */
 export const BALD_TAGE = 3;
 
+/** Kalendertag der Geräteuhr, immer zweistellig: „08.11.2026" (R7-D4: ein Format für alle Löschfristen). */
+export function datumZweistellig(ms: number): string {
+  return new Date(ms).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 export function papierkorbRest(
   geloeschtAm: number,
   jetzt = geprueftesJetztMs(),
 ): { text: string; bald: boolean } {
   const ende = geloeschtAm + PAPIERKORB_FRIST_MS;
   const rest = Math.max(0, Math.ceil((ende - jetzt) / TAG_MS));
-  const datum = new Date(ende).toLocaleDateString("de-DE");
+  const datum = datumZweistellig(ende);
   const bald = rest <= BALD_TAGE;
   const restText = rest === 0 ? "beim nächsten Start" : rest === 1 ? "morgen" : `am ${datum}`;
   return {

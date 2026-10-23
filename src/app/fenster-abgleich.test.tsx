@@ -61,7 +61,7 @@ describe("Fensterabgleich", () => {
     b.einsatz.ortAuftrag = "Ort aus Fenster B";
     anderesFensterSchreibt(ENTWURF_SCHLUESSEL, entwurfZuJson(b));
 
-    expect(screen.getByRole("alert").textContent).toMatch(/in einem anderen Fenster geändert/);
+    expect(screen.getByRole("alert").textContent).toMatch(/andere Fenster hat den Bogen geändert/);
     // Weitertippen hier: B bleibt im Speicher, bis entschieden ist.
     await nutzer.type(screen.getByLabelText("Ort"), " zweite");
     expect(gespeicherterOrt()).toBe("Ort aus Fenster B");
@@ -82,26 +82,54 @@ describe("Fensterabgleich", () => {
     await nutzer.click(screen.getByRole("button", { name: "Meine Fassung behalten" }));
     // R5-S4: Wohin der andere Stand kommt, steht in der Rückfrage, nicht in der Daueranzeige.
     const frage = await screen.findByRole("dialog", { name: "Meine Fassung behalten?" });
-    expect(frage.textContent).toContain("Rückholplatz");
+    expect(frage.textContent).toContain("Zuletzt geschlossener Bogen");
+    expect(frage.textContent).not.toContain("Rückholplatz"); // R7-N4: so heißt es auf der Startseite
+    // R7-O2: Die Rückfrage nennt, was im anderen Fenster anders ist.
+    expect(frage.textContent).toContain("Ort / Auftrag");
+    // R7-E4: Der Fokus liegt auf der sicheren Wahl.
+    expect(document.activeElement).toBe(within(frage).getByRole("button", { name: "Abbrechen" }));
     await nutzer.click(within(frage).getByRole("button", { name: "Meine Fassung behalten" }));
 
     expect(screen.queryByRole("alert")).toBeNull();
     expect(gespeicherterOrt()).toBe("Ort A");
     // Audit Runde 4, R4-S4: Der Stand des anderen Fensters ist nicht weg — er liegt auf dem Rückholplatz.
     expect(ersetztenEntwurfLaden()?.bogen.einsatz.ortAuftrag).toBe("Ort aus Fenster B");
+    // R7-S3: Die Karte auf der Startseite nennt den Anlass.
+    expect(ersetztenEntwurfLaden()?.ersetztGrund).toBe("fenster-behalten");
   });
 
-  it("nennt in der Warnung den anderen Stand, kurz und mit festem Platz (R4-S4, R5-S4)", () => {
+  it("nennt in der Warnung den anderen Stand mit Sekunden, kurz und mit festem Platz (R4-S4, R5-S4, R7-O2)", async () => {
+    const nutzer = userEvent.setup();
     render(<Buehne />);
     const b = neuerBogen();
     b.einheit.hierarchie[0]!.name = "Fensterhausen";
     b.personal = [];
     anderesFensterSchreibt(ENTWURF_SCHLUESSEL, entwurfZuJson(b));
-    const warnung = screen.getByRole("alert").textContent!;
-    expect(warnung).toMatch(/dort: „THW Fensterhausen", Stand \d\d\.\d\d\.\d\d, \d\d:\d\d Uhr/);
-    // Zwei Zeilen statt eines Absatzes: Der Hinweis auf den Rückholplatz steht in der Rückfrage.
-    expect(warnung).not.toContain("Rückholplatz");
-    expect(screen.getByRole("alert").className).toContain("fest-warnung");
+    const warnung = screen.getByRole("alert");
+    // Der erste Satz sagt, dass hier nichts gespeichert wird (R7-O1); beide Knöpfe stehen ohne Aufklappen da (R7-M2).
+    expect(warnung.textContent).toMatch(/^⚠ Hier wird nichts gespeichert\./);
+    expect(within(warnung).getByRole("button", { name: "Anderen Stand laden" })).toBeDefined();
+    expect(within(warnung).getByRole("button", { name: "Meine Fassung behalten" })).toBeDefined();
+    expect(warnung.textContent).toMatch(/hat den Bogen geändert: /);
+    await nutzer.click(within(warnung).getByRole("button", { name: "Genauer" }));
+    expect(warnung.textContent).toMatch(/Dort: „THW Fensterhausen“, gespeichert \d\d:\d\d:\d\d Uhr/);
+    // Der Hinweis auf den Ablageort steht in den Einzelheiten und heißt wie auf der Startseite.
+    expect(warnung.textContent).not.toContain("Rückholplatz");
+    expect(warnung.className).toContain("fest-warnung");
+  });
+
+  // Audit Runde 7, R7-E3: Ein zweites Fenster, das den Entwurf nur öffnet und neu schreibt, ist kein Konflikt.
+  it("warnt nicht, wenn das andere Fenster den Entwurf nur neu schreibt, ohne am Bogen etwas zu ändern (R7-E3)", async () => {
+    const nutzer = userEvent.setup();
+    render(<Buehne />);
+    const roh = JSON.parse(localStorage.getItem(ENTWURF_SCHLUESSEL)!);
+    roh.gespeichert += 5000;
+    roh.schritt = 3;
+    anderesFensterSchreibt(ENTWURF_SCHLUESSEL, JSON.stringify(roh));
+    expect(screen.queryByRole("alert")).toBeNull();
+    // Hier wird weiter gespeichert.
+    await nutzer.type(screen.getByLabelText("Ort"), "1");
+    expect(gespeicherterOrt()).toBe("Ort A1");
   });
 
   it("fragt vor „behalten“, wenn dabei ein anderer Bogen vom Rückholplatz fiele (R4-S4)", async () => {
@@ -206,13 +234,16 @@ describe("Fensterabgleich", () => {
   });
 
   // Audit Runde 6, R6-S2: Die Warnung nennt beide Stände.
-  it("nennt in der Warnung auch den eigenen Stand und die Personenzahl beider Fenster (R6-S2)", () => {
+  it("nennt in der Warnung auch den eigenen Stand und die Personenzahl beider Fenster (R6-S2)", async () => {
+    const nutzer = userEvent.setup();
     render(<Buehne />);
     const b = neuerBogen();
     b.personal = [];
     anderesFensterSchreibt(ENTWURF_SCHLUESSEL, entwurfZuJson(b));
-    const warnung = screen.getByRole("alert").textContent!;
-    expect(warnung).toMatch(/dort: .*Stand .* Uhr, \d+ Personen? · hier: Stand .* Uhr, \d+ Personen?/);
+    const warnung = screen.getByRole("alert");
+    expect(warnung.textContent).toMatch(/hat den Bogen geändert: /);
+    await nutzer.click(within(warnung).getByRole("button", { name: "Genauer" }));
+    expect(warnung.textContent).toMatch(/Dort: .*gespeichert .* Uhr, \d+ Personen?\.\s*Hier: Stand .* Uhr, \d+ Personen?/);
   });
 
   // Audit Runde 6, R6-S1: „Stand laden" verwarf die eigene, nicht gespeicherte Arbeit still.
@@ -231,17 +262,20 @@ describe("Fensterabgleich", () => {
     anderesFensterSchreibt(ENTWURF_SCHLUESSEL, entwurfZuJson(b));
     await nutzer.type(screen.getByLabelText("Ort"), " viel Arbeit");
 
-    await nutzer.click(screen.getByRole("button", { name: "Stand aus dem anderen Fenster laden" }));
+    await nutzer.click(screen.getByRole("button", { name: "Anderen Stand laden" }));
     const frage = await screen.findByRole("dialog", { name: "Stand aus dem anderen Fenster laden?" });
-    expect(frage.textContent).toContain("Rückholplatz");
+    expect(frage.textContent).toContain("Zuletzt geschlossener Bogen");
+    // R7-S2: Auch der Stand, der geladen wird, ist benannt.
+    expect(frage.textContent).toContain("Geladen wird der Stand des anderen Fensters");
     await nutzer.click(within(frage).getByRole("button", { name: "Abbrechen" }));
     expect(neuladen).not.toHaveBeenCalled();
     expect(ersetztenEntwurfLaden()).toBeNull();
 
-    await nutzer.click(screen.getByRole("button", { name: "Stand aus dem anderen Fenster laden" }));
+    await nutzer.click(screen.getByRole("button", { name: "Anderen Stand laden" }));
     const nochmal = await screen.findByRole("dialog", { name: "Stand aus dem anderen Fenster laden?" });
     await nutzer.click(within(nochmal).getByRole("button", { name: "Stand laden" }));
     expect(ersetztenEntwurfLaden()?.bogen.einsatz.ortAuftrag).toBe("Ort A viel Arbeit");
+    expect(ersetztenEntwurfLaden()?.ersetztGrund).toBe("fenster-geladen"); // R7-S3
     expect(neuladen).toHaveBeenCalledOnce();
   });
 

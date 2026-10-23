@@ -318,8 +318,16 @@ export default defineConfig({
             options: { cacheName: "eeb-zusatz", expiration: { maxEntries: 1500 } },
           },
           {
-            urlPattern: ({ url, sameOrigin }) =>
-              sameOrigin && (/\.html$/.test(url.pathname) || url.pathname.endsWith("/offline-zusatz.json")),
+            // R7-O6: Themenseiten im Vorrat kommen sofort aus dem Gerät und werden im Hintergrund
+            // aufgefrischt. Vorher wartete NetworkFirst im Funkloch mit Balken 1,3 s (R6-O3: 5 s)
+            // auf das Netz. Nicht im Vorrat: ohne Cache-Treffer geht die Anfrage wie sonst ins Netz.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && /\.html$/.test(url.pathname),
+            handler: "StaleWhileRevalidate",
+            options: { cacheName: "eeb-zusatz" },
+          },
+          {
+            // Die Liste des Vorrats selbst bleibt netzzuerst: Sie sagt, was nachzuladen ist.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.endsWith("/offline-zusatz.json"),
             handler: "NetworkFirst",
             options: { cacheName: "eeb-zusatz", networkTimeoutSeconds: 1 }, // R6-O3: im Funkloch nach 1 s aus dem Gerät, nicht nach 5 s
           },

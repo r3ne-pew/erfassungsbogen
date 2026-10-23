@@ -1412,7 +1412,8 @@ describe("Kompakte Einheiten auf dem Telefon (R2-K7)", () => {
     const zeile = crailsheim!.querySelector(".kompakt-zeile")!;
     expect(zeile.querySelector(".folge-merkmal")!.textContent).toMatch(/^Folgem\. \d\d:\d\d · 12 → 9$/);
     expect(zeile.querySelector(".folge-merkmal")!.className).toContain("staerke-verlust");
-    expect(zeile.querySelector(".auftrag-merkmal")!.textContent).toBe("Auftrag ✓");
+    // R7-K6: der Inhalt statt eines Hakens.
+    expect(zeile.querySelector(".auftrag-merkmal")!.textContent).toBe("Auftrag: Pumpenstandort Kocherbrücke");
     // Die Marke „neue Fassung" bleibt zugeklappt sichtbar (anders als „kürzlich eingetroffen").
     expect(crailsheim!.querySelector(".fassung-badge")).not.toBeNull();
     expect(ulm!.querySelector(".folge-merkmal")).toBeNull();
@@ -1995,17 +1996,17 @@ describe("Laufende Nummer, Zeitform und Marke (R2-A6)", () => {
     const angelegt = einsatzAnlegen("Hochwasser Test", EinsatzArt.EINSATZ);
     meldungHinzufuegen(angelegt.id, bogenMitName("Zeitz"));
     const zweite = meldungHinzufuegen(angelegt.id, bogenMitName("Aalen"))!.eintrag;
-    // Aalen kam später — sie ist Nr. 2, obwohl sie alphabetisch oben steht.
+    // Aalen kam später — sie ist Nr. 2. Die Liste steht nach Nr. (R7-K9), Zeitz also zuerst.
     const liste = einsaetzeLaden();
     liste[0]!.eintraege.find((e) => e.id === zweite.id)!.empfangenAm += 60_000;
     localStorage.setItem("eeb.einsaetze.v1", JSON.stringify(liste));
     ansicht(angelegt.id);
     const namen = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent ?? "");
-    expect(namen[0]).toMatch(/^Nr\. 2 .*Aalen/);
-    expect(namen[1]).toMatch(/^Nr\. 1 .*Zeitz/);
+    expect(namen[0]).toMatch(/^Nr\. 1 .*Zeitz/);
+    expect(namen[1]).toMatch(/^Nr\. 2 .*Aalen/);
     await nutzer.click(screen.getByRole("button", { name: "Tabelle" }));
     const zeilen = within(screen.getByRole("table", { name: /Gemeldete Einheiten/ })).getAllByRole("rowheader");
-    expect(zeilen.map((z) => z.textContent)).toEqual([expect.stringMatching(/^Nr\. 2 .*Aalen/), expect.stringMatching(/^Nr\. 1 .*Zeitz/)]);
+    expect(zeilen.map((z) => z.textContent)).toEqual([expect.stringMatching(/^Nr\. 1 .*Zeitz/), expect.stringMatching(/^Nr\. 2 .*Aalen/)]);
   });
 
   it("nennt die Marke für frisch eingetroffene Einheiten nicht „neu“", () => {

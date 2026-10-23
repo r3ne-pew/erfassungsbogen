@@ -43,6 +43,15 @@ export const ORTSSPERRE_MS: number =
 /** Halbmesser der gesperrten Stelle: eine Fingerkuppe mit Handschuh samt Zittern. */
 export const ORTSSPERRE_RADIUS_PX = 40;
 
+/**
+ * Untergrenze des Halbmessers bei schmalen Zielen. Der Radius folgt der halben
+ * Breite des angetippten Ziels (höchstens 40 px): Bei Browser-Zoom 150 bis 200 %
+ * liegen die Reiter der Schrittleiste 25 bis 35 CSS-px auseinander, und der
+ * feste Radius sperrte den Nachbarreiter mit (Audit Runde 7, R7-H5). Ein Ziel
+ * ohne Maß (Testumgebung ohne Layout) behält die 40 px.
+ */
+const ORTSSPERRE_RADIUS_MIN_PX = 12;
+
 /** Wie lange ein Tipp als „der Tipp eben" gilt, an dessen Ort gesperrt wird. */
 const TIPP_FRISCH_MS = 1000;
 
@@ -50,6 +59,8 @@ interface Punkt {
   x: number;
   y: number;
   zeit: number;
+  /** Halbe Breite des angetippten Ziels (CSS-px); 0, wenn unbekannt. */
+  halb: number;
 }
 
 /**
@@ -61,6 +72,7 @@ interface Punkt {
 interface Sperre {
   x: number;
   y: number;
+  radius: number;
   bis: number;
   kappe: number;
   verlaengern: boolean;
@@ -76,9 +88,20 @@ function mitOrt(e: MouseEvent): boolean {
   return e.detail > 0 && !(e.clientX === 0 && e.clientY === 0);
 }
 
+/** Halbe Breite des Tippziels unter dem Klick; 0, wenn es kein Maß gibt. */
+function halbeZielbreite(e: MouseEvent): number {
+  const ziel = (e.target as Element | null)?.closest?.("button, a[href], summary, label, [role='button'], [role='tab']");
+  const b = ziel?.getBoundingClientRect?.().width ?? 0;
+  return b > 0 ? b / 2 : 0;
+}
+
+function radiusFuer(halb: number): number {
+  return halb > 0 ? Math.min(ORTSSPERRE_RADIUS_PX, Math.max(ORTSSPERRE_RADIUS_MIN_PX, halb)) : ORTSSPERRE_RADIUS_PX;
+}
+
 function sperreAn(x: number, y: number, jetzt: number): Sperre | undefined {
   sperren = sperren.filter((s) => s.bis >= jetzt);
-  return sperren.find((s) => Math.hypot(x - s.x, y - s.y) <= ORTSSPERRE_RADIUS_PX);
+  return sperren.find((s) => Math.hypot(x - s.x, y - s.y) <= s.radius);
 }
 
 /**
@@ -113,6 +136,9 @@ function verworfenZeigen(e: MouseEvent): void {
   const breite = window.innerWidth || 360;
   pille.style.left = `${Math.round(Math.min(Math.max(e.clientX, 72), Math.max(72, breite - 72)))}px`;
   pille.style.top = `${Math.round(Math.max(8, e.clientY - 72))}px`;
+  // Im QR-Vollbild quer lag die Pille über „Teil n von m" (R7-H4): dort steht sie fest unten
+  // in der Spalte, nicht über dem Tipport (die Regel steht in index.html, `.im-vollbild`).
+  pille.classList.toggle("im-vollbild", host.classList.contains("qr-vollbild"));
   pille.hidden = false;
   clearTimeout(verworfenUhr);
   verworfenUhr = setTimeout(() => {
@@ -133,7 +159,7 @@ function klickPruefen(e: MouseEvent) {
     verworfenZeigen(e);
     return;
   }
-  letzterTipp = { x: e.clientX, y: e.clientY, zeit: jetzt };
+  letzterTipp = { x: e.clientX, y: e.clientY, zeit: jetzt, halb: halbeZielbreite(e) };
 }
 
 /** Ein Feld nimmt den Fokus schon beim Drücken — auch das an der gesperrten Stelle abfangen. */
@@ -170,10 +196,12 @@ export function ortSperren(
 ): void {
   if (ms <= 0) return;
   let stelle = ort;
+  let radius = ORTSSPERRE_RADIUS_PX;
   if (!stelle) {
     const t = letzterTipp;
     if (!t || Date.now() - t.zeit > TIPP_FRISCH_MS) return;
     stelle = t;
+    radius = radiusFuer(t.halb);
   }
   const jetzt = Date.now();
   const bis = jetzt + ms;
@@ -182,9 +210,10 @@ export function ortSperren(
     vorhanden.bis = Math.max(vorhanden.bis, bis);
     vorhanden.verlaengern ||= optionen.verlaengern === true;
     vorhanden.kappe = Math.max(vorhanden.kappe, jetzt + VERLAENGERN_KAPPE_MS);
+    vorhanden.radius = Math.max(vorhanden.radius, radius);
     return;
   }
-  sperren.push({ x: stelle.x, y: stelle.y, bis, kappe: jetzt + VERLAENGERN_KAPPE_MS, verlaengern: optionen.verlaengern === true });
+  sperren.push({ x: stelle.x, y: stelle.y, radius, bis, kappe: jetzt + VERLAENGERN_KAPPE_MS, verlaengern: optionen.verlaengern === true });
 }
 
 /** Ort des letzten Tipps (Bildschirmkoordinaten), solange er frisch ist. */

@@ -35,6 +35,7 @@ export function FesteWarnung({
   aktionen,
   einklappenBeiKnappemBild = true,
   offenAnfangs = false,
+  aktionenImmer = false,
 }: {
   /** Zusatzklassen (`fenster-konflikt`, `speicher-fehler`). */
   klasse: string;
@@ -50,6 +51,13 @@ export function FesteWarnung({
   einklappenBeiKnappemBild?: boolean;
   /** Ohne knappes Bild gleich ausgeklappt (die Entscheidung der zwei Fenster). */
   offenAnfangs?: boolean;
+  /**
+   * Die Knöpfe der Entscheidung stehen immer in der Leiste, solange das Bild
+   * nicht knapp ist; `details` klappen getrennt auf („Genauer"). Bei knappem
+   * Bild (Tastatur, Querformat) bleibt es beim Schalter „Entscheiden"
+   * (Audit Runde 7, R7-O1, R7-M2: Die Knöpfe lagen hinter einem inneren Rollen).
+   */
+  aktionenImmer?: boolean;
 }) {
   const [knapp, setKnapp] = useState(() => bildhoehe() < KNAPPE_BILDHOEHE);
   const [offen, setOffen] = useState(() => offenAnfangs && !(einklappenBeiKnappemBild && bildhoehe() < KNAPPE_BILDHOEHE));
@@ -88,19 +96,30 @@ export function FesteWarnung({
   }, []);
 
   const hatMehr = !!details || !!aktionen;
+  const aktionenSichtbar = !!aktionen && (aktionenImmer ? !knapp || offen : offen);
+  // Bei dauernd sichtbaren Knöpfen öffnet der Schalter nur noch die Einzelheiten.
+  const schalterText = offen
+    ? "Zuklappen"
+    : aktionenImmer && !knapp
+      ? "Genauer"
+      : aktionen && !details
+        ? "Entscheiden"
+        : aktionen && aktionenImmer
+          ? "Entscheiden"
+          : detailsKnopf;
   return (
     <div ref={leiste} className={`autosave fest-warnung ${klasse}${knapp ? " knapp" : ""}`} role={rolle}>
       <p className="fest-kurz">{kurz}</p>
       {offen && details && <div className="fest-details">{details}</div>}
-      {offen && aktionen && <div className="aktionen">{aktionen}</div>}
-      {hatMehr && (
+      {aktionenSichtbar && <div className="aktionen">{aktionen}</div>}
+      {hatMehr && (aktionenImmer && !knapp ? !!details : true) && (
         <button
           type="button"
           className="fest-schalter"
           aria-expanded={offen}
           onClick={() => setOffen((o) => !o)}
         >
-          {offen ? "Weniger" : aktionen && !details ? "Entscheiden" : detailsKnopf}
+          {schalterText}
         </button>
       )}
     </div>

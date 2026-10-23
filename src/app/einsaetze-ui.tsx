@@ -55,8 +55,13 @@ import {
 } from "@bos/meldekopf/einsaetze";
 import { einsatzWiederherstellen, ruhtSchonLange } from "./einsatz-wiederherstellen";
 import { fassungGiltSetzen, fassungObenauf, fassungenJeEinheit, geltendeJeEinheit, istVerdraengt, nachgereichterBogen } from "./fassung-vorrang";
-import { einsaetzeLaden, einsaetzePapierkorb } from "./einsaetze-lesen";
+import { ausgelasseneMeldungen, einsaetzeLaden, einsaetzePapierkorb } from "./einsaetze-lesen";
+import { UnlesbarHinweis } from "./unlesbar-hinweis";
+import { unlesbarBestand } from "./unlesbar";
 import { koepfeJe, revisionenJe } from "./einheiten-index";
+import { aehnlicherOrt, andererEinheitstyp } from "./nacherfassung";
+import { vorhandeneZuege } from "./zug-name";
+import { einheitOrt } from "@bos/meldekopf/darstellung";
 import { RolleMarke } from "./rolle-marke";
 import { useArbeitet } from "./arbeitet";
 import { LagemonitorBlock } from "./lagemonitor-ui";
@@ -66,13 +71,15 @@ import type { AufteilungsWahl } from "@bos/meldekopf/aufteilen";
 import { aggregiere, aggregiereNachZug, mwdText, uebungenAusserhalbDerLage, type EinsatzSummen } from "./auswertung";
 import {
   SORTIERUNGEN,
+  passtZuLueckenfilter,
   einheitenAnsicht,
   personenMitQualifikation,
   qualifikationenImEinsatz,
   type EinheitenSortierung,
+  type LueckenFilter,
 } from "./einheiten-liste";
 import { debugAktiv } from "./debug-plattform";
-import { papierkorbRest } from "./papierkorb-frist";
+import { datumZweistellig, papierkorbRest } from "./papierkorb-frist";
 import { Auswahl, STAERKE_LEGENDE } from "./schritte/bausteine";
 import { SeitenKopf } from "./seiten-kopf";
 import { AnzeigeLeistenKnopf, AnzeigeSchalter } from "./anzeige-schalter";
@@ -296,17 +303,20 @@ function weitergabeTeil(s: Einsatzsammlung, stand: ExportStand): string {
  */
 export function letzteMeldungText(s: Einsatzsammlung): string {
   const letzte = letzteMeldung(s.eintraege);
-  if (letzte == null) return "Noch keine Meldung.";
+  // Was die App nicht anzeigen kann, zählt mit: „Noch keine Meldung" gilt nur für eine wirklich leere Sammlung (R7-E2).
+  const nichtLesbar = ausgelasseneMeldungen(s.id) + (unlesbarBestand()?.meldungen.filter((m) => m.sammlungId === s.id).length ?? 0);
+  const unlesbarZusatz = nichtLesbar > 0 ? `${nichtLesbar} ${nichtLesbar === 1 ? "Meldung" : "Meldungen"} nicht lesbar — Daten sichern` : "";
+  if (letzte == null) return unlesbarZusatz ? `Keine lesbare Meldung · ${unlesbarZusatz}.` : "Noch keine Meldung.";
   const stand = kenntnisStandLaden(s.id);
   const neu = stand
     ? neueEintraege(s.eintraege, stand).filter((e) => e.quelle !== "aufteilung" && e.quelle !== "zusammenfuehrung").length
     : 0;
-  return `Letzte Meldung ${zeitLang(letzte)}${neu > 0 ? ` · ${neu} neu seit der letzten Kenntnisnahme` : ""}`;
+  return `Letzte Meldung ${zeitLang(letzte)}${neu > 0 ? ` · ${neu} neu seit der letzten Kenntnisnahme` : ""}${unlesbarZusatz ? ` · ${unlesbarZusatz}` : ""}`;
 }
 
 /** Kalendertag der Geräteuhr: „28.09.2026". */
 function tagText(ms: number): string {
-  return new Date(ms).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return datumZweistellig(ms);
 }
 
 function staerkeText(b: Erfassungsbogen): string {
@@ -499,6 +509,7 @@ export function EinsatzListe(props: {
             {/* Zeitbezug der Zahlen und was seit der letzten Kenntnisnahme kam
                 (R3-K5, R3-K1). */}
             <p className="hinweis letzte-meldung">{letzteMeldungText(s)}</p>
+            <UnlesbarHinweis sammlungId={s.id} />
             {/* Stand von Papier und Export schon auf der Startseite: ob der
                 Aushang und die letzte Lieferung noch stimmen (R2-A3). */}
             <p className="hinweis ausgabe-stand">{ausgabeStandText(s)}</p>
@@ -543,7 +554,7 @@ export function EinsatzListe(props: {
             {/* Datum und Restzeit statt „nach 30 Tagen": Ab drei Tagen
                 hervorgehoben (Audit Runde 4, R4-D5). */}
             <p className={papierkorbRest(s.geloeschtAm!).bald ? "hinweis warnung-text" : "hinweis"}>
-              {s.eintraege.length} Meldung(en) · gelöscht am {new Date(s.geloeschtAm!).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })} —{" "}
+              {s.eintraege.length} Meldung(en) · gelöscht am {datumZweistellig(s.geloeschtAm!)} —{" "}
               {papierkorbRest(s.geloeschtAm!).text}
             </p>
             {/* Wiederherstellen zählt als Änderung: Die Aufräumfrist ruhender
@@ -886,7 +897,7 @@ export function EinsatzDetail(props: {
   const aenderungenSeitWeitergabe = weitergabeStand ? aenderungenSeit(einsatz.eintraege, weitergabeStand) : { anzahl: 0, arten: [] };
   const weitergabeOffen = seitWeitergabe > 0 || aenderungenSeitWeitergabe.anzahl > 0;
   const [suche, setSuche] = useState("");
-  const [sortierung, setSortierung] = useState<EinheitenSortierung>("name");
+  const [sortierung, setSortierung] = useState<EinheitenSortierung>("nummer");
   // Sprünge innerhalb der Ansicht (R4-K5): zur Einheitenliste und zu Weitergabe/Export.
   const ausgabeBlock = useRef<HTMLDivElement>(null);
   const listeKopf = useRef<HTMLHeadingElement>(null);
@@ -906,6 +917,8 @@ export function EinsatzDetail(props: {
   // "ruhezeit"/"unterbringung" kommen aus den Kopfzahlen („Ruhezeit: 5×").
   const [bedarfsFilter, setBedarfsFilter] = useState<BedarfsFilter | null>(null);
   const nurBedarf = bedarfsFilter != null;
+  // „ohne Auftrag" / „ohne Zug": Lücken, die die Führung schließen will (R7-K6).
+  const [lueckenFilter, setLueckenFilter] = useState<LueckenFilter | null>(null);
   // Suche, Sortierung und Filter am Telefon hinter einer Zeile, solange die Liste kurz ist (R4-K5).
   const [filterOffen, setFilterOffen] = useState(false);
   const bedarfsFilterText =
@@ -1181,11 +1194,15 @@ export function EinsatzDetail(props: {
   const istFahrerlaubnis = (schluessel: string) => schluessel === "kf" || schluessel.startsWith("kf:");
   const qualiFunktionen = qualiListe.filter((q) => !istFahrerlaubnis(q.schluessel));
   const qualiFahrerlaubnis = qualiListe.filter((q) => istFahrerlaubnis(q.schluessel));
-  const kopfOhneBedarfsfilter = einheitenAnsicht(alleEinheiten, suche, sortierung, quali);
-  const kopf = bedarfsFilter ? kopfOhneBedarfsfilter.filter((e) => passtZuBedarfsfilter(e, bedarfsFilter)) : kopfOhneBedarfsfilter;
+  const kopfOhneBedarfsfilter = einheitenAnsicht(alleEinheiten, suche, sortierung, quali, nummern);
+  const kopfNachBedarf = bedarfsFilter ? kopfOhneBedarfsfilter.filter((e) => passtZuBedarfsfilter(e, bedarfsFilter)) : kopfOhneBedarfsfilter;
+  const kopf = lueckenFilter ? kopfNachBedarf.filter((e) => passtZuLueckenfilter(e, lueckenFilter)) : kopfNachBedarf;
+  // „Wer hat noch keinen Auftrag, noch keinen Zug?" — gezählt über alle anwesenden Einheiten (R7-K6).
+  const ohneAuftragAnzahl = alleEinheiten.filter((e) => passtZuLueckenfilter(e, "ohne-auftrag")).length;
+  const ohneZugAnzahl = alleEinheiten.filter((e) => passtZuLueckenfilter(e, "ohne-zug")).length;
   const gefiltert = kopf.length !== alleEinheiten.length;
   /** Irgendeine Einschränkung wirkt: dann bleibt die Suchleiste auch am Telefon offen (R4-K5). */
-  const filterAktiv = suche.trim() !== "" || quali !== "" || nurBedarf;
+  const filterAktiv = suche.trim() !== "" || quali !== "" || nurBedarf || lueckenFilter != null;
   // Meldeköpfe melden oft nur die Stärke — dort steht keine Person und damit
   // keine Qualifikation. Ohne diesen Hinweis sähe der Filter wie ein Fehler aus.
   const ohnePersonen = alleEinheiten.filter(
@@ -1283,6 +1300,19 @@ export function EinsatzDetail(props: {
           onChange={(e) => setBedarfsFilter(e.target.checked ? "dringend" : null)}
         />
         {" "}nur dringender Bedarf (ohne Kraftstoff)
+      </label>
+      {/* Lücken: wer noch keinen Auftrag oder keinen Zug hat (R7-K6). */}
+      <label className="feld sortierung">
+        Auftrag / Zug
+        <Auswahl
+          beschriftung="Auftrag / Zug"
+          value={lueckenFilter ?? ""}
+          onChange={(e) => setLueckenFilter((e.target.value || null) as LueckenFilter | null)}
+        >
+          <option value="">alle</option>
+          <option value="ohne-auftrag">ohne Auftrag ({ohneAuftragAnzahl})</option>
+          <option value="ohne-zug">ohne Zug ({ohneZugAnzahl})</option>
+        </Auswahl>
       </label>
     </div>
   );
@@ -1510,10 +1540,15 @@ export function EinsatzDetail(props: {
       {kompakt ? (
         <details className="karte bedarf-block">
           <summary>
-            <strong>Bedarf:</strong> Verpflegung {sum.verpflegung.gesamt}
-            {sum.unterbringungBenoetigt > 0 ? ` · Unterbringung ${sum.unterbringungAngefordert.personen}` : ""}
-            {` · Diesel ${sum.kraftstoff.dieselLiter} l`}
-            {sum.ruhezeitErforderlich > 0 ? ` · Ruhezeit ${sum.ruhezeitErforderlich}×` : ""}
+            <strong>Bedarf:</strong>{" "}
+            {/* Die Werte in eigenem Span: Die Zeile ist ein Flex-Behälter, und das Wort „Bedarf:" brach
+                sonst als schrumpfender Flex-Teil im Wort („Bed / arf:"; R7-M1, R7-G9). */}
+            <span className="bedarf-werte">
+              Verpflegung {sum.verpflegung.gesamt}
+              {sum.unterbringungBenoetigt > 0 ? ` · Unterbringung ${sum.unterbringungAngefordert.personen}` : ""}
+              {` · Diesel ${sum.kraftstoff.dieselLiter} l`}
+              {sum.ruhezeitErforderlich > 0 ? ` · Ruhezeit ${sum.ruhezeitErforderlich}×` : ""}
+            </span>
           </summary>
           {/* Vier Bedarfsarten als beschriftete Paare statt als zwei Sätze: nach
             diesen Zahlen wird gezielt gesucht („wie viel Diesel?"), nicht
@@ -1691,6 +1726,7 @@ export function EinsatzDetail(props: {
       </div>
 
       <section className="karte einsatz-liste">
+        <UnlesbarHinweis sammlungId={einsatz.id} />
         <div className="kopfzeile">
           {/* Zwei beschriftete Zahlen statt drei unbeschrifteter: „gemeldet"
               ist die Länge der Liste, „zählend" die Zahl der Stärkeleiste —
@@ -1729,6 +1765,27 @@ export function EinsatzDetail(props: {
             Meldung wäre die Leiste nur Beiwerk, ab der zweiten steht sie
             bereit: eine erst später auftauchende Leiste liest sich am Gerät
             wie eine fehlende Funktion (Rückmeldung Anwender, August 2026). */}
+        {alleEinheiten.length > 0 && (ohneAuftragAnzahl > 0 || ohneZugAnzahl > 0) && (
+          <p className="hinweis luecken-zaehler">
+            {ohneAuftragAnzahl > 0 && (
+              <button type="button" className="link" onClick={() => { setLueckenFilter("ohne-auftrag"); setFilterOffen(true); }}>
+                {ohneAuftragAnzahl} ohne Auftrag
+              </button>
+            )}
+            {ohneAuftragAnzahl > 0 && ohneZugAnzahl > 0 ? " · " : ""}
+            {ohneZugAnzahl > 0 && (
+              <button type="button" className="link" onClick={() => { setLueckenFilter("ohne-zug"); setFilterOffen(true); }}>
+                {ohneZugAnzahl} ohne Zug
+              </button>
+            )}
+            {lueckenFilter && (
+              <>
+                {" · "}
+                <button type="button" className="link" onClick={() => setLueckenFilter(null)}>Filter aufheben</button>
+              </>
+            )}
+          </p>
+        )}
         {alleEinheiten.length > 1 && (
           filterEingeklappt ? (
             <details
@@ -1770,7 +1827,7 @@ export function EinsatzDetail(props: {
         {alleEinheiten.length > 0 && kopf.length === 0 && (
           <p className="hinweis">
             Keine Einheit passt zu{" "}
-            {[suche.trim() && `„${suche.trim()}“`, gewaehlteQuali && `„${gewaehlteQuali.label}“`, nurBedarf && bedarfsFilterText]
+            {[suche.trim() && `„${suche.trim()}“`, gewaehlteQuali && `„${gewaehlteQuali.label}“`, nurBedarf && bedarfsFilterText, lueckenFilter && (lueckenFilter === "ohne-auftrag" ? "„ohne Auftrag“" : "„ohne Zug“")]
               .filter(Boolean)
               .join(" und ")}
             .{" "}
@@ -1787,7 +1844,17 @@ export function EinsatzDetail(props: {
                 <button type="button" className="link" onClick={() => setBedarfsFilter(null)}>Bedarfsfilter aufheben</button>
               </>
             )}
+            {lueckenFilter && (
+              <>
+                {suche.trim() !== "" || gewaehlteQuali || nurBedarf ? " · " : ""}
+                <button type="button" className="link" onClick={() => setLueckenFilter(null)}>Filter aufheben</button>
+              </>
+            )}
           </p>
+        )}
+        {/* Legende einmal über der Liste: „Stärke 1 / 1 / 2 / 4" auf den Karten trägt keine Beschriftung (R7-K9). */}
+        {ansicht === "karten" && kopf.length > 0 && (
+          <p className="hinweis staerke-legende">Stärke auf den Karten: Führer / Unterführer / Mannschaft / Gesamt.</p>
         )}
         {ansicht === "tabelle" && kopf.length > 0 && (
           <EinheitenTabelle meldungen={kopf} art={einsatz.art} eingang={eingang} nummern={nummern} neueFassungen={neueFassungen} />
@@ -1931,6 +1998,8 @@ export function EinsatzDetail(props: {
           />
           Nur neue Bögen seit dem letzten Export
         </label>
+        {/* Bezugspunkt ist das Erzeugen der Datei: Ob sie den Stab erreicht hat, weiß das Gerät nicht (R7-A3). */}
+        <span className="hinweis">Gerechnet ab dem Erzeugen der Datei — ob sie beim Stab angekommen ist, weiß das Gerät nicht.</span>
         {/* Je Format ein eigener Bezugspunkt (R4-W2): Excel für die eigene
             Liste verbraucht den Nachtrag-PDF nicht, die Weitergabe an die
             Ablösung keines von beiden. Ohne Haken nur, was es gab. */}
@@ -1968,7 +2037,7 @@ export function EinsatzDetail(props: {
           }
           return (
             <span className="hinweis export-stand-zeile" key={z}>
-              {EXPORT_ZIEL_NAME[z]}: zuletzt {exportZeitKurz(stand.zeitpunkt)}
+              {EXPORT_ZIEL_NAME[z]}: zuletzt erzeugt {exportZeitKurz(stand.zeitpunkt)}
               {stand.herkunft === "geraet" ? " (vom anderen Gerät)" : stand.herkunft === "weitergabe" ? " (ab der Weitergabe gerechnet)" : ""} ·{" "}
               {seitdemBoegenText(einsatz.eintraege, stand)}
             </span>
@@ -2714,6 +2783,7 @@ function EinheitKarte(props: {
   const [pdfLaeuft, setPdfLaeuft] = useState(false);
   // null = nicht in Bearbeitung; String = Entwurf des Zug-Etiketts.
   const [zugEntwurf, setZugEntwurf] = useState<string | null>(null);
+  const zugListeId = useId();
   // Entwurf des Auftrags/der Notiz der Führungsstelle (K5), gleiche Regel.
   const [notizEntwurf, setNotizEntwurf] = useState<string | null>(null);
   // Eintreff- oder Abrückzeit in Korrektur (Nachtragen vom Papier).
@@ -2757,6 +2827,19 @@ function EinheitKarte(props: {
       stammSchluessel(e.einheitSchluessel) === stammSchluessel(kopf.einheitSchluessel) &&
       e.status === MeldeStatus.ANWESEND,
   );
+  // Eine andere Karte derselben Organisation am selben Ort ohne klar anderen Einheitstyp:
+  // möglicherweise dieselbe Einheit, die zweimal zählt (R7-N1). Die Marke steht an beiden Karten.
+  const aehnlicheKarte = zaehlt
+    ? koepfeJe(alle).find(
+        (g) =>
+          g.status === MeldeStatus.ANWESEND &&
+          g.einheitSchluessel !== kopf.einheitSchluessel &&
+          stammSchluessel(g.einheitSchluessel) !== stammSchluessel(kopf.einheitSchluessel) &&
+          g.bogen.einheit.organisation === kopf.bogen.einheit.organisation &&
+          !andererEinheitstyp(g.bogen.einheit, kopf.bogen.einheit) &&
+          aehnlicherOrt(einheitOrt(g.bogen.einheit), einheitOrt(kopf.bogen.einheit)),
+      )
+    : undefined;
   const zielVonAufgegangen = kopf.aufgegangenIn
     ? alle.find((e) => e.einheitSchluessel === kopf.aufgegangenIn!.einheitSchluessel)
     : undefined;
@@ -2805,9 +2888,9 @@ function EinheitKarte(props: {
     onGeaendert();
   }
 
-  async function zugSpeichern() {
+  async function zugSpeichern(wert?: string) {
     const ok = await gesichert("Zug zuordnen", () =>
-      zugSetzen(einsatzId, kopf.einheitSchluessel, kopf.id, zugEntwurf ?? ""),
+      zugSetzen(einsatzId, kopf.einheitSchluessel, kopf.id, wert ?? zugEntwurf ?? ""),
     );
     setZugEntwurf(null);
     if (ok) onGeaendert();
@@ -3066,7 +3149,7 @@ function EinheitKarte(props: {
         wert: s.id,
         label: s.name,
         hinweis:
-          `${ART_LABEL[s.art]}${s.ort ? ` · ${s.ort}` : ""} · angelegt ${new Date(s.angelegt).toLocaleDateString("de-DE")}` +
+          `${ART_LABEL[s.art]}${s.ort ? ` · ${s.ort}` : ""} · angelegt ${datumZweistellig(s.angelegt)}` +
           (zaehltHier && s.art !== EinsatzArt.EINSATZ ? ` — als Übung zählt die Einheit in keiner Lage mehr` : "") +
           (imZiel(s) ? " — dort schon gemeldet, wird zusammengeführt" : ""),
       })),
@@ -3242,6 +3325,14 @@ function EinheitKarte(props: {
             {kopf.teilEtikett ? <span className="teil-badge">{kopf.teilEtikett}</span> : null}
             {kopf.zugEtikett ? <span className="zug-badge"> {kopf.zugEtikett}</span> : null}
             <PapierMarke eintrag={kopf} />
+            {aehnlicheKarte ? (
+              <span
+                className="papier-badge"
+                title={`Ähnelt „${einheitAnzeigename(aehnlicheKarte.bogen.einheit)}" (gleicher Ort, Organisation und Typ nicht verschieden). Beide zählen getrennt; ist es dieselbe Einheit, die doppelte Karte unter „Mehr…" entfernen.`}
+              >
+                ähnelt „{einheitAnzeigename(aehnlicheKarte.bogen.einheit)}" — zählt getrennt
+              </span>
+            ) : null}
             {/* Was seit der Übernahme dazukam: jünger als 30 Minuten (K2). */}
             {/* Nicht „neu": dasselbe Wort hieß ein paar Zeilen darüber „seit
                 dem letzten Export" — nach einem Export trugen alle Karten
@@ -3308,7 +3399,10 @@ function EinheitKarte(props: {
                 <span className="kompakt-merkmal luecken-merkmal" title={zeitHinweis}>⚠ Zeit prüfen</span>
               )}
               {kopf.notiz && (
-                <span className="kompakt-merkmal auftrag-merkmal" title={`Auftrag/Notiz: ${kopf.notiz}`}>Auftrag ✓</span>
+                <span className="kompakt-merkmal auftrag-merkmal" title={`Auftrag/Notiz: ${kopf.notiz}`}>
+                  {/* Der Inhalt statt eines Hakens, gekürzt auf eine Zeile (R7-K6). */}
+                  Auftrag: {kopf.notiz.length > 32 ? `${kopf.notiz.slice(0, 31)}…` : kopf.notiz}
+                </span>
               )}
               {zaehlt && luecken.length > 0 && (
                 <span className="kompakt-merkmal luecken-merkmal" data-oeffnet="luecken" title={luecken.map((p) => p.text).join("\n")}>
@@ -3344,7 +3438,7 @@ function EinheitKarte(props: {
             {abgerueckt && (
               <>
                 {" · abgerückt"}
-                {kopf.abgerueckAm != null ? ` ${zeitLang(kopf.abgerueckAm)}` : ""}{" "}
+                {kopf.abgerueckAm != null ? ` ${zeitLang(kopf.abgerueckAm)}` : " (Abrückzeit nicht bestätigt)"}{" "}
                 <button
                   aria-describedby={nameId}
                   type="button"
@@ -3675,11 +3769,27 @@ function EinheitKarte(props: {
       )}
       {zugEntwurf !== null && (
         <div className="zug-bearbeiten">
+          {/* Schon vergebene Züge als Auswahl; die Eingabe wird gegen sie abgeglichen („1.Zug" = „1. Zug", R7-K4). */}
+          <datalist id={zugListeId}>
+            {vorhandeneZuege(alle.map((e) => e.zugEtikett)).map((z) => (
+              <option key={z} value={z} />
+            ))}
+          </datalist>
+          {vorhandeneZuege(alle.map((e) => e.zugEtikett)).length > 0 && (
+            <div className="zug-vorschlaege" role="group" aria-label="Schon vergebene Züge">
+              {vorhandeneZuege(alle.map((e) => e.zugEtikett)).map((z) => (
+                <button key={z} type="button" aria-describedby={nameId} onClick={() => void zugSpeichern(z)}>
+                  {z}
+                </button>
+              ))}{" "}
+            </div>
+          )}
           <input
             type="text"
             value={zugEntwurf}
             placeholder="z. B. 2. Zug"
             aria-label="Zug"
+            list={zugListeId}
             autoFocus
             onChange={(e) => setZugEntwurf(e.target.value)}
             onKeyDown={(e) => {

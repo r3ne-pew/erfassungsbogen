@@ -30,6 +30,8 @@ import {
   bogenHatInhalt,
   heuteDatum,
   nurSollstaerke,
+  personUnbenannt,
+  fahrzeugUnbenannt,
   staerkePlausibilitaet,
   zeitraumDeutsch,
   bogenLaden,
@@ -98,6 +100,7 @@ import { anzahlEinheiten, letzteMeldung, meldungsNummern, nummernWechsel, nummer
 import { exportSammlung, exportStaendeLaden, exportStaendeUebernehmen, exportStandAusWeitergabe, exportVermerken, lieferungsMarke, weitergabeUmImportErgaenzen, type ExportStand, type ExportUmfang, type ExportZiel } from "./export-stand";
 import { abgleichGliederung, abgleichText, einsatzAbgleichen, sammlungFuerZiel, type Einzelheit } from "./einsatz-abgleich";
 import { aktuelleMeldungen } from "./auswertung";
+import { lageAngabenLaden, lageAngabenUebernehmen } from "./lage-angaben";
 import { ablehnungsSatz, abgelehnteBoegen, boegenAusJsonTextMitUrsachen, boegenAusPdfBytes, einsatzAusDatei, einsatzAusPdfBytes, einsatzDateiInhalt, istPdfDatei, pdfInhaltArt } from "./einsatz-transport";
 import type { QrBogen } from "./qr-boegen";
 import { einsatzCsvInhalt } from "./einsatz-csv";
@@ -133,9 +136,12 @@ import {
   rueckholungNimmt,
   ersetztenEntwurfVerwerfen,
   entwurfUeberschreibenErlauben,
+  entwurfFremdEntfernt,
   type Entwurf,
 } from "./entwurf";
 import { SeitenKopf } from "./seiten-kopf";
+import { datumZweistellig } from "./papierkorb-frist";
+import { UnlesbarHinweis } from "./unlesbar-hinweis";
 import { AnzeigeLeistenKnopf, AnzeigeSchalter } from "./anzeige-schalter";
 import { orgFarbe, wendeOrgAkzentAn } from "./org-farben";
 import { einheitSymbolSvg, svgDataUrl } from "./taktische-zeichen-bogen";
@@ -146,7 +152,7 @@ import { arbeiten, useArbeitet } from "./arbeitet";
 import { wartendenLinkErledigt, wartendenLinkLesen, wartendenLinkMerken } from "./wartender-link";
 import { FesteWarnung } from "./feste-warnung";
 import { speicherFehlerDetails, speicherFehlerKurz } from "./speicher-fehler-text";
-import { UhrWarnung } from "./uhr-warnung";
+import { UhrHinweis, UhrWarnung } from "./uhr-warnung";
 import { Dialogschicht, frageFelder, frageJaNein, frageWahl, zeigeHinweis, type Antwortweg } from "./dialoge";
 import { istNurStaerke, nurStaerkeUebernehmen, wasWegfiele } from "./nur-staerke";
 import {
@@ -156,6 +162,7 @@ import {
   SchrittPersonal,
   SchrittSofortbedarf,
   Uebersicht,
+  personalRueckwegVergessen,
 } from "./schritte";
 
 const SCHRITTE = ["Einheit", "Einsatz", "Personal", "Fahrzeuge", "Sofortbedarf", "Übersicht"];
@@ -531,7 +538,8 @@ function uhrzeitMitTag(d: Date): string {
 }
 
 /** Was die App gerade zeigt — für den Browser-Verlauf (Zurück-Knopf, Audit „Fehler", E3). */
-type Ansicht = { schritt: number; zeigeStart: boolean; einsatz: string | null; scanner: boolean };
+// `muster`: die Musterung einer Vorlage ist eine eigene Ansicht mit Verlaufseintrag (R7-H2).
+type Ansicht = { schritt: number; zeigeStart: boolean; einsatz: string | null; scanner: boolean; muster?: boolean };
 /**
  * Bisherige und neue Meldung in der Rückfrage nebeneinander (R4-N1): Stärke,
  * Ansprechperson, Kennzeichen, Stand — und ein Hinweis, wenn sie keine Person
@@ -592,7 +600,7 @@ function offenesFensterAbbrechen(): boolean {
 }
 
 function ansichtGleich(a: Ansicht, b: Ansicht): boolean {
-  return a.schritt === b.schritt && a.zeigeStart === b.zeigeStart && a.einsatz === b.einsatz && a.scanner === b.scanner;
+  return a.schritt === b.schritt && a.zeigeStart === b.zeigeStart && a.einsatz === b.einsatz && a.scanner === b.scanner && !!a.muster === !!b.muster;
 }
 
 // Ein Segment-Teil aus dem Kaltstart darf nur einmal in den Sammelstand —
@@ -1013,8 +1021,9 @@ function AppInhalt() {
   // erstellen" legte keinen Verlaufseintrag an, und Zurück aus Schritt 1
   // verließ die App (Audit Runde 2, R2-H5).
   const startSichtbar = zeigeStart || !bogen;
+  const musterAktiv = musterVorlage != null;
   useEffect(() => {
-    const jetzt: Ansicht = { schritt, zeigeStart: startSichtbar, einsatz: offenerEinsatzId, scanner: scannerOffen };
+    const jetzt: Ansicht = { schritt, zeigeStart: startSichtbar, einsatz: offenerEinsatzId, scanner: scannerOffen, muster: musterAktiv };
     const vorher = ansichtRef.current;
     ansichtRef.current = jetzt;
     if (typeof history === "undefined") return;
@@ -1038,9 +1047,18 @@ function AppInhalt() {
       return;
     }
     verlaufZielRef.current = null;
+    // Die Musterung endet (Abbrechen, „Bogen anlegen", anderer Weg): Ihr Eintrag wird ersetzt
+    // statt überbaut, damit Zurück zur Startseite führt, nicht in die tote Musterung (R7-H2).
+    // Bricht sie nur ab und steht die Startseite da, nimmt der Verlauf den Eintrag zurück.
+    if (vorher.muster && !jetzt.muster) {
+      const st = (history.state ?? {}) as { eeb?: Ansicht; eebErste?: boolean };
+      if (jetzt.zeigeStart && st.eeb?.muster && !st.eebErste) history.back();
+      else history.replaceState({ ...(st.eebErste ? { eebErste: true } : {}), eeb: jetzt }, "");
+      return;
+    }
     if (rueckfrageEintragErsetzbar()) history.replaceState({ eeb: jetzt }, "");
     else history.pushState({ eeb: jetzt }, "");
-  }, [schritt, startSichtbar, offenerEinsatzId, scannerOffen]);
+  }, [schritt, startSichtbar, offenerEinsatzId, scannerOffen, musterAktiv]);
   useEffect(() => {
     function beiVerlauf(e: PopStateEvent) {
       const ziel = (e.state as { eeb?: Ansicht } | null)?.eeb;
@@ -1066,6 +1084,8 @@ function AppInhalt() {
       // dieselbe Ansicht: nichts umzustellen, und das Ziel nicht merken.
       if (ansichtRef.current && ansichtGleich(ziel, ansichtRef.current)) return;
       verlaufZielRef.current = ziel;
+      if (!ziel.muster && musterVorlageRef.current) setMusterVorlage(null);
+      else if (ziel.muster && !musterVorlageRef.current) setMusterVorlage(musterungVorlageAusStand(vorlagenRef.current));
       setSchritt(ziel.schritt);
       setZeigeStart(ziel.zeigeStart);
       setOffenerEinsatzIdRoh(ziel.einsatz);
@@ -1079,6 +1099,10 @@ function AppInhalt() {
   }, []);
   const scannerOffenRef = useRef(false);
   scannerOffenRef.current = scannerOffen;
+  const musterVorlageRef = useRef<Vorlage | null>(null);
+  musterVorlageRef.current = musterVorlage;
+  const vorlagenRef = useRef(vorlagen);
+  vorlagenRef.current = vorlagen;
 
   // Entwurfssicherung: jede Änderung still sichern; wird der Bogen bewusst
   // geschlossen (Neuer Bogen, Übernahme in einen Einsatz), fällt der Entwurf weg.
@@ -1128,6 +1152,7 @@ function AppInhalt() {
     } else {
       bogenGespeichert.current = { bogen: null, um: Date.now() };
       entwurfVerwerfen();
+      personalRueckwegVergessen(); // R7-O5: kein „Rückgängig" mit Namen im Tab, wenn der Bogen weg ist
       setGespeichertUm(null);
       setSpeicherFehler(false);
     }
@@ -1344,6 +1369,10 @@ function AppInhalt() {
     if (bearbeiteteVorlage && (vorlageUnveraendert(b) || !rueckholungNimmt(true, alt))) return false;
     // Derselbe Bogen liegt schon dort: keine Kopie über sich selbst (R3-E2).
     if (alt && JSON.stringify(alt.bogen) === JSON.stringify(b)) return true;
+    // „Alle Daten löschen" (oder Löschen des Bogens) in einem anderen Fenster:
+    // Was dort entfernt wurde, schreibt dieses Fenster nicht aus dem
+    // Arbeitsspeicher auf den Rückholplatz zurück (Audit Runde 7, R7-D1).
+    if (entwurfFremdEntfernt()) return false;
     // Die Rückholung nennt die letzte Bearbeitung, nicht den Moment des Schließens (R4-S5).
     const geaendertUm = bogenGespeichert.current.bogen === b ? bogenGespeichert.current.um : undefined;
     const ok = ersetztenEntwurfMerken(
@@ -1412,12 +1441,20 @@ function AppInhalt() {
         verlust: true,
       };
     }
+    // In einem anderen Fenster gelöscht (R7-D1): nicht wieder ablegen, und die Frage sagt es.
+    if (!opt.tausch && entwurfFremdEntfernt() && !(alt && JSON.stringify(alt.bogen) === JSON.stringify(bogen))) {
+      return {
+        satz: "Dieser Bogen wurde in einem anderen Fenster gelöscht oder geschlossen. Er wird hier nicht wieder abgelegt und ist danach nicht mehr erreichbar.",
+        verlust: true,
+      };
+    }
     // Der Name steht schon im Satz davor; hier nicht noch einmal (Audit Runde 5, R5-D5).
     const bleibt = `Der Stand bleibt auf der Startseite unter „Zuletzt geschlossenen Bogen zurückholen" erreichbar.`;
     if (!altZaehlt) return { satz: bleibt, verlust: false };
     const stand = new Date(alt.gespeichert).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
+    // Es gibt nur einen Rückholplatz (R7-D3): Der Verlust des dort liegenden Bogens steht VOR der Zusage.
     return {
-      satz: `${bleibt} ${alt.fremd ? "Die" : "Der"} dort bisher liegende ${alt.fremd ? "Erfassung" : "Bogen"} „${altName}" (Stand ${stand} Uhr${altMerkmal ? ` · ${altMerkmal}` : ""}) wird dabei endgültig gelöscht.`,
+      satz: `Achtung, „Zuletzt geschlossener Bogen" fasst nur einen Bogen: ${alt.fremd ? "Die" : "Der"} dort bisher liegende ${alt.fremd ? "Erfassung" : "Bogen"} „${altName}" (Stand ${stand} Uhr${altMerkmal ? ` · ${altMerkmal}` : ""}) wird dabei endgültig gelöscht. ${bleibt.replace("Der Stand bleibt", "Nur der jetzt ersetzte Stand bleibt")}`,
       verlust: true,
     };
   }
@@ -1505,6 +1542,8 @@ function AppInhalt() {
         ok: a.ok,
         abbruch: a.abbruch,
         gefahr: folgen.verlust,
+        // Die sichere Wahl hat den Fokus, auch wenn der Bogen zurückholbar bleibt (R7-E4).
+        fokus: "abbruch",
       });
       if (!ja) return false;
     }
@@ -1820,7 +1859,7 @@ function AppInhalt() {
         label: "Als neue Fassung anhängen",
         hinweis:
           (nichtJuenger && bisher
-            ? `Der Bogen trägt ${b.stand < bisher.stand ? "einen älteren" : "denselben"} Stand (${zeitpunktDeutsch(b.stand)}) wie die bisherige Meldung (${zeitpunktDeutsch(bisher.stand)}${platzhalterBisher ? ", von Hand erfasst" : ""}) — er gilt trotzdem, die bisherige wandert in die Historie.`
+            ? `Der Bogen trägt ${b.stand < bisher.stand ? "einen älteren Stand" : "denselben Stand"} (${zeitpunktDeutsch(b.stand)}) ${b.stand < bisher.stand ? "als" : "wie"} die bisherige Meldung (${zeitpunktDeutsch(bisher.stand)}${platzhalterBisher ? ", von Hand erfasst" : ""}) — er gilt trotzdem, die bisherige wandert in die Historie.`
             : "Der Normalfall bei einer Nachmeldung derselben Einheit: die bisherige Meldung wandert in die Historie, die neue gilt.") +
           (bisher ? wegfallHinweis(bisher) : ""),
       };
@@ -2163,7 +2202,7 @@ function AppInhalt() {
       );
       if (a) {
         zeilen.push(
-          `„${einheitAnzeigename(e.bogen.einheit)}" ähnelt „${einheitAnzeigename(a.bogen.einheit)}" – beide zählen getrennt. Dieselbe Einheit? Dann an der Karte „Mehr…“ › „Zusammenführen…“.`,
+          `„${einheitAnzeigename(e.bogen.einheit)}" ähnelt „${einheitAnzeigename(a.bogen.einheit)}" – beide zählen getrennt. Dieselbe Einheit? Dann die doppelte Karte unter „Mehr…“ › „Entfernen“ wegnehmen (mit „Rückgängig“); beide Karten tragen die Marke „ähnelt“.`,
         );
       }
     }
@@ -2632,11 +2671,15 @@ function AppInhalt() {
    */
   async function bogenInEinsatzLegen(zielId: string) {
     if (!bogen) return;
-    const b = bogen;
+    let b = bogen;
     const sig = bogenSignatur;
     const herkunft = bogenHerkunft;
     // Ein empfangener Bogen ist die Meldung der Einheit — nur selbst Erfasstes prüfen (R2-E2).
-    if (!sig && !(await sollstaerkeFreigeben(b))) return;
+    if (!sig) {
+      const frei = await sollstaerkeFreigeben(b);
+      if (!frei) return;
+      b = frei;
+    }
     setMeldung(""); // Rückmeldung des Assistenten gehört nicht in die Folgeansicht
     setFehler("");
     // Erst ablegen, dann schließen: Scheitert das Ablegen (Speicher voll),
@@ -2678,14 +2721,28 @@ function AppInhalt() {
    * Rückgabe: true = ablegen, false = nicht (abgebrochen oder zum Eintragen
    * in den Personal-Schritt gesprungen).
    */
-  async function sollstaerkeFreigeben(b: Erfassungsbogen): Promise<boolean> {
-    if (!nurSollstaerke(b)) return true;
+  async function sollstaerkeFreigeben(b: Erfassungsbogen): Promise<Erfassungsbogen | null> {
+    if (!nurSollstaerke(b)) return b;
     const s = staerke(b);
+    // „Nur Stärke" mit den unveränderten Zahlen der Vorbelegung (R7-A1): dieselbe Rückfrage,
+    // dazu der Weg „Zahlen stimmen" für eine Einheit, die wirklich in Sollstärke kommt.
+    const nurZahl = b.personalErfassung === PersonalErfassung.NUR_STAERKE;
     const wahl = await frageWahl({
       titel: "Stärke nicht gezählt",
-      text: `Für „${einheitAnzeigename(b.einheit)}" stehen nur die Sollplätze nach StAN (Stärke ${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt}${b.fahrzeuge.length ? `, ${b.fahrzeuge.length} Fahrzeug${b.fahrzeuge.length === 1 ? "" : "e"}` : ""}) — niemand hat Personen eingetragen.`,
+      text: nurZahl
+        ? `Für „${einheitAnzeigename(b.einheit)}" stehen noch die Zahlen der Vorbelegung nach Einheitstyp (Soll: ${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt}${b.fahrzeuge.length ? `, ${b.fahrzeuge.length} Fahrzeug${b.fahrzeuge.length === 1 ? "" : "e"}` : ""}) — niemand hat gezählt. Die Lage zählte sie sonst als gemeldete Stärke.`
+        : `Für „${einheitAnzeigename(b.einheit)}" stehen nur die Sollplätze nach StAN (Stärke ${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt}${b.fahrzeuge.length ? `, ${b.fahrzeuge.length} Fahrzeug${b.fahrzeuge.length === 1 ? "" : "e"}` : ""}) — niemand hat Personen eingetragen.`,
       wege: [
         { wert: "eintragen", label: "Stärke jetzt eintragen", hinweis: "Springt zum Personal — Namen oder nur die Zahl (Schnellerfassung)." },
+        ...(nurZahl
+          ? [
+              {
+                wert: "gezaehlt",
+                label: "Zahlen stimmen, so gezählt",
+                hinweis: "Die Einheit hat genau diese Stärke gemeldet; die leeren Vorbelegungskarten fallen weg.",
+              },
+            ]
+          : []),
         { wert: "soll", label: "Als Sollstärke ablegen", hinweis: "Die Karte in der Sammlung trägt die Marke „Sollstärke, nicht gemeldet“." },
       ],
     });
@@ -2695,7 +2752,11 @@ function AppInhalt() {
       setZeigeStart(false);
       setSchritt(2);
     }
-    return wahl === "soll";
+    if (wahl === "gezaehlt") {
+      // Die Zahl ist jetzt die Angabe: Vorbelegte Sollkarten und -fahrzeuge zählen nicht mit.
+      return { ...b, personal: b.personal.filter((p) => !personUnbenannt(p)), fahrzeuge: b.fahrzeuge.filter((f) => !fahrzeugUnbenannt(f)) };
+    }
+    return wahl === "soll" ? b : null;
   }
 
   /**
@@ -2733,7 +2794,7 @@ function AppInhalt() {
   async function erfassungUebernehmen() {
     const ziel = sammelZielId;
     if (!ziel || !bogen || !fremdeErfassung) return;
-    const b = bogen;
+    let b = bogen;
     // Ohne Namen keine Meldung: Ein Tipp direkt nach dem Öffnen legte eine
     // Einheit „THW" mit Stärke 0 in die Lage, die sich niemandem zuordnen
     // ließ (Audit Runde 3, R3-E3, R3-G3). Gesperrt wird nur hier — im
@@ -2753,7 +2814,14 @@ function AppInhalt() {
       }
       return;
     }
-    if (!(await sollstaerkeFreigeben(b))) return;
+    {
+      const frei = await sollstaerkeFreigeben(b);
+      if (!frei) return;
+      if (frei !== b) {
+        b = frei;
+        setBogen(frei); // „so gezählt": der offene Bogen trägt danach nur noch die Zahlen
+      }
+    }
     if (!(await staerkeFreigeben(b))) return;
     // Dieselbe Zahlendreher-Frage wie bei „Stärke ändern…", bevor die Einheit in die Lage zählt:
     // Mannschaft „99" statt „9" ging ohne Rückfrage durch (Audit Runde 6, R6-E6).
@@ -3012,7 +3080,7 @@ function AppInhalt() {
   }
 
   async function exportiereEinsatz(s: Einsatzsammlung) {
-    await dateiAnbieten(`eeb-einsatz-${einsatzDateiname(s)}.json`, einsatzDateiInhalt(s), "application/json");
+    await dateiAnbieten(`eeb-einsatz-${einsatzDateiname(s)}.json`, einsatzDateiInhalt(s, undefined, lageAngabenLaden(s.id)), "application/json");
   }
 
   /**
@@ -3094,8 +3162,8 @@ function AppInhalt() {
         // Die Bestätigung steht direkt unter den Knöpfen (R5-L4), nicht am Seitenende.
         setAusgabeQuittung(
           umfang === "neue"
-            ? `✓ Neue Bögen aus „${s.name}" als PDF weitergegeben.`
-            : `✓ Einsatz „${s.name}" als PDF weitergegeben/gesichert — mit allen Meldungen, Zeiten und Historie.`,
+            ? `✓ Neue Bögen aus „${s.name}" als PDF erzeugt — liegt im Download-Ordner bzw. wurde über das Teilen-Menü abgelegt. Übergeben ist sie erst, wenn sie gedruckt oder verschickt ist.`
+            : `✓ Einsatz „${s.name}" als PDF erzeugt (mit allen Meldungen, Zeiten und Historie) — liegt im Download-Ordner bzw. wurde über das Teilen-Menü abgelegt. Weitergegeben ist sie erst, wenn sie bei der Ablösung oder im Archiv angekommen ist.`,
         );
       } catch (e) {
         setFehler(`Einsatz weitergeben: ${fehlerText(e)}`);
@@ -3129,7 +3197,7 @@ function AppInhalt() {
     await arbeiten("lageblatt", async () => {
       try {
         const { einsatzLageblattErzeugen } = await import("./pdf");
-        if (await einsatzLageblattErzeugen(s)) setAusgabeQuittung("✓ Lageblatt erzeugt (A4 quer).");
+        if (await einsatzLageblattErzeugen(s)) setAusgabeQuittung("✓ Lageblatt erzeugt (A4 quer) — liegt im Download-Ordner bzw. wurde über das Teilen-Menü abgelegt.");
       } catch (e) {
         setFehler(`Lageblatt: ${fehlerText(e)}`);
       }
@@ -3271,7 +3339,7 @@ function AppInhalt() {
     setStapelBericht([]);
     setFehler("");
     setMeldung("");
-    const d = daten.length > 0 ? await importiereBoegen(zielId, daten) : undefined;
+    const d = daten.length > 0 ? await importiereBoegen(zielId, daten, bilder.length > 0) : undefined;
     if (bilder.length > 0) {
       await importiereQrBilder(zielId, bilder, d);
       return;
@@ -3279,7 +3347,7 @@ function AppInhalt() {
     setEinlese(d ? { fehler: d.fehler, meldung: d.meldung } : { fehler: "In der Auswahl sind keine Bilddateien.", meldung: "" });
   }
 
-  async function importiereBoegen(zielId: string, dateien: File[]): Promise<DateiAnteil & { fehler: string; meldung: string }> {
+  async function importiereBoegen(zielId: string, dateien: File[], mitBildern = false): Promise<DateiAnteil & { fehler: string; meldung: string }> {
     let neu = 0;
     let uebersprungen = 0;
     let speicherVoll = 0;
@@ -3330,10 +3398,11 @@ function AppInhalt() {
           : "Keine Bögen in der Datei gefunden — weder eingebettete Daten noch ein lesbarer QR-Code."
         : dateiImportMeldung(neu, uebersprungen, zusatz);
     // Für den gemeinsamen Bericht mit Bildern: nur, was die Zahl nicht sagt.
+    const aehnlich = aehnlichImStapel(zielId, vorher, neueIds);
     const hinweise = [
       ...sammlungenUebernommen,
       ...vorrang,
-      ...aehnlichImStapel(zielId, vorher, neueIds),
+      ...aehnlich,
       zusatz.sammlungInPdf ? SAMMLUNG_IN_PDF_HINWEIS : zusatz.lage && neu > 0 ? LAGE_NACHTRAGEN_HINWEIS : "",
     ].filter(Boolean);
     return {
@@ -3342,7 +3411,8 @@ function AppInhalt() {
       uebersprungen,
       zeilen: [...fehlerZeilen, ...hinweise],
       fehler: fehlerZeilen.join(" "),
-      meldung: [...sammlungenUebernommen, bogenMeldung, ...vorrang].filter(Boolean).join(" "),
+      // Die mögliche Doppelung gehört in die sichtbare Quittung, nicht nur in die Zeilen des Berichts (R7-N1).
+      meldung: [...sammlungenUebernommen, bogenMeldung, ...vorrang, ...(mitBildern ? [] : aehnlich)].filter(Boolean).join(" "),
     };
   }
 
@@ -3405,10 +3475,14 @@ function AppInhalt() {
     // bei einer fremden Sammlung gehören sie nicht hierher.
     const dateiStaende = quelle.exportStaende;
     delete quelle.exportStaende;
+    const dateiLage = quelle.lageAngaben;
+    delete quelle.lageAngaben;
     const eintraegeVorher = ziel.eintraege.map((e) => ({ ...e }));
     const geklaert = await entfernteImImportKlaeren(sammlung);
     const r = einsatzAbgleichen(geklaert.sammlung);
     if (quelle.id === zielId) exportStaendeUebernehmen(zielId, dateiStaende, [...einsaetzeLaden(), ...einsaetzePapierkorb()].map((x) => x.id));
+    // Einsatzbeginn und Funkrufname des Monitors nur bei derselben Sammlung (R7-K5).
+    const lageSatz = quelle.id === zielId ? lageAngabenUebernehmen(zielId, dateiLage, [...einsaetzeLaden(), ...einsaetzePapierkorb()].map((x) => x.id)) : "";
     const abgleich = abgleichText(r);
     const nummern = nummernWechselText(nummernWechsel(eintraegeVorher, einsaetzeLaden().find((x) => x.id === zielId)?.eintraege ?? []), einsaetzeLaden().find((x) => x.id === zielId)?.eintraege ?? []);
     return (
@@ -3417,6 +3491,7 @@ function AppInhalt() {
         : `Sammlung „${quelle.name}“ in „${ziel.name}“ übernommen: ${r.hinzugefuegt} neue Meldung(en) mit Zeiten, Zug und Siegel.`) +
       (abgleich ? ` ${abgleich}` : "") +
       (nummern ? ` ${nummern}` : "") +
+      (lageSatz ? ` ${lageSatz}` : "") +
       geklaert.hinweis
     );
   }
@@ -3580,6 +3655,9 @@ function AppInhalt() {
       // Die Stände der Exporte aus dem Umschlag (R5-W6): nach dem Import übernehmen.
       const dateiStaende = s.exportStaende;
       delete s.exportStaende;
+      // Einsatzbeginn und Funkrufname des Monitors vom abgebenden Gerät (R7-K5).
+      const dateiLage = s.lageAngaben;
+      delete s.lageAngaben;
       // Unvollständige Bögen blieben draußen (R5-E1); der Satz kommt in die Quittung.
       const abgelehnt = abgelehnteBoegen(s);
       const abgelehntGesamt = s.eintraege.length + abgelehnt.length;
@@ -3637,6 +3715,7 @@ function AppInhalt() {
       weitergabeUmImportErgaenzen(s.id, r.neueIds, r.neueVermerke, r.bekannt);
       // Was der Stab laut dem anderen Gerät schon bekam, gilt hier auch (R5-W6).
       exportStaendeUebernehmen(s.id, dateiStaende, [...einsaetzeLaden(), ...einsaetzePapierkorb()].map((x) => x.id));
+      const lageSatz = lageAngabenUebernehmen(s.id, dateiLage, [...einsaetzeLaden(), ...einsaetzePapierkorb()].map((x) => x.id));
       const letzteImImport = letzteMeldung(geklaert.sammlung.eintraege);
       einsaetzeNeuLaden();
       setFehler("");
@@ -3668,6 +3747,7 @@ function AppInhalt() {
           // Wie aktuell die übernommene Lage ist (Audit Runde 3, R3-K5).
           ...(letzteImImport != null ? [`Stand der Datei: letzte Meldung ${zeitLang(letzteImImport)}.`] : []),
           ...(nummernHinweis ? [nummernHinweis] : []),
+          ...(lageSatz ? [lageSatz] : []),
           ...(geklaert.hinweis ? [geklaert.hinweis.trim()] : []),
           ...(abgelehnt.length > 0 ? [ablehnungsSatz(abgelehnt, abgelehntGesamt)] : []),
         ].join(" "),
@@ -3947,14 +4027,17 @@ function AppInhalt() {
             </section>
           );
         })()}
+        {/* Einträge, die die App nicht anzeigen kann (R7-N3, R7-E2). */}
+        <UnlesbarHinweis />
         {beschaedigt && (
           <section className="entwurf-karte verdraengt beschaedigt" role="alert">
             <span className="entwurf-text">
               <strong>Ein gespeicherter Bogen ließ sich nicht öffnen</strong>
               <span className="hinweis warnung-text">
-                Ursache: {beschaedigt.ursache}. Er ist nicht gelöscht, sondern beiseitegelegt — als Datei sichern, dann
-                lässt er sich über „Aus Datei laden…“ wieder einlesen, sobald nichts Wesentliches mehr fehlt. Die App löscht ihn
-                am {new Date(beschaedigt.am + DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000).toLocaleDateString("de-DE")} von selbst
+                Ursache: {beschaedigt.ursache}. Er ist nicht gelöscht, sondern beiseitegelegt — als Datei sichern. „Aus Datei laden…“
+                öffnet sie nur, wenn die genannte Ursache nicht mehr zutrifft; fehlt eine Pflichtangabe, nennt die App sie beim Einlesen — nachtragen
+                lässt sie sich in der App nicht, die Datei dient dann der Support-Stelle. Die App löscht ihn
+                am {datumZweistellig(beschaedigt.am + DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000)} von selbst
                 ({DATENSCHUTZFRIST_TAGE} Tage nach dem Beiseitelegen).
               </span>
             </span>
@@ -3996,8 +4079,15 @@ function AppInhalt() {
             <span className="entwurf-text">
               <strong>{einheitAnzeigename(ersetzterEntwurf.bogen.einheit)}</strong>
               <span className="hinweis">
-                Zuletzt geschlossener Bogen · zuletzt bearbeitet{" "}
+                Zuletzt geschlossener Bogen
+                {ersetzterEntwurf.ersetztGrund === "fenster-geladen"
+                  ? " (durch den Stand des anderen Fensters ersetzt — deine Fassung)"
+                  : ersetzterEntwurf.ersetztGrund === "fenster-behalten"
+                    ? " (durch deine Fassung ersetzt — Stand des anderen Fensters)"
+                    : ""}
+                {" "}· zuletzt bearbeitet{" "}
                 {new Date(ersetzterEntwurf.gespeichert).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })} Uhr
+                {" "}· {ersetzterEntwurf.bogen.personal.length} {ersetzterEntwurf.bogen.personal.length === 1 ? "Person" : "Personen"}
               </span>
             </span>
             <span className="entwurf-aktionen">
@@ -4380,6 +4470,8 @@ function AppInhalt() {
       </div>
     )}
     <FristBand bogen={bogen} />
+    {/* Solange die Frage der Geräteuhr offen ist, trägt der Bogen vielleicht ein falsches Datum (R7-W2). */}
+    <UhrHinweis />
     {/* Die Übersicht ist der einzige Schritt ohne fixe Schritt-Navigation
         (siehe unten) — sie braucht deshalb auch nicht den Freiraum dafür. */}
     <main
@@ -4523,7 +4615,7 @@ function AppInhalt() {
           <button
             type="button"
             className="primaer"
-            aria-label={schritt === UEBERSICHT - 1 ? "Zur Übersicht →" : undefined}
+            aria-label={schritt === UEBERSICHT - 1 ? "Zur Übersicht →" : "Weiter →"}
             onClick={() =>
               setSchritt(
                 schritt === 0 && fremdeErfassung && bogen.personalErfassung === PersonalErfassung.NUR_STAERKE ? 2 : schritt + 1,
@@ -4533,10 +4625,14 @@ function AppInhalt() {
             {schritt === UEBERSICHT - 1 ? (
               <>
                 {/* Auf dem kleinsten Bild fällt „Zur" weg, damit „◐" nicht unter den Knopf gerät (R6-G1). */}
-                <span className="nav-zur">Zur </span>Übersicht →
+                <span className="nav-zur">Zur </span>
+                {/* Beim Browser-Zoom 200 % (180 px) steht nur der Pfeil, damit die Leiste einzeilig bleibt (R7-M3). */}
+                <span className="nav-weiter-wort">Übersicht </span>→
               </>
             ) : (
-              "Weiter →"
+              <>
+                <span className="nav-weiter-wort">Weiter </span>→
+              </>
             )}
           </button>
         </footer>

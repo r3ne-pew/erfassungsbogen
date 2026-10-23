@@ -188,6 +188,17 @@ export function folgenText(f: UhrFolgen): string {
   return `${teile.slice(0, -1).join(", ")} und ${teile[teile.length - 1]}`;
 }
 
+/**
+ * Steht {@link folgenText} im Plural („werden"), grammatisch gesehen? Ja bei mehreren Posten,
+ * bei mehreren Stück und bei den Namen („die Namen im eigenen Bogen") – dort stand
+ * „wird die Namen … gelöscht" (Audit Runde 7, R7-D5, R7-O4).
+ */
+export function folgenMehrzahl(f: UhrFolgen): boolean {
+  const posten = [f.sammlungen, f.papierkorb, f.meldungen, f.entwurf ? 1 : 0].filter((n) => n > 0).length;
+  if (posten > 1 || Math.max(f.sammlungen, f.papierkorb, f.meldungen) > 1) return true;
+  return f.meldungen > 0 || f.entwurf;
+}
+
 /** Tage zwischen zwei Zeitpunkten, aufgerundet auf ganze Tage. */
 export function tageZwischen(a: EebZeitpunkt, b: EebZeitpunkt): number {
   return Math.max(1, Math.round(Math.abs(b - a) / MINUTEN_JE_TAG));

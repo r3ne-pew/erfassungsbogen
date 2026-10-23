@@ -16,7 +16,15 @@ import { MeldeStatus, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit } from "./fassung-vorrang";
 import { einheitAnzeigename } from "./hilfen";
 import { eintreffzeit, papierAbgleichUebernehmen, SpeicherVollFehler, zeitKurz } from "./eintrag-zeiten";
-import { zeigeHinweis } from "./dialoge";
+import { frageJaNein, zeigeHinweis } from "./dialoge";
+import {
+  abgleichEntwurfLaden,
+  abgleichEntwurfLoeschen,
+  abgleichEntwurfSpeichern,
+  abgleichZeilenMitEntwurf,
+  geaenderteZeilen,
+  type AbgleichZeile,
+} from "./papier-abgleich-entwurf";
 
 /** Revisionsköpfe, deren Lage vom Papier noch nicht abgeglichen ist. */
 export function offenVomPapier(eintraege: MeldeEintrag[]): MeldeEintrag[] {
@@ -35,18 +43,7 @@ function ausLokal(wert: string): number | null {
   return Number.isNaN(ms) ? null : ms;
 }
 
-interface Zeile {
-  eintragId: string;
-  name: string;
-  eingetroffen: string;
-  abgerueckt: boolean;
-  abgerueckAm: string;
-  zug: string;
-  /** Auftrag / Notiz laut Blatt (R4-A2). */
-  notiz: string;
-  /** „Nr." laut Blatt, als Text für das Eingabefeld (R4-A1). */
-  nummer: string;
-}
+type Zeile = AbgleichZeile;
 
 export function PapierAbgleich(props: {
   einsatzId: string;
@@ -68,6 +65,12 @@ export function PapierAbgleich(props: {
   const { einsatzId, eintraege, zuege, onGeaendert } = props;
   const offen = offenVomPapier(eintraege);
   const [zeilen, setZeilen] = useState<Zeile[] | null>(null);
+  // Zwischenstand im Sitzungsspeicher (R7-S1): überlebt Neuladen, „Später" und die Startseite.
+  const [entwurfAnzahl, setEntwurfAnzahl] = useState(() => abgleichEntwurfLaden(props.einsatzId).length);
+  const basisRef = useRef<Zeile[]>([]);
+  useEffect(() => {
+    if (zeilen) abgleichEntwurfSpeichern(einsatzId, zeilen, basisRef.current);
+  }, [zeilen, einsatzId]);
   const listeId = useId();
   const karte = useRef<HTMLElement>(null);
   const letzterAnstoss = useRef(props.anstoss ?? 0);
@@ -91,8 +94,7 @@ export function PapierAbgleich(props: {
   }, [zeilen]);
   if (offen.length === 0) return null;
 
-  const oeffnen = () =>
-    setZeilen(
+  const basisZeilen = (): Zeile[] =>
       offen.map((e) => ({
         eintragId: e.id,
         name: `${einheitAnzeigename(e.bogen.einheit)}${e.teilEtikett ? ` (${e.teilEtikett})` : ""}`,
@@ -103,11 +105,41 @@ export function PapierAbgleich(props: {
         zug: e.zugEtikett ?? "",
         notiz: e.notiz ?? "",
         nummer: "",
-      })),
-    );
+      }));
+  const oeffnen = () => {
+    const basis = basisZeilen();
+    basisRef.current = basis;
+    const mitEntwurf = abgleichZeilenMitEntwurf(basis, abgleichEntwurfLaden(einsatzId));
+    setZeilen(mitEntwurf);
+    setEntwurfAnzahl(geaenderteZeilen(mitEntwurf, basis));
+  };
   oeffnenRef.current = oeffnen;
   const aendern = (i: number, teil: Partial<Zeile>) =>
     setZeilen((z) => (z ? z.map((x, j) => (j === i ? { ...x, ...teil } : x)) : z));
+
+  /** „Später": das Formular schließt, der Zwischenstand bleibt im Sitzungsspeicher (R7-S1/R7-G1). */
+  function spaeter() {
+    if (!zeilen) return;
+    setEntwurfAnzahl(geaenderteZeilen(zeilen, basisRef.current));
+    setZeilen(null);
+  }
+
+  /** Eingaben bewusst wegwerfen — mit Rückfrage, wenn schon etwas eingetragen ist. */
+  async function eingabenVerwerfen() {
+    const n = zeilen ? geaenderteZeilen(zeilen, basisRef.current) : entwurfAnzahl;
+    if (n > 0) {
+      const ja = await frageJaNein({
+        titel: "Eingaben verwerfen?",
+        text: `Die Eingaben für ${n === 1 ? "1 Einheit" : `${n} Einheiten`} werden gelöscht. Sie stehen dann nur noch auf dem Papier.`,
+        ok: "Verwerfen",
+        gefahr: true,
+      });
+      if (!ja) return;
+    }
+    abgleichEntwurfLoeschen(einsatzId);
+    setEntwurfAnzahl(0);
+    setZeilen(null);
+  }
 
   async function uebernehmen() {
     if (!zeilen) return;
@@ -150,8 +182,11 @@ export function PapierAbgleich(props: {
     }
     const namenOhneNummer = zeilen.filter((z) => z.nummer.trim() === "").map((z) => z.name);
     const namenOhneZeit = zeilen.filter((z) => z.eingetroffen.trim() === "").map((z) => z.name);
+    const namenOhneAbrueckzeit = zeilen.filter((z) => z.abgerueckt && ausLokal(z.abgerueckAm) == null).map((z) => z.name);
     const ohneNummer = namenOhneNummer.length;
     const ohneZeit = namenOhneZeit.length;
+    abgleichEntwurfLoeschen(einsatzId);
+    setEntwurfAnzahl(0);
     setZeilen(null);
     onGeaendert();
     // Ohne „Nr. laut Blatt" vergibt die App die Nummern nach dem Eingang — das
@@ -163,22 +198,33 @@ export function PapierAbgleich(props: {
     const zeitText =
       `Für ${ohneZeit === 1 ? "1 Einheit" : `${ohneZeit} Einheiten`} stand keine Eintreffzeit im Abgleich (${nenne(namenOhneZeit)}). ` +
       "Es gilt weiter die Zeit des Einlesens; die Karte trägt „vom Papier, Zeiten prüfen“ und das Lageblatt kennzeichnet die Zeit als nicht bestätigt, bis die Zeit vom Blatt eingetragen ist.";
+    // Die Abrückzeit gehört dazu (R7-A2): fehlt sie, bleibt sie „nicht bestätigt" und steht so auf Karte und Lageblatt.
+    const abrueckText =
+      `Für ${namenOhneAbrueckzeit.length === 1 ? "1 abgerückte Einheit" : `${namenOhneAbrueckzeit.length} abgerückte Einheiten`} stand keine Abrückzeit im Abgleich (${nenne(namenOhneAbrueckzeit)}). ` +
+      "Karte und Lageblatt vermerken „Abrückzeit nicht bestätigt“, bis sie an der Karte nachgetragen ist.";
     const nummerText =
       `Für ${ohneNummer === 1 ? "1 Einheit" : `${ohneNummer} Einheiten`} stand keine „Nr. laut Blatt“ im Abgleich (${nenne(namenOhneNummer)}). ` +
       "Ihre Nummern vergibt die App neu, sie können von denen auf dem alten Lageblatt abweichen: " +
       "neues Lageblatt drucken und das alte abnehmen.";
-    if (ohneZeit > 0 && ohneNummer > 0) {
+    const hinweise: string[] = [];
+    if (ohneZeit > 0) hinweise.push(zeitText);
+    if (namenOhneAbrueckzeit.length > 0) hinweise.push(abrueckText);
+    if (ohneNummer > 0) hinweise.push(nummerText);
+    if (hinweise.length > 1) {
       await zeigeHinweis({
-        titel: "Abgleich übernommen – zwei Hinweise",
+        titel: `Abgleich übernommen – ${hinweise.length === 2 ? "zwei" : "drei"} Hinweise`,
         text: (
           <>
-            <p>{zeitText}</p>
-            <p>{nummerText}</p>
+            {hinweise.map((h) => (
+              <p key={h}>{h}</p>
+            ))}
           </>
         ),
       });
     } else if (ohneZeit > 0) {
       await zeigeHinweis({ titel: "Eintreffzeit nicht bestätigt", text: zeitText });
+    } else if (namenOhneAbrueckzeit.length > 0) {
+      await zeigeHinweis({ titel: "Abrückzeit nicht bestätigt", text: abrueckText });
     } else if (ohneNummer > 0) {
       await zeigeHinweis({ titel: "Nummern neu vergeben", text: nummerText });
     }
@@ -204,6 +250,12 @@ export function PapierAbgleich(props: {
             </strong>{" "}
             Die Eintreffzeit ist die Zeit des Einlesens und gilt als nicht bestätigt, alle stehen als anwesend, ohne Zug, Auftrag und Nummer. Die Angaben vom
             Blatt (Seite 1 bzw. Kasten „Stand am Meldekopf“) hier in einem Schritt eintragen.
+          </p>
+        )}
+        {entwurfAnzahl > 0 && (
+          <p className="hinweis">
+            Angefangene Eingaben für {entwurfAnzahl === 1 ? "1 Einheit" : `${entwurfAnzahl} Einheiten`} sind noch da (nur in diesem Browserfenster, bis du
+            sie übernimmst oder den Tab schließt). Sie erscheinen wieder, wenn du den Abgleich öffnest.
           </p>
         )}
         {props.knopfImBericht ? (
@@ -286,10 +338,18 @@ export function PapierAbgleich(props: {
       <div className="vorlage-aktionen">
         <button type="button" className="primaer" onClick={() => void uebernehmen()}>
           Abgleich übernehmen
-        </button>{" "}
-        <button type="button" onClick={() => setZeilen(null)}>
-          Später
         </button>
+      </div>
+      {/* Eigene Zeile mit Abstand zur Hauptaktion (R7-G1): ein Fehltipp daneben
+          vernichtet nichts — die Eingaben bleiben im Sitzungsspeicher. */}
+      <div className="vorlage-aktionen papier-abgleich-weg" style={{ marginTop: "1.75rem" }}>
+        <button type="button" onClick={spaeter}>
+          Später
+        </button>{" "}
+        <button type="button" className="link gefahr" onClick={() => void eingabenVerwerfen()}>
+          Eingaben verwerfen…
+        </button>
+        <p className="hinweis">„Später“ schließt nur das Formular; die Eingaben bleiben für diese Sitzung erhalten.</p>
       </div>
     </section>
   );

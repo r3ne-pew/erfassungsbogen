@@ -65,10 +65,19 @@ export interface Entwurf {
   schritt?: number;
   /** Letzte Übergabe dieses Bogens (QR, Link, PDF, Nahbereich) — siehe uebergabe-stand.ts (R2-W2). */
   uebergabe?: UebergabeStand;
+  /**
+   * Nur beim Bogen auf dem Rückholplatz: warum er dort liegt, wenn nicht durch
+   * Schließen. Die Startseite nennt den Anlass in der Karte, statt ihn als
+   * „Zuletzt geschlossenen Bogen" neben den gleichnamigen Entwurf zu stellen
+   * (Audit Runde 7, R7-S3). `fenster-geladen`: deine Fassung wurde durch den
+   * Stand des anderen Fensters ersetzt; `fenster-behalten`: der Stand des
+   * anderen Fensters wurde durch deine Fassung ersetzt.
+   */
+  ersetztGrund?: "fenster-geladen" | "fenster-behalten";
 }
 
 /** Zusätze eines Entwurfs neben dem Bogen (siehe `Entwurf`). */
-export type EntwurfZusatz = Pick<Entwurf, "vorlageId" | "fremd" | "schritt" | "uebergabe">;
+export type EntwurfZusatz = Pick<Entwurf, "vorlageId" | "fremd" | "schritt" | "uebergabe" | "ersetztGrund">;
 
 // ------------------------------------------------- Serialisierung (rein)
 
@@ -114,6 +123,7 @@ export function entwurfPruefen(text: string | null): { entwurf: Entwurf | null }
     if (u.weg !== undefined && !["qr", "pdf", "link", "kopiert", "nah"].includes(u.weg)) delete u.weg;
     if (u.bestaetigt !== undefined && u.bestaetigt !== true) delete u.bestaetigt;
   }
+  if (e.ersetztGrund !== "fenster-geladen" && e.ersetztGrund !== "fenster-behalten") delete e.ersetztGrund;
   if (!e.fremd || typeof e.fremd !== "object") delete e.fremd;
   else {
     const { einsatzId, beginn, startseite } = e.fremd;
@@ -133,6 +143,7 @@ export function entwurfZuJson(bogen: Erfassungsbogen, gespeichert = Date.now(), 
     ...(zusatz.vorlageId ? { vorlageId: zusatz.vorlageId } : {}),
     ...(zusatz.fremd ? { fremd: zusatz.fremd } : {}),
     ...(zusatz.schritt != null ? { schritt: zusatz.schritt } : {}),
+    ...(zusatz.ersetztGrund ? { ersetztGrund: zusatz.ersetztGrund } : {}),
     ...(zusatz.uebergabe ? { uebergabe: zusatz.uebergabe } : {}),
   });
 }
@@ -323,7 +334,30 @@ export function entwurfFremdGeaendert(): boolean {
   if (eigenerStand === undefined) return false;
   // Leer ist kein fremder Stand, sondern ein entfernter ({@link entwurfFremdEntfernt}).
   const jetzt = speicher()?.getItem(SPEICHER_SCHLUESSEL) ?? null;
-  return jetzt !== null && jetzt !== eigenerStand;
+  if (jetzt === null || jetzt === eigenerStand) return false;
+  // Hat das andere Fenster den Entwurf nur neu geschrieben (Fortsetzen, anderer
+  // Schritt, neuer Zeitstempel), ohne am Bogen etwas zu ändern, geht durch
+  // Weiterschreiben nichts verloren: kein Konflikt, der Stand wird übernommen
+  // (Audit Runde 7, R7-E3).
+  if (nurNeuGeschrieben(eigenerStand, jetzt)) {
+    eigenerStand = jetzt;
+    return false;
+  }
+  return true;
+}
+
+/** Gleicher Bogen und gleiche Zusätze in beiden Texten — nur Zeitstempel und Schritt dürfen abweichen. */
+function nurNeuGeschrieben(a: string, b: string): boolean {
+  const x = entwurfAusJson(a);
+  const y = entwurfAusJson(b);
+  if (!x || !y) return false;
+  const inhalt = (e: Entwurf) => JSON.stringify([e.bogen, e.vorlageId ?? null, e.fremd?.einsatzId ?? null, e.uebergabe ?? null]);
+  return inhalt(x) === inhalt(y);
+}
+
+/** Wann dieses Fenster zuletzt selbst gespeichert hat (Date.now()), für die Sekunden in der Zwei-Fenster-Warnung. */
+export function entwurfEigenerStandUm(): number | null {
+  return (eigenerStand !== undefined ? entwurfAusJson(eigenerStand)?.gespeichert : null) ?? null;
 }
 
 /**
@@ -388,7 +422,7 @@ export const ENTWURF_SCHLUESSEL = SPEICHER_SCHLUESSEL;
 export function ersetztenEntwurfMerken(
   bogen: Erfassungsbogen,
   fremd?: Entwurf["fremd"],
-  opt: { tausch?: boolean; geaendertUm?: number } = {},
+  opt: { tausch?: boolean; geaendertUm?: number; grund?: Entwurf["ersetztGrund"] } = {},
 ): boolean {
   if (!opt.tausch && !rueckholungNimmt(!!fremd, ersetztenEntwurfLaden())) return false;
   try {
@@ -396,7 +430,7 @@ export function ersetztenEntwurfMerken(
     // Schließens: Ein Bogen, der um 22:40 zuletzt bearbeitet war, wirkte sonst
     // um 22:45 so neu wie der Wechsel selbst (Audit Runde 4, R4-S5). Fehlt die
     // Angabe, gilt wie früher der Zeitpunkt des Merkens.
-    speicher()?.setItem(ERSETZT_SCHLUESSEL, entwurfZuJson(bogen, opt.geaendertUm ?? Date.now(), { fremd }));
+    speicher()?.setItem(ERSETZT_SCHLUESSEL, entwurfZuJson(bogen, opt.geaendertUm ?? Date.now(), { fremd, ersetztGrund: opt.grund }));
     return true;
   } catch {
     return false; // Speicher voll o. ä. — der Wechsel selbst darf daran nicht scheitern

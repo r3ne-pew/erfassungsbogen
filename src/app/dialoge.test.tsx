@@ -6,7 +6,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { Dialogschicht, frageJaNein, prellschutzSetzen } from "./dialoge";
+import { Dialogschicht, frageJaNein, frageWahl, prellschutzSetzen } from "./dialoge";
 import { tippSchutzZuruecksetzen } from "./tipp-schutz";
 
 describe("Prellschutz der Rückfrage", () => {
@@ -121,5 +121,44 @@ describe("Fokus in Rückfragen", () => {
     void frageJaNein({ titel: "Weiter?", text: "Nichts geht verloren.", ok: "Weiter" });
     const harmlos = await screen.findByRole("dialog", { name: "Weiter?" });
     expect(document.activeElement).not.toBe(within(harmlos).getByRole("button", { name: "Abbrechen" }));
+  });
+
+  // Audit Runde 7, R7-E4: Auch ohne zerstörende Antwort kann die sichere Wahl den Fokus tragen.
+  it("setzt den Fokus auf „Abbrechen“, wenn die Rückfrage es verlangt (R7-E4)", async () => {
+    render(<Dialogschicht />);
+    void frageJaNein({ titel: "Neuen Bogen anfangen?", text: "Der Bogen wird ersetzt.", ok: "Neu anfangen", fokus: "abbruch" });
+    const d = await screen.findByRole("dialog", { name: "Neuen Bogen anfangen?" });
+    expect(document.activeElement).toBe(within(d).getByRole("button", { name: "Abbrechen" }));
+  });
+});
+
+// Audit Runde 7, R7-W1: Frage und Wege rollen im Rumpf, die Antwortzeile am Fuß steht fest und deckt nichts.
+describe("Aufbau der Rückfrage", () => {
+  it("trennt bei Wegen mit Erklärtext den rollenden Rumpf vom festen Fuß mit „Abbrechen“", async () => {
+    render(<Dialogschicht />);
+    void frageWahl({
+      titel: "Einheit ist bereits gemeldet",
+      text: "Was tun?",
+      wege: [
+        { wert: "fassung", label: "Als neue Fassung anhängen", hinweis: "Normalfall." },
+        { wert: "eigene", label: "Als eigene Einheit führen", hinweis: "Zweite Einheit." },
+      ],
+    });
+    const d = await screen.findByRole("dialog", { name: "Einheit ist bereits gemeldet" });
+    const rumpf = d.querySelector(".abfrage-rumpf")!;
+    const fuss = d.querySelector(".abfrage-fuss")!;
+    expect(rumpf.contains(within(d).getByRole("button", { name: "Als neue Fassung anhängen" }))).toBe(true);
+    expect(rumpf.contains(within(d).getByRole("button", { name: "Als eigene Einheit führen" }))).toBe(true);
+    expect(fuss.contains(within(d).getByRole("button", { name: "Abbrechen" }))).toBe(true);
+    expect(rumpf.contains(within(d).getByRole("button", { name: "Abbrechen" }))).toBe(false);
+  });
+
+  it("stellt bei einem Weg ohne Erklärtext Antwort und „Abbrechen“ zusammen an den festen Fuß", async () => {
+    render(<Dialogschicht />);
+    void frageJaNein({ titel: "Weiter?", text: "Nichts geht verloren.", ok: "Weiter" });
+    const d = await screen.findByRole("dialog", { name: "Weiter?" });
+    const fuss = d.querySelector(".abfrage-fuss")!;
+    expect(fuss.contains(within(d).getByRole("button", { name: "Weiter" }))).toBe(true);
+    expect(fuss.contains(within(d).getByRole("button", { name: "Abbrechen" }))).toBe(true);
   });
 });

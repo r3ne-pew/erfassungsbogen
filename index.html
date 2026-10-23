@@ -871,6 +871,38 @@
     .fest-warnung.knapp .fest-kurz {
       display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
     }
+    /* R7-O1, R7-M2, R7-G6: Warnleiste der zwei Fenster. Schrift und Knopfmaß
+       wachsen nicht mit der Systemschrift (px-Deckel wie beim Übergeben-Dialog),
+       beide Knöpfe stehen gleich unter dem Satz, Einzelheiten dahinter. Bei 200 %
+       Schrift bleibt die Leiste so bei einem Viertel bis einem Drittel der Höhe. */
+    .fest-warnung.fenster-konflikt { gap: 2px var(--r-2); }
+    .fest-warnung.fenster-konflikt .fest-kurz { font-size: min(var(--t-xs), 14px); line-height: 1.2; flex: 1 1 min(8rem, 140px); }
+    .fest-warnung.fenster-konflikt .fest-kurz strong { display: inline; }
+    .fest-warnung.fenster-konflikt .fest-schalter {
+      font-size: min(var(--t-xs), 14px); padding: 0.1rem min(0.4rem, 6px); align-self: flex-start;
+      min-height: min(calc(var(--ziel-basis) + var(--ziel)), calc(44px + var(--ziel)));
+    }
+    .fest-warnung.fenster-konflikt .aktionen { order: 2; flex-wrap: nowrap; gap: var(--r-2); }
+    .fest-warnung.fenster-konflikt .aktionen > button {
+      flex: 1 1 0; min-width: 0; font-size: min(var(--t-s), 14px); line-height: 1.2;
+      padding: 0.1rem min(0.4rem, 6px);
+      min-height: min(calc(var(--ziel-basis) + var(--ziel)), calc(44px + var(--ziel)));
+    }
+    .fest-warnung.fenster-konflikt .fest-details { order: 3; font-size: min(var(--t-xs), 14px); }
+    /* R7-H9, R7-G8, R7-W2: Geräteuhr-Warnung und -Hinweis. Die Knöpfe stehen gleich
+       unter dem ersten Satz, die Einzelheiten dahinter; Schrift und Knopfmaß sind
+       in px gedeckelt, damit die Entscheidung bei 200 % im ersten Bild steht. */
+    .warnung.uhr-warnung, .warnung.uhr-hinweis { font-size: min(var(--t-s), 16px); line-height: 1.35; padding: min(var(--r-3), 12px) min(var(--r-4), 16px); }
+    .uhr-warnung p, .uhr-hinweis p { margin: 0 0 var(--r-2); }
+    .uhr-warnung .vorlage-aktionen { margin: var(--r-2) 0 var(--r-3); flex-wrap: nowrap; }
+    .uhr-warnung .vorlage-aktionen > button { flex: 1 1 0; min-width: 0; font-size: min(var(--t-m), 15px); padding: min(0.4rem, 6px) min(0.9rem, 8px); line-height: 1.2; }
+    .uhr-warnung details summary { cursor: pointer; font-weight: 600; min-height: min(calc(var(--ziel-basis) + var(--ziel)), calc(44px + var(--ziel))); display: flex; align-items: center; }
+    .uhr-warnung button, .uhr-hinweis button {
+      font-size: min(var(--t-m), 17px);
+      min-height: min(calc(var(--ziel-basis) + var(--ziel)), calc(44px + var(--ziel)));
+      padding: min(0.4rem, 8px) min(0.9rem, 16px);
+    }
+    .uhr-hinweis { margin: var(--r-2) 0; }
     /* Fehlerseite des Fehlerfängers (fehlerfaenger.tsx, R5-E1): hängt an keiner
        Komponente der App, nur an diesen Regeln. */
     /* R6-G4: Der Umschalter der Musterung behält seine Breite, wenn das Wort wechselt. */
@@ -3422,9 +3454,34 @@
        (1 345 px Inhalt, 568 px Fenster), und „Abbrechen" lag unter dem
        Bildrand. Die benannten Wege (.abgesetzt) tragen Erklärtexte und
        rollen mit. */
-    dialog.abfrage .abfrage-aktionen:not(.abgesetzt) {
-      position: sticky; bottom: calc(-1 * min(var(--r-4), 16px)); z-index: 1;
-      background: var(--flaeche); padding-bottom: min(var(--r-4), 16px);
+    /* R7-W1: Der Fuß klebte per `sticky` im selben Rollbereich und deckte bei
+       großer Schrift oder im Querformat die Wahl darüber („Als neue Fassung
+       anhängen" lag unter „Abbrechen"). Jetzt zwei Bereiche: Frage und Wege
+       rollen im Rumpf (mit Schattenkante als Hinweis), die Antwortzeile am Fuß
+       steht fest und überdeckt nichts. */
+    dialog.abfrage[open] { display: flex; flex-direction: column; overflow: hidden; }
+    dialog.abfrage form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; margin: 0; }
+    dialog.abfrage .abfrage-rumpf {
+      flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+      /* Rollhinweis: Schatten am Rand, solange dahinter noch Inhalt liegt. */
+      background:
+        linear-gradient(var(--flaeche) 30%, transparent) top / 100% 1.6rem no-repeat local,
+        linear-gradient(transparent, var(--flaeche) 70%) bottom / 100% 1.6rem no-repeat local,
+        radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.28), transparent) top / 100% 0.5rem no-repeat scroll,
+        radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.28), transparent) bottom / 100% 0.5rem no-repeat scroll;
+    }
+    dialog.abfrage .abfrage-fuss, dialog.abfrage form > .abfrage-aktionen { flex: 0 0 auto; }
+    dialog.abfrage .abfrage-fuss .abfrage-weg { margin: var(--r-3) 0 0; }
+    dialog.abfrage .abfrage-fuss .abfrage-aktionen:not(.abgesetzt) { margin-top: var(--r-3); }
+    dialog.abfrage form > .abfrage-aktionen { margin-top: var(--r-3); }
+    /* Querformat und knappe Höhe: Antwort und „Abbrechen" nebeneinander statt
+       untereinander, damit die Frage im Rumpf Platz behält (640 × 360, 200 %). */
+    @media (max-height: 480px) {
+      dialog.abfrage .abfrage-fuss { display: flex; flex-wrap: nowrap; align-items: stretch; gap: var(--r-2); margin-top: var(--r-3); }
+      dialog.abfrage .abfrage-fuss .abfrage-weg { flex: 1 1 0; min-width: 0; margin: 0; }
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen,
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen.abgesetzt { flex: 1 1 0; min-width: 0; margin: 0; padding: 0; border: 0; }
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen > button { width: 100%; }
     }
     /* Dialoge mit Tabelle (Beispielbögen) brauchen mehr Breite als die
        Textdialoge: 80 % der Seitenbreite, damit die vier Spalten samt
@@ -4852,6 +4909,118 @@
     @media (min-width: 540.02px) {
       .abfrage-aktionen > button { flex: 1 1 0; }
     }
+    /* ===== Runde 7: Layout, Bedienbarkeit und Anzeige (Block „Layout") ===== */
+    /* R7-M1, R7-G9: „Bedarf:" steht als unteilbare Beschriftung, die Werte dahinter umbrechen
+       (vorher schrumpfte die Beschriftung als Flex-Teil und brach im Wort: „Bed / arf:"). Bei großer
+       Schrift ist die Zeile gedeckelt und bleibt unter 120 px. */
+    details.bedarf-block > summary { flex-wrap: wrap; column-gap: 0.35em; }
+    details.bedarf-block > summary > strong { flex: none; white-space: nowrap; overflow-wrap: normal; word-break: keep-all; hyphens: none; }
+    details.bedarf-block > summary > .bedarf-werte { flex: 1 1 8rem; min-width: 0; overflow-wrap: break-word; }
+    html.schrift-gross details.bedarf-block > summary { font-size: min(var(--t-s), 16px); }
+    html.schrift-gross details.bedarf-block > summary > .bedarf-werte { flex-basis: 100%; }
+
+    /* R7-N2: Die Vorschlagsliste ist höchstens so breit wie das Fenster (vorher min-width 15rem = 480 px
+       bei 200 % und eine Seite von 515 px); Namen brechen um, statt hinauszulaufen. */
+    ul.vorschlaege { min-width: min(15rem, 100%); max-width: 100%; overflow-wrap: anywhere; box-sizing: border-box; }
+    ul.vorschlaege li { min-width: 0; }
+    ul.vorschlaege li small { overflow-wrap: anywhere; }
+
+    /* R7-L4: Nacht-Modus: „offen" im Schrittband trägt nicht mehr die Farbe des aktiven Schritts. Es ist
+       eine Marke mit Rahmen (Form statt nur Farbe, auch im Graustufenbild); die Bernsteinfarbe bleibt dem
+       aktiven Schritt allein vorbehalten. */
+    .nacht-modus .schritte button.status-begonnen .schritt-status {
+      color: var(--kopf-auf); border: 1px solid currentColor; border-radius: 999px; padding: 0.1em 0.4em; font-size: 0.85em;
+    }
+
+    /* R7-H1: Entwurfskarte bei großer Schrift: Die Umbruchregel galt nur unter 30rem Fensterbreite (in der
+       Browser-Grundschrift gerechnet). Quer und am Tablet blieb die Karte eine Zeile, der Textblock schrumpfte
+       auf 0 px (Name Buchstabe für Buchstabe, Karte 2 339 px hoch). Jetzt bricht sie mit der Klasse
+       `schrift-gross` selbst um, der Textblock hat die volle Breite, und die Knöpfe stehen ab 30rem nebeneinander. */
+    html.schrift-gross .entwurf-karte { flex-wrap: wrap; align-items: flex-start; }
+    html.schrift-gross .entwurf-karte .entwurf-text { flex: 1 1 100%; min-width: min(12rem, 100%); }
+    @media (min-width: 30rem) {
+      html.schrift-gross .entwurf-karte .entwurf-aktionen { flex-direction: row; }
+      html.schrift-gross .entwurf-karte .entwurf-aktionen button { flex: 1 1 0; min-width: 0; }
+    }
+
+    /* R7-H8, R7-S4: Startseite quer (Telefon im Fahrzeughalter, niedriges Bild): Die Themenleiste lief über zwei
+       Zeilen und der Titel über zwei weitere; „Einsatz vorbereiten" lag bei 341 px, „Fortsetzen" bei 200 % Schrift
+       bei 483 px (Bild: 360 px). Quer steht in der Leiste nur noch, was auch das Telefon im Hochformat zeigt
+       (Logo, „Alle Themen", „Anleitung"), und bei großer Schrift ist der Titel gedeckelt. */
+    @media (orientation: landscape) and (max-height: 31.25rem) {
+      .kopfnav-links .nur-breit { display: none; }
+      html.schrift-gross .seiten-kopf.start-kopf h1 { font-size: min(var(--t-l), 20px); }
+      html.schrift-gross .seiten-kopf.start-kopf .kopf-inhalt { padding-block: 6px; }
+      html.schrift-gross .seiten-kopf.start-kopf .titelzeile { padding-block: 4px; }
+      html.schrift-gross .entwurf-karte { margin-top: 8px; padding: 12px var(--r-3); }
+    }
+    /* Browser-Zoom 200 % auf dem Telefon (180 px Layoutbreite): Das Zeichen fällt weg, der Name bekommt die Breite
+       (vorher 58 px Textbreite, Karte 492 px hoch). */
+    @media (max-width: 16rem) {
+      .entwurf-karte img.einheit-avatar { display: none; }
+      .entwurf-karte .entwurf-text { flex: 1 1 100%; }
+    }
+
+    /* R7-M5: Kopf des Assistenten bei großer Schrift am schmalen Telefon (200 % auf 360/320 px): Das Zeichen der Einheit
+       entfällt (der Name steht im Formular), „‹ Startseite" und „Ansicht" teilen sich eine Zeile, und ein Reiter mit
+       Status bricht den Status unter die Ziffer, statt „offe" abzuschneiden. Vorher 175 px Kopf, Knopf auf der Trennlinie. */
+    @media (max-width: 30rem) {
+      html.schrift-gross .seiten-kopf.assistent-kopf img.einheit-avatar { display: none; }
+      html.schrift-gross .seiten-kopf.assistent-kopf .titelzeile { position: absolute; padding: 0; }
+      html.schrift-gross .seiten-kopf.assistent-kopf .kopf-inhalt { justify-content: flex-start; }
+      html.schrift-gross .seiten-kopf.assistent-kopf .kopf-oberzeile { flex: 1 1 100%; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+      html.schrift-gross .seiten-kopf.assistent-kopf .kopf-oberzeile .zur-start { flex: 0 1 auto; min-width: 0; padding-inline: 6px; white-space: nowrap; font-size: min(var(--t-s), 16px); }
+      html.schrift-gross .seiten-kopf.assistent-kopf .kopf-oberzeile .anzeige-schalter { flex: 0 1 auto; min-width: 0; margin: 0; }
+      html.schrift-gross .seiten-kopf.assistent-kopf .anzeige-klappe { min-width: 0; white-space: nowrap; padding-inline: 6px; font-size: min(var(--t-xs), 14px); }
+      html.schrift-gross .seiten-kopf.assistent-kopf .schritte button { flex-wrap: wrap; justify-content: center; align-content: center; row-gap: 0; line-height: 1.1; padding-block: 2px; padding-inline: 2px; overflow: hidden; }
+      html.schrift-gross .seiten-kopf.assistent-kopf .schritte .schritt-status { margin-left: 0; }
+    }
+
+    /* R7-M3: Browser-Zoom 200 % (180 px Layoutbreite): Die Fußleiste ist einzeilig (Pfeil, „◐", Pfeil vorwärts), statt
+       zwei Zeilen und 40 % der Bildhöhe zu nehmen. Mit „In Einsatz übernehmen" bleibt dessen Zeile darüber. */
+    @media (max-width: 16rem) {
+      footer.nav.assistent-nav {
+        grid-template-areas: none; grid-template-columns: auto auto minmax(0, 1fr); column-gap: 8px; row-gap: 8px;
+        padding-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right));
+      }
+      footer.nav.assistent-nav > .nav-zurueck, footer.nav.assistent-nav > .primaer { padding-inline: 4px; min-width: calc(44px + var(--ziel)); }
+      footer.nav.assistent-nav .anzeige-leiste-knopf { min-width: calc(44px + var(--ziel)); }
+    }
+    @container assistent-nav (max-width: 260px) {
+      footer.nav.assistent-nav > .nav-zurueck { grid-row: 1; grid-column: 1; }
+      footer.nav.assistent-nav > .anzeige-leiste { grid-row: 1; grid-column: 2; }
+      footer.nav.assistent-nav > .primaer { grid-area: auto; grid-row: 1; grid-column: 3; justify-self: stretch; min-width: 0; }
+      footer.nav.assistent-nav:not(.mit-uebernehmen) > .nav-zurueck,
+      footer.nav.assistent-nav:not(.mit-uebernehmen) > .anzeige-leiste,
+      footer.nav.assistent-nav:not(.mit-uebernehmen) > .primaer { grid-row: 1; }
+      footer.nav.assistent-nav.mit-uebernehmen > .nav-zurueck,
+      footer.nav.assistent-nav.mit-uebernehmen > .anzeige-leiste,
+      footer.nav.assistent-nav.mit-uebernehmen > .primaer { grid-row: 2; }
+      footer.nav.assistent-nav.mit-uebernehmen > .uebernehmen { grid-row: 1; grid-column: 1 / -1; justify-self: stretch; white-space: normal; }
+      footer.nav.assistent-nav .nav-weiter-wort { display: none; }
+    }
+    /* R7-M3 (Kopf): Bei 180 px Layoutbreite bleiben im Kopf „‹ Startseite" und die Schrittleiste; das Zeichen und der
+       zweite „Ansicht"-Knopf entfallen (die Fußleiste trägt „◐"), die Reiter brechen ihren Status unter die Ziffer. */
+    @media (max-width: 16rem) {
+      .seiten-kopf.assistent-kopf img.einheit-avatar { display: none; }
+      .seiten-kopf.assistent-kopf .titelzeile { position: absolute; padding: 0; }
+      .seiten-kopf.assistent-kopf .kopf-oberzeile { flex: 1 1 100%; }
+      .seiten-kopf.assistent-kopf .kopf-oberzeile > .anzeige-schalter { display: none; }
+      .seiten-kopf.assistent-kopf .schritte button { flex-wrap: wrap; justify-content: center; align-content: center; row-gap: 0; line-height: 1.1; padding-block: 2px; padding-inline: 1px; overflow: hidden; }
+      .seiten-kopf.assistent-kopf .schritte .schritt-status { margin-left: 0; }
+      .seiten-kopf.assistent-kopf .schritte button.status-begonnen .schritt-status { font-size: 0; border: 0; padding: 0; }
+      .seiten-kopf.assistent-kopf .schritte button.status-begonnen .schritt-status::after { content: "•"; font-size: 1rem; }
+    }
+    /* R7-M7: Der Knopf „Ansicht" der Fußleiste zeigt auf 360 px (Container unter 22rem) nur „◐" — in allen Schritten gleich breit
+       (in Schritt 5 schrumpfte er sonst auf 102 px und schnitt sein Wort ab). */
+    @container assistent-nav (max-width: 22rem) {
+      footer.nav.assistent-nav .anzeige-leiste-text { display: none; }
+    }
+
+    /* R7-G5: Feld-Modus bei Browser-Zoom 200 % (180 px): Die Knöpfe einer Knopfreihe („+ übergeordnete Ebene") brechen um,
+       statt die Seite über die Bildbreite zu weiten (188 statt 180 px). */
+    .knopfreihe > button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+    /* ===== Ende Runde 7 (Layout) ===== */
   </style>
 </head>
 <body>

@@ -700,8 +700,12 @@ function platzText(p: Person, org: OrganisationsTyp): string {
 }
 
 
-/** Ab dieser Personenzahl beginnt die Liste als Kurz-Liste statt als Karten (R5-H2). */
-const VIELE_PERSONEN = 12;
+/**
+ * Ab dieser Personenzahl beginnt die Liste als Kurz-Liste statt als Karten (R5-H2). Die Grenze
+ * lag bei 12; neun Karten messen 14 000 px, zwölf 18 700 (R7-H6) — ab acht Personen ist die
+ * Kurz-Liste die Voreinstellung, die Karten bleiben einen Tipp entfernt.
+ */
+const VIELE_PERSONEN = 7;
 
 /** Rückweg nach einer Handlung, die Erfasstes wegnimmt – siehe {@link SchrittPersonal}. */
 type Rueckweg =
@@ -754,12 +758,30 @@ function wegSichern(r: Rueckweg | null, einheit: Einheit, personal: readonly Per
   }
 }
 
+/**
+ * Den gemerkten Rückweg entfernen: Wer „Person entfernen" gesagt und den Bogen danach verworfen,
+ * geschlossen oder übergeben hat, soll Name, Funktionen und Rufnummer nicht im Sitzungsspeicher
+ * des Tabs zurücklassen (R7-O5).
+ */
+export function personalRueckwegVergessen(): void {
+  try {
+    globalThis.sessionStorage?.removeItem(WEG_SCHLUESSEL);
+  } catch {
+    /* gesperrt – dann liegt auch nichts darin */
+  }
+}
+
 function wegLesen(einheit: Einheit, personal: readonly Person[], jetzt = Date.now()): Rueckweg | null {
   try {
     const roh = globalThis.sessionStorage?.getItem(WEG_SCHLUESSEL);
     if (!roh) return null;
     const g = JSON.parse(roh) as Partial<GemerkterWeg>;
-    if (!g.rueckweg || typeof g.zeit !== "number" || jetzt - g.zeit > WEG_FRIST_MS || g.einheit !== JSON.stringify(einheit)) return null;
+    // Abgelaufen oder von einer anderen Einheit: nicht nur ignorieren, sondern entfernen (R7-O5).
+    if (typeof g.zeit !== "number" || jetzt - g.zeit > WEG_FRIST_MS || g.einheit !== JSON.stringify(einheit)) {
+      personalRueckwegVergessen();
+      return null;
+    }
+    if (!g.rueckweg) return null;
     if (g.danach !== abdruck(g.rueckweg, personal)) return null;
     return g.rueckweg;
   } catch {
@@ -952,7 +974,14 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
   const sortierAnker = useRef<number | null>(null);
   const namenDialog = useRef<HTMLDialogElement>(null);
   const [namenText, setNamenText] = useState("");
-  const namenVorschau = parseNamen(namenText);
+  const namenAlle = parseNamen(namenText);
+  // Zeilen, die kein Name sein dürften (Ziffern, Klammern, Semikolon), tragen eine
+  // Marke und werden nur übernommen, wenn sie ausdrücklich angehakt sind (R7-E7).
+  const namenVerdaechtig = (n: { vorname: string; nachname: string }) =>
+    /[\d()\[\]{};<>]/.test(`${n.vorname} ${n.nachname}`) || !/\p{L}/u.test(`${n.vorname}${n.nachname}`);
+  const zeilenSchluessel = (n: { vorname: string; nachname: string }, i: number) => `${i}:${n.nachname}|${n.vorname}`;
+  const [verdachtAngehakt, setVerdachtAngehakt] = useState<ReadonlySet<string>>(() => new Set());
+  const namenVorschau = namenAlle.filter((n, i) => !namenVerdaechtig(n) || verdachtAngehakt.has(zeilenSchluessel(n, i)));
   // Dubletten kennzeichnen — in der Liste selbst und gegenüber schon
   // erfassten Personen. Übernommen werden sie trotzdem (zwei gleichnamige
   // Helfer gibt es), aber nicht unbemerkt (Audit „Fehler", E6).
@@ -1001,6 +1030,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
     );
     setSchnell(true); // die frisch eingefügten Namen direkt als Tabelle zeigen
     setNamenText("");
+    setVerdachtAngehakt(new Set());
     namenDialog.current?.close();
   }
 
@@ -1166,8 +1196,10 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
               es nicht mehr. */}
           {/* Die Zahlen starten mit der Vorbelegung nach Einheitstyp (StAN). Wer vom Zettel mit „+"
               aufbaut, addiert sonst zur Sollstärke (Audit Runde 6, R6-A8). */}
+          {/* Gebunden an die Gleichheit der Zahlen, nicht an leere Karten: Bei „Bergungsgruppe" tragen
+              zwei Karten schon Funktionen, und der Hinweis fehlte (R7-A1). */}
           {bogen.personal.length > 0 &&
-            bogen.personal.every(personLeer) &&
+            bogen.personal.every(personUnbenannt) &&
             (() => {
               const soll = staerke({ personal: bogen.personal });
               return soll.fuehrer === sm.fuehrer && soll.unterfuehrer === sm.unterfuehrer && soll.mannschaft === sm.mannschaft;
@@ -1460,22 +1492,61 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
         </label>
         {/* Vorschau: Wer welche Rolle bekommt, entscheidet über die gemeldete
             Stärke — das darf nicht erst im fertigen Bogen auffallen. */}
-        {namenVorschau.length > 0 && (
+        {namenAlle.length > 0 && (
           <ul className="namen-vorschau">
-            {namenVorschau.map((n, i) => (
-              <li key={i}>
-                {[n.nachname, n.vorname].filter(Boolean).join(", ")}
-                {n.funktion ? ` · ${n.funktion}` : ""}
-                {" · "}
-                <strong>
-                  {vorschauPlaetze[i] != null
-                    ? `→ Platz ${vorschauPlaetze[i]! + 1}: ${platzText(bogen.personal[vorschauPlaetze[i]!]!, bogen.einheit.organisation)}`
-                    : ROLLE_LABEL[n.rolle ?? StaerkeRolle.MANNSCHAFT]}
-                </strong>
-                {vorschauDoppelt[i] && <span className="uebung-badge">doppelt</span>}
-              </li>
-            ))}
+            {(() => {
+              let wirksam = -1;
+              return namenAlle.map((n, i) => {
+                const verdacht = namenVerdaechtig(n);
+                const schluessel = zeilenSchluessel(n, i);
+                const dabei = !verdacht || verdachtAngehakt.has(schluessel);
+                if (dabei) wirksam++;
+                const w = wirksam;
+                return (
+                  <li key={i}>
+                    {verdacht && (
+                      <label className="inline">
+                        <input
+                          type="checkbox"
+                          aria-label={`„${[n.nachname, n.vorname].filter(Boolean).join(", ")}" trotzdem als Name übernehmen`}
+                          checked={dabei}
+                          onChange={(e) =>
+                            setVerdachtAngehakt((alt) => {
+                              const neu = new Set(alt);
+                              if (e.target.checked) neu.add(schluessel);
+                              else neu.delete(schluessel);
+                              return neu;
+                            })
+                          }
+                        />
+                      </label>
+                    )}
+                    {[n.nachname, n.vorname].filter(Boolean).join(", ")}
+                    {n.funktion ? ` · ${n.funktion}` : ""}
+                    {" · "}
+                    {verdacht && !dabei ? (
+                      <strong>wird nicht übernommen</strong>
+                    ) : (
+                      <strong>
+                        {vorschauPlaetze[w] != null
+                          ? `→ Platz ${vorschauPlaetze[w]! + 1}: ${platzText(bogen.personal[vorschauPlaetze[w]!]!, bogen.einheit.organisation)}`
+                          : ROLLE_LABEL[n.rolle ?? StaerkeRolle.MANNSCHAFT]}
+                      </strong>
+                    )}
+                    {verdacht && <span className="uebung-badge">kein Name?</span>}
+                    {dabei && vorschauDoppelt[w] && <span className="uebung-badge">doppelt</span>}
+                  </li>
+                );
+              });
+            })()}
           </ul>
+        )}
+        {namenAlle.some(namenVerdaechtig) && (
+          <p className="warnung" role="status">
+            {namenAlle.filter(namenVerdaechtig).length === 1 ? "Eine Zeile sieht" : `${namenAlle.filter(namenVerdaechtig).length} Zeilen sehen`} nicht
+            nach einem Namen aus (Ziffern, Klammern) und {namenAlle.filter(namenVerdaechtig).length === 1 ? "wird" : "werden"} nicht übernommen. Wer sie
+            doch braucht, hakt sie an.
+          </p>
         )}
         {anzahlDoppelt > 0 && (
           <p className="warnung" role="status">

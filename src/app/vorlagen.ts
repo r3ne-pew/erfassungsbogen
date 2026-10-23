@@ -18,6 +18,7 @@ import { bogenPruefen, dateinameTeil, einheitAnzeigename, migriereBogen } from "
 import { bogenBefund } from "./bogen-pruefung";
 import { aktive, imPapierkorb, papierkorbBereinigt } from "@bos/meldekopf/papierkorb";
 import { geprueftesJetztMs, stempelZeitpunkt } from "./datenschutz-uhr";
+import { unlesbareVorlagenteile, unlesbaresBeiseitelegen } from "./unlesbar";
 
 /** Versionierter Schlüssel — erlaubt spätere Formatwechsel der Sammlung selbst. */
 const SPEICHER_SCHLUESSEL = "eeb.vorlagen.v1";
@@ -194,6 +195,8 @@ function speicher(): Storage | null {
   }
 }
 
+let zuletztGeprueft: string | null | undefined;
+
 /**
  * Komplette Liste inkl. Papierkorb — Basis aller Mutationen, damit beim
  * Zurückschreiben keine Papierkorb-Einträge verloren gehen. Abgelaufene
@@ -202,6 +205,14 @@ function speicher(): Storage | null {
 function alleVorlagenLaden(): Vorlage[] {
   const s = speicher();
   if (!s) return [];
+  // Was `vorlagenAusJson` überspringt, ginge beim nächsten Schreiben verloren:
+  // erst beiseitelegen, damit es sich sichern lässt (R7-E2).
+  const roh = s.getItem(SPEICHER_SCHLUESSEL);
+  if (roh !== zuletztGeprueft) {
+    zuletztGeprueft = roh;
+    const unlesbar = unlesbareVorlagenteile(roh);
+    if (unlesbar.length > 0) unlesbaresBeiseitelegen({ vorlagen: unlesbar });
+  }
   // Die geprüfte Uhr, nicht die Geräteuhr (R4-D1).
   const r = papierkorbBereinigt(vorlagenAusJson(s.getItem(SPEICHER_SCHLUESSEL)), geprueftesJetztMs());
   if (r.entfernt > 0) vorlagenSpeichern(r.liste);

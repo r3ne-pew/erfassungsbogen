@@ -28,6 +28,7 @@ import {
   KennzahlenFeld,
   KENNUNG_EINGABE,
   VokabAuswahl,
+  zahlBegrenzung,
   type SchrittProps,
 } from "./bausteine";
 
@@ -62,6 +63,7 @@ function FahrzeugKarte(props: {
   const bezeichnung = fahrzeugBezeichnung(f, index, org);
   const richtwert = sitzplaetzeRichtwert(f, vokabularFuer(org, "fahrzeug"));
   const karte = useRef<HTMLDivElement>(null);
+  const [grenzeText, setGrenzeText] = useState("");
   useEinzugsstempel(karte, frisch);
   const set = (patch: Partial<Fahrzeug>) => aendern({ ...f, ...patch });
   return (
@@ -107,8 +109,18 @@ function FahrzeugKarte(props: {
             value={f.sitzplaetze ?? ""}
             placeholder={richtwert != null ? `${richtwert} (Richtwert)` : "unbekannt"}
             title="Sitzplätze inkl. Fahrer/in. Leer lassen = Richtwert des Fahrzeugtyps."
-            onChange={(e) => set({ sitzplaetze: sitzplatzEingabe(e.target.value) })}
+            aria-describedby={grenzeText ? `grenze-sitzplaetze-${index}` : undefined}
+            onChange={(e) => {
+              setGrenzeText(zahlBegrenzung(e.target.value, { min: 0, max: 99 }));
+              set({ sitzplaetze: sitzplatzEingabe(e.target.value) });
+            }}
           />
+          {/* Die Begrenzung auf 0 bis 99 wird genannt, statt still einen anderen Wert zu setzen (R7-E6). */}
+          {grenzeText && (
+            <small className="hinweis warnung-text" id={`grenze-sitzplaetze-${index}`} role="status">
+              {grenzeText}
+            </small>
+          )}
         </Feld>
         <Feld titel="Ausstattung nach StAN" schmal>
           <Auswahl

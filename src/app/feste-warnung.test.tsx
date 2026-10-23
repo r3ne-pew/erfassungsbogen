@@ -14,7 +14,7 @@ describe("FesteWarnung", () => {
     expect(screen.queryByText("Papierkorb leeren.")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Was tun?" }));
     expect(screen.getByText("Papierkorb leeren.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Weniger" }));
+    fireEvent.click(screen.getByRole("button", { name: "Zuklappen" }));
     expect(screen.queryByText("Papierkorb leeren.")).toBeNull();
   });
 
@@ -37,5 +37,29 @@ describe("FesteWarnung", () => {
     expect(document.documentElement.style.getPropertyValue("--fest-warnung-hoehe")).toMatch(/^\d+px$/);
     unmount();
     expect(document.documentElement.style.getPropertyValue("--fest-warnung-hoehe")).toBe("");
+  });
+
+  // Audit Runde 7, R7-O1, R7-M2: Die Entscheidungsknöpfe liegen nicht hinter einem Schalter und nicht hinter innerem Rollen.
+  it("zeigt bei aktionenImmer die Knöpfe ohne Aufklappen und die Einzelheiten hinter „Genauer“", () => {
+    const hoehe = window.innerHeight;
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: Math.max(hoehe, KNAPPE_BILDHOEHE + 100) });
+    render(
+      <FesteWarnung klasse="x" aktionenImmer kurz="Hier wird nichts gespeichert." details={<p>Dort 17:44:12</p>} aktionen={<button type="button">Laden</button>} />,
+    );
+    expect(screen.getByRole("button", { name: "Laden" })).toBeTruthy();
+    expect(screen.queryByText("Dort 17:44:12")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Genauer" }));
+    expect(screen.getByText("Dort 17:44:12")).toBeTruthy();
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: hoehe });
+  });
+
+  it("fällt bei aktionenImmer und knappem Bild auf „Entscheiden“ zurück", () => {
+    const hoehe = window.innerHeight;
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 360 });
+    render(<FesteWarnung klasse="x" aktionenImmer kurz="Hier wird nichts gespeichert." aktionen={<button type="button">Laden</button>} />);
+    expect(screen.queryByRole("button", { name: "Laden" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Entscheiden" }));
+    expect(screen.getByRole("button", { name: "Laden" })).toBeTruthy();
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: hoehe });
   });
 });

@@ -299,8 +299,8 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
     });
   };
   /** `aendern` mit Rückweg, wenn dabei unbenannte Sollplätze weggehen (oder schon eine Leiste steht). */
-  function aendernMitVorbelegungWeg(patch: Partial<typeof bogen>, titel: string) {
-    if (vorbelegtePersonen > 0 || vorbelegteFahrzeuge > 0) {
+  function aendernMitVorbelegungWeg(patch: Partial<typeof bogen>, titel: string, immer = false) {
+    if (immer || vorbelegtePersonen > 0 || vorbelegteFahrzeuge > 0) {
       const teile = [
         vorbelegtePersonen > 0 ? anzahlText(vorbelegtePersonen, "Person", "Personen") : "",
         vorbelegteFahrzeuge > 0 ? anzahlText(vorbelegteFahrzeuge, "Fahrzeug", "Fahrzeuge") : "",
@@ -317,7 +317,7 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
         mitRolle > 0 ? `${mitRolle} mit geänderter Rolle oder Funktion` : "",
       ].filter(Boolean);
       const neu = {
-        kopf: `${titel}: ${teile.join(", ")}${zusatz.length > 0 ? ` (${zusatz.join(", ")})` : ""}`,
+        kopf: teile.length > 0 ? `${titel}: ${teile.join(", ")}${zusatz.length > 0 ? ` (${zusatz.join(", ")})` : ""}` : titel,
         vor: staerke(bogen).gesamt,
         personal: bogen.personal,
         fahrzeuge: bogen.fahrzeuge,
@@ -421,23 +421,41 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
       ].filter(Boolean);
       verluste.push(teile.join(" und "));
     }
+    const kennwoerter = [
+      ...new Set(
+        bogen.fahrzeuge
+          .filter((f) => !fahrzeugUnbenannt(f) && f.funkrufname)
+          .map((f) => vokabText(f.funkrufname!.kennwort, vokabularFuer(e.organisation, "kennwort"), "kurz").trim())
+          .filter(Boolean),
+      ),
+    ];
     if (
       verluste.length > 0 &&
       !(await frageJaNein({
         titel: `Organisation auf „${orgLabel(organisation)}" wechseln?`,
-        text: `Diese Angaben passen nur zu „${orgLabel(e.organisation)}" und gehen beim Wechsel verloren: ${verluste.join("; ")}. Benannte Personen und Fahrzeuge mit Kennzeichen bleiben erhalten.`,
+        text: `Diese Angaben passen nur zu „${orgLabel(e.organisation)}" und gehen beim Wechsel verloren: ${verluste.join("; ")}. Benannte Personen und Fahrzeuge mit Kennzeichen bleiben erhalten${
+          kennwoerter.length > 0
+            ? `, auch ihre Funkrufnamen mit dem bisherigen Kennwort (${kennwoerter.join(", ")}) — das stimmt bei „${orgLabel(organisation)}" meist nicht und lässt sich in Schritt 4 ändern`
+            : ""
+        }. Direkt danach bietet „Rückgängig" den alten Stand an.`,
         ok: "Organisation wechseln",
         gefahr: true,
       }))
     ) {
       return;
     }
-    aendern({
-      einheit: { ...e, organisation, einheitsTyp: {}, hierarchie: [ersteEbene(organisation)] },
-      // Wie beim Leeren des Typs: die Vorbelegung gehört zum alten Typ.
-      personal: bogen.personal.filter((p) => !personUnbenannt(p)),
-      fahrzeuge: bogen.fahrzeuge.filter((f) => !fahrzeugUnbenannt(f)),
-    });
+    // Mit Rückweg (R7-E5): die Leiste im Daumenbereich stellt Organisation, Typ
+    // und Zugehörigkeit samt Vorbelegung wieder her.
+    aendernMitVorbelegungWeg(
+      {
+        einheit: { ...e, organisation, einheitsTyp: {}, hierarchie: [ersteEbene(organisation)] },
+        // Wie beim Leeren des Typs: die Vorbelegung gehört zum alten Typ.
+        personal: bogen.personal.filter((p) => !personUnbenannt(p)),
+        fahrzeuge: bogen.fahrzeuge.filter((f) => !fahrzeugUnbenannt(f)),
+      },
+      `Organisation auf „${orgLabel(organisation)}" gewechselt (Einheitstyp und Zugehörigkeit zurückgesetzt)`,
+      true,
+    );
   }
   // Welches Namensfeld der Zugehörigkeit gerade den Fokus hat (Hinweis „nicht im Verzeichnis" erst danach).
   const [nameImFokus, setNameImFokus] = useState<number | null>(null);

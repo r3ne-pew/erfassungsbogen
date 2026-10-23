@@ -41,7 +41,7 @@ import { bedarfMarken } from "./einheiten-tabelle";
 import { frageJaNein, frageText, zeigeHinweis } from "./dialoge";
 import { istNativ, linkTeilen, shareSheetVerfuegbar } from "./nativ";
 import { AbgangKnopf, Kartenstapel } from "./kartenstapel";
-import { papierkorbRest } from "./papierkorb-frist";
+import { datumZweistellig, papierkorbRest } from "./papierkorb-frist";
 import { musterungStandLaden, musterungStandLoeschen, musterungStandSpeichern, standPasst } from "./musterung-stand";
 
 function personName(vorname: string, nachname: string): string {
@@ -183,7 +183,7 @@ export function VorlagenListe(props: {
               </AbgangKnopf>
             </div>
             <p className={papierkorbRest(v.geloeschtAm!).bald ? "hinweis warnung-text" : "hinweis"}>
-              Gelöscht am {new Date(v.geloeschtAm!).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })} — {papierkorbRest(v.geloeschtAm!).text}
+              Gelöscht am {datumZweistellig(v.geloeschtAm!)} — {papierkorbRest(v.geloeschtAm!).text}
             </p>
             <div className="papierkorb-endgueltig">
               <AbgangKnopf
@@ -442,6 +442,22 @@ export function Musterung(props: {
     onAbbrechen();
   }
 
+  // Die klebende Kopfzeile einer Gruppe hängt unter der Stärke-Leiste, nicht auf ihr: Beide
+  // klebten bei 0, die Kopfzeile deckte die Zahlen halb ab (R7-H7). Die Höhe der Leiste
+  // gibt dieser Effekt als Variable an die Seite weiter (index.html, `.klebend`).
+  const leisteRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const leiste = leisteRef.current;
+    const wurzel = leiste?.parentElement;
+    if (!leiste || !wurzel) return;
+    const messen = () => wurzel.style.setProperty("--muster-leiste-hoehe", `${Math.ceil(leiste.getBoundingClientRect().height)}px`);
+    messen();
+    if (typeof ResizeObserver === "undefined") return;
+    const beobachter = new ResizeObserver(messen);
+    beobachter.observe(leiste);
+    return () => beobachter.disconnect();
+  }, []);
+
   return (
     <>
     <SeitenKopf>
@@ -463,7 +479,7 @@ export function Musterung(props: {
       </p>
     </SeitenKopf>
     <main id="inhalt" tabIndex={-1} className="musterung">
-      <section className="karte staerke-leiste">
+      <section className="karte staerke-leiste" ref={leisteRef}>
         {/* R4-H3: Auf schmalen Telefonen standen hier „FÜHRER / UNTERF. /
             MANNSC… / GESAMT", bei 320 px im Feld-Modus „FÜH… / UNT… / MAN… /
             GES…". Dort tragen die Felder dieselben Kürzel wie der Bogen und
@@ -480,7 +496,7 @@ export function Musterung(props: {
             beim Rollen stehen: Wer aus 43 Personen acht anhakt, sieht, wie viele
             noch gelten (R5-H1). */}
         <div className={`kopfzeile${b.personal.length > VIELE_ZEILEN ? " klebend" : ""}`}>
-          <h2>Personal ({anwesendePersonen.length}/{b.personal.length})</h2>
+          <h2>Personal <span className="zaehler">({anwesendePersonen.length}/{b.personal.length})</span></h2>
           {/* Umschalter statt „Alle anhaken" allein: Nach dem Öffnen sind alle
               angehakt, der Knopf tat sichtbar nichts, und wer nur eine Gruppe
               mitnimmt, wählte 35 Zeilen einzeln ab (R5-H1). */}
@@ -505,7 +521,7 @@ export function Musterung(props: {
 
       <section className="karte">
         <div className={`kopfzeile${b.fahrzeuge.length > VIELE_ZEILEN ? " klebend" : ""}`}>
-          <h2>Fahrzeuge ({anzahlFz}/{b.fahrzeuge.length})</h2>
+          <h2>Fahrzeuge <span className="zaehler">({anzahlFz}/{b.fahrzeuge.length})</span></h2>
           <button type="button" className="muster-umschalter" onClick={() => umschalten(() => setVAn(b.fahrzeuge.map(() => !vAn.every(Boolean))))}>
             {vAn.every(Boolean) && b.fahrzeuge.length > 0 ? "Alle abwählen" : "Alle anhaken"}
           </button>

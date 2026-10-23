@@ -11,7 +11,7 @@ import { blobAlsDownload, bogenVollUrl, einheitAnzeigename, einheitOrt, migriere
 import { einheitSymbolSvg, svgDataUrl } from "./taktische-zeichen-bogen";
 import { nutzungsKanal, statistikAbgewaehlt, statistikAbwaehlen } from "./statistik";
 import { AnzeigeSchalter } from "./anzeige-schalter";
-import { frageJaNein, zeigeHinweis } from "./dialoge";
+import { frageWahl, zeigeHinweis } from "./dialoge";
 import {
   alleDatenLoeschen,
   datenUmfang,
@@ -29,7 +29,7 @@ import {
   type DatenUmfang,
 } from "./sicherung";
 import { dateiFehlerMeldung } from "./datei-fehler";
-import { geraeteKurzform, geraeteSchluesselLoeschen, geraeteSchluesselSicherstellen, kurzformAusPrivatHex } from "./geraete-schluessel";
+import { geraeteKurzform, geraeteSchluesselLoeschen, geraeteSchluesselPrivat, geraeteSchluesselSicherstellen, kurzformAusPrivatHex } from "./geraete-schluessel";
 import { speicherBelegung, speicherText } from "./eintrag-zeiten";
 import { groessteText, istVoll } from "./speicher-warnung";
 import { dauerhaftenSpeicherAnfragen, speicherDauerhaft } from "./speicher-browser";
@@ -697,27 +697,49 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
    * QR-Code sonst weiter anzeigt.
    */
   async function geraeteSchluesselNeuErzeugen() {
-    const sicher = await frageJaNein({
-      titel: "Geräteschlüssel neu erzeugen?",
-      text: (
-        <>
-          <p>
-            Der bisherige Signaturschlüssel dieses Geräts wird gelöscht und durch ein
-            neues Schlüsselpaar ersetzt. Sinnvoll ist das bei Verdacht, dass der private
-            Schlüssel in fremde Hände geraten ist — etwa nach Verlust oder Weitergabe des
-            Geräts.
-          </p>
-          <p>
-            <strong>Empfänger müssen die Kurzform danach neu abgleichen:</strong> Bögen von
-            diesem Gerät tragen ab sofort eine andere Kurzform. Bereits verschickte Bögen
-            bleiben gültig und prüfbar — aber nur gegen den alten öffentlichen Schlüssel,
-            und der lässt sich danach nicht wiederherstellen.
-          </p>
-        </>
-      ),
-      ok: "Neu erzeugen",
-      gefahr: true,
-    });
+    // Ohne vorhandenen Schlüssel wird nichts gelöscht — der Text sagt, was wirklich geschieht (R7-D6).
+    const hatSchluessel = geraeteSchluesselPrivat() != null;
+    let sicher = false;
+    for (let runde = 0; runde < 5 && !sicher; runde++) {
+      const wahl = await frageWahl({
+        titel: "Geräteschlüssel neu erzeugen?",
+        text: (
+          <>
+            <p>
+              {hatSchluessel
+                ? "Der bisherige Signaturschlüssel dieses Geräts wird gelöscht und durch ein neues Schlüsselpaar ersetzt."
+                : "Auf diesem Gerät liegt noch kein Signaturschlüssel; es wird ein neues Schlüsselpaar erzeugt, gelöscht wird nichts."}{" "}
+              Sinnvoll ist das bei Verdacht, dass der private Schlüssel in fremde Hände geraten ist —
+              etwa nach Verlust oder Weitergabe des Geräts.
+            </p>
+            <p>
+              <strong>Empfänger müssen die Kurzform danach neu abgleichen:</strong> Bögen von
+              diesem Gerät tragen ab sofort eine andere Kurzform. Bereits verschickte Bögen
+              bleiben gültig und prüfbar — aber nur gegen den alten öffentlichen Schlüssel,
+              und der lässt sich danach nur aus einer früheren Sicherungsdatei wiederherstellen.
+            </p>
+          </>
+        ),
+        wege: [
+          ...(hatSchluessel
+            ? [
+                {
+                  wert: "sichern",
+                  label: "Vorher Sicherung erstellen…",
+                  hinweis: "Die Sicherungsdatei enthält den bisherigen Schlüssel. Danach fragt die App erneut.",
+                },
+              ]
+            : []),
+          { wert: "neu", label: "Neu erzeugen", gefahr: true },
+        ],
+      });
+      if (wahl === "sichern") {
+        await sicherungExportieren();
+        continue;
+      }
+      sicher = wahl === "neu";
+      if (!sicher) return;
+    }
     if (!sicher) return;
     try {
       geraeteSchluesselLoeschen();
@@ -979,6 +1001,11 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
           Einträge im Papierkorb. Es gibt keine Kopie in einer Cloud: was hier weg
           ist, ist weg.
         </p>
+        {/* Die Sicherung steht vor der langen Aufzählung: Bei 200 % Schrift lag sie
+            sieben Bildschirme tiefer, am Ende des Dialogs (R7-D7). */}
+        <div className="aktionen">
+          <button type="button" onClick={() => void sicherungExportieren()}>Vorher Sicherung erstellen…</button>
+        </div>
         {loeschUmfang && (
           loeschUmfang.eintraege === 0 ? (
             <p>Auf diesem Gerät sind derzeit keine App-Daten gespeichert.</p>
@@ -1024,9 +1051,6 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
           nur der Speicher dieser App wird geleert. Der Widerspruch zur
           Reichweitenmessung bleibt bestehen.
         </p>
-        <div className="aktionen">
-          <button type="button" onClick={() => void sicherungExportieren()}>Vorher Sicherung erstellen…</button>
-        </div>
         <label className="inline">
           <input
             type="checkbox"

@@ -40,6 +40,8 @@ export type DateiArt =
   | "json-fremd"
   | "bogen"
   | "bogen-neuer"
+  /** Hülle eines gesicherten, beiseitegelegten Entwurfs: `{ gespeichert, bogen }` (R7-E1). */
+  | "entwurf"
   | "boegen"
   | "einsatz"
   | "vorlage"
@@ -62,6 +64,9 @@ function jsonArt(roh: unknown): DateiArt {
   if (roh.format === "eeb-vorlage") return "vorlage";
   if (roh.typ === "eeb-einsatz" || (typeof roh.id === "string" && Array.isArray(roh.eintraege))) return "einsatz";
   if (istBogenRoh(roh)) return (roh.schemaVersion as number) > SCHEMA_VERSION ? "bogen-neuer" : "bogen";
+  // „Als Datei sichern" am beiseitegelegten Entwurf: Hülle ohne eigene Schema-Version,
+  // der Bogen steckt darin. Sie ist kein „Fremdes" (Audit Runde 7, R7-E1).
+  if (typeof roh.gespeichert === "number" && istObjekt(roh.bogen)) return "entwurf";
   return "json-fremd";
 }
 
@@ -97,12 +102,13 @@ const RICHTIGER_KNOPF: Partial<Record<DateiArt, string>> = {
     "eine Datensicherung. Sie wird über die Fußzeile „Datensicherung“ eingespielt — Achtung: das ersetzt alle Daten auf diesem Gerät.",
   bogen: "ein einzelner Bogen. Er wird auf der Startseite über „Aus Datei laden…“ geöffnet oder in einer Sammlung über „Bögen einlesen…“ aufgenommen.",
   boegen: "eine Liste von Bögen. Sie wird in einer Einsatz-Sammlung über „Bögen einlesen…“ aufgenommen.",
+  entwurf: "ein gesicherter Entwurf. Er wird auf der Startseite über „Aus Datei laden…“ geöffnet.",
   pdf: "eine PDF. Bögen daraus werden über „Aus Datei laden…“ oder „Bögen einlesen…“ gelesen, eine Sammel-PDF über „Einsatz importieren…“.",
 };
 
 /** Welche Arten ein Weg selbst verarbeitet — für sie gibt es keinen „falscher Knopf"-Hinweis. */
 const PASST: Record<DateiWeg, DateiArt[]> = {
-  bogen: ["bogen", "vorlage", "pdf"],
+  bogen: ["bogen", "vorlage", "pdf", "entwurf"],
   boegen: ["bogen", "boegen", "pdf"],
   einsatz: ["einsatz", "bogen", "boegen", "pdf"],
   sicherung: ["sicherung"],
