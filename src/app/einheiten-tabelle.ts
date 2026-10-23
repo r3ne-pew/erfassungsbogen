@@ -195,22 +195,25 @@ function neueInfo(eintraege: MeldeEintrag[]): [string, string][] {
 }
 
 /**
- * „Nummern geändert: Nr. 5 gehört jetzt THW Erlangen (vorher THW Kassel), THW
- * Kassel hat Nr. 6 — Lageblatt neu drucken." Leer ohne Wechsel (R5-W3).
+ * „2 Nummern geändert — … Lageblatt neu drucken. Zum Beispiel: Nr. 5 gehört jetzt THW
+ * Erlangen (vorher THW Kassel), THW Kassel hat Nr. 6." Leer ohne Wechsel (R5-W3).
  */
 export function nummernWechselText(wechsel: NummernWechsel[], nachher: MeldeEintrag[]): string {
   if (wechsel.length === 0) return "";
   const neu = meldungsNummern(nachher);
   const namen = new Map(neueInfo(nachher));
   const inhaber = new Map([...neu].map(([schl, nr]) => [nr, schl]));
-  const teile = wechsel.slice(0, 4).map((w) => {
+  // Die Aufforderung steht vorn, die Beispiele dahinter und knapp: 15 Wechsel füllten vier Fünftel
+  // der Quittung auf dem Telefon (Audit Runde 6, R6-K6).
+  const teile = wechsel.slice(0, 2).map((w) => {
     const jetzt = inhaber.get(w.von);
     return jetzt && jetzt !== w.einheitSchluessel
       ? `Nr. ${w.von} gehört jetzt ${namen.get(jetzt) ?? "einer anderen Einheit"} (vorher ${w.einheit}), ${w.einheit} hat Nr. ${w.nach}`
       : `${w.einheit}: Nr. ${w.von} → ${w.nach}`;
   });
   const rest = wechsel.length - teile.length;
-  return `Nummern geändert: ${teile.join("; ")}${rest > 0 ? ` und ${rest} weitere` : ""} — am Funk genannte Nummern und das gedruckte Lageblatt gelten nicht mehr, Lageblatt neu drucken.`;
+  const anzahl = wechsel.length === 1 ? "1 Nummer" : `${wechsel.length} Nummern`;
+  return `${anzahl} geändert — am Funk genannte Nummern und das gedruckte Lageblatt gelten nicht mehr, Lageblatt neu drucken. Zum Beispiel: ${teile.join("; ")}${rest > 0 ? ` und ${rest} weitere` : ""}.`;
 }
 
 // ------------------------------------------------------------ Fremder Einsatz
