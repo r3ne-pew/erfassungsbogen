@@ -1342,3 +1342,27 @@ describe("Verpflegung zieht mit der Stärke mit", () => {
     expect(screen.getByTestId("verpflegung").textContent).toBe("5");
   });
 });
+
+// Audit Runde 7, R7-O5: Der gemerkte Rückweg (Name, Funktionen, Rufnummern) bleibt nicht liegen, wenn er abgelaufen
+// ist oder zu einer anderen Einheit gehört, und lässt sich ausdrücklich vergessen.
+describe("Gemerkter Rückweg im Sitzungsspeicher (R7-O5)", () => {
+  const WEG = "eeb.personal.rueckweg";
+  const lesen = () => sessionStorage.getItem(WEG);
+
+  it("ein abgelaufener Rückweg wird beim Öffnen des Schritts entfernt, nicht nur ignoriert", () => {
+    const bogen = neuerBogen();
+    sessionStorage.setItem(
+      WEG,
+      JSON.stringify({ rueckweg: { art: "liste", text: "alt", personal: [] }, einheit: JSON.stringify(bogen.einheit), zeit: Date.now() - 16 * 60 * 1000 }),
+    );
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={bogen} />);
+    expect(lesen()).toBeNull();
+  });
+
+  it("personalRueckwegVergessen räumt ihn weg", async () => {
+    const { personalRueckwegVergessen } = await import("./personal");
+    sessionStorage.setItem(WEG, "{}");
+    personalRueckwegVergessen();
+    expect(lesen()).toBeNull();
+  });
+});
