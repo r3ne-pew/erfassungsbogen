@@ -855,6 +855,9 @@
     /* Kurztext und Schalter in einer Zeile, darunter Einzelheiten und Knöpfe
        nebeneinander — zwei Zeilen Text und eine Knopfreihe statt eines
        Absatzes mit gestapelten Knöpfen (R5-S4: 240 px, jetzt rund die Hälfte). */
+    /* R6-M1: Bei großer Schrift war die Leiste höher als das Fenster, und „Meine
+       Fassung behalten" lag unter dem Rand. Höhe gedeckelt, darüber rollt sie in sich. */
+    .seiten-kopf .autosave.fest-warnung { max-height: 50vh; max-height: 50dvh; overflow-y: auto; overscroll-behavior: contain; }
     .fest-warnung .fest-kurz { order: 0; margin: 0; flex: 1 1 11rem; min-width: 0; line-height: 1.25; font-size: var(--t-xs); }
     .fest-warnung .fest-schalter { order: 1; flex: 0 0 auto; }
     .fest-warnung .fest-details { order: 2; flex: 1 1 100%; font-weight: 400; font-size: var(--t-xs); }
@@ -1024,7 +1027,7 @@
     /* R5-G7: Die Moduswahl der Einsatzansicht trägt wie die der Fußleiste die
        Zweckzeile („große Tasten", „abends", „gedimmt") unter dem Namen. */
     .seiten-kopf.einsatz-kopf .anzeige-schalter button { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
-    .seiten-kopf.einsatz-kopf .anzeige-schalter .modus-kurz { display: block; color: inherit; opacity: 0.8; font-size: min(var(--t-xs), 13px); }
+    .seiten-kopf.einsatz-kopf .anzeige-schalter .modus-kurz { display: block; color: inherit; opacity: 1; /* R6-L5: keine Abdunkelung, sonst unter 4,5:1 */ font-size: min(var(--t-xs), 13px); }
     /* Große Systemschrift (Audit Runde 2, R2-M1): bei 200 % auf 360 × 640
        war der Kopf 1 155 px hoch, die Überschrift „1. Einheit" begann zweieinhalb
        Bildhöhen tiefer. Eine Medienabfrage sieht die Systemschrift nicht (rem
@@ -1615,6 +1618,15 @@
     html:has(.anzeige-balken):has(.quittung-daumen) main { padding-bottom: calc(min(6rem, 108px) + var(--quittung-hoehe, 5rem) + var(--balken-hoehe, 3.6rem) + env(safe-area-inset-bottom)); }
     html:has(.anzeige-balken):has(.quittung-daumen) { scroll-padding-bottom: calc(min(6rem, 108px) + var(--quittung-hoehe, 5rem) + var(--balken-hoehe, 3.6rem) + env(safe-area-inset-bottom)); }
     html.tastatur-offen .anzeige-balken { display: none; }
+    /* R6-M8, R6-G7: Quer am Telefon (niedriges Bild) nahm der Balken mit Kopf
+       52 % der Höhe. Dort wird er zur Ecke: nur „◐", rechts unten, ohne Leiste. */
+    @media (max-height: 30rem) {
+      .anzeige-balken { left: auto; padding: 4px max(var(--r-3), env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) 4px; border: 0; background: transparent; }
+      .anzeige-balken > .anzeige-leiste { margin-inline: 0; }
+      .anzeige-balken .anzeige-leiste-text { display: none; }
+      .anzeige-balken .anzeige-leiste-knopf { box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35); }
+      .anzeige-balken .anzeige-leiste-wahl { left: auto; right: 0; }
+    }
     /* R4-M2, R4-M3, R4-G2: Die Leiste des Assistenten ist ein Raster mit
        festen Plätzen: „← Zurück" links, „◐" daneben, der Primärknopf rechts
        außen — in jedem Schritt derselbe Platz, auch wenn „Zur Übersicht →"

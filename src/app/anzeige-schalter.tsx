@@ -3,7 +3,7 @@
  * wo alle App-Einstellungen versammelt sind.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   ANZEIGE_MODI,
   ANZEIGE_MODUS_EVENT,
@@ -11,6 +11,27 @@ import {
   anzeigeModusSetzen,
   type AnzeigeModus,
 } from "./anzeige-modus";
+
+/**
+ * Es gibt zwei Auslöser derselben Wahl (Kopf, feste Leiste): Öffnet einer, schließt
+ * der andere — sonst standen beide Wahlen gleichzeitig offen (Audit Runde 6, R6-N5, R6-S5).
+ */
+const WAHL_OFFEN_EVENT = "eeb:ansicht-wahl-offen";
+
+function useAndereWahlSchliesst(offen: boolean, setOffen: (o: boolean) => void): void {
+  const id = useId();
+  useEffect(() => {
+    if (offen) window.dispatchEvent(new CustomEvent<string>(WAHL_OFFEN_EVENT, { detail: id }));
+  }, [offen, id]);
+  useEffect(() => {
+    const horcher = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== id) setOffen(false);
+    };
+    window.addEventListener(WAHL_OFFEN_EVENT, horcher);
+    return () => window.removeEventListener(WAHL_OFFEN_EVENT, horcher);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setOffen ist ein stabiler State-Setter
+  }, [id]);
+}
 
 /**
  * `klappbar` (Assistenten-Kopf, R2-H7): Auf dem Telefon steht nur der gewählte
@@ -23,6 +44,7 @@ import {
 export function AnzeigeSchalter({ klappbar = false, beschriftet = false }: { klappbar?: boolean; beschriftet?: boolean }) {
   const [modus, setModus] = useState<AnzeigeModus>(() => anzeigeModus());
   const [offen, setOffen] = useState(false);
+  useAndereWahlSchliesst(offen, setOffen);
 
   // Es gibt mehrere Instanzen (Kopfbereich + Fußzeile) — über das Event
   // bleiben alle auf demselben Stand, egal wo umgeschaltet wird.
@@ -142,6 +164,7 @@ function festPositioniert(el: Element, fenster: Window): boolean {
 export function AnzeigeLeistenKnopf({ mitText = false, kurz = false }: { mitText?: boolean; kurz?: boolean } = {}) {
   const [modus, setModus] = useState<AnzeigeModus>(() => anzeigeModus());
   const [offen, setOffen] = useState(false);
+  useAndereWahlSchliesst(offen, setOffen);
   const huelle = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
