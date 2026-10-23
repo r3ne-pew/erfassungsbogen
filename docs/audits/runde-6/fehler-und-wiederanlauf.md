@@ -469,3 +469,16 @@ und die Prüfung gilt nur für Neues (R6-E1, R6-E3). Verkehrt hat sich keine
 Behebung; an drei Stellen sitzt eine Lücke neben der Behebung (R6-E2 neben
 R5-E7, R6-E4 neben R5-S5, R6-E5 neben R5-E2). R6-E6 ist neu und gehört zu
 R5-E6.
+
+## Stand der Behebung
+
+Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstests (137 von 137 Szenarien) und, wo es sich messen ließ, Nachmessung im Browser (Playwright, Produktionsbuild). 6 behoben, 0 teilweise, 0 offen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R6-E1 | behoben | Sammlungen und Vorlagen werden beim Lesen wie an den Eingängen geprüft (`einsaetze-lesen.ts`, `vorlagen.ts`): Ergänzbares wird ergänzt, Unbrauchbares bleibt in der Ansicht weg. Unit-Tests für Vorlage und Sammlung ohne Einheitstyp/Fahrzeuge. Ein Bogen ohne Pflichtfeld wird nicht beiseitegelegt, sondern in der Ansicht ausgelassen (der Speicher bleibt unverändert). |
+| R6-E2 | behoben | Bei vollem Speicher zeigt „In Einsatz übernehmen“ einen Dialog mit der Stärke zum Notieren, die Eingaben bleiben stehen. |
+| R6-E3 | behoben | Die gesicherte Hülle des beiseitegelegten Entwurfs wird von „Aus Datei laden…“ gelesen; fehlt ein Pflichtfeld, nennt die Meldung es und sagt, dass die Datei nur der Support-Stelle dient. Nach „Als Datei sichern“ steht eine Bestätigung. |
+| R6-E4 | behoben | Ein Ansichtswechsel nach beantworteter Rückfrage ersetzt deren Verlaufseintrag (`rueckfrageEintragErsetzbar`); kein Zurück-Tipp ohne Wirkung. |
+| R6-E5 | behoben | Die Folgemeldung wird nach der Fassungsfolge bestimmt, nicht nach der Eingangszeit (`folgeAenderung`). Unit-Test. |
+| R6-E6 | behoben | „In Einsatz übernehmen“ stellt dieselbe Zahlendreher-Frage wie „Stärke ändern…“. Ein negatives Feld wird weiter still zu 0. |

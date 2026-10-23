@@ -92,3 +92,24 @@ Kamera, Handscanner, echte Handschuhe und echtes Licht, echte
 Bildschirmtastatur, WebKit/Safari, echtes Drucken, native Builds, ein echter
 Fernseher für den Lagemonitor. Zeitmessungen liefen unter Last durch bis zu zwölf
 parallele Prüfer und sind unsicher.
+
+## Stand der Behebung
+
+Stand 23.10.2026. Die 89 Befunde wurden auf demselben Zweig bearbeitet, je Befund oder kleiner Gruppe mit Typprüfung und Unit-Tests, die Fußleisten, Schrittleisten, Startseite und Einsatzansicht zusätzlich mit Messungen im Produktionsbuild (Playwright). Gesamtprüfung vor dem Zusammenführen: Typprüfung ohne Fehler, 2 938 Unit-Tests, 137 von 137 Verhaltensszenarien, Produktionsbuild ohne Fehler, Kern-Kopien, Bundle-Budget (angehoben, Begründung in der Commit-Nachricht). Einzelheiten stehen im Abschnitt „Stand der Behebung“ jedes Berichts.
+
+| Stand | Anzahl |
+| --- | --- |
+| behoben | 60 |
+| teilweise | 21 |
+| offen | 8 |
+
+| Thema | Befunde |
+| --- | --- |
+| Rückfragen, Zurück, zwei Fenster, Bestand | R6-N1, N4, N5, E1, E3, E4, E6, S1 bis S3, D1, D2, D5 |
+| Speicher, Uhr, Offline | R6-O1 bis O8, E2, E5, D3, D7, S4, D4 |
+| Fassungen, Exporte, Führung, Lagemonitor | R6-W1 bis W3, K1 bis K7, K9, L1 bis L6 |
+| Layout, Touch, Papier, Begriffe | R6-G1 bis G5, G7, G8, M1 bis M3, M5, M6, M8, A1 bis A9, N2, N3, N6 bis N11, H1, H2, H5 |
+
+Offen (8): R6-O9 (Uhrstand in der Zukunft bei frischer Sammlung; ein Eingriff in die Ablage-Hülle verschöbe die Stempel beim Zurückschreiben), R6-H3 (Länge der Kartenliste), R6-H4 (klebende Kopfzeile der Musterung), R6-G6 (Lücke und Breite der Reiter im Feld-Modus), R6-G9 (Übersichtstabellen rollen seitlich), R6-M4 (klebende Spalte der Tabellenansicht), R6-K8 (bezog sich auf eine Ansicht, die der Monitor nicht mehr hat), R6-K10 (nicht nachvollzogen). Teilweise gelöst: die Gründe stehen je Befund im Bericht, etwa R6-G2 (mit 44-px-Zielen ist ein Viertel der Bildhöhe bei Zoom 200 % nicht erreichbar) und R6-K2 (die Gewichtung des Lagemonitors folgt der Vorlage des Status-Monitors).
+
+Nicht im Browser belegt, nur durch Unit-Tests oder Quelltext: R6-S3, R6-G5, R6-H1, R6-M1, R6-M5, R6-O3. Der Lagemonitor wurde nach der Prüfung von anderer Seite umgebaut; die Befunde dazu gelten für den heutigen Stand.

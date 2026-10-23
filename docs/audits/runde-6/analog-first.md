@@ -486,3 +486,19 @@ Karte, Lageblatt und Übersichtsseite, aber nicht im Kasten, den der Abgleich
 selbst als Quelle nennt. Die Behebung von R5-A2 hat das Meldekopf-Feld auf jede
 Seite gebracht und dafür den Platz im Rand gewählt, der am Drucker am ehesten
 verloren geht.
+
+## Stand der Behebung
+
+Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstests (137 von 137 Szenarien) und, wo es sich messen ließ, Nachmessung im Browser (Playwright, Produktionsbuild). 5 behoben, 4 teilweise, 0 offen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R6-A1 | behoben | Der Kasten „Stand am Meldekopf“ trägt „(nicht bestätigt, vom Papier)“ (Unit-Test). |
+| R6-A2 | behoben | Die Kopfzeile liegt bei 16 pt (5,6 mm) statt 6 pt; die Seitenzahlen bleiben gleich, das Bild der Blanko-Seite geprüft. |
+| R6-A3 | teilweise | Bei nur nach Stärke erfassten Einheiten entfallen „nach StAN: ja“ und der Funkrufname auf Papier und im Lageblatt. Die Fahrzeugsumme im Lageblatt zählt die vorbelegten Fahrzeuge weiter. |
+| R6-A4 | behoben | Der Hinweis nennt „mehr als 29 Personen“, 7,5 pt mit Zeilenabstand 1,25. |
+| R6-A5 | teilweise | Beim Erzeugen nennt die Quittung, wie viele Namen nicht darstellbare Zeichen enthalten. Eine Umschrift gibt es nicht. |
+| R6-A6 | behoben | Eine fehlende Abrückzeit hält den Abgleich nicht mehr auf, sie bleibt „nicht bestätigt“. |
+| R6-A7 | behoben | Der Satz steht am Knopf „PDF erzeugen“. |
+| R6-A8 | teilweise | Ein Hinweis über den Zählfeldern sagt, dass die Zahlen die Sollstärke sind. Die Felder starten weiter damit. |
+| R6-A9 | teilweise | Der Bericht nennt zuerst, was an Bildern ohne Code normal ist. Die Zählung „6 von 6 Einheiten“ fehlt. |

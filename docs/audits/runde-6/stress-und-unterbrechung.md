@@ -358,3 +358,15 @@ nur teilweise (R6-S3). Neu sind R6-S1 und R6-S2 (zwei Fenster, beide P2) sowie
 R6-S3 bis R6-S5 (drei P3): 0 / 0 / 2 / 3 für P0 / P1 / P2 / P3. R6-H1 aus
 [feldtauglichkeit.md](feldtauglichkeit.md) ist hier als Verweis geführt und
 nicht doppelt gezählt.
+
+## Stand der Behebung
+
+Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstests (137 von 137 Szenarien) und, wo es sich messen ließ, Nachmessung im Browser (Playwright, Produktionsbuild). 4 behoben, 1 teilweise, 0 offen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R6-S1 | behoben | „Stand aus dem anderen Fenster laden“ fragt vorher und legt die eigene Fassung auf den Rückholplatz (Unit-Test). |
+| R6-S2 | behoben | Die Warnung nennt beide Stände mit Zeit und Personenzahl. |
+| R6-S3 | behoben | Ein Beobachter legt für jedes offene Fenster der Startseite den Verlaufseintrag an (`dialogVerlaufVerdrahten`), Zurück schließt das Fenster. Unit-Test; im Browser nicht gemessen. |
+| R6-S4 | behoben | Siehe R6-D4: „Rückgängig“ nach „Person entfernen“ überlebt Schrittwechsel und Neuladen (Unit-Test mit Remount). |
+| R6-S5 | teilweise | Beim Öffnen einer Ansicht-Wahl schließt die andere; im Querformat wird der Balken zur Ecke (R6-M8). Die dreifache Darstellung der Wahl bleibt. |

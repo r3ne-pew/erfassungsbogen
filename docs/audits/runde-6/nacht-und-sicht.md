@@ -418,3 +418,16 @@ halten; bei R5-L4 bleibt auf der Startseite eine fehlende Bestätigungszeile
 (kein neuer Befund). Neu in Runde 6: R6-L1 und R6-L2 (je P2), R6-L3 bis R6-L6
 (je P3), alle an dem neuen Lagemonitor bzw. an einer Zusatzzeile der
 Ansicht-Wahl. Zusammen: 0 × P0, 0 × P1, 2 × P2, 4 × P3.
+
+## Stand der Behebung
+
+Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstests (137 von 137 Szenarien) und, wo es sich messen ließ, Nachmessung im Browser (Playwright, Produktionsbuild). 5 behoben, 1 teilweise, 0 offen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R6-L1 | behoben | Beschriftungen und Überschriften des Lagemonitors nehmen die Monitorfarbe. Der Monitor wurde nach der Prüfung von anderer Seite umgebaut (Einheitentabelle); die Überschriften „Züge“ und „Zuletzt gemeldet“ gibt es nicht mehr. |
+| R6-L2 | teilweise | Die Einheitentabelle ist standardmäßig offen und auf 38 % der Bildhöhe begrenzt (rollt in sich); „+ n weitere“ fehlt. |
+| R6-L3 | behoben | Das Boot-Skript setzt bei `?lagemonitor=` die Klasse `lagemonitor-start`; Grund und Seite sind von Anfang an schwarz (Stilregel-Test). |
+| R6-L4 | behoben | Linien 6:1 statt 2,44:1, Stufen Dunkel → Gedimmt → Hell (Hell zuletzt). |
+| R6-L5 | behoben | Die Zusatzzeile im Kopf der Einsatzansicht hat keine Abdunkelung mehr; im Assistenten und in der Einsatzansicht gemessen ≥ 5,9:1 (Standard, Dunkel, Feld, Nacht). |
+| R6-L6 | behoben | Fehlerzustand mit Uhr und Taste in Monitorschrift statt weißem Streifen. |

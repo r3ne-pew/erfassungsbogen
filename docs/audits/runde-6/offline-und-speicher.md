@@ -339,3 +339,19 @@ Bilanz: Alle sieben Behebungen aus Runde 5 halten. Keine hat sich ins Gegenteil 
 Speicher, nicht aus einer Behebung entstanden), R6-O2 bis R6-O4 (P2) und R6-O5 bis R6-O9 (P3). R6-O2 und R6-O3 liegen
 in Teilen, die in Runde 5 nicht geprüft wurden (Start-Gerüst, Laufzeit-Route für `*.html`). Als Verweis, nicht gezählt:
 R6-E2 in `fehler-und-wiederanlauf.md` (Speicherfehler beim Übernehmen am Meldekopf).
+
+## Stand der Behebung
+
+Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstests (137 von 137 Szenarien) und, wo es sich messen ließ, Nachmessung im Browser (Playwright, Produktionsbuild). 8 behoben, 0 teilweise, 1 offen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R6-O1 | behoben | „In den Papierkorb“ zeigt bei vollem Speicher „Nicht gelöscht“ mit der Ursache (Karte und Einsatzansicht); die Platz-Anweisung nennt jetzt den Weg, der wirkt (Papierkorb leeren oder gesicherten Einsatz endgültig löschen). Unit-Test mit gesperrtem Speicher. |
+| R6-O2 | behoben | Das Start-Gerüst sagt neutral „Nach dem ersten Laden funktioniert die App auch ohne Netz“. |
+| R6-O3 | behoben | HTML-Themenseiten: Zeitgrenze `NetworkFirst` 1 s statt 5 s (`vite.config.ts`). Nicht im Browser mit Proxy nachgemessen. |
+| R6-O4 | behoben | Steht der Zähler bei lebender Registrierung still, sagt die Zeile „das Netz hakt, das Laden geht weiter“; „Laden abgebrochen“ erst beim zweiten Stillstand nach Neuanlage. |
+| R6-O5 | behoben | Einheitliche Anweisung in allen Texten („Zuerst sichern, dann Platz schaffen …, die Sicherung selbst schafft keinen Platz“). |
+| R6-O6 | behoben | Nachladepause höchstens 20 s (vorher 60 s). |
+| R6-O7 | behoben | Der letzte Stand der zweiten Stufe liegt in `eeb.offline-zusatz.v1`; die Zeile nennt die Lücke auch nach Neuladen ohne Netz (ISK 3.3 D2o). |
+| R6-O8 | behoben | Der Rettungssatz der Rückfrage passt zum Fall (Sammlung exportieren bzw. Bogen übergeben); „wird 1 Sammlung“ statt „werden“. |
+| R6-O9 | offen | Nicht geändert. Der Zustand (Uhrstand in der Zukunft, frische Sammlung) gilt nach der geprüften Uhr als alt; ein Eingriff in die Ablage-Hülle würde die Stempel beim Zurückschreiben verschieben. Grenze in Arc42. |

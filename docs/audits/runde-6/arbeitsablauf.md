@@ -379,3 +379,13 @@ Behebung von R5-W1/W7, kein Rückschritt.
 - **Top-Priorität für die nächste Iteration:** Exportstand und Nachtrag auf die
   geltende Fassung je Einheit stützen (R6-W1), danach die Rückfrage bei der
   Nachmeldung beim Kaltstart (R6-N1).
+
+## Stand der Behebung
+
+Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstests (137 von 137 Szenarien) und, wo es sich messen ließ, Nachmessung im Browser (Playwright, Produktionsbuild). 3 behoben, 0 teilweise, 0 offen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R6-W1 | behoben | Nur die geltende Fassung zählt als neuer Bogen und kommt in den Nachtrag (`export-stand.ts`, `neueEintraege`); eine ältere, nachträglich eingetroffene Fassung ändert Zähler und Nachtrag nicht. Unit-Test. |
+| R6-W2 | behoben | Die Gegenüberstellung nennt „Geändert: …“ und, wenn die Einheit abgerückt war, dass sie wieder mitzählt. |
+| R6-W3 | behoben | Die Einzelheiten heißen „Einzelheiten zur Eintreffzeit“; keine doppelte Zahl, kein „1 Abweichungen“. Eine Schwelle (15 Minuten) wurde nicht eingeführt. |

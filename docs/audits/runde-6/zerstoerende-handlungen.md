@@ -393,3 +393,17 @@ Datei ohne Wiedereinlesen steht in
 [fehler-und-wiederanlauf.md](fehler-und-wiederanlauf.md) (R6-E3); das
 Fensterverhalten von Sammlungen und Entwurf in
 [offline-und-speicher.md](offline-und-speicher.md) hält dort ebenfalls.
+
+## Stand der Behebung
+
+Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstests (137 von 137 Szenarien) und, wo es sich messen ließ, Nachmessung im Browser (Playwright, Produktionsbuild). 6 behoben, 1 teilweise, 0 offen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R6-D1 | behoben | Ein Fenster ohne offenen Bogen baut sich neu auf, wenn ein anderes „Alle Daten löschen“ meldet (`storage`-Ereignis mit `key === null`). Unit-Test. |
+| R6-D2 | behoben | Die Aufzählung nennt den beiseitegelegten Bogen. |
+| R6-D3 | behoben | Warnung und Rückfrage nennen bis zu fünf Sammlungen mit Alter der letzten Änderung (gegenüber dem letzten akzeptierten Zeitpunkt) und, wenn eine in den letzten 7 Tagen bearbeitet wurde, dass das Datum kaum stimmen kann. |
+| R6-D4 | behoben | Der Rückweg im Schritt „Personal“ liegt im Sitzungsspeicher (`eeb.personal.rueckweg`) und überlebt Neuladen und Schrittwechsel (ISK 3.3 D2m (c)). |
+| R6-D5 | teilweise | Die Frist von 90 Tagen stand im Code schon (`beschaedigterEntwurf`); die Karte nennt jetzt das Datum. Der Rohtext bleibt bis dahin im Speicher. |
+| R6-D6 | behoben | Namen in der „Entfernt“-Quittung mit Semikolon getrennt, die Datumsform der Papierkörbe ist einheitlich (zweistellig). |
+| R6-D7 | behoben | Ein Sprung ab 30 Tagen wird gehalten und gefragt, wenn dabei eine Sammlung fällig würde, die beim letzten Start noch nicht angekündigt war (`geraeteuhrPruefen`, Unit-Test). |

@@ -419,3 +419,16 @@ schützt, aber sie schweigt dort.
 - Feldtauglichkeit: **geeignet, nicht vollständig geprüft**. Handschuhe,
   Sonnenlicht, Kamera-Scan mit 1,5 s Mindestzeit, Bildschirmtastatur und
   native Builds gehören in einen Praxistest.
+
+## Stand der Behebung
+
+Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstests (137 von 137 Szenarien) und, wo es sich messen ließ, Nachmessung im Browser (Playwright, Produktionsbuild). 2 behoben, 2 teilweise, 2 offen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R6-H1 | behoben | Der Hinweis „Einen Moment …“ wird in das oberste offene Fenster gehängt und steht damit im QR-Vollbild im Bild (`tipp-schutz.ts`, Unit-Test). Eine Aufnahme im Browser steht aus. |
+| R6-H2 | teilweise | Die Rückfrage nennt die Mindestzeit („mindestens 1,5 s im Bild“). Ein Haken „✓ gezeigt“ im Vollbild fehlt. |
+| R6-H3 | offen | Länge der Kartenliste (14 458 px bei 12 Personen) unverändert; eine Neugestaltung der Kurz-Liste steht aus. |
+| R6-H4 | offen | Die klebende Kopfzeile der Musterung bleibt bei 320 px und 200 % Schrift hoch. |
+| R6-H5 | behoben | Bei 0 Personen fragt „Bogen anlegen“ („Keine Person aus der Vorlage?“). |
+| R6-H6 | teilweise | Der Umschalter der Musterung behält seine Breite und sperrt die Stelle 1,5 s (R6-G4). Die Lage des ersten Hauptknopfs im Querformat mit Vorlage ist nicht geändert. |

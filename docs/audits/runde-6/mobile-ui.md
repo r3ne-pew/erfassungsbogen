@@ -555,3 +555,18 @@ Legende: **hält**, **teilweise**, **ins Gegenteil verkehrt**.
   seitlichen Überlauf (R6-M3).
 - **Keine Behebung aus Runde 5 hat sich vollständig ins Gegenteil verkehrt.** Nur
   die Aussage „kein seitlicher Überlauf" kippt in einer Ansicht und bei 200 %.
+
+## Stand der Behebung
+
+Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstests (137 von 137 Szenarien) und, wo es sich messen ließ, Nachmessung im Browser (Playwright, Produktionsbuild). 5 behoben, 2 teilweise, 1 offen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R6-M1 | behoben | Die feste Warnleiste ist auf die Hälfte des Fensters gedeckelt und rollt in sich (Stilregel-Test). Nicht bei 200 % gemessen. |
+| R6-M2 | behoben | Fußleiste siehe R6-G1; die Schrittleiste zeigt bei 200 % alle sechs Reiter (gemessen). |
+| R6-M3 | behoben | Siehe R6-G3. |
+| R6-M4 | offen | Die klebende Spalte der Tabellenansicht ist nicht geändert. |
+| R6-M5 | teilweise | Deckel für Ansicht-Wahl, Felder und Kurz-Liste bei großer Schrift ergänzt; nicht nachgemessen. |
+| R6-M6 | behoben | Kopfleiste, Entwurfskarte und Knöpfe sind bei großer Schrift gedeckelt; „Fortsetzen“ liegt bei 200 % auf 360 × 640 bei 542 px, auf 320 × 568 bei 516 px (vorher 806/944). |
+| R6-M7 | teilweise | Die Leiste hat bei Browser-Zoom zwei Zeilen; ein einzeiliger Kopf und eine Leiste unter 25 % sind nicht erreicht. |
+| R6-M8 | behoben | Quer wird der Balken zur Ecke (nur „◐“); Kopf und Wahl bleiben. |

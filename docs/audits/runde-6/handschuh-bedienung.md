@@ -525,3 +525,19 @@ mit „Stand der Behebung“ und [../runde-5/README.md](../runde-5/README.md).
 | „Fußleisten-Raster: kein Überlauf, keine dritte Zeile“ (Bestätigtes Runde 5) | – | **hält nur teilweise** | Zeilen und rechter Rand stimmen (360/640 px), aber „◐ Ansicht“ wird überdeckt (R6-G1) und bei Browser-Zoom 200 % stehen drei Zeilen und die Leiste füllt 44 bis 71 % (R6-G2). |
 | Daumen-Quittung, „Abrücken“ gegen Nachtipp (Bestätigtes Runde 5) | – | **hält** | Quittung 336 × 65 px, „Rückgängig“ 123 × 44 px; Nachtipp 120 bis 1 200 ms ohne Wirkung. |
 | Knopfreihen der Einheitenkarte, QR-Vollbild, Rückfragen (Bestätigtes Runde 5) | – | **hält** | 44 px hoch, 8 px Lücke; „Weiter zu Teil 2 →“ 276 × 44 px, „Schließen“ 111 × 44 px; „Person entfernen“ als Rückfrage. |
+
+## Stand der Behebung
+
+Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstests (137 von 137 Szenarien) und, wo es sich messen ließ, Nachmessung im Browser (Playwright, Produktionsbuild). 4 behoben, 3 teilweise, 2 offen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R6-G1 | behoben | Das Raster der Fußleiste schrumpft die Primärspalte nicht mehr; das Wort „Ansicht“ und „Zur“ in „Zur Übersicht →“ entfallen bei Enge. Gemessen: 3 Breiten × Standard/Feld × 100 %/200 % × Schritt 3 und 5, keine Überlappung, kein Überlauf. |
+| R6-G2 | teilweise | Bei Browser-Zoom 200 % bleiben alle Knöpfe im Bild, die Leiste hat zwei Zeilen (40–51 % der Bildhöhe in der Nachbildung statt 44–71 %); mit 44-px-Zielen ist ein Viertel nicht erreichbar. |
+| R6-G3 | behoben | Das Zeitfeld und die Felder des Monitor-Blocks bleiben in der Bildbreite; `scrollWidth` gleich Bildbreite bei 320/360/640 px, 200 % Schrift und Zoom. |
+| R6-G4 | behoben | Der Umschalter der Musterung behält seine Breite, die Stelle sperrt 1,5 s. Die Sprunghöhe der Kopfzeile ist nicht nachgemessen. |
+| R6-G5 | teilweise | Nach dem Verschieben rollt die Ansicht um die Strecke mit, sodass die Knopfreihe der Person an der Fingerstelle bleibt. Nur im Quelltext belegt, nicht im Browser. |
+| R6-G6 | offen | Die Reiter der Schrittleiste teilen bei Enge die Breite (41–50 px); die Lücke und eine größere Reiterbreite im Feld-Modus fehlen. |
+| R6-G7 | teilweise | Im Querformat wird der Balken zur Ecke; im Hochformat verdecken Balken und Quittung unverändert zusammen etwa ein Fünftel. |
+| R6-G8 | behoben | Das ✕ der Kurz-Liste trägt einen sichtbaren Rahmen wie die Nachbarn. |
+| R6-G9 | offen | Die Tabellen der Übersicht rollen weiter seitlich; eine gestapelte Darstellung wie die Kurz-Liste steht aus. |

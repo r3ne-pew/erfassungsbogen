@@ -570,3 +570,21 @@ R6-N11).
   und die Lage zeigt weiter den alten Stand (R6-N1).
 - **Top-Priorität für die nächste Iteration:** Folgerückfragen nach „Wohin damit?“
   dürfen sich nicht selbst schließen (R6-N1).
+
+## Stand der Behebung
+
+Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstests (137 von 137 Szenarien) und, wo es sich messen ließ, Nachmessung im Browser (Playwright, Produktionsbuild). 8 behoben, 3 teilweise, 0 offen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R6-N1 | behoben | Eine Folgerückfrage übernimmt den Verlaufseintrag der vorigen, statt von deren verzögerter Rückkehr geschlossen zu werden (`modal-overlay.ts`). Unit-Test mit dem Ablauf Rückfrage → Folgerückfrage. |
+| R6-N2 | teilweise | Die Quittung des Stapelimports nennt die mögliche Doppelung („ähnelt …, beide zählen getrennt, Zusammenführen an der Karte“). Ein Tipp zum Zusammenführen und die Marke an der Karte fehlen. |
+| R6-N3 | teilweise | Ein Hinweisfenster mit den Namen statt zwei; die Karte heißt nach dem Abgleich „Abgeglichen bis auf die Eintreffzeit“ mit dem Knopf „Eintreffzeiten nachtragen…“. „Nach Nr. sortieren“ fehlt. |
+| R6-N4 | behoben | Die Fehlerseite nennt den Einzelweg („Löschen…“ auf der Startseite), die Aufklapper tragen Rahmen und Pfeil. Der Bestand wird zudem beim Lesen geprüft (R6-E1). |
+| R6-N5 | behoben | Öffnet eine der beiden Ansicht-Wahlen, schließt die andere (`anzeige-schalter.tsx`). |
+| R6-N6 | behoben | Der Satz zu „⇑“ steht auch in der Kartenansicht. |
+| R6-N7 | behoben | Die offenen Punkte „Alle Personen männlich“ und „Sitzplätze“ springen zum Feld (`feld-geschlecht-0`, `feld-sitzplaetze-0`). |
+| R6-N8 | behoben | Heißt die erste Ebene wie der Einheitstyp, steht „Standort“ als Beschriftung. |
+| R6-N9 | behoben | „1 braucht …“ statt „1 brauchen …“. |
+| R6-N10 | behoben | Die Quittung steht unter dem Knopf, nicht über der Karte; nichts rückt nach. |
+| R6-N11 | teilweise | (b) Rückfrage heißt „… jetzt endgültig löschen?“ und nennt die Sammlungen (R6-D3), (d) die Rückfrage zu „Person entfernen“ nennt „Rückgängig“. (a) „Verwerfen“ und (c) die Erklärung von „Oldenburg“ bleiben (der Knopf hat einen Tooltip). |

@@ -587,3 +587,20 @@ das aus, was ihn für die Führung wertvoll macht — die Bewegung in der Lage.
 
 Der Runde-6-Bericht [nacht-und-sicht.md](nacht-und-sicht.md) lag bei
 Abschluss als Entwurf vor; die Verweise oben stammen daraus.
+
+## Stand der Behebung
+
+Stand 23.10.2026, auf demselben Zweig mit Typprüfung, Unit-Tests, Verhaltenstests (137 von 137 Szenarien) und, wo es sich messen ließ, Nachmessung im Browser (Playwright, Produktionsbuild). 4 behoben, 4 teilweise, 2 offen.
+
+| Befund | Stand | Umsetzung |
+| --- | --- | --- |
+| R6-K1 | behoben | Das Hauptbild nennt Einheiten, Fahrzeuge, abgerückte und das Alter der letzten Meldung und führt Abrücken, Rückkehr und Folgemeldung der letzten 15 Minuten mit Namen; „alle abgerückt“ unterscheidet sich von „noch nichts gemeldet“. |
+| R6-K2 | teilweise | Die Stärke trägt eine Beschriftung, Einheiten und Fahrzeuge stehen im Hauptbild. Die Gewichtung Uhr/Stärke ist die Vorlage des Status-Monitors und blieb. |
+| R6-K3 | behoben | Eine Übung steht als „ÜBUNG – keine Echtlage“ im Hauptbild. |
+| R6-K4 | teilweise | Ohne gesetzten Beginn gilt die erste Meldung als Vorschlag („seit erster Meldung“), kein Fehlertext auf dem Fernseher. Der Beginn geht weiter nicht in die Weitergabe. |
+| R6-K5 | teilweise | Der Block steht hinter den Export-Knöpfen, die Erklärung steht bei ihren Knöpfen. Ein Kurzlink im Kopf fehlt. |
+| R6-K6 | behoben | Die Quittung nennt zuerst die Aufforderung („15 Nummern geändert … Lageblatt neu drucken“), dann zwei Beispiele. |
+| R6-K7 | behoben | Bei bekanntem Ort zählt ein Wort der Nachbarn nur, wenn mindestens die Hälfte der übrigen Einheiten es nennt (Unit-Test). |
+| R6-K8 | offen | Bezog sich auf „Zuletzt gemeldet“, das nach dem Umbau des Monitors von anderer Seite nicht mehr existiert. |
+| R6-K9 | teilweise | Der Sammel-PDF-Knopf heißt bei erster Lieferung „(erste Lieferung: alle Bögen)“; CSV- und Excel-Knöpfe sind nicht umbenannt. |
+| R6-K10 | offen | Nicht nachvollzogen: Der Kern schreibt beide Seiten der Unterbringungsänderung gleich („M 4 / W 0 / D 0“); die abweichende Form „M3/W0/D0“ stammte vermutlich aus der Prüfdatei. |
