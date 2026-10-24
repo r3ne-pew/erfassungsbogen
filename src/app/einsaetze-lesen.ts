@@ -36,7 +36,7 @@ import {
 } from "@bos/meldekopf/einsaetze";
 import { bogenBefund } from "./bogen-pruefung";
 import { bekannterText, huellenZugriffe, nurLesend, rohText } from "./speicher-schonend";
-import { unlesbareSammlungsteile, unlesbaresBeiseitelegen } from "./unlesbar";
+import { sammlungenRetteZuruecksetzen, sammlungenRetten } from "./unlesbar";
 
 /** Speicherschlüssel der Sammlungen im Kern (einsaetze.ts, nicht exportiert). */
 const SAMMLUNGEN_SCHLUESSEL = "eeb.einsaetze.v1";
@@ -105,17 +105,9 @@ function lokalRoh(): string | null | undefined {
   }
 }
 
-let beiseiteGeprueft: string | null | undefined;
-
-/**
- * Was der Kern beim Lesen überspringt, liegt danach nur noch hier: vor dem
- * ersten Lesen eines geänderten Textes beiseitelegen (R7-E2).
- */
+/** Beiseitelegen vor dem ersten Lesen eines geänderten Textes (R7-E2, R8-D1). */
 function unlesbaresRetten(roh: string | null | undefined): void {
-  if (roh === undefined || roh === beiseiteGeprueft) return;
-  beiseiteGeprueft = roh;
-  const teile = unlesbareSammlungsteile(roh);
-  if (teile.sammlungen.length > 0 || teile.meldungen.length > 0) unlesbaresBeiseitelegen(teile);
+  sammlungenRetten(roh);
 }
 
 function gelesen(art: "aktiv" | "papierkorb", kern: () => Einsatzsammlung[]): Einsatzsammlung[] {
@@ -153,5 +145,5 @@ export function einsaetzePapierkorb(): Einsatzsammlung[] {
 export function einsaetzeLesenZuruecksetzen(): void {
   gemerkt.clear();
   ausgelassen.clear();
-  beiseiteGeprueft = undefined;
+  sammlungenRetteZuruecksetzen();
 }

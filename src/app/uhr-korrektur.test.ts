@@ -280,3 +280,17 @@ describe("Papierkorb der Vorlagen bei vorgestellter Geräteuhr (R4-D1)", () => {
     expect(vorlagenPapierkorb()).toHaveLength(0);
   });
 });
+
+describe("Beschädigter Gesamttext über die echte Ablage (R8-D1)", () => {
+  it("legt den Rohtext beiseite, bevor der Kern beim Schreiben [] daraus macht", async () => {
+    const { EinsatzArt, einsatzAnlegen, einsaetzeLaden } = await import("@bos/meldekopf/einsaetze");
+    const { unlesbarBestand, sammlungenRetteZuruecksetzen } = await import("./unlesbar");
+    sammlungenRetteZuruecksetzen();
+    const abgeschnitten = '[{"id":"s1","name":"Hochwasser","eintraege":[{"id":"e1","bogen":{"personal":[{"vorname":"An';
+    mem.setItem(SCHLUESSEL, abgeschnitten);
+    verdrahten();
+    expect(einsaetzeLaden()).toEqual([]);
+    einsatzAnlegen("Neuer Einsatz", EinsatzArt.EINSATZ);
+    expect(unlesbarBestand()?.texte).toEqual([{ art: "sammlungen", text: abgeschnitten }]);
+  });
+});

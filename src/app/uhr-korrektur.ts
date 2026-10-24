@@ -18,6 +18,7 @@
 
 import type { Speicherhuelle } from "@bos/meldekopf/einsaetze";
 import { uhrVersatzMs } from "./datenschutz-uhr";
+import { sammlungenRetten } from "./unlesbar";
 
 /** Speicherschlüssel der Sammlungen im Kern (einsaetze.ts, nicht exportiert). */
 const SAMMLUNGEN_SCHLUESSEL = "eeb.einsaetze.v1";
@@ -49,6 +50,8 @@ export function uhrKorrigierteHuelle(innen: Speicherhuelle): Speicherhuelle {
     getItem(schluessel: string) {
       const roh = innen.getItem(schluessel);
       if (schluessel !== SAMMLUNGEN_SCHLUESSEL) return roh;
+      // Vor dem Kern: Was er überspringt oder durch `[]` ersetzt, vorher beiseitelegen (R8-D1).
+      sammlungenRetten(roh);
       const ms = uhrVersatzMs();
       gelesenMit = ms;
       if (ms === 0 || roh == null) return roh;

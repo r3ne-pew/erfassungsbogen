@@ -30,6 +30,7 @@ export function UnlesbarHinweis({ sammlungId }: { sammlungId?: string }) {
     if (ausg + bm > 0) teile.push(n(ausg + bm, "Meldung in einer Sammlung", "Meldungen in Sammlungen"));
     if (beiseite?.sammlungen.length) teile.push(n(beiseite.sammlungen.length, "ganze Sammlung", "ganze Sammlungen"));
     if (beiseite?.vorlagen.length) teile.push(n(beiseite.vorlagen.length, "Vorlage", "Vorlagen"));
+    if (beiseite?.texte.length) teile.push(n(beiseite.texte.length, "beschädigter Gesamttext (Sammlungen oder Vorlagen)", "beschädigte Gesamttexte (Sammlungen oder Vorlagen)"));
   }
   if (teile.length === 0) return null;
   return (

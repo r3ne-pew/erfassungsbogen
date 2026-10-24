@@ -6,6 +6,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { neuerBogen } from "./hilfen";
 import {
   UNLESBAR_SCHLUESSEL,
+  sammlungenRetteZuruecksetzen,
+  sammlungenRetten,
+  unlesbarerGesamttext,
   unlesbareSammlungsteile,
   unlesbareVorlagenteile,
   unlesbarBestand,
@@ -66,7 +69,7 @@ describe("Beiseitelegen", () => {
     const teile = unlesbareSammlungsteile(JSON.stringify([{ id: "s2", eintraege: null }]));
     expect(unlesbaresBeiseitelegen(teile)).toBe(true);
     expect(unlesbaresBeiseitelegen(teile)).toBe(false); // schon abgelegt
-    expect(unlesbarZahlen()).toEqual({ sammlungen: 1, meldungen: 0, vorlagen: 0, gesamt: 1 });
+    expect(unlesbarZahlen()).toEqual({ sammlungen: 1, meldungen: 0, vorlagen: 0, texte: 0, gesamt: 1 });
     expect(unlesbaresBeiseitelegen({ vorlagen: [{ id: "v" }] })).toBe(true);
     expect(unlesbarZahlen().gesamt).toBe(2);
     expect(unlesbarBestand()!.sammlungen[0]).toEqual({ id: "s2", eintraege: null });
@@ -83,5 +86,32 @@ describe("Beiseitelegen", () => {
     expect(unlesbarBestand()).not.toBeNull();
     unlesbarVerwerfen();
     expect(unlesbarBestand()).toBeNull();
+  });
+});
+
+describe("Beschädigter Gesamttext (R8-D1)", () => {
+  beforeEach(() => sammlungenRetteZuruecksetzen());
+
+  it("erkennt abgebrochenes JSON und Werte, die keine Liste sind", () => {
+    expect(unlesbarerGesamttext('[{"id":"s1","eintra', "sammlungen")).toEqual({ art: "sammlungen", text: '[{"id":"s1","eintra' });
+    expect(unlesbarerGesamttext("xx", "vorlagen")).toEqual({ art: "vorlagen", text: "xx" });
+    expect(unlesbarerGesamttext('{"a":1}', "sammlungen")).not.toBeNull();
+  });
+
+  it("lässt Leeres, null und gültige Listen in Ruhe", () => {
+    expect(unlesbarerGesamttext(null, "sammlungen")).toBeNull();
+    expect(unlesbarerGesamttext("  ", "sammlungen")).toBeNull();
+    expect(unlesbarerGesamttext("null", "sammlungen")).toBeNull();
+    expect(unlesbarerGesamttext("[]", "sammlungen")).toBeNull();
+  });
+
+  it("legt den Rohtext beiseite, bevor ihn der Kern durch [] ersetzt", () => {
+    const text = '[{"id":"s1","name":"Hochwasser","eintraege":[{"id":"e1","bogen":{"personal":[{"vorname":"An';
+    sammlungenRetten(text);
+    expect(unlesbarBestand()?.texte).toEqual([{ art: "sammlungen", text }]);
+    expect(unlesbarZahlen().gesamt).toBe(1);
+    // Derselbe Text noch einmal: nichts Neues
+    sammlungenRetten(text);
+    expect(unlesbarBestand()?.texte).toHaveLength(1);
   });
 });

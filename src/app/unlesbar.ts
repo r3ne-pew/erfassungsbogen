@@ -38,6 +38,12 @@ export interface UnlesbarBestand {
   meldungen: { sammlungId: string; sammlungName: string; eintrag: unknown }[];
   /** Vorlagen, die sich nicht lesen ließen. */
   vorlagen: unknown[];
+  /**
+   * Ganze Gesamttexte, die sich gar nicht als Liste lesen ließen (abgebrochenes
+   * JSON nach vollem Speicher oder Absturz, ein fremder Wert): Ohne sie ersetzte
+   * die App den Text beim ersten Lesen still durch `[]` (R8-D1).
+   */
+  texte: { art: "sammlungen" | "vorlagen"; text: string }[];
 }
 
 function istObjekt(x: unknown): x is Record<string, unknown> {
@@ -96,6 +102,46 @@ export function unlesbareSammlungsteile(text: string | null | undefined): Pick<U
   return aus;
 }
 
+/**
+ * Ein gespeicherter Gesamttext, der keine Liste ist (leerer Text und der Wert `null` zählen
+ * als „nichts gespeichert"). Sonst null.
+ */
+export function unlesbarerGesamttext(
+  text: string | null | undefined,
+  art: "sammlungen" | "vorlagen",
+): UnlesbarBestand["texte"][number] | null {
+  if (text == null || text.trim() === "") return null;
+  try {
+    const roh: unknown = JSON.parse(text);
+    return roh === null || Array.isArray(roh) ? null : { art, text };
+  } catch {
+    return { art, text };
+  }
+}
+
+let sammlungenGeprueft: string | null | undefined;
+
+/**
+ * Was der Kern beim Lesen der Sammlungen überspringt oder ersetzt, liegt danach nur noch hier:
+ * vor dem ersten Lesen eines geänderten Textes beiseitelegen. Hängt in der Hülle um die Ablage
+ * (uhr-korrektur.ts), damit jeder Lesezugriff auf den Schlüssel davor geprüft wird — auch der
+ * Aufräumlauf beim Start (R8-D1).
+ */
+export function sammlungenRetten(roh: string | null | undefined): void {
+  if (roh === undefined || roh === sammlungenGeprueft) return;
+  sammlungenGeprueft = roh;
+  const teile = unlesbareSammlungsteile(roh);
+  const text = unlesbarerGesamttext(roh, "sammlungen");
+  if (teile.sammlungen.length > 0 || teile.meldungen.length > 0 || text) {
+    unlesbaresBeiseitelegen({ ...teile, texte: text ? [text] : [] });
+  }
+}
+
+/** Nur für Tests: den geprüften Text vergessen. */
+export function sammlungenRetteZuruecksetzen(): void {
+  sammlungenGeprueft = undefined;
+}
+
 /** Vorlagen, die `vorlagenAusJson` weglässt. */
 export function unlesbareVorlagenteile(text: string | null | undefined): unknown[] {
   const roh = parsen(text);
@@ -106,7 +152,7 @@ export function unlesbareVorlagenteile(text: string | null | undefined): unknown
 // ------------------------------------------------------------ Ablage (I/O)
 
 function leer(am: number): UnlesbarBestand {
-  return { am, sammlungen: [], meldungen: [], vorlagen: [] };
+  return { am, sammlungen: [], meldungen: [], vorlagen: [], texte: [] };
 }
 
 /** Der beiseitegelegte Bestand, oder null. Nach der Datenschutzfrist wird er entfernt. */
@@ -124,8 +170,9 @@ export function unlesbarBestand(): UnlesbarBestand | null {
       sammlungen: liste(roh.sammlungen),
       meldungen: liste(roh.meldungen) as UnlesbarBestand["meldungen"],
       vorlagen: liste(roh.vorlagen),
+      texte: liste(roh.texte) as UnlesbarBestand["texte"],
     };
-    return b.sammlungen.length + b.meldungen.length + b.vorlagen.length > 0 ? b : null;
+    return b.sammlungen.length + b.meldungen.length + b.vorlagen.length + b.texte.length > 0 ? b : null;
   } catch {
     return null;
   }
@@ -168,14 +215,18 @@ function ergaenzt<T>(vorhanden: T[], neu: T[]): { liste: T[]; neu: number } {
 export function unlesbaresBeiseitelegen(neu: Partial<Omit<UnlesbarBestand, "am">>): boolean {
   const s = speicher();
   if (!s) return false;
-  if (!(neu.sammlungen?.length || neu.meldungen?.length || neu.vorlagen?.length)) return false;
+  if (!(neu.sammlungen?.length || neu.meldungen?.length || neu.vorlagen?.length || neu.texte?.length)) return false;
   const alt = unlesbarBestand() ?? leer(geprueftesJetztMs());
   const a = ergaenzt(alt.sammlungen, neu.sammlungen ?? []);
   const b = ergaenzt(alt.meldungen, neu.meldungen ?? []);
   const c = ergaenzt(alt.vorlagen, neu.vorlagen ?? []);
-  if (a.neu + b.neu + c.neu === 0) return false;
+  const d = ergaenzt(alt.texte, neu.texte ?? []);
+  if (a.neu + b.neu + c.neu + d.neu === 0) return false;
   try {
-    s.setItem(UNLESBAR_SCHLUESSEL, JSON.stringify({ ...alt, sammlungen: a.liste, meldungen: b.liste, vorlagen: c.liste } satisfies UnlesbarBestand));
+    s.setItem(
+      UNLESBAR_SCHLUESSEL,
+      JSON.stringify({ ...alt, sammlungen: a.liste, meldungen: b.liste, vorlagen: c.liste, texte: d.liste } satisfies UnlesbarBestand),
+    );
     return true;
   } catch {
     return false;
@@ -183,10 +234,11 @@ export function unlesbaresBeiseitelegen(neu: Partial<Omit<UnlesbarBestand, "am">
 }
 
 /** Zusammenfassung für Hinweise: wie viel liegt beiseite? */
-export function unlesbarZahlen(): { sammlungen: number; meldungen: number; vorlagen: number; gesamt: number } {
+export function unlesbarZahlen(): { sammlungen: number; meldungen: number; vorlagen: number; texte: number; gesamt: number } {
   const b = unlesbarBestand();
   const sammlungen = b?.sammlungen.length ?? 0;
   const meldungen = b?.meldungen.length ?? 0;
   const vorlagen = b?.vorlagen.length ?? 0;
-  return { sammlungen, meldungen, vorlagen, gesamt: sammlungen + meldungen + vorlagen };
+  const texte = b?.texte.length ?? 0;
+  return { sammlungen, meldungen, vorlagen, texte, gesamt: sammlungen + meldungen + vorlagen + texte };
 }

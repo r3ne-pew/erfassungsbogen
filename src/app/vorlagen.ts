@@ -18,7 +18,7 @@ import { bogenPruefen, dateinameTeil, einheitAnzeigename, migriereBogen } from "
 import { bogenBefund } from "./bogen-pruefung";
 import { aktive, imPapierkorb, papierkorbBereinigt } from "@bos/meldekopf/papierkorb";
 import { geprueftesJetztMs, stempelZeitpunkt } from "./datenschutz-uhr";
-import { unlesbareVorlagenteile, unlesbaresBeiseitelegen } from "./unlesbar";
+import { unlesbarerGesamttext, unlesbareVorlagenteile, unlesbaresBeiseitelegen } from "./unlesbar";
 
 /** Versionierter Schlüssel — erlaubt spätere Formatwechsel der Sammlung selbst. */
 const SPEICHER_SCHLUESSEL = "eeb.vorlagen.v1";
@@ -211,7 +211,8 @@ function alleVorlagenLaden(): Vorlage[] {
   if (roh !== zuletztGeprueft) {
     zuletztGeprueft = roh;
     const unlesbar = unlesbareVorlagenteile(roh);
-    if (unlesbar.length > 0) unlesbaresBeiseitelegen({ vorlagen: unlesbar });
+    const text = unlesbarerGesamttext(roh, "vorlagen");
+    if (unlesbar.length > 0 || text) unlesbaresBeiseitelegen({ vorlagen: unlesbar, texte: text ? [text] : [] });
   }
   // Die geprüfte Uhr, nicht die Geräteuhr (R4-D1).
   const r = papierkorbBereinigt(vorlagenAusJson(s.getItem(SPEICHER_SCHLUESSEL)), geprueftesJetztMs());
