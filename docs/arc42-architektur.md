@@ -1076,6 +1076,7 @@ Themen- und Länderseiten) schreibt der Build nach `offline-zusatz.json`; die
 Startseite lädt sie nach der Aktivierung nach (`src/app/offline-vorrat.ts`),
 der Service Worker legt sie über zwei Laufzeit-Routen in den Cache
 `eeb-zusatz` (Beispielbögen `CacheFirst`, Seiten `StaleWhileRevalidate` seit Runde 7, Liste `NetworkFirst`).
+*Hinweis 2026-10-24:* Mit `examples/praktische-ausbildung/` (41 Bögen, JSON) sind die Zusatzstufe um 41 Dateien und die Zahlen oben (474 Dateien, 4,0 MB) sowie die Bogenzählungen weiter unten (227/239/443 Beispielbögen) nicht mehr aktuell; beim nächsten Build neu messen.
 *Nachgezogen 2026-10-06 (Audit Runde 4, R4-O1):* Bricht das Erstladen im
 Funkloch ab, scheitert der Service Worker an der Installation, und der Browser
 verwirft die Registrierung; ein späteres `update()` ginge ins Leere und die

@@ -67,6 +67,11 @@ const ORDNER_LABEL: Record<string, string> = {
   niedersachsen: "Niedersachsen",
   sachsen: "Sachsen",
   thueringen: "Thüringen",
+  "praktische-ausbildung": "Praktische Ausbildung",
+  malter: "JUH RV Malter",
+  akkonia: "JUH OV Akkonia",
+  johannesburg: "JUH OV Johannesburg",
+  hannover: "Einlagen Kräfte Hannover",
 };
 
 function ordnerLabel(ordner: string): string {
