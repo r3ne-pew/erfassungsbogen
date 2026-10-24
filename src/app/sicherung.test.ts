@@ -274,6 +274,11 @@ describe("bestandUmfang() / geraetBestand() — für die Einspiel-Rückfrage (R2
       absender: false,
       geraeteschluessel: null,
       faellig: { sammlungen: 0, namen: [], betroffen: [], papierkorb: 0, meldungen: 0, entwurf: false },
+      // Der Müll wird nicht verschwiegen, sondern genannt (R8-E1).
+      beschaedigt: [
+        "Einsatz-Sammlungen: der gespeicherte Text ist beschädigt und nicht lesbar",
+        "Vorlagen: der gespeicherte Text ist beschädigt und nicht lesbar",
+      ],
     });
   });
 
@@ -333,5 +338,32 @@ describe("Letzte Sicherung und Erinnerung (Audit Runde 2, R2-O6)", () => {
     sicherungErstellen(new Date(gesichert));
     expect(sicherungFaellig(gesichert + TAG)).toBeNull();
     expect(sicherungFaellig(gesichert + ERINNERUNG_TAGE * TAG)).toEqual({ seit: gesichert });
+  });
+});
+
+describe("Beschädigtes in der Sicherungsdatei (R8-E1)", () => {
+  it("nennt einen abgeschnittenen Einsatz-Text und einen abgeschnittenen Entwurf", () => {
+    const heil = '[{"id":"e1","name":"X","eintraege":[]}]';
+    const u = bestandUmfang({
+      "eeb.einsaetze.v1": heil.slice(0, 20),
+      "eeb.vorlagen.v1": "[]",
+      "eeb.entwurf.v1": '{"bogen":{',
+    });
+    expect(u.beschaedigt).toEqual([
+      "Einsatz-Sammlungen: der gespeicherte Text ist beschädigt und nicht lesbar",
+      "Entwurf: der gespeicherte Text ist beschädigt und nicht lesbar",
+    ]);
+  });
+
+  it("zählt nicht lesbare Meldungen und Vorlagen in gültigem JSON", () => {
+    const u = bestandUmfang({
+      "eeb.einsaetze.v1": JSON.stringify([{ id: "e1", name: "X", eintraege: [{ id: "m1", bogen: null }, { id: "m2" }] }]),
+      "eeb.vorlagen.v1": JSON.stringify([{ id: "v1", bogen: 5 }]),
+    });
+    expect(u.beschaedigt).toEqual(["Einsatz-Sammlungen: 2 Meldungen nicht lesbar", "Vorlagen: 1 Vorlage nicht lesbar"]);
+  });
+
+  it("meldet nichts bei einer heilen Datei", () => {
+    expect(bestandUmfang({ "eeb.einsaetze.v1": "[]", "eeb.vorlagen.v1": "[]" }).beschaedigt).toEqual([]);
   });
 });

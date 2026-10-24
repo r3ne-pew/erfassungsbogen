@@ -104,3 +104,43 @@ describe("Hülle des beiseitegelegten Entwurfs (R7-E1)", () => {
     expect(dateiFehlerText("e.json", "entwurf", "einsatz")).toContain("Aus Datei laden");
   });
 });
+
+describe("Eigene Bogendatei mit defektem Feld (R8-E3)", () => {
+  const ohneEinheit = JSON.stringify({ schemaVersion: 8, stand: 100, einsatz: { zeitraumVon: 1, zeitraumBis: 2 }, personalErfassung: 0, personal: [], fahrzeuge: [] });
+  const personalNull = JSON.stringify({
+    schemaVersion: 8,
+    stand: 100,
+    einheit: { organisation: 1, hierarchie: [] },
+    einsatz: { zeitraumVon: 1, zeitraumBis: 2 },
+    personalErfassung: 0,
+    personal: null,
+    fahrzeuge: [],
+  });
+
+  it("nennt das fehlende Feld statt „stammt nicht aus dieser App“", async () => {
+    expect(dateiArt(ohneEinheit)).toBe("bogen-defekt");
+    const m = await dateiFehlerMeldung(new File([ohneEinheit], "ohne-einheit.json"), new Error("Keine gültige Erfassungsbogen-Datei (Schema-Version 2–9 erwartet)."), "bogen");
+    expect(m).toContain("stammt aus dieser App, ist aber unvollständig");
+    expect(m).toContain("die Einheit fehlt");
+    expect(m).not.toContain("stammt nicht aus dieser App");
+  });
+
+  it("nennt bei personal: null die Personenliste, nicht die Schema-Version", async () => {
+    const { bogenPruefen } = await import("./hilfen");
+    let fehler: unknown;
+    try {
+      bogenPruefen(JSON.parse(personalNull));
+    } catch (e) {
+      fehler = e;
+    }
+    const m = await dateiFehlerMeldung(new File([personalNull], "p.json"), fehler, "bogen");
+    expect(m).toContain("die Personenliste fehlt");
+    expect(m).not.toContain("Schema-Version 2");
+  });
+
+  it("bogenPruefen sagt bei gültiger Version das Feld, bei fremder Version die Version", async () => {
+    const { bogenPruefen } = await import("./hilfen");
+    expect(() => bogenPruefen(JSON.parse(personalNull))).toThrow(/die Personenliste fehlt/);
+    expect(() => bogenPruefen({ schemaVersion: 99 })).toThrow(/Schema-Version 2/);
+  });
+});

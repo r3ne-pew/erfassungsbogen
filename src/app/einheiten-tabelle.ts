@@ -230,7 +230,9 @@ export function entfernenNummernText(eintraege: MeldeEintrag[], einheitSchluesse
   if (wechsel.length === 0) return "";
   const von = nummernBereiche(wechsel.map((w) => w.von));
   const nach = nummernBereiche(wechsel.map((w) => w.nach));
-  return `${wechsel.length === 1 ? "Die Einheit" : "Die Einheiten"} Nr. ${von} rücken auf und heißen danach Nr. ${nach}`;
+  return wechsel.length === 1
+    ? `Die Einheit Nr. ${von} rückt auf und heißt danach Nr. ${nach}`
+    : `Die Einheiten Nr. ${von} rücken auf und heißen danach Nr. ${nach}`;
 }
 
 /**
@@ -710,11 +712,12 @@ export const TABELLEN_SPALTEN: SpaltenDefinition[] = [
   { schluessel: "mannschaft", kopf: "M", titel: "Mannschaft", zahl: true },
   { schluessel: "gesamt", kopf: "Ges.", titel: "Stärke gesamt", zahl: true },
   { schluessel: "fahrzeuge", kopf: "Kfz", titel: "Fahrzeuge", zahl: true },
-  // Der Bedarf steht VOR den Zeiten: nach ihm wird gesucht („wer schläft
-  // zuerst?"), der Stand ist Beiwerk und steht ganz hinten (K1, K2).
-  { schluessel: "bedarf", kopf: "Bedarf", titel: "Sofortbedarf", zahl: false },
-  { schluessel: "eingetroffen", kopf: "Eingetr.", titel: "Eingetroffen", zahl: false, sortiertNach: "eingetroffenAm" },
+  // Auftrag und Eintreffen stehen vor dem Bedarf (R8-K2): „Wer macht was, und seit wann?" ist die erste
+  // Führungsfrage; am Tablet (754 px Rahmen) lagen beide hinter der breiten Bedarfsspalte, erst nach dem
+  // Rollen im Bild. Der Bedarf folgt unmittelbar dahinter, der Stand ist Beiwerk und steht ganz hinten (K1, K2).
   { schluessel: "auftrag", kopf: "Auftrag", titel: "Auftrag / Notiz der Führungsstelle", zahl: false },
+  { schluessel: "eingetroffen", kopf: "Eingetr.", titel: "Eingetroffen", zahl: false, sortiertNach: "eingetroffenAm" },
+  { schluessel: "bedarf", kopf: "Bedarf", titel: "Sofortbedarf", zahl: false },
   { schluessel: "abgerueckt", kopf: "Abger.", titel: "Abgerückt", zahl: false, sortiertNach: "abgerueckAm" },
   { schluessel: "organisation", kopf: "Org.", titel: "Organisation", zahl: false },
   { schluessel: "verpflegung", kopf: "Verpfl.", titel: "Verpflegung gesamt", zahl: true },

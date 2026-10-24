@@ -146,6 +146,22 @@ describe("Meldung aus dem Einsatz entfernen", () => {
     expect(geaendert).toHaveBeenCalled();
   });
 
+  // Audit Runde 8, R8-D2: Die Rückfrage sagt, welche Nummern sich ändern; die Quittung auch.
+  it("nennt in Rückfrage und Quittung die aufrückenden Nummern (R8-D2)", async () => {
+    const nutzer = userEvent.setup();
+    buehne(["Anna", "Berta", "Cäsar"]);
+    // Die Karte von „Anna“ (Nr. 1): ihre Knöpfe liegen im selben Listenelement.
+    const karte = screen.getByText(/Anna/, { selector: "h3, h3 *" }).closest("li, article, section")!;
+    await nutzer.click(within(karte as HTMLElement).getByRole("button", { name: "Details" }));
+    await nutzer.click(within(karte as HTMLElement).getByRole("button", { name: "Mehr…" }));
+    await nutzer.click(within(karte as HTMLElement).getByRole("button", { name: "Entfernen" }));
+    const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Meldung entfernen?']")!;
+    expect(dialog.textContent).toContain("Nummern ändern sich");
+    expect(dialog.textContent).toContain("Nr. 2–3 rücken auf und heißen danach Nr. 1–2");
+    await nutzer.click(within(dialog).getByRole("button", { name: "Meldung entfernen" }));
+    await waitFor(() => expect(document.body.textContent).toContain("rücken auf und heißen danach Nr. 1–2."));
+  });
+
   it("behält die Meldung, wenn die Rückfrage abgebrochen wird", async () => {
     const nutzer = userEvent.setup();
     const { einsatzId, geaendert } = buehne();

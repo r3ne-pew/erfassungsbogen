@@ -23,7 +23,7 @@ import {
   type Erfassungsbogen,
 } from "@bos/eeb-format/model";
 import { einheitAnzeigename, neuePerson, neuesFahrzeug, zeitgruppe, type QrSatz } from "./hilfen";
-import { EEB_JSON_DATEINAME, aenderungFuerPapier, bogenAlsEingebetteteDatei, einsatzLageblattDokument, einsatzPdfDokument, pdfDokument, stiftHinweis, STIFT_KAESTCHEN, codeKopfzeile, meldekopfVermerk, ohneVorbelegung, erreichbarkeitZeilen, nichtDarstellbareNamen, nichtDarstellbareBetroffene } from "./pdf-dokument";
+import { EEB_JSON_DATEINAME, aenderungFuerPapier, bogenAlsEingebetteteDatei, einsatzLageblattDokument, einsatzPdfDokument, pdfDokument, stiftHinweis, STIFT_KAESTCHEN, codeKopfzeile, meldekopfVermerk, ohneVorbelegung, erreichbarkeitZeilen, nichtDarstellbareNamen, nichtDarstellbareBetroffene, ansprechpersonPapier, umschrift } from "./pdf-dokument";
 
 const QR_BILD = "data:image/png;base64,QRTESTBILD";
 const QR_URL = "https://erfassungsbogen.app/#TESTPAYLOAD";
@@ -915,5 +915,35 @@ describe("nichtDarstellbareBetroffene() (R7-A4)", () => {
     expect(nichtDarstellbareNamen(b)).toBe(1);
     b.personal.push({ ...neuePerson(), vorname: "Анна", nachname: "Meyer" });
     expect(nichtDarstellbareBetroffene(b)).toEqual(["Владимир Lehmann (Ansprechperson)", "Анна Meyer"]);
+  });
+});
+
+// Audit Runde 8, R8-A3: Das Rückruf-Feld steht lesbar auf Papier, nicht als „????????".
+describe("ansprechpersonPapier() (R8-A3)", () => {
+  it("setzt Kyrillisch und Griechisch in lateinische Umschrift", () => {
+    expect(umschrift("Владимир")).toBe("Vladimir");
+    expect(umschrift("Жуков Щербаков")).toBe("Zhukov Schtscherbakov");
+    expect(umschrift("Γιώργος")).toBe("Giorgos");
+  });
+  it("lässt Darstellbares unverändert und kennzeichnet die Umschrift", () => {
+    expect(ansprechpersonPapier("Zoë Ärger")).toBe("Zoë Ärger");
+    expect(ansprechpersonPapier("Владимир Lehmann")).toBe("Vladimir Lehmann (Umschrift)");
+  });
+  it("vermerkt, wenn auch die Umschrift nichts nützt", () => {
+    const t = ansprechpersonPapier("张伟 Lehmann");
+    expect(t).toContain("Name nicht darstellbar – siehe digitale Meldung");
+    expect(t).toContain("Lehmann");
+  });
+  it("steht im Feld Ansprechpartner/in der Seite", () => {
+    const b = basisBogen();
+    b.personal = [{ ...neuePerson(), vorname: "Владимир", nachname: "Lehmann" }];
+    const dd = pdfDokument(b, null);
+    expect(JSON.stringify(dd.content)).toContain("Vladimir Lehmann (Umschrift)");
+  });
+  it("R8-A1: die Bogenseite sagt, dass die Stärke nur die Sollstärke ist", () => {
+    const b = basisBogen();
+    b.personalErfassung = 1;
+    b.personal = [{ ...neuePerson() }, { ...neuePerson() }];
+    expect(JSON.stringify(pdfDokument(b, null).content)).toContain("Sollstärke der Vorbelegung");
   });
 });

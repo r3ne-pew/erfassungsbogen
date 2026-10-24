@@ -81,11 +81,12 @@ function jsonArt(roh: unknown): DateiArt {
   if (roh.format === "eeb-sicherung") return "sicherung";
   if (roh.format === "eeb-vorlage") return "vorlage";
   if (roh.typ === "eeb-einsatz" || (typeof roh.id === "string" && Array.isArray(roh.eintraege))) return "einsatz";
-  if (bogenDefektUrsache(roh) != null) return "bogen-defekt";
   if (istBogenRoh(roh)) return (roh.schemaVersion as number) > SCHEMA_VERSION ? "bogen-neuer" : "bogen";
   // „Als Datei sichern" am beiseitegelegten Entwurf: Hülle ohne eigene Schema-Version,
   // der Bogen steckt darin. Sie ist kein „Fremdes" (Audit Runde 7, R7-E1).
   if (typeof roh.gespeichert === "number" && istObjekt(roh.bogen)) return "entwurf";
+  // Gültige Schema-Version, Bogenfelder, aber kein Pflichtfeld „einheit": eine eigene, defekte Datei (R8-E3).
+  if (bogenDefektUrsache(roh) != null) return "bogen-defekt";
   return "json-fremd";
 }
 

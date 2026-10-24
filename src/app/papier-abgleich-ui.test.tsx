@@ -146,3 +146,35 @@ describe("Eingaben gehen nicht still verloren (R7-S1, R7-G1)", () => {
     expect(screen.queryByRole("heading", { name: /Lage vom Papier abgleichen \(2\)/ })).toBeNull();
   });
 });
+
+describe("Nummern beim Abgleich (R8-W1)", () => {
+  it("nennt vorher die belegte Nummer und danach alle Einheiten mit alter und neuer Nummer", async () => {
+    const nutzer = userEvent.setup({ delay: null });
+    const s = einsatzAnlegen("Hochwasser", EinsatzArt.EINSATZ);
+    // Bamberg ist digital geführt (Nr. 1, nicht Teil des Abgleichs); Ulm und Albstadt kamen vom Papier.
+    meldungAufnehmen(s.id, bogen("Bamberg"), { quelle: "scan" });
+    const ids = ["Ulm", "Albstadt"].map((n) => meldungAufnehmen(s.id, bogen(n), { quelle: "scan" })!.eintrag.id);
+    vomPapierMarkieren(s.id, ids, 999);
+    const eintraege = einsaetzeLaden().find((x) => x.id === s.id)!.eintraege;
+    render(
+      <>
+        <PapierAbgleich einsatzId={s.id} eintraege={eintraege} zuege={[]} onGeaendert={() => {}} />
+        <Dialogschicht />
+      </>,
+    );
+    await nutzer.click(screen.getByRole("button", { name: "Lage vom Papier abgleichen…" }));
+    // Die Eingangsreihenfolge kann bei gleicher Millisekunde wechseln: Die Nummer, die Bamberg gerade trägt, wird gemessen.
+    const { meldungsNummern } = await import("./einheiten-tabelle");
+    const bamberg = eintraege.find((e) => e.bogen.einheit.hierarchie[0]!.name === "Bamberg")!;
+    const nrBamberg = meldungsNummern(eintraege).get(bamberg.einheitSchluessel)!;
+    await nutzer.type(screen.getAllByLabelText(/Nr\. laut Blatt/)[0]!, String(nrBamberg));
+    await nutzer.click(screen.getByRole("button", { name: "Abgleich übernehmen" }));
+    const frage = await screen.findByRole("dialog", { name: "Nummer schon vergeben" });
+    expect(frage.textContent).toContain(`Nr. ${nrBamberg} trägt schon`);
+    expect(frage.textContent).toContain("Bamberg");
+    await nutzer.click(within(frage).getByRole("button", { name: "Übernehmen" }));
+    const hinweis = await screen.findByRole("dialog", { name: /Nummern neu vergeben|Abgleich übernommen/ });
+    expect(hinweis.textContent).toMatch(new RegExp(`Bamberg[^,]* ${nrBamberg} → \\d`));
+    expect(hinweis.textContent).toMatch(/Nummern? änder/);
+  });
+});

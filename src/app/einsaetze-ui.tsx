@@ -8,7 +8,7 @@
  * Reine Anzeige + Aufruf der Store-/Auswertungslogik (einsaetze.ts, auswertung.ts).
  */
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type FocusEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type FocusEvent, type ReactNode } from "react";
 import { DaumenQuittung } from "./daumen-quittung";
 import { ORTSSPERRE_MS, PRELLSCHUTZ_MS, ortSperren } from "./tipp-schutz";
 import {
@@ -163,6 +163,9 @@ import {
   type ExportUmfang,
   type ExportZiel,
 } from "./export-stand";
+
+/** Zeichen des Auftrags auf der zugeklappten Karte (R8-K3): der Auftrag steht bis hierhin ungekürzt da. */
+const AUFTRAG_KARTE_MAX = 80;
 
 export const ART_LABEL: Record<EinsatzArt, string> = {
   [EinsatzArt.EINSATZ]: "Einsatz",
@@ -2403,7 +2406,20 @@ function TabellenZelle({ spalte, zeile: z }: { spalte: TabellenSpalte; zeile: Ta
     case "fahrzeuge":
       return <td className="zahl" title={z.fahrzeugTypen}>{z.fahrzeuge}</td>;
     case "bedarf":
-      return <td className="bedarf-zelle">{z.bedarf}</td>;
+      // Jede Marke unteilbar („Diesel 745 l" bricht nicht), die Zelle bricht zwischen den Marken (R8-K2): statt einer
+      // langen Zeile eine schmale Spalte, und Auftrag und Eintreffen davor bleiben im Bild.
+      return (
+        <td className="bedarf-zelle">
+          {z.bedarf
+            ? z.bedarf.split(" · ").map((teil, i) => (
+                <Fragment key={i}>
+                  {i > 0 ? " · " : null}
+                  <span className="bedarf-teil">{teil}</span>
+                </Fragment>
+              ))
+            : null}
+        </td>
+      );
     case "auftrag":
       return <td className="auftrag-zelle">{z.auftrag}</td>;
     case "stand":
@@ -3433,8 +3449,9 @@ function EinheitKarte(props: {
               )}
               {kopf.notiz && (
                 <span className="kompakt-merkmal auftrag-merkmal" title={`Auftrag/Notiz: ${kopf.notiz}`}>
-                  {/* Der Inhalt statt eines Hakens, gekürzt auf eine Zeile (R7-K6). */}
-                  Auftrag: {kopf.notiz.length > 32 ? `${kopf.notiz.slice(0, 31)}…` : kopf.notiz}
+                  {/* Der Inhalt statt eines Hakens (R7-K6). Bis 80 Zeichen steht er ganz da (auf eigener Zeile, die
+                      Befristung am Ende gehört zur Entscheidung, R8-K3); darüber „… (mehr)" und der Rest nach dem Aufklappen. */}
+                  Auftrag: {kopf.notiz.length > AUFTRAG_KARTE_MAX ? `${kopf.notiz.slice(0, AUFTRAG_KARTE_MAX - 1)}… (mehr)` : kopf.notiz}
                 </span>
               )}
               {zaehlt && luecken.length > 0 && (

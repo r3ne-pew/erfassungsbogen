@@ -309,3 +309,16 @@ describe("Anderer Einsatz? in den Exporten (Audit Runde 5, R5-K5)", () => {
     }
   });
 });
+
+describe("Reihenfolge der Übersicht (R8-A2)", () => {
+  it("ordnet die Zeilen nach Nr., nicht nach Name", () => {
+    const z = bogen("Zeta");
+    const a = bogen("Alpha");
+    const csv = einsatzCsvInhalt(sammlung([meldung(z, { empfangenAm: 1000 }), meldung(a, { empfangenAm: 2000 })]));
+    const zl = zeilen(csv);
+    expect(zl[1]!.split(";")[0]).toBe("1");
+    expect(zl[1]).toContain("Zeta");
+    expect(zl[2]!.split(";")[0]).toBe("2");
+    expect(zl[2]).toContain("Alpha");
+  });
+});

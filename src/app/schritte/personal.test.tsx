@@ -271,6 +271,21 @@ describe("Schritt Personal", () => {
     expect(within(dialog).getByRole("textbox", { name: /^Namensliste/ })).toBe(feld);
   });
 
+  // Audit Runde 8, R8-E2: Escape oder die Zurück-Geste verwarfen die mühsam eingefügte Liste ohne Frage.
+  it("behält die eingefügte Liste, wenn das Fenster ohne Übernehmen schließt (R8-E2)", async () => {
+    const nutzer = userEvent.setup();
+    buehne();
+    await nutzer.click(screen.getByRole("button", { name: "Namen einfügen…" }));
+    const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Namen einfügen']")!;
+    await nutzer.type(within(dialog).getByRole("textbox"), "Muster, Max\nErika Musterfrau");
+    dialog.close(); // Escape, Zurück-Geste und „Schließen“ laufen alle hierüber
+    await nutzer.click(screen.getByRole("button", { name: "Namen einfügen…" }));
+    expect((within(dialog).getByRole("textbox") as HTMLTextAreaElement).value).toBe("Muster, Max\nErika Musterfrau");
+    expect(within(dialog).getByText(/Die Liste bleibt stehen/)).toBeDefined();
+    await nutzer.click(within(dialog).getByRole("button", { name: "Liste leeren" }));
+    expect((within(dialog).getByRole("textbox") as HTMLTextAreaElement).value).toBe("");
+  });
+
   it("übernimmt eine eingefügte Namensliste als Personen", async () => {
     const nutzer = userEvent.setup();
     buehne();
@@ -1094,6 +1109,14 @@ describe("Umschalten auf „Nur Stärke“", () => {
 
     expect((screen.getByLabelText("Personal vollständig erfassen") as HTMLInputElement).checked).toBe(true);
     expect(screen.getByLabelText("Stärke: 1 Führer, 1 Unterführer, 2 Mannschaft, 4 gesamt")).toBeDefined();
+  });
+
+  it("legt den Fokus der Rückfrage auf „Abbrechen“ (R8-H2)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={vier()} />);
+    await nutzer.click(screen.getByLabelText("Nur Stärke (Meldekopf-Schnellerfassung)"));
+    const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Nur die Stärke melden?']")!;
+    expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Abbrechen" }));
   });
 
   it("belegt Stärke, Unterbringung und Verpflegung mit den abgeleiteten Zahlen vor und kennzeichnet die Karten als nicht gezählt", async () => {

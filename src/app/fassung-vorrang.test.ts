@@ -12,6 +12,7 @@ import { OrganisationsTyp, PersonalErfassung, SCHEMA_VERSION, type Erfassungsbog
 import { EinsatzArt, einsaetzeLaden, einsatzAnlegen, meldungHinzufuegen, speicherhuelleSetzen, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import {
   fassungGiltSetzen,
+  fassungInHistorieLegen,
   fassungObenauf,
   fassungPruefen,
   fassungenJeEinheit,
@@ -193,5 +194,23 @@ describe("fassungObenauf — eigene Handlung gilt nach einer Uhr, die zurückspr
     meldungHinzufuegen(s.id, bogen(2000, 8), { quelle: "pdf-import" });
     const r = staerkeAendern(s.id, 7, 2010, false);
     expect(fassungObenauf(s.id, r.eintrag.id)).toBe(false);
+  });
+});
+
+describe("fassungInHistorieLegen (R8-W2)", () => {
+  it("vermerkt die ältere Fassung als verdrängt; die Folge ist keine Folgemeldung, „Diese Fassung gilt“ holt sie zurück", async () => {
+    const s = einsatzAnlegen("Lage", EinsatzArt.EINSATZ);
+    const bisher = meldungHinzufuegen(s.id, bogen(2000, 4), { quelle: "scan" })!.eintrag;
+    const aelter = meldungHinzufuegen(s.id, bogen(1900, 6), { quelle: "scan" })!.eintrag;
+    expect(fassungInHistorieLegen(s.id, aelter.id, bisher.id, 5_000)).toBe(true);
+    expect(fassungInHistorieLegen(s.id, aelter.id, bisher.id, 5_000)).toBe(false);
+    const revs = fassungenJeEinheit(eintraege(s.id), bisher.einheitSchluessel);
+    expect(revs.map((r) => r.id)).toEqual([bisher.id, aelter.id]);
+    expect(istVerdraengt(revs[1]!, revs)).toBe(true);
+    expect(geltendeJeEinheit(eintraege(s.id))[0]!.id).toBe(bisher.id);
+    const { folgeAenderung } = await import("./einheiten-tabelle");
+    expect(folgeAenderung(revs[0]!, eintraege(s.id))).toBeNull();
+    fassungGiltSetzen(s.id, aelter.id);
+    expect(geltendeJeEinheit(eintraege(s.id))[0]!.id).toBe(aelter.id);
   });
 });

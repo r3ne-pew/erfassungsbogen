@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ORTSSPERRE_MS, ORTSSPERRE_RADIUS_PX, ortSperren, tippSchutzZuruecksetzen } from "./tipp-schutz";
+import { ORTSSPERRE_MS, ORTSSPERRE_RADIUS_PX, QUITTUNG_SPERRE_MS, ortSperren, tippSchutzZuruecksetzen } from "./tipp-schutz";
 
 function tipp(el: HTMLElement, x: number, y: number, detail = 1) {
   el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: x, clientY: y, detail }));
@@ -288,5 +288,39 @@ describe("Hinweis im QR-Vollbild (R7-H4)", () => {
     b2.remove();
     tippSchutzZuruecksetzen();
     vi.useRealTimers();
+  });
+});
+
+describe("Sperre hinter der Rückfrage (R8-H5, R8-S4, R8-D5)", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    tippSchutzZuruecksetzen();
+    vi.restoreAllMocks();
+  });
+
+  it("gilt nicht für Tipps in einer offenen Rückfrage, wohl aber dahinter", () => {
+    tippSchutzZuruecksetzen();
+    const dahinter = document.createElement("button");
+    const dialog = document.createElement("dialog");
+    dialog.className = "abfrage";
+    dialog.setAttribute("open", "");
+    const imDialog = document.createElement("button");
+    dialog.appendChild(imDialog);
+    document.body.append(dahinter, dialog);
+    const dahinterGetroffen = vi.fn();
+    const imDialogGetroffen = vi.fn();
+    dahinter.addEventListener("click", dahinterGetroffen);
+    imDialog.addEventListener("click", imDialogGetroffen);
+    tipp(dahinter, 100, 300); // Auslöser
+    ortSperren(undefined, undefined, { nurAusserhalbRueckfrage: true });
+    tipp(imDialog, 102, 302); // bewusster Tipp auf den Dialogknopf an derselben Stelle
+    expect(imDialogGetroffen).toHaveBeenCalledTimes(1);
+    expect(document.getElementById("tipp-moment")).toBeNull();
+    tipp(dahinter, 101, 301); // Doppeltipp auf den Auslöser nach dem Schließen: gesperrt
+    expect(dahinterGetroffen).toHaveBeenCalledTimes(1);
+  });
+
+  it("die Sperre unter einer Quittung dauert länger als 1,5 s (R8-D5)", () => {
+    expect(QUITTUNG_SPERRE_MS).toBeGreaterThanOrEqual(2500);
   });
 });

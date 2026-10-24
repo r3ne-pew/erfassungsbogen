@@ -382,11 +382,11 @@ describe("bogenLaden() (JSON-Datei)", () => {
     expect(b.schemaVersion).toBe(SCHEMA_VERSION);
   });
 
-  it("nennt bei unvollständigem Bogen in der Hülle, was fehlt, und dass die Datei nur dem Support dient", async () => {
+  it("nennt bei unvollständigem Bogen in der Hülle, was fehlt, und dass die Datei nur dem dient, der die App betreut", async () => {
     const bogen = JSON.parse(JSON.stringify(neuerBogen()));
     delete bogen.einheit.organisation;
     await expect(bogenLaden(jsonDatei(JSON.stringify({ gespeichert: 1, bogen })))).rejects.toThrow(
-      /gesicherte Entwurf.*Organisation der Einheit fehlt.*Support/s,
+      /gesicherte Entwurf.*Organisation der Einheit fehlt.*betreut/s,
     );
   });
 
@@ -405,9 +405,9 @@ describe("bogenLaden() (JSON-Datei)", () => {
   });
 
   it("lehnt eine Datei ohne Pflichtstruktur ab", async () => {
-    await expect(bogenLaden(jsonDatei(JSON.stringify({ schemaVersion: SCHEMA_VERSION })))).rejects.toThrow(
-      /gültige Erfassungsbogen-Datei/i,
-    );
+    // Gültige Version, aber kein Pflichtfeld: Die Meldung nennt das Feld statt der Version (R8-E3).
+    await expect(bogenLaden(jsonDatei(JSON.stringify({ schemaVersion: SCHEMA_VERSION })))).rejects.toThrow(/unvollständig: der Stand/i);
+    await expect(bogenLaden(jsonDatei(JSON.stringify({ stand: 1 })))).rejects.toThrow(/gültige Erfassungsbogen-Datei/i);
   });
 });
 

@@ -534,3 +534,45 @@ describe("abweichenderOrt — gemeinsames Wort zweier Fremdmeldungen (R6-K7)", (
   });
 });
 
+
+describe("Nummern und Sollstärke (Audit Runde 8)", () => {
+  const mk = (id: string, ms: number, over: Partial<MeldeEintrag> = {}) => eintrag(id, bogen(id, 3), { einheitSchluessel: id, empfangenAm: ms, ...over });
+  const sechs = ["a", "b", "c", "d", "e", "f"].map((id, i) => mk(id, 1000 + i));
+
+  it("R8-D2: Entfernen von Nr. 2 von 6 nennt die aufrückenden Nummern 3–6 → 2–5", async () => {
+    const { entfernenNummernText } = await import("./einheiten-tabelle");
+    expect(entfernenNummernText(sechs, "b")).toBe("Die Einheiten Nr. 3–6 rücken auf und heißen danach Nr. 2–5");
+    expect(entfernenNummernText(sechs, "e")).toBe("Die Einheit Nr. 6 rückt auf und heißt danach Nr. 5");
+    expect(entfernenNummernText(sechs, "f")).toBe("");
+  });
+
+  it("R8-W1: nummernWechselListe nennt alle Einheiten mit alter und neuer Nummer", async () => {
+    const { nummernWechsel, nummernWechselListe } = await import("./einheiten-tabelle");
+    const vorher = sechs.slice(0, 3);
+    // Albstadt (später eingegangen) bekommt vom Blatt Nr. 2 — Bamberg (b) und c rücken.
+    const nachher = [vorher[0]!, vorher[1]!, { ...vorher[2]!, nummer: 2 }];
+    const liste = nummernWechselListe(nummernWechsel(vorher, nachher));
+    expect(liste).toContain("2 → 3");
+    expect(liste.split(", ")).toHaveLength(2);
+  });
+
+  it("R8-A1: sollstaerkeAnteil zählt Einheiten ohne Zählung und ihre Personen", async () => {
+    const { sollstaerkeAnteil } = await import("./einheiten-tabelle");
+    const soll = bogen("soll", 0);
+    soll.personal = [{ ...person(StaerkeRolle.MANNSCHAFT), vorname: "", nachname: "" }, { ...person(StaerkeRolle.MANNSCHAFT), vorname: "", nachname: "" }];
+    const mitSoll = [...sechs, eintrag("soll", soll, { einheitSchluessel: "soll", empfangenAm: 5000 })];
+    const a = sollstaerkeAnteil(mitSoll);
+    expect(a).toEqual({ einheiten: 1, personen: 2 });
+    expect(sollstaerkeAnteil(sechs)).toEqual({ einheiten: 0, personen: 0 });
+  });
+
+  it("R8-W2: eine nur in die Historie gelegte ältere Fassung ist keine Folgemeldung", () => {
+    const neuerStand = bogen("Ulm", 8);
+    neuerStand.stand = 200;
+    const aelter = bogen("Ulm", 9);
+    aelter.stand = 150;
+    const gilt = eintrag("u1", neuerStand, { einheitSchluessel: "ulm", empfangenAm: 1000 });
+    const historie = eintrag("u2", aelter, { einheitSchluessel: "ulm", empfangenAm: 2000, ersetztDurch: "u1" });
+    expect(folgeAenderung(gilt, [gilt, historie])).toBeNull();
+  });
+});

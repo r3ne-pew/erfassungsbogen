@@ -4078,11 +4078,11 @@ function AppInhalt() {
         {beschaedigt && (
           <section className="entwurf-karte verdraengt beschaedigt" role="alert">
             <span className="entwurf-text">
-              <strong>Ein gespeicherter Bogen ließ sich nicht öffnen</strong>
+              <strong>Ein Bogen ließ sich nicht öffnen</strong>
               {/* R8-H4, R8-S2: zwei Sätze und der Weg; die Einzelheiten hinter „Mehr dazu“. */}
               <span className="hinweis warnung-text">
-                Er ist nicht gelöscht, sondern beiseitegelegt. „Als Datei sichern“ und an den weitergeben, der die App betreut —
-                oder unten gleich einen neuen Bogen beginnen.
+                Nicht gelöscht, nur beiseitegelegt. „Als Datei sichern“ und an den geben, der die App betreut — oder unten
+                gleich einen neuen Bogen beginnen.
               </span>
               <details className="beschaedigt-mehr">
                 <summary>Mehr dazu</summary>

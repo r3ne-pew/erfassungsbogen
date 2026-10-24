@@ -2091,6 +2091,18 @@
     html.schrift-gross .entwurf-karte .entwurf-text .hinweis { font-size: min(var(--t-s), 16px); }
     html.schrift-gross .entwurf-karte .entwurf-aktionen { flex-direction: column; width: 100%; gap: var(--r-2); }
     html.schrift-gross .entwurf-karte .entwurf-aktionen button, html.schrift-gross .entwurf-karte > button { width: 100%; font-size: min(var(--t-m), 20px); min-height: calc(44px + var(--ziel)); }
+    /* R8-D4, R8-S3: Browser-Zoom 200 % bis 400 % (180 px und schmaler). Die Beschriftungen der beiden Knöpfe liefen über den Knopf
+       („ortsetze"), „Fortsetzen" lag bei 450 von 320 px, „Bergungsgrup / pe" brach im Wort. Jetzt: Name (mit Silbentrennung),
+       dann beide Knöpfe untereinander in voller Breite mit umbrechender Beschriftung, die Einzelheiten (Zeitraum, Stärke,
+       Stand) danach. Der Text der Karte wird dazu aufgelöst (`display: contents`), damit die Knöpfe vor die Zeilen rücken. */
+    @media (max-width: 16rem) {
+      .entwurf-karte { flex-direction: column; align-items: stretch; margin-top: var(--r-3); padding: var(--r-2); gap: var(--r-2); }
+      .entwurf-karte .entwurf-text { display: contents; }
+      .entwurf-karte .entwurf-text > strong { order: 0; font-size: min(var(--t-m), 16px); line-height: 1.2; hyphens: auto; overflow-wrap: break-word; }
+      .entwurf-karte .entwurf-text > :not(strong) { order: 2; font-size: min(var(--t-xs), 13px); }
+      .entwurf-karte .entwurf-aktionen { order: 1; flex-direction: column; width: 100%; gap: 8px; }
+      .entwurf-karte .entwurf-aktionen button, .entwurf-karte > button { width: 100%; white-space: normal; line-height: 1.15; padding-inline: 6px; }
+    }
     .entwurf-karte.verdraengt { border-top: var(--strich) solid var(--linie); background: var(--flaeche-2, var(--flaeche)); margin-top: var(--r-3); }
     /* Papierkorb: „Endgültig löschen" steht bewusst abgesetzt unter der Karte,
        mit deutlichem Abstand zum Wiederherstellen in der Kopfzeile. */
@@ -2852,8 +2864,11 @@
       border-left: var(--strich-stark) solid var(--akzent); color: var(--text);
       font-size: var(--t-s); overflow-wrap: anywhere;
     }
-    .einheiten-tabelle .auftrag-zelle { min-width: 10rem; overflow-wrap: anywhere; }
-    .einheiten-tabelle .bedarf-zelle { white-space: nowrap; }
+    .einheiten-tabelle .auftrag-zelle { min-width: 10rem; max-width: 18rem; overflow-wrap: anywhere; }
+    /* R8-K2: Der Bedarf brach nie um und nahm am Tablet die Breite, die Auftrag und Eingetroffen gehört; jetzt eine schmale Spalte,
+       die zwischen den Marken umbricht (jede Marke unteilbar). */
+    .einheiten-tabelle .bedarf-zelle { min-width: 8rem; max-width: 14rem; }
+    .einheiten-tabelle .bedarf-teil { white-space: nowrap; }
     /* Lücken einer Meldung (fehlende Rufnummer, leerer Auftrag …): ein
        Link-Knopf mit Zahl und ausklappbarer Liste — nachfragen, solange die
        Einheit noch vor einem steht (K3). */
@@ -4942,13 +4957,18 @@
     .papier-abgleich-weg > button { min-height: calc(44px + var(--ziel)); }
     .papier-abgleich-weg > .hinweis { flex: 1 1 100%; margin: 0; }
     /* R8-H4, R8-S2: „Mehr dazu“ im Kasten zum beiseitegelegten Bogen als 44-px-Ziel. */
-    .entwurf-karte details.beschaedigt-mehr > summary { min-height: calc(44px + var(--ziel)); display: flex; align-items: center; cursor: pointer; font-size: min(var(--t-s), 16px); font-weight: 600; }
+    .entwurf-karte.beschaedigt { padding: min(var(--r-3), 12px) min(var(--r-4), 16px); gap: var(--r-2); }
+    .entwurf-karte.beschaedigt .entwurf-text { gap: 0; }
+    .entwurf-karte details.beschaedigt-mehr > summary { min-height: calc(40px + var(--ziel)); display: flex; align-items: center; cursor: pointer; font-size: min(var(--t-s), 16px); font-weight: 600; }
     /* R8-D6: „Für neuen Einsatz vorbereiten“ steht am Ende von „Bogen übergeben“, durch Linie und Abstand
        von den Wegen zum Weitergeben getrennt. */
     .teilen-dialog .teilen-weg.teilen-weg-ende { margin-top: var(--r-5); padding-top: var(--r-4); border-top: var(--strich) solid var(--linie); }
     dialog.abfrage h2 { font-size: min(var(--t-xl), 24px); overflow-wrap: break-word; hyphens: auto; }
     dialog.abfrage p { font-size: min(var(--t-m), 20px); }
     dialog.abfrage .hinweis { font-size: min(var(--t-xs), 16px); }
+    /* R8-M8, R8-G5: Der Knopf im Wegrahmen stand als inline-flex auf der Grundlinie der Zeile und saß bei
+       Schrift 200 % quer 3 px tiefer als „Abbrechen“; als Block-Flex füllt er den Rahmen, beide Oberkanten gleich. */
+    dialog.abfrage .abfrage-weg > button { display: flex; align-items: center; justify-content: center; text-align: center; }
     dialog.abfrage button {
       font-size: min(var(--t-m), 18px); line-height: 1.2; min-height: calc(44px + var(--ziel));
       padding: min(0.55rem, 10px) min(1.1rem, 18px); overflow-wrap: anywhere; hyphens: auto;
@@ -5122,7 +5142,11 @@
        gedeckelt, und im niedrigen Bild klebt die Kopfzeile nicht (200 % quer: 186 von 360 px). */
     .musterung .staerke-leiste { top: var(--fest-warnung-hoehe, 0px); }
     .musterung .kopfzeile.klebend { top: calc(var(--fest-warnung-hoehe, 0px) + var(--muster-leiste-hoehe, 0px)); }
-    .musterung .kopfzeile > .muster-umschalter:last-child { min-width: calc(9.5em + 20px); white-space: nowrap; text-align: center; flex: 0 0 auto; }
+    .musterung .kopfzeile > .muster-umschalter:last-child { min-width: calc(9.5em + 20px); white-space: nowrap; text-align: center; flex: 0 0 auto; max-width: 100%; }
+    @media (max-width: 16rem) {
+      /* R8-M10: Bei 180 px war der Knopf 153 px breit und ragte über den Rand (Seite 187 px). */
+      .musterung .kopfzeile > .muster-umschalter:last-child { min-width: 0; white-space: normal; }
+    }
     .musterung .kopfzeile h2 .zaehler { display: inline-block; min-width: 7ch; white-space: nowrap; font-variant-numeric: tabular-nums; }
     html.schrift-gross .musterung .kopfzeile h2 { font-size: min(var(--t-xl), 22px); }
     html.schrift-gross .musterung .muster-umschalter { font-size: min(var(--t-s), 16px); min-height: calc(44px + var(--ziel)); }
@@ -5137,6 +5161,16 @@
     @media (max-height: 31.25rem) {
       .musterung .kopfzeile.klebend { position: static; box-shadow: none; }
       html.schrift-gross .musterung .staerke-leiste { position: static; }
+    }
+    /* R8-G4, R8-M10: Am Telefon klebten Stärkeleiste (85 px), Kopfzeile der Liste (93 px) und Fußleiste (67 px) mit 38 % der Höhe
+       (200 % Schrift auf 320 px: 52 %). Jetzt klebt am Telefon nur noch die Stärkeleiste; die Kopfzeile rollt mit der Liste
+       (die Zeilen tragen selbst Haken und Namen), quer und bei 180 px Breite rollt auch die Leiste mit. Fest bleibt höchstens
+       Stärke plus Fußleiste: 127 von 640 px (20 %), bei 200 % Schrift 169 von 568 px (30 %). */
+    @media (max-width: 30rem) {
+      .musterung .kopfzeile.klebend { position: static; box-shadow: none; }
+    }
+    @media (max-width: 16rem), (max-height: 31.25rem) {
+      .musterung .staerke-leiste { position: static; }
     }
 
     /* R7-M4: Tabelle der Einsatzansicht bei großer Schrift: Die Schrift der Zellen ist gedeckelt (vorher Tabelle 3 223 px
@@ -5161,6 +5195,53 @@
     /* R7-G5: Die Fußzeilen-Spalten brauchen bei Zoom 200 bis 250 % im Feld-Modus keine 9rem (161 px) Mindestbreite. */
     .fuss-gruppen { grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr)); }
     /* ===== Ende Runde 7 (Layout) ===== */
+
+    /* ===== Runde 8 (Layout, Kontrast, Anzeige) ===== */
+    /* R8-M5: „Beispielbögen", „Datensicherung" und die übrigen einfachen Dialoge rollten als Ganzes, und „Schließen" (in der
+       Kopfzeile) lag am Listenende bei −173 px außerhalb des Bildes. Die Kopfzeile bleibt oben im Dialog stehen; Textknöpfe und
+       die Zeilen der Beispielliste haben mindestens 44 px (vorher 30 bis 33 px). */
+    dialog > .kopfzeile:first-child { position: sticky; top: 0; z-index: 3; background: var(--flaeche); padding-block: var(--r-2); box-shadow: 0 1px 0 var(--linie-fein); align-items: center; }
+    dialog > .kopfzeile:first-child h2 { min-width: 0; overflow-wrap: break-word; hyphens: auto; }
+    dialog > .kopfzeile:first-child > button { flex: 0 0 auto; min-height: calc(44px + var(--ziel)); }
+    dialog button.link { min-height: calc(44px + var(--ziel)); }
+    .beispiel-liste li > button.link { display: flex; align-items: center; width: 100%; text-align: left; }
+    details.beispiele-erklaerung { margin: var(--r-2) 0; }
+    details.beispiele-erklaerung > summary { cursor: pointer; min-height: calc(44px + var(--ziel)); display: flex; align-items: center; color: var(--akzent); font-weight: 600; }
+    /* R8-M7: Die Kurz-Liste der Personen am Telefon trug die Feldnamen nur im aria-label; sobald ein Wert drinsteht, erkannte man
+       Vorname und Nachname nur an der Reihenfolge. Jetzt steht über jedem Feld seine Beschriftung (nur sichtbar, der Name bleibt im
+       aria-label). Das Rollenfeld bekommt vier von sechs Spalten („Führer/in" wurde bei 200 % zu „Führer/ir" abgeschnitten), das
+       Geschlecht die übrigen zwei, und die Felder behalten bei großer Schrift das Zielmaß statt 88 px. */
+    @container (max-width: 44rem) {
+      table.uebersicht.schnell-tabelle td:nth-child(2)::before { content: "Vorname"; content: "Vorname" / ""; }
+      table.uebersicht.schnell-tabelle td:nth-child(3)::before { content: "Nachname"; content: "Nachname" / ""; }
+      table.uebersicht.schnell-tabelle td:nth-child(4)::before { content: "Zählt als"; content: "Zählt als" / ""; }
+      table.uebersicht.schnell-tabelle td:nth-child(5)::before { content: "Geschlecht"; content: "Geschlecht" / ""; }
+      table.uebersicht.schnell-tabelle td:nth-child(n + 2):nth-child(-n + 5)::before {
+        display: block; margin-bottom: 1px; line-height: 1.15; font-size: min(var(--t-xs), 13px); font-weight: 600; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+    }
+    @container (max-width: 24rem) {
+      table.uebersicht.schnell-tabelle td:nth-child(4) { grid-column: 1 / span 4; }
+      table.uebersicht.schnell-tabelle td:nth-child(5) { grid-column: 5 / span 2; }
+    }
+    html.schrift-gross .schnell-tabelle td input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), html.schrift-gross .schnell-tabelle td select { min-height: calc(44px + var(--ziel)); padding-block: 0.25rem; padding-inline: min(0.55rem, 10px); }
+    /* R8-M6: Auch mit Trennstrich stand „Materialwirtsch / aft" und „Bergungsgrup / pe" in der klebenden Spalte (Rahmen 326 px,
+       Spalte auf 40 % gedeckelt, `anywhere` ließ sie unter das längste Wort schrumpfen). Jetzt wird die Spalte so breit wie das
+       längste Wort („Materialwirtschaft"), die Schrift ist am Telefon kleiner, und nirgends bricht ein Wort mitten durch. */
+    table.einheiten-tabelle > * > tr > :first-child,
+    table.einheiten-tabelle tbody th { hyphens: manual; -webkit-hyphens: manual; overflow-wrap: normal; word-break: normal; }
+    @container (max-width: 30rem) {
+      table.einheiten-tabelle tbody th { font-size: min(var(--t-s), 13px); padding-inline: 6px; }
+      table.einheiten-tabelle > * > tr > :first-child { max-width: none; }
+    }
+    /* Unter 16rem (Zoom 250 % und mehr) ist der Rahmen 86 px breit: Dort klebt keine Spalte mehr, sie rollt mit. */
+    @media (max-width: 16rem) {
+      table.einheiten-tabelle > * > tr > :first-child { position: static; }
+    }
+    /* R8-N3: Bei 200 % Schrift sank der Einsatzname im Kopf der Einsatzansicht auf 16 px, kleiner als die Zeile darunter. Der Name
+       bleibt bei 22 px (Normalgröße), die Zeile darunter ist gedeckelt (16 px). */
+    html.schrift-gross .seiten-kopf.einsatz-kopf h1 { font-size: min(var(--t-xl), 22px); }
+    html.schrift-gross .seiten-kopf.einsatz-kopf > p.hinweis { font-size: min(var(--t-s), 16px); }
   </style>
 </head>
 <body>

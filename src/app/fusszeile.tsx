@@ -1074,17 +1074,22 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
         klasse="breit"
         onSchliessen={() => setBeispieleOffen(false)}
       >
-        <p>
-          Ausgefüllte Beispiel-Erfassungsbögen (fiktive Einheiten und Personen) –
-          zum Ansehen, für Übungen oder zum Testen des QR-Imports. Alle sind als
-          Übung gekennzeichnet: In der App erscheint ein Störer, PDFs tragen das
-          Wasserzeichen „ÜBUNG". <strong>Anzeigen</strong>{" "}
-          öffnet den Bogen in der App, als wäre er gerade gescannt worden;{" "}
-          <strong>PDF</strong> erzeugt ihn im aktuellen Layout – die eingebetteten
-          QR-Codes lassen sich direkt mit der App scannen. <strong>Link</strong>{" "}
-          gibt den Bogen-Link weiter (Share-Sheet, sonst Zwischenablage): Er trägt
-          den kompletten Bogen und öffnet ihn beim Antippen in der App.
-        </p>
+        {/* Die Liste steht vorn, die Erklärung klappt auf (R8-M5): vorher gingen 15 Zeilen Text der Liste voran, die
+            erst auf dem zweiten Bild begann. */}
+        <details className="beispiele-erklaerung">
+          <summary>Was sind Beispielbögen? Was heißen Anzeigen, PDF und Link?</summary>
+          <p>
+            Ausgefüllte Beispiel-Erfassungsbögen (fiktive Einheiten und Personen) –
+            zum Ansehen, für Übungen oder zum Testen des QR-Imports. Alle sind als
+            Übung gekennzeichnet: In der App erscheint ein Störer, PDFs tragen das
+            Wasserzeichen „ÜBUNG". <strong>Anzeigen</strong>{" "}
+            öffnet den Bogen in der App, als wäre er gerade gescannt worden;{" "}
+            <strong>PDF</strong> erzeugt ihn im aktuellen Layout – die eingebetteten
+            QR-Codes lassen sich direkt mit der App scannen. <strong>Link</strong>{" "}
+            gibt den Bogen-Link weiter (Share-Sheet, sonst Zwischenablage): Er trägt
+            den kompletten Bogen und öffnet ihn beim Antippen in der App.
+          </p>
+        </details>
         {beispielPfad.length > 0 && (
           <p>
             <button type="button" className="link" onClick={() => setBeispielPfad(beispielPfad.slice(0, -1))}>
