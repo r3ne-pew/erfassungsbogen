@@ -11,6 +11,18 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-24 — Audit Runde 8:** `eeb.unlesbar.v1` nimmt jetzt
+> auch ganze Gesamttexte auf (`texte`), die sich nicht als Liste lesen
+> lassen: Sammlungen und Vorlagen, die durch einen vollen Speicher oder einen
+> Abbruch halb geschrieben waren und beim nächsten Schreiben sonst ohne Spur
+> verloren gegangen wären. Der Inhalt kann Personendaten tragen; Frist (90
+> Tage ab Beiseitelegen), Sicherung, „Alle Daten löschen" und „Beiseitegelegtes
+> entfernen…" wie in Runde 7 (5.4, 5.7). Die Entwurfskarte kündigt die
+> Anonymisierung 14 Tage vorher an. Kyrillische und griechische Namen
+> erscheinen im Feld „Ansprechpartner/in" des PDF in Umschrift
+> („(Umschrift)"), nicht mehr als „?" (5.4, Richtigkeit, Art. 5 Abs. 1 lit. d
+> DSGVO). Keine neuen Empfänger, keine Netzverbindung (5.8 unverändert).
+>
 > **Nachgezogen 2026-10-24 — Audit Runde 7:** Drei Speicherorte sind neu.
 > (1) `eeb.unlesbar.v1` (`localStorage`): Unlesbare Sammlungen, Meldungen und
 > Vorlagen werden unverändert beiseitegelegt, statt beim nächsten Schreiben

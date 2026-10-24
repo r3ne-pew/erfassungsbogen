@@ -343,6 +343,19 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > und `vendor/` unverändert. Der Entwurf trägt zusätzlich die Marke „über die
 > Startseite verlassen" (`fremd.startseite`, R5-N3, 3.3 D1) — keine Daten.
 
+> **Nachgezogen 2026-10-24 (Runde 8):** Audit Runde 8. Der beiseitegelegte
+> Bestand (3.3 D2o) nimmt auch beschädigte Gesamttexte von Sammlungen und
+> Vorlagen auf, bevor der Kern sie ersetzt; die Hülle um die Ablage prüft vor
+> jedem Lesezugriff (5.5, 6.2). Die Rückfrage von „Sicherung einspielen…"
+> nennt Beschädigtes der Datei. Der Prellschutz der Rückfragen und die
+> Ortssperre haben sich geändert (5.3): Rückfrage 450 ms, mit zerstörender
+> Wahl 800 ms, Quittung 2,5 s, Sperre nur hinter der Rückfrage. Das späte
+> `history.back()` eines geschlossenen Fensters wird erkannt (5.5). Exporte
+> (5.4): CSV nach Nr., Sollstärke-Marke, Umschrift im Feld
+> Ansprechpartner/in. Der Lagemonitor merkt nur die Stufen „dunkel" und
+> „gedimmt" (`eeb.lagestufe.v1`, 3.3). Keine neuen Hosts, CSP und
+> Transportformat unverändert.
+
 > **Nachgezogen 2026-10-24:** Audit Runde 7 (Behebung der 85 Befunde). Neu sind
 > zwei Speicherorte mit möglichen Personendaten und ein Merker ohne (3.3 D2o,
 > D2m (c)): `eeb.unlesbar.v1` hält unlesbare Sammlungen, Meldungen und Vorlagen

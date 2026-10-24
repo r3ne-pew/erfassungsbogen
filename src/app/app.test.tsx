@@ -147,6 +147,7 @@ describe("Assistenten-Durchlauf", () => {
     // Ein hängengebliebenes Fragment würde den nächsten Test verfälschen.
     window.history.replaceState(null, "", window.location.pathname + window.location.search);
     localStorage.clear();
+    vi.useRealTimers();
   });
 
   it("startet auf der Startseite und öffnet mit „Neuen Bogen erstellen“ Schritt 1", async () => {
@@ -905,6 +906,9 @@ describe("Assistenten-Durchlauf", () => {
    * selben Weg mit.
    */
   it("fragt bei „OV …“ ohne Einheitstyp nach und übernimmt die Eintreffzeit vom Blatt", async () => {
+    // Nur das Datum festhalten: „09:40" darf nicht von der Uhrzeit des Testlaufs abhängen
+    // (vor 09:40 läge sie in der Zukunft und löste „Stimmt die Zeit?" aus).
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-24T12:00:00") });
     const einsatz = einsatzImSpeicherAnlegen("Sammelhausen", EinsatzArt.EINSATZ);
     meldungHinzufuegen(einsatz.id, bogenMitName("Papierhausen"));
     const nutzer = userEvent.setup();
@@ -924,6 +928,7 @@ describe("Assistenten-Durchlauf", () => {
     expect(new Date(neu.eingetroffenAm!).toTimeString().slice(0, 5)).toBe("09:40");
     // Die vorhandene Einheit behält ihre Zeit.
     expect(eintraege.find((e) => e.bogen.einheit.hierarchie[0]!.name === "Papierhausen")!.eingetroffenAm).toBeUndefined();
+    vi.useRealTimers();
   }, 20000);
 
   /**

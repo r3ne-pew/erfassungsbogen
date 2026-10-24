@@ -12,6 +12,32 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-24 (Runde 8):** Audit Runde 8 (51 Befunde ohne
+> Doppelungen, vier Pakete) — Kap. 5, 8.2, 8.4, 8.5, 8.6, 9: Ablage: Ein
+> Gesamttext von `eeb.einsaetze.v1` oder `eeb.vorlagen.v1`, der sich nicht
+> als Liste lesen lässt (abgebrochenes JSON, fremder Wert), wird in der Hülle
+> um die Ablage vor jedem Lesezugriff unverändert unter `eeb.unlesbar.v1`
+> (`texte`) beiseitegelegt (`sammlungenRetten`, `uhr-korrektur.ts`,
+> `unlesbar.ts`); der Kern in `vendor/` ersetzt ihn sonst beim ersten
+> Schreiben durch `[]` (R8-D1). Unlesbares ist Teil der Datensicherung, die
+> Rückfrage von „Sicherung einspielen…" nennt Beschädigtes der Datei
+> (`BestandUmfang.beschaedigt`). Nummern: „Entfernen" nennt die
+> Nummernverschiebung, der Papier-Abgleich auch die der unbeteiligten
+> Einheiten. Historie: „Nur in die Historie legen" setzt `ersetztDurch`
+> (vorhandenes Feld, kein Schema). Zug-Namen werden zu „n. Zug"
+> normalisiert (`zug-name.ts`). Exporte: CSV nach Nr., Sollstärke-Marke in
+> Lageblatt und Sammel-PDF, Umschrift kyrillischer und griechischer Namen im
+> Feld Ansprechpartner/in. Verlauf: Das späte `history.back()` eines
+> geschlossenen Fensters wird erkannt (`eigenesZurueckVerbrauchen`,
+> `modal-overlay.ts`) und zieht die gezeigte Ansicht nicht mehr ab. Tipp-
+> Schutz: Die Ortssperre beim Öffnen einer Rückfrage gilt nur hinter ihr;
+> Prellschutz der Rückfrage 450 ms, mit zerstörender Wahl 800 ms, Quittung
+> 2,5 s. Lagemonitor: Messung der Zeilenzahl neu, Tabelle am Telefon ohne
+> Einheitentyp, Stufenleiter Gedimmt < Dunkel < Hell (`eeb.lagestufe.v1`,
+> nur „dunkel"/„gedimmt" gemerkt). Neue Stilregeln (`stilregeln-r8-*.test.ts`).
+> Bundle-Budget erneut angehoben. Kein neuer Host, Transportformat und Schema
+> unverändert.
+>
 > **Nachgezogen 2026-10-24:** Audit Runde 7 (85 Befunde, vier Pakete) — Kap.
 > 5, 8.2, 8.4, 8.5, 8.6, 9: Geräteuhr: Der Halt bei Sprüngen unter 60 Tagen
 > gilt, bis jemand antwortet, nicht nur beim ersten Lesen

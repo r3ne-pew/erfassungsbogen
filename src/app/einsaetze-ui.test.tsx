@@ -656,10 +656,12 @@ describe("Abrücken mit Zeit, Quittung und Rückweg", () => {
   it("zeigt nur eine Quittung zur Zeit und lässt sie schließen", async () => {
     const nutzer = userEvent.setup();
     const { neuLaden } = buehne(["Crailsheim", "Aalen"]);
-    const karten = () => [...document.querySelectorAll<HTMLElement>(".einheit-zeile")];
-    await nutzer.click(within(karten()[1]!).getByRole("button", { name: "Abrücken" }));
+    // Karten über den Namen finden: Die Reihenfolge (Nr.) hängt bei gleicher Minute vom Schlüssel ab.
+    const karte = (name: string) =>
+      [...document.querySelectorAll<HTMLElement>(".einheit-zeile")].find((k) => k.textContent?.includes(name))!;
+    await nutzer.click(within(karte("Crailsheim")).getByRole("button", { name: "Abrücken" }));
     neuLaden();
-    await nutzer.click(within(karten()[0]!).getByRole("button", { name: "Abrücken" }));
+    await nutzer.click(within(karte("Aalen")).getByRole("button", { name: "Abrücken" }));
     neuLaden();
     const quittungen = screen.getAllByRole("status");
     expect(quittungen).toHaveLength(1);
