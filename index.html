@@ -5197,6 +5197,22 @@
     /* ===== Ende Runde 7 (Layout) ===== */
 
     /* ===== Runde 8 (Layout, Kontrast, Anzeige) ===== */
+    /* R8-K3 (Kopfbereich): Die Fünferleiste der Einsatzansicht stand am Telefon in drei Zeilen (229 px). Drei Felder in der ersten,
+       zwei in der zweiten Zeile (je Zeile 64 px): Die erste Einheitenkarte rückt um rund 100 px nach oben. Bei großer Schrift bleibt
+       das umbrechende Raster darunter in Kraft. */
+    @media (max-width: 30rem) {
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div { grid-column: span 2; border-top: var(--strich) solid var(--linie-fein); border-left: var(--strich) solid var(--linie-fein); }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div:nth-child(-n + 3) { border-top: none; }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div:nth-child(1), html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div:nth-child(4) { border-left: none; }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div:nth-child(n + 4) { grid-column: span 3; }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div.gesamt { border-top-color: var(--linie); }
+    }
+    /* R8-M9: Bei 180 px steht der Wert der „Bedarf:"-Zeile unter der Beschriftung, nicht in einer 80-px-Spalte daneben (288 px hoch). */
+    @media (max-width: 16rem) {
+      details.bedarf-block > summary { flex-wrap: wrap; }
+      details.bedarf-block > summary > .bedarf-werte { flex: 1 1 100%; }
+    }
     /* R8-M5: „Beispielbögen", „Datensicherung" und die übrigen einfachen Dialoge rollten als Ganzes, und „Schließen" (in der
        Kopfzeile) lag am Listenende bei −173 px außerhalb des Bildes. Die Kopfzeile bleibt oben im Dialog stehen; Textknöpfe und
        die Zeilen der Beispielliste haben mindestens 44 px (vorher 30 bis 33 px). */
@@ -5245,7 +5261,7 @@
     /* R8-N3: Bei 200 % Schrift sank der Einsatzname im Kopf der Einsatzansicht auf 16 px, kleiner als die Zeile darunter. Der Name
        bleibt bei 22 px (Normalgröße), die Zeile darunter ist gedeckelt (16 px). */
     html.schrift-gross .seiten-kopf.einsatz-kopf h1 { font-size: min(var(--t-xl), 22px); }
-    html.schrift-gross .seiten-kopf.einsatz-kopf > p.hinweis { font-size: min(var(--t-s), 16px); }
+    html.schrift-gross .seiten-kopf.einsatz-kopf p.hinweis { font-size: min(var(--t-s), 16px); }
   </style>
 </head>
 <body>
