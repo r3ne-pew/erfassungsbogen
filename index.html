@@ -3676,12 +3676,12 @@
       --ios-fond: #f2f2f7;                       /* systemGroupedBackground */
       --ios-flaeche: #ffffff;                    /* secondarySystemGroupedBackground */
       --ios-text: #000000;                       /* label */
-      --ios-text-2: rgba(60, 60, 67, 0.6);       /* secondaryLabel */
+      --ios-text-2: rgba(60, 60, 67, 0.75);      /* secondaryLabel, kräftiger (R8-L6: 5,2:1 statt 3,4:1) */
       --ios-trenner: rgba(60, 60, 67, 0.29);     /* separator */
       --ios-fuellung: rgba(118, 118, 128, 0.12); /* tertiarySystemFill */
       --ios-akzent: var(--blau);                 /* Tint für Text und Links */
       --ios-akzent-flaeche: var(--blau);         /* Tint als Button-Füllung */
-      --ios-rot: #d70015;                        /* systemRed, Zugänglich-Fassung (R8-L6: 5,9:1 statt 3,6:1 auf Weiß) */
+      --ios-rot: #c40012;                        /* systemRed, dunkler (R8-L6: >= 4,5:1 auch auf der Füllung, statt 3,6:1) */
       --ios-auf-akzent: #fff;                    /* Schrift auf der Tint-Füllung; nachts nie reinweiß */
       --ios-warnung-text: #7a5200;
       --ios-warnung-fond: #fff7e0;
@@ -5210,7 +5210,12 @@
     }
     /* R8-M9: Bei 180 px steht der Wert der „Bedarf:"-Zeile unter der Beschriftung, nicht in einer 80-px-Spalte daneben (288 px hoch). */
     @media (max-width: 16rem) {
-      details.bedarf-block > summary { flex-wrap: wrap; }
+      /* Bei 180 px blieben von der Breite nach Seitenrand, Ecken-Streifen von „◐" (76 px) und Kartenpolster 74 px; mit schmalerem Rand
+         (8 px), Streifen (60 px) und Polster (8 px) sind es 96 px für den Wert. */
+      main { padding-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right)); }
+      html:has(.anzeige-balken) main, html:has(.anzeige-balken) footer.seite { padding-right: max(8px, calc(60px + env(safe-area-inset-right))); }
+      main .karte { padding: 8px; }
+      details.bedarf-block > summary { flex-wrap: wrap; font-size: min(var(--t-s), 13px); line-height: 1.3; padding-block: 4px; }
       details.bedarf-block > summary > .bedarf-werte { flex: 1 1 100%; }
     }
     /* R8-M5: „Beispielbögen", „Datensicherung" und die übrigen einfachen Dialoge rollten als Ganzes, und „Schließen" (in der

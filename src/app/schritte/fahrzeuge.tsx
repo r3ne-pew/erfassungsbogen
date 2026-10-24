@@ -127,7 +127,8 @@ function FahrzeugKarte(props: {
             value={f.stanKonform == null ? "na" : f.stanKonform ? "ja" : "nein"}
             onChange={(e) => set({ stanKonform: e.target.value === "na" ? undefined : e.target.value === "ja" })}
           >
-            <option value="na">— (nicht anwendbar)</option>
+            {/* Kurz, damit der Vorgabewert im schmalen Feld ganz zu lesen ist („— (nicht a", R8-N7); k. A. = keine Angabe. */}
+            <option value="na" title="keine Angabe / nicht anwendbar">— k. A.</option>
             <option value="ja">ja</option>
             <option value="nein">nein</option>
           </Auswahl>

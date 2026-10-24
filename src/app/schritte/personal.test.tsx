@@ -136,7 +136,7 @@ describe("Schritt Personal", () => {
   it("erklärt „Nur Stärke“ für den eigenen Bogen und die Regel zur ersten Person in der Kurz-Liste (R5-N7, R5-N8)", async () => {
     const nutzer = userEvent.setup();
     buehne();
-    expect(screen.getByText(/„Nur Stärke“ meldet nur die Zahlen, ohne Namen und Fahrzeuge/)).toBeDefined();
+    expect(screen.getByText(/„Nur Stärke“ meldet nur die Zahlen, ohne Namen; die Fahrzeuge folgen in Schritt 4/)).toBeDefined();
     await nutzer.click(screen.getByRole("button", { name: "+ Person hinzufügen" }));
     await nutzer.click(screen.getByRole("button", { name: "+ Person hinzufügen" }));
     await nutzer.click(screen.getByLabelText("Kurz-Liste (Tabelle)"));

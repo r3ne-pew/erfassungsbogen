@@ -1193,7 +1193,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
           eigenen Bogen ausfüllt, braucht sie nicht (R5-N7). */}
       {!nurStaerke && (
         <p className="hinweis">
-          „Nur Stärke“ meldet nur die Zahlen, ohne Namen und Fahrzeuge — gedacht für den Meldekopf, der eine
+          „Nur Stärke“ meldet nur die Zahlen, ohne Namen; die Fahrzeuge folgen in Schritt 4 — gedacht für den Meldekopf, der eine
           Einheit im Stehen aufnimmt. Für den eigenen Bogen „Personal vollständig erfassen“ lassen.
         </p>
       )}

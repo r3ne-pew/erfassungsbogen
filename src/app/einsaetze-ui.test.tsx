@@ -524,7 +524,7 @@ describe("Einheiten als Tabelle", () => {
     // F/U/M und Kfz stehen bei der Gesamtstärke — am Laptop lagen sie sonst
     // außerhalb des Rahmens (R3-K7).
     expect(koepfe.slice(0, 10).map((k) => k.replace(/^(\S+?)[A-ZÄÖÜ].*$/, "$1"))).toEqual([
-      "Einheit", "Zug", "F", "U", "M", "Ges.", "Kfz", "Bedarf", "Eingetr.", "Auftrag",
+      "Einheit", "Zug", "F", "U", "M", "Ges.", "Kfz", "Auftrag", "Eingetr.", "Bedarf",
     ]);
     const zeile = within(tabelle).getAllByRole("row")[1]!;
     const zellen = [...zeile.children].map((z) => z.textContent ?? "");

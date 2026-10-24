@@ -120,8 +120,8 @@ describe("Zoom im Feld-Modus: Fußzeile und Fußleiste (R7-G5)", () => {
     expect(css).toMatch(/\.fuss-gruppen\s*\{\s*grid-template-columns:\s*repeat\(auto-fit, minmax\(min\(9rem, 100%\), 1fr\)\)/);
   });
 
-  it("unter 12rem bekommt der Pfeil vorwärts eine eigene Zeile", () => {
-    expect(css).toMatch(/@media \(max-width: 12rem\)\s*\{\s*footer\.nav\.assistent-nav:not\(\.mit-uebernehmen\) > \.primaer\s*\{\s*grid-row:\s*1;\s*grid-column:\s*1 \/ -1/);
+  it("unter 9rem (R8-G2: vorher 12rem) bekommt der Pfeil vorwärts eine eigene Zeile", () => {
+    expect(css).toMatch(/@media \(max-width: 9rem\)\s*\{\s*footer\.nav\.assistent-nav:not\(\.mit-uebernehmen\) > \.primaer\s*\{\s*grid-row:\s*1;\s*grid-column:\s*1 \/ -1/);
   });
 });
 
