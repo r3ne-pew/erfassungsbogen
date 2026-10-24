@@ -906,16 +906,16 @@ describe("Assistenten-Durchlauf", () => {
    * selben Weg mit.
    */
   it("fragt bei „OV …“ ohne Einheitstyp nach und übernimmt die Eintreffzeit vom Blatt", async () => {
-    // Nur das Datum festhalten: „09:40" darf nicht von der Uhrzeit des Testlaufs abhängen
-    // (vor 09:40 läge sie in der Zukunft und löste „Stimmt die Zeit?" aus).
-    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-24T12:00:00") });
     const einsatz = einsatzImSpeicherAnlegen("Sammelhausen", EinsatzArt.EINSATZ);
     meldungHinzufuegen(einsatz.id, bogenMitName("Papierhausen"));
+    // Eine Stunde vor jetzt: Eine feste Uhrzeit wie „09:40" löst zwischen etwa 03:40 und 09:25
+    // die Rückfrage „heute oder gestern?" aus (eintreffzeitPruefen) und der Test wäre tageszeitabhängig.
+    const blatt = new Date(Date.now() - 60 * 60_000).toTimeString().slice(0, 5);
     const nutzer = userEvent.setup();
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
     await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
-    await nutzer.type(screen.getByLabelText("Eingetroffen um (vom Meldeblock)"), "09:40");
+    await nutzer.type(screen.getByLabelText("Eingetroffen um (vom Meldeblock)"), blatt);
     await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "OV Papierhausen");
     await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
     await nutzer.click(within(await screen.findByRole("dialog", { name: "Stärke fehlt" })).getByRole("button", { name: "Trotzdem mit Stärke 0 übernehmen" }));
@@ -925,10 +925,9 @@ describe("Assistenten-Durchlauf", () => {
 
     const eintraege = einsaetzeLaden().find((s) => s.id === einsatz.id)!.eintraege;
     const neu = eintraege.find((e) => e.bogen.einheit.hierarchie[0]!.name === "OV Papierhausen")!;
-    expect(new Date(neu.eingetroffenAm!).toTimeString().slice(0, 5)).toBe("09:40");
+    expect(new Date(neu.eingetroffenAm!).toTimeString().slice(0, 5)).toBe(blatt);
     // Die vorhandene Einheit behält ihre Zeit.
     expect(eintraege.find((e) => e.bogen.einheit.hierarchie[0]!.name === "Papierhausen")!.eingetroffenAm).toBeUndefined();
-    vi.useRealTimers();
   }, 20000);
 
   /**

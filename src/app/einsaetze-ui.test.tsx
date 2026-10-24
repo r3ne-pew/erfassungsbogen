@@ -656,16 +656,16 @@ describe("Abrücken mit Zeit, Quittung und Rückweg", () => {
   it("zeigt nur eine Quittung zur Zeit und lässt sie schließen", async () => {
     const nutzer = userEvent.setup();
     const { neuLaden } = buehne(["Crailsheim", "Aalen"]);
-    // Karten über den Namen finden: Die Reihenfolge (Nr.) hängt bei gleicher Minute vom Schlüssel ab.
+    // Die Reihenfolge der Karten hängt bei gleicher Minute vom Schlüssel ab, darum über den Namen wählen.
     const karte = (name: string) =>
       [...document.querySelectorAll<HTMLElement>(".einheit-zeile")].find((k) => k.textContent?.includes(name))!;
-    await nutzer.click(within(karte("Crailsheim")).getByRole("button", { name: "Abrücken" }));
-    neuLaden();
     await nutzer.click(within(karte("Aalen")).getByRole("button", { name: "Abrücken" }));
+    neuLaden();
+    await nutzer.click(within(karte("Crailsheim")).getByRole("button", { name: "Abrücken" }));
     neuLaden();
     const quittungen = screen.getAllByRole("status");
     expect(quittungen).toHaveLength(1);
-    expect(quittungen[0]!.textContent).toContain("Aalen");
+    expect(quittungen[0]!.textContent).toContain("Crailsheim");
 
     const schliessen = within(quittungen[0]!).getByRole("button", { name: "Quittung schließen" }) as HTMLButtonElement;
     await waitFor(() => expect(schliessen.disabled).toBe(false), { timeout: PRELLSCHUTZ_MS + 500 });
