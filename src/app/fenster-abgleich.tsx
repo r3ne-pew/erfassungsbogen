@@ -90,7 +90,8 @@ const ZULETZT_GESCHLOSSEN = "Zuletzt geschlossener Bogen";
 
 /** „; anders: Ort / Auftrag" — leer, wenn der Bogen sich inhaltlich nicht unterscheidet. */
 function unterschiedFuer(hier: Erfassungsbogen, dort: Erfassungsbogen, vorsatz = "; anders: "): string {
-  const t = unterschiedText(hier, dort);
+  // In den Rückfragen mit den Werten beider Fassungen (R8-N6); die Leiste bleibt bei den Namen der Felder.
+  const t = unterschiedText(hier, dort, 4, { werte: true });
   return t ? `${vorsatz}${t}` : "";
 }
 

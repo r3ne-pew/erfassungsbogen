@@ -78,7 +78,7 @@ import {
   type Einsatzsammlung,
   type MeldeEintrag,
 } from "@bos/meldekopf/einsaetze";
-import { fassungGiltSetzen, fassungPruefen, fassungenJeEinheit, geltendeJeEinheit, type FassungsPruefung } from "./fassung-vorrang";
+import { fassungGiltSetzen, fassungInHistorieLegen, fassungPruefen, fassungenJeEinheit, geltendeJeEinheit, type FassungsPruefung } from "./fassung-vorrang";
 import { einsaetzeLaden, einsaetzePapierkorb } from "./einsaetze-lesen";
 import { bogenDiff, diffKurzfassung } from "@bos/meldekopf/meldung-diff";
 import {
@@ -2019,12 +2019,12 @@ function AppInhalt() {
     let vorrang: { text: string } | null = null;
     if (pruefung && entschieden) {
       // Die Rückfrage davor hat entschieden — still umsetzen, in der Quittung nennen.
-      await vorrangSetzen(zielId, entschieden === "neu" ? pruefung.neu.id : pruefung.bisher.id);
+      await vorrangSetzen(zielId, entschieden === "neu" ? pruefung.neu.id : pruefung.bisher.id, entschieden === "bisher" ? pruefung.neu.id : undefined);
       vorrang = {
         text:
           entschieden === "neu"
             ? `gilt trotz ${pruefung.neu.bogen.stand < pruefung.bisher.bogen.stand ? "älterem" : "gleichem"} Stand (${zeitpunktDeutsch(pruefung.neu.bogen.stand)}); die bisherige Fassung liegt in der Historie`
-            : `nur in die Historie gelegt — die bisherige Fassung (${zeitpunktDeutsch(pruefung.bisher.bogen.stand)}) gilt weiter`,
+            : `nur in die Historie gelegt — die bisherige Fassung (${zeitpunktDeutsch(pruefung.bisher.bogen.stand)}) gilt weiter, die Lage bleibt unverändert`,
       };
     } else if (pruefung && kiosk) {
       vorrang = { text: vorrangKioskText(pruefung) };
@@ -2102,7 +2102,8 @@ function AppInhalt() {
     const name = einheitAnzeigename(p.neu.bogen.einheit);
     const stand = (e: MeldeEintrag) => `Stand ${zeitpunktDeutsch(e.bogen.stand)}, Stärke ${staerkeKurz(e.bogen)}`;
     if (p.lage === "aelter") {
-      return { text: `älterer Stand als der vorhandene (${zeitpunktDeutsch(p.bisher.bogen.stand)}) — nur in die Historie gelegt` };
+      await vorrangSetzen(zielId, p.bisher.id, p.neu.id);
+      return { text: `älterer Stand als der vorhandene (${zeitpunktDeutsch(p.bisher.bogen.stand)}) — nur in die Historie gelegt, die Lage bleibt unverändert` };
     }
     const vergleich = meldungenVergleichen(p.bisher.bogen, p.neu.bogen);
     if (p.lage === "ersetzt-platzhalter") {
@@ -2162,14 +2163,16 @@ function AppInhalt() {
       await vorrangSetzen(zielId, p.neu.id);
       return { text: `gleicher Stand wie die bisherige Fassung — die eben eingelesene gilt` };
     }
-    await vorrangSetzen(zielId, p.bisher.id);
+    await vorrangSetzen(zielId, p.bisher.id, p.neu.id);
     return { text: `gleicher Stand wie die bisherige Fassung — die bisherige gilt weiter, die eben eingelesene liegt in der Historie` };
   }
 
   /** Vorrang schreiben; ein voller Speicher wird gemeldet, die Aufnahme bleibt. */
-  async function vorrangSetzen(zielId: string, eintragId: string): Promise<void> {
+  async function vorrangSetzen(zielId: string, eintragId: string, inHistorie?: string): Promise<void> {
     try {
       fassungGiltSetzen(zielId, eintragId);
+      // Die eben eingelesene Fassung liegt nur in der Historie (R8-W2): als verdrängt vermerken.
+      if (inHistorie) fassungInHistorieLegen(zielId, inHistorie, eintragId);
     } catch (e) {
       setFehler(istSpeicherVoll(e) ? new SpeicherVollFehler(e).message : fehlerText(e));
     }
@@ -2757,7 +2760,7 @@ function AppInhalt() {
               },
             ]
           : []),
-        { wert: "soll", label: "Als Sollstärke ablegen", hinweis: "Die Karte in der Sammlung trägt die Marke „Sollstärke, nicht gemeldet“." },
+        { wert: "soll", label: "Als Sollstärke ablegen", hinweis: "Die Zahl zählt in den Summen mit, bis eine echte Zahl vorliegt. Karte, Lageblatt und Sammel-PDF tragen die Marke „Sollstärke, nicht gemeldet“; die Summe nennt den Anteil." },
       ],
     });
     if (wahl === "eintragen") {
@@ -3829,6 +3832,14 @@ function AppInhalt() {
                   <button type="button" className="link" onClick={() => { setMeldung(""); setOffenerEinsatzId(null); setZeigeStart(false); }}>Weiter erfassen</button>
                 </p>
               )}
+              {/* Wer Meldekopf und Einheit zugleich ist, landet nach dem Neuladen in der Sammlung: Der eigene,
+                  noch offene Bogen bekommt hier einen Weg zurück (R8-W5). */}
+              {bogen && !fremdeErfassung && !bearbeiteteVorlage && bogenHatInhalt(bogen) && (
+                <p className="meldung" role="status" style={{ textAlign: "center" }}>
+                  Dein eigener Bogen „{einheitAnzeigename(bogen.einheit) || "(noch ohne Namen)"}" ist noch offen.{" "}
+                  <button type="button" className="link" onClick={() => { setMeldung(""); setOffenerEinsatzId(null); setZeigeStart(false); }}>Bogen fortsetzen</button>
+                </p>
+              )}
               {/* Stapel-Fortschritt und -Bericht holen sich selbst ins Bild (R2-A2). */}
               <StapelQuittung
                 stand={stapelStand}
@@ -4011,6 +4022,27 @@ function AppInhalt() {
                     ? ` · gespeichert ${uhrzeitMitTag(gespeichertUm)} Uhr`
                     : ""}
                 </span>
+                {/* Was die App von selbst löscht, kündigt sie dort an, wo man den Bogen wieder aufnimmt:
+                    ab 14 Tagen vor Ablauf der Datenschutzfrist (R8-D3). */}
+                {!bearbeiteteVorlage && (() => {
+                  const ende = datenschutzfristEnde(bogen);
+                  if (ende == null) return null;
+                  if (datenschutzfristAbgelaufen(bogen, datenschutzZeitpunkt())) {
+                    return (
+                      <span className="hinweis warnung-text frist-karte">
+                        ⚠ Datenschutzfrist abgelaufen: Namen, Funktionen und Erreichbarkeiten wurden am {tagDeutsch(ende)} anonymisiert.
+                      </span>
+                    );
+                  }
+                  const tage = tageBisAnonymisierung(bogen, datenschutzZeitpunkt());
+                  if (tage == null) return null;
+                  return (
+                    <span className="hinweis warnung-text frist-karte">
+                      ⚠ Namen werden am {tagDeutsch(ende)} anonymisiert ({tage === 1 ? "noch 1 Tag" : `noch ${tage} Tage`}) — vorher weitergeben oder sichern;
+                      Bearbeiten beginnt die Frist neu.
+                    </span>
+                  );
+                })()}
                 {/* Ein anderes Fenster hat den Bogen geändert oder gelöscht (Alle
                     Daten löschen, Bogen geschlossen): Die Karte darf ihn nicht als
                     gespeichert zeigen, und hier wird nichts zurückgeschrieben
@@ -4047,13 +4079,21 @@ function AppInhalt() {
           <section className="entwurf-karte verdraengt beschaedigt" role="alert">
             <span className="entwurf-text">
               <strong>Ein gespeicherter Bogen ließ sich nicht öffnen</strong>
+              {/* R8-H4, R8-S2: zwei Sätze und der Weg; die Einzelheiten hinter „Mehr dazu“. */}
               <span className="hinweis warnung-text">
-                Ursache: {beschaedigt.ursache}. Er ist nicht gelöscht, sondern beiseitegelegt — als Datei sichern. „Aus Datei laden…“
-                öffnet sie nur, wenn die genannte Ursache nicht mehr zutrifft; fehlt eine Pflichtangabe, nennt die App sie beim Einlesen — nachtragen
-                lässt sie sich in der App nicht, die Datei dient dann der Support-Stelle. Die App löscht ihn
-                am {datumZweistellig(beschaedigt.am + DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000)} von selbst
-                ({DATENSCHUTZFRIST_TAGE} Tage nach dem Beiseitelegen).
+                Er ist nicht gelöscht, sondern beiseitegelegt. „Als Datei sichern“ und an den weitergeben, der die App betreut —
+                oder unten gleich einen neuen Bogen beginnen.
               </span>
+              <details className="beschaedigt-mehr">
+                <summary>Mehr dazu</summary>
+                <span className="hinweis">
+                  Ursache: {beschaedigt.ursache}. „Aus Datei laden…“ öffnet die Datei nur, wenn diese Ursache nicht mehr zutrifft; fehlt
+                  eine Pflichtangabe, nennt die App sie beim Einlesen. Nachtragen lässt sie sich in der App nicht — dann braucht, wer die
+                  App betreut, die Datei. Die App löscht den Bogen am{" "}
+                  {datumZweistellig(beschaedigt.am + DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000)} von selbst ({DATENSCHUTZFRIST_TAGE} Tage nach
+                  dem Beiseitelegen).
+                </span>
+              </details>
             </span>
             <span className="entwurf-aktionen">
               <button
@@ -4571,7 +4611,7 @@ function AppInhalt() {
               : fremdeErfassung
                 ? "Die Erfassung wird in der Sammlung abgelegt und hier geschlossen."
                 : // Ein Gruppenführer hielt das für die Übergabe an den Meldekopf (R4-N6).
-                  "Dein Bogen wird als Meldung abgelegt und bleibt hier geöffnet. Das bleibt auf diesem Gerät — an den Meldekopf geht er über „Bogen übergeben…“."}
+                  "Dein Bogen wird als Meldung abgelegt. Danach öffnet die Sammlung; dein Bogen bleibt unter „Fortsetzen“ auf der Startseite geöffnet. Das bleibt auf diesem Gerät — an den Meldekopf geht er über „Bogen übergeben…“."}
             {" "}Ist die Einheit dort schon gemeldet, wird nachgefragt (neue Fassung oder eigene Einheit).
           </p>
           {fehler && <p className="fehler" role="alert">{fehler}</p>}

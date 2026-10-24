@@ -20,6 +20,7 @@ import { exportVorhanden } from "./export-stand";
 import { einheitAnzeigename } from "./hilfen";
 import { geraeteSchluesselPrivat } from "./geraete-schluessel";
 import { vorlagenLaden, vorlagenPapierkorb } from "./vorlagen";
+import { unlesbarerGesamttext, unlesbareSammlungsteile, unlesbareVorlagenteile } from "./unlesbar";
 import { folgenVorhanden, uhrFolgen, type UhrFolgen } from "./uhr-folgen";
 
 const FORMAT = "eeb-sicherung";
@@ -118,6 +119,11 @@ export interface BestandUmfang {
    * nach den Fristen übrig bleibt.
    */
   faellig: UhrFolgen;
+  /**
+   * Beschädigtes im Bestand, in Worten („Einsatz-Sammlungen: Text abgeschnitten …"). Die Rückfrage
+   * nennt es: Wer die Datei einspielt, bringt es mit (R8-E1). Leer oder fehlend = nichts gefunden.
+   */
+  beschaedigt?: string[];
 }
 
 const EINSAETZE_SCHLUESSEL = "eeb.einsaetze.v1";
@@ -146,6 +152,34 @@ function jsonListe(roh: string | undefined): unknown[] {
   }
 }
 
+/** Was an den Einträgen eines Bestands beschädigt ist — dieselben Prüfungen, mit denen die App Unlesbares beiseitelegt (unlesbar.ts). */
+function beschaedigtes(eintraege: Record<string, string>): string[] {
+  const aus: string[] = [];
+  const n = (zahl: number, eins: string, viele: string) => `${zahl} ${zahl === 1 ? eins : viele}`;
+  const sammlungenText = unlesbarerGesamttext(eintraege[EINSAETZE_SCHLUESSEL], "sammlungen");
+  if (sammlungenText) aus.push("Einsatz-Sammlungen: der gespeicherte Text ist beschädigt und nicht lesbar");
+  else {
+    const teile = unlesbareSammlungsteile(eintraege[EINSAETZE_SCHLUESSEL]);
+    if (teile.meldungen.length > 0) aus.push(`Einsatz-Sammlungen: ${n(teile.meldungen.length, "Meldung", "Meldungen")} nicht lesbar`);
+    if (teile.sammlungen.length > 0) aus.push(`Einsatz-Sammlungen: ${n(teile.sammlungen.length, "Sammlung", "Sammlungen")} nicht lesbar`);
+  }
+  if (unlesbarerGesamttext(eintraege[VORLAGEN_SCHLUESSEL], "vorlagen")) aus.push("Vorlagen: der gespeicherte Text ist beschädigt und nicht lesbar");
+  else {
+    const v = unlesbareVorlagenteile(eintraege[VORLAGEN_SCHLUESSEL]).length;
+    if (v > 0) aus.push(`Vorlagen: ${n(v, "Vorlage", "Vorlagen")} nicht lesbar`);
+  }
+  for (const [schluessel, name] of [[ENTWURF_SCHLUESSEL, "Entwurf"], [ERSETZT_SCHLUESSEL, "zuletzt geschlossener Bogen"]] as const) {
+    const roh = eintraege[schluessel];
+    if (!roh) continue;
+    try {
+      JSON.parse(roh);
+    } catch {
+      aus.push(`${name}: der gespeicherte Text ist beschädigt und nicht lesbar`);
+    }
+  }
+  return aus;
+}
+
 export function bestandUmfang(eintraege: Record<string, string>): BestandUmfang {
   const sammlungen: SammlungKurz[] = [];
   for (const e of jsonListe(eintraege[EINSAETZE_SCHLUESSEL])) {
@@ -170,6 +204,7 @@ export function bestandUmfang(eintraege: Record<string, string>): BestandUmfang 
       ? eintraege[GERAETESCHLUESSEL_SCHLUESSEL]!
       : null,
     faellig: uhrFolgen(Date.now(), (k) => eintraege[k] ?? null),
+    beschaedigt: beschaedigtes(eintraege),
   };
 }
 

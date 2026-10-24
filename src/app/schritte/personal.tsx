@@ -942,6 +942,16 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
   const stanGeladen = vorbelegungGeladen(bogen.personal, vorlage);
   const funktionsauswahl = haeufigeFunktionen(bogen.einheit.organisation, vorlage, bogen.personal);
   const unbenannte = bogen.personal.filter(personUnbenannt).length;
+  /** Entfernt nur Karten ohne Namen und Erreichbarkeit — ohne Rückfrage, mit Rückweg. */
+  const vorbelegungWegnehmen = () => {
+    const nach = benannte(bogen.personal);
+    // Mit Rückweg und Stärke vorher → nachher: Die Plätze trugen
+    // Geschlecht und Ernährung (Audit Runde 4, R4-D4).
+    aendernMitRueckweg(
+      nach,
+      `Vorbelegung entfernt: ${unbenannte === 1 ? "1 Person" : `${unbenannte} Personen`} — Stärke ${staerke(bogen).gesamt} → ${staerke({ personal: nach, staerkeManuell: bogen.staerkeManuell }).gesamt}.`,
+    );
+  };
   // Schnelleingabe: Tabellenansicht statt Detail-Karten; `fokusNeue` lässt den
   // Fokus beim Anlegen per Enter in die neue Zeile springen.
   // Ab 13 Personen beginnt die Liste mit der Kurz-Liste: Als Karten sind 38
@@ -1123,6 +1133,8 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
         titel: "Nur die Stärke melden?",
         text: `${erfasst === 1 ? "1 erfasste Person zählt" : `${erfasst} erfasste Personen zählen`} dann nicht mehr einzeln — die Stärke wird von Hand geführt und startet mit ${abgeleitet.fuehrer} / ${abgeleitet.unterfuehrer} / ${abgeleitet.mannschaft} / ${abgeleitet.gesamt}. Die Namen bleiben als Erreichbarkeiten erhalten.`,
         ok: "Nur Stärke melden",
+        // R8-H2: wie die anderen Rückfragen — der Fokus liegt auf der Wahl, die nichts verändert.
+        fokus: "abbruch",
       }))
     ) {
       return;
@@ -1290,6 +1302,15 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
           Punkte dieses Schritts; Zugehörigkeit und Ort/Auftrag stehen dort,
           wo man sie behebt, und gesammelt in der Übersicht. */}
       <Hinweise punkte={pruefpunkte(bogen, false)} aktuellerSchritt={2} />
+      {/* Der Weg zur Behebung steht an der Warnung (R8-W4): Der Knopf unter der Liste lag fünf
+          Bildschirme tiefer. Gleiche Handlung, mit Rückweg. */}
+      {!nurStaerke && unbenannte > 0 && bogen.personal.some(personLeer) && (
+        <p>
+          <button type="button" onClick={vorbelegungWegnehmen}>
+            {unbenannte === 1 ? "1 leeren Platz entfernen" : `${unbenannte} leere Plätze entfernen`}
+          </button>
+        </p>
+      )}
 
       {/* Ansichtswahl: Detail-Karten (alle Felder) oder Schnelleingabe-Tabelle
           (viele Personen zügig erfassen); dazu Mehrzeilen-Import fertiger Listen. */}
@@ -1312,7 +1333,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
               + Person hinzufügen
             </button>
           )}
-          <button type="button" onClick={() => { setNamenText(""); namenDialog.current?.showModal(); }}>
+          <button type="button" onClick={() => namenDialog.current?.showModal()}>
             Namen einfügen…
           </button>
           {nachzuegler.length > 0 && (
@@ -1408,18 +1429,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
           verloren geht nichts Erfasstes). Was jemand ausgefüllt hat, bleibt. */}
       {unbenannte > 0 && (
         <p>
-          <button
-            type="button"
-            onClick={() => {
-              const nach = benannte(bogen.personal);
-              // Mit Rückweg und Stärke vorher → nachher: Die Plätze trugen
-              // Geschlecht und Ernährung (Audit Runde 4, R4-D4).
-              aendernMitRueckweg(
-                nach,
-                `Vorbelegung entfernt: ${unbenannte === 1 ? "1 Person" : `${unbenannte} Personen`} — Stärke ${staerke(bogen).gesamt} → ${staerke({ personal: nach, staerkeManuell: bogen.staerkeManuell }).gesamt}.`,
-              );
-            }}
-          >
+          <button type="button" onClick={vorbelegungWegnehmen}>
             Vorbelegung entfernen ({unbenannte === 1 ? "1 Person ohne Namen" : `${unbenannte} Personen ohne Namen`})
           </button>
         </p>
@@ -1490,6 +1500,22 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             style={{ width: "100%" }}
           />
         </label>
+        {/* R8-E2: Escape, Zurück-Geste und „Schließen“ verwerfen die Liste nicht mehr — sie bleibt im Feld,
+            bis sie übernommen oder von Hand geleert wird. */}
+        {namenText.trim() !== "" && (
+          <p className="hinweis">
+            Die Liste bleibt stehen, auch wenn Sie das Fenster schließen — bis Sie sie übernehmen oder leeren.{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setNamenText("");
+                setVerdachtAngehakt(new Set());
+              }}
+            >
+              Liste leeren
+            </button>
+          </p>
+        )}
         {/* Vorschau: Wer welche Rolle bekommt, entscheidet über die gemeldete
             Stärke — das darf nicht erst im fertigen Bogen auffallen. */}
         {namenAlle.length > 0 && (

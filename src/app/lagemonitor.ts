@@ -78,7 +78,7 @@ export interface Lagebild {
   /** Art der Sammlung als Wort („Einsatz", „Übung", „Veranstaltung"). */
   art: string;
   summen: EinsatzSummen;
-  /** Anwesende Einheiten in der Reihenfolge, in der sie gemeldet wurden. */
+  /** Anwesende Einheiten, zuletzt gemeldete zuerst. */
   einheiten: EinheitZeile[];
   /** Einheiten, die abgerückt sind (zählen nicht mehr mit). */
   abgerueckt: number;
@@ -131,7 +131,7 @@ function bewegungenSeit(einsatz: Einsatzsammlung, jetzt: number): Bewegung[] {
 export function lagebild(einsatz: Einsatzsammlung, jetzt: number = Date.now()): Lagebild {
   const geltend = geltendeJeEinheit(einsatz.eintraege);
   const einheiten = [...aktuelleMeldungen(einsatz.eintraege, einsatz.art)]
-    .sort((a, b) => a.empfangenAm - b.empfangenAm)
+    .sort((a, b) => b.empfangenAm - a.empfangenAm) // zuletzt gemeldet zuerst (R8-K5); bei gleicher Zeit bleibt die Reihenfolge der Meldungen
     .map((m): EinheitZeile => {
       const e = m.bogen.einheit;
       const st = staerke(m.bogen);

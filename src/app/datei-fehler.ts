@@ -15,6 +15,7 @@
  */
 
 import { SCHEMA_VERSION } from "@bos/eeb-format/model";
+import { bogenBefund } from "./bogen-pruefung";
 import { fehlerText, istNachladeFehler } from "./nachladen";
 import { SpeicherVollFehler, istSpeicherVoll } from "./eintrag-zeiten";
 
@@ -40,6 +41,8 @@ export type DateiArt =
   | "json-fremd"
   | "bogen"
   | "bogen-neuer"
+  /** Eigene Bogen-Datei (gültige Schema-Version), aber ein Pflichtfeld fehlt oder ist unbrauchbar (R8-E3). */
+  | "bogen-defekt"
   /** Hülle eines gesicherten, beiseitegelegten Entwurfs: `{ gespeichert, bogen }` (R7-E1). */
   | "entwurf"
   | "boegen"
@@ -55,6 +58,21 @@ function istBogenRoh(x: unknown): boolean {
   return istObjekt(x) && typeof x.schemaVersion === "number" && x.schemaVersion >= 2 && !!x.einheit;
 }
 
+/** Felder, an denen eine Datei als Bogen dieser App erkennbar ist, auch wenn eines davon defekt ist. */
+const BOGEN_FELDER = ["einheit", "einsatz", "personal", "stand", "fahrzeuge", "personalErfassung"];
+
+/**
+ * Sieht die Datei nach einem Bogen dieser App aus (gültige Schema-Version, Bogenfelder) und taugt
+ * trotzdem nicht? Dann die Ursache mit dem Feld („die Einheit fehlt"), sonst `null` (R8-E3).
+ */
+export function bogenDefektUrsache(roh: unknown): string | null {
+  if (!istObjekt(roh) || typeof roh.schemaVersion !== "number" || roh.schemaVersion < 2 || roh.schemaVersion > SCHEMA_VERSION) return null;
+  if (!BOGEN_FELDER.some((k) => k in roh)) return null;
+  // bogenBefund ergänzt im Objekt: an einer Kopie prüfen.
+  const befund = bogenBefund(JSON.parse(JSON.stringify(roh)));
+  return befund.ok ? null : befund.ursache;
+}
+
 function jsonArt(roh: unknown): DateiArt {
   if (Array.isArray(roh)) {
     return roh.length > 0 && roh.every(istBogenRoh) ? "boegen" : "json-fremd";
@@ -63,6 +81,7 @@ function jsonArt(roh: unknown): DateiArt {
   if (roh.format === "eeb-sicherung") return "sicherung";
   if (roh.format === "eeb-vorlage") return "vorlage";
   if (roh.typ === "eeb-einsatz" || (typeof roh.id === "string" && Array.isArray(roh.eintraege))) return "einsatz";
+  if (bogenDefektUrsache(roh) != null) return "bogen-defekt";
   if (istBogenRoh(roh)) return (roh.schemaVersion as number) > SCHEMA_VERSION ? "bogen-neuer" : "bogen";
   // „Als Datei sichern" am beiseitegelegten Entwurf: Hülle ohne eigene Schema-Version,
   // der Bogen steckt darin. Sie ist kein „Fremdes" (Audit Runde 7, R7-E1).
@@ -119,7 +138,7 @@ const PASST: Record<DateiWeg, DateiArt[]> = {
  * nächstem Schritt. `null`, wenn die Art zum Weg passt und der Inhalt selbst
  * nichts erklärt (dann greift die allgemeine Meldung, {@link allgemeineMeldung}).
  */
-export function dateiFehlerText(name: string, art: DateiArt, weg: DateiWeg): string | null {
+export function dateiFehlerText(name: string, art: DateiArt, weg: DateiWeg, ursache?: string | null): string | null {
   const datei = `„${name}“`;
   const ausSicherung = weg === "sicherung";
   switch (art) {
@@ -149,6 +168,11 @@ export function dateiFehlerText(name: string, art: DateiArt, weg: DateiWeg): str
           ? "Eine Sicherung entsteht über „Sicherung erstellen…“ und heißt eeb-sicherung-….json."
           : "Beim Absender die PDF des Bogens anfordern oder den QR-Code scannen.")
       );
+    case "bogen-defekt":
+      return ausSicherung
+        ? `${datei} ist ein einzelner Bogen, keine Datensicherung (außerdem unvollständig: ${ursache ?? "ein Pflichtfeld fehlt"}). Eine Sicherung entsteht über „Sicherung erstellen…“.`
+        : `${datei} stammt aus dieser App, ist aber unvollständig: ${ursache ?? "ein Pflichtfeld fehlt"}. ` +
+          "In der App lässt sich das Fehlende nicht nachtragen — beim Absender neu anfordern oder den QR-Code des Bogens scannen.";
     case "bogen-neuer":
       return `${datei} stammt aus einer neueren Version der App. Bitte die App mit Netz neu laden, damit sie sich aktualisiert, und die Datei dann erneut wählen.`;
     default:
@@ -181,7 +205,16 @@ export async function dateiFehlerMeldung(datei: File, fehler: unknown, weg: Date
   } catch {
     return allgemeineMeldung(datei.name, weg);
   }
-  const erklaert = dateiFehlerText(datei.name, dateiArt(text), weg);
+  const art = dateiArt(text);
+  let ursache: string | null = null;
+  if (art === "bogen-defekt") {
+    try {
+      ursache = bogenDefektUrsache(JSON.parse(text.replace(/^﻿/, "").trim()));
+    } catch {
+      ursache = null;
+    }
+  }
+  const erklaert = dateiFehlerText(datei.name, art, weg, ursache);
   if (erklaert) return erklaert;
   // Die Datei sieht richtig aus: Dann trägt die eigene Meldung der Stelle,
   // die sie ablehnte (etwa „In dieser PDF steckt kein Erfassungsbogen …"),

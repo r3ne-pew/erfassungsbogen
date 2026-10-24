@@ -1268,6 +1268,10 @@ function BestandListe({ bestand, kurzform, geraet = false }: { bestand: BestandU
         </li>
       ))}
       {papierkorb > 0 && <li>{papierkorb} {papierkorb === 1 ? "Sammlung" : "Sammlungen"} im Papierkorb</li>}
+      {/* Beschädigtes in der Datei: Wer sie einspielt, bringt es mit (R8-E1). */}
+      {(bestand.beschaedigt ?? []).map((t) => (
+        <li key={t}><strong>beschädigt:</strong> {t}</li>
+      ))}
       <li>
         {bestand.vorlagen} {bestand.vorlagen === 1 ? "Vorlage" : "Vorlagen"}
         {bestand.vorlagenPapierkorb > 0 ? `, dazu ${bestand.vorlagenPapierkorb} im Papierkorb` : ""}

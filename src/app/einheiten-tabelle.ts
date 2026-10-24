@@ -18,12 +18,13 @@
  */
 
 import { EEB_EPOCHE_MS, staerke, type EebDatum, type Erfassungsbogen } from "@bos/eeb-format/model";
-import { einheitAnzeigename, orgLabel, pruefpunkte, vokabText, vokabularFuer, zeitpunktDeutsch, type Pruefpunkt } from "./hilfen";
+import { einheitAnzeigename, nurSollstaerke, orgLabel, pruefpunkte, vokabText, vokabularFuer, zeitpunktDeutsch, type Pruefpunkt } from "./hilfen";
 import { MeldeStatus, type EinsatzArt, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { FELD_GESAMTSTAERKE, bogenDiff, diffKurzfassung } from "@bos/meldekopf/meldung-diff";
-import { summiereBoegen, unterbringungLage, verpflegungLage, zaehltInLage, type EinsatzSummen } from "./auswertung";
+import { aktuelleMeldungen, summiereBoegen, unterbringungLage, verpflegungLage, zaehltInLage, type EinsatzSummen } from "./auswertung";
 import { eintreffzeit, zeitLang, zeitpunktZuMs } from "./eintrag-zeiten";
 import { revisionenJe } from "./einheiten-index";
+import { istVerdraengt } from "./fassung-vorrang";
 
 // ------------------------------------------------------------ Bedarfsmarken
 
@@ -186,6 +187,58 @@ export function nummernWechsel(vorher: MeldeEintrag[], nachher: MeldeEintrag[]):
     if (nach != null && nach !== von) wechsel.push({ einheitSchluessel: schl, einheit: namen.get(schl) ?? schl, von, nach });
   }
   return wechsel.sort((a, b) => a.von - b.von);
+}
+
+/**
+ * Wie viel von der Summe nur die Sollstärke der Vorbelegung ist (R8-A1): zählende Einheiten,
+ * für die niemand gezählt hat (`nurSollstaerke`), und ihre Personen.
+ */
+export function sollstaerkeAnteil(eintraege: MeldeEintrag[], art?: EinsatzArt): { einheiten: number; personen: number } {
+  let einheiten = 0;
+  let personen = 0;
+  for (const e of aktuelleMeldungen(eintraege, art)) {
+    if (!nurSollstaerke(e.bogen)) continue;
+    einheiten++;
+    personen += staerke(e.bogen).gesamt;
+  }
+  return { einheiten, personen };
+}
+
+/** „3–6" bzw. „3, 5, 8–9": aufeinanderfolgende Nummern zu Bereichen zusammengezogen. */
+function nummernBereiche(nummern: number[]): string {
+  const sortiert = [...new Set(nummern)].sort((a, b) => a - b);
+  const teile: string[] = [];
+  for (let i = 0; i < sortiert.length; ) {
+    let j = i;
+    while (j + 1 < sortiert.length && sortiert[j + 1] === sortiert[j]! + 1) j++;
+    teile.push(j > i ? `${sortiert[i]}–${sortiert[j]}` : `${sortiert[i]}`);
+    i = j + 1;
+  }
+  return teile.join(", ");
+}
+
+/**
+ * Was „Entfernen" an den Nummern der übrigen Einheiten ändert (Audit Runde 8,
+ * R8-D2): „Die Einheiten Nr. 3–6 rücken auf und heißen danach Nr. 2–5". Leer,
+ * wenn keine Nummer wandert (letzte Einheit).
+ */
+export function entfernenNummernText(eintraege: MeldeEintrag[], einheitSchluessel: string): string {
+  const wechsel = nummernWechsel(
+    eintraege,
+    eintraege.filter((e) => e.einheitSchluessel !== einheitSchluessel),
+  );
+  if (wechsel.length === 0) return "";
+  const von = nummernBereiche(wechsel.map((w) => w.von));
+  const nach = nummernBereiche(wechsel.map((w) => w.nach));
+  return `${wechsel.length === 1 ? "Die Einheit" : "Die Einheiten"} Nr. ${von} rücken auf und heißen danach Nr. ${nach}`;
+}
+
+/**
+ * Papier-Abgleich (R8-W1): jede Einheit, deren Nummer sich ändert, mit alter und neuer
+ * Nummer — „Bamberg 2 → 3, Ulm 3 → 4".
+ */
+export function nummernWechselListe(wechsel: NummernWechsel[]): string {
+  return wechsel.map((w) => `${w.einheit} ${w.von} → ${w.nach}`).join(", ");
 }
 
 function neueInfo(eintraege: MeldeEintrag[]): [string, string][] {
@@ -438,6 +491,9 @@ export function folgeAenderung(kopf: MeldeEintrag, alle: MeldeEintrag[]): FolgeA
       ? revs[stelle + 1]
       : revs.find((r) => r.id !== kopf.id && r.empfangenAm <= kopf.empfangenAm);
   if (!vorige) return null;
+  // Nur in die Historie gelegt (R8-W2): die ältere Fassung ist keine Vorgängerin, die Lage
+  // ändert sich nicht — also auch keine Folgemeldung.
+  if (istVerdraengt(vorige, revs)) return null;
   const d = bogenDiff(vorige.bogen, kopf.bogen);
   const vorher = staerke(vorige.bogen).gesamt;
   const nachher = staerke(kopf.bogen).gesamt;

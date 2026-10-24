@@ -7,17 +7,27 @@
  * führenden Zahl).
  */
 
-/** Vergleichsschlüssel: klein, ohne Leerzeichen und Punkte. */
+/**
+ * Nummernzug in beiden Wortstellungen („2. Zug", „2.Zug", „2 zug", „Zug 2",
+ * „Zug2", „zug 2.") — Audit Runde 8, R8-N5: „Zug 2" und „2. Zug" sind derselbe
+ * Zug und werden immer als „2. Zug" geführt.
+ */
+const NUMMERNZUG = /^(?:zug\s*\.?\s*(\d+)|(\d+)\s*\.?\s*zug)\.?$/i;
+
+/** Vergleichsschlüssel: klein, ohne Leerzeichen und Punkte; „Zug 2" = „2. Zug". */
 export function zugSchluessel(name: string): string {
-  return name.toLocaleLowerCase("de-DE").replace(/[\s.]+/g, "");
+  const t = name.trim().replace(/\s+/g, " ");
+  const m = NUMMERNZUG.exec(t);
+  const kanon = m ? `${m[1] ?? m[2]}. Zug` : t;
+  return kanon.toLocaleLowerCase("de-DE").replace(/[\s.]+/g, "");
 }
 
-/** Geglättete Schreibweise eines neuen Zuges: „1.Zug" → „1. Zug". */
+/** Geglättete Schreibweise eines neuen Zuges: „1.Zug" / „Zug 1" → „1. Zug". */
 function geglaettet(name: string): string {
-  return name
-    .trim()
-    .replace(/\s+/g, " ")
-    .replace(/^(\d+)\.\s*(?=\S)/, "$1. ");
+  const t = name.trim().replace(/\s+/g, " ");
+  const m = NUMMERNZUG.exec(t);
+  if (m) return `${m[1] ?? m[2]}. Zug`;
+  return t.replace(/^(\d+)\.\s*(?=\S)/, "$1. ");
 }
 
 /**
@@ -28,6 +38,8 @@ function geglaettet(name: string): string {
 export function zugNormalisiert(eingabe: string, vorhandene: Iterable<string | undefined>): string {
   const t = geglaettet(eingabe);
   if (!t) return "";
+  // Nummernzüge haben genau eine Schreibweise („2. Zug"), auch gegenüber älteren Beständen.
+  if (NUMMERNZUG.test(t)) return t;
   const schl = zugSchluessel(t);
   const zaehler = new Map<string, number>();
   for (const v of vorhandene) {

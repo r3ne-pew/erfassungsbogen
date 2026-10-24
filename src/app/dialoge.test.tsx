@@ -29,8 +29,28 @@ describe("Prellschutz der Rückfrage", () => {
     fireEvent.click(knopf, { detail: 1 });
     expect(dialog.hasAttribute("open")).toBe(true);
 
-    // Ein bewusster Tipp eine halbe Sekunde später wirkt.
-    vi.setSystemTime(Date.now() + 500);
+    // Mit zerstörender Wahl trägt der Prellschutz bis 800 ms (R8-H5): ein zögernder Zweittipp nach 0,5 s fällt noch.
+    vi.setSystemTime(Date.now() + 350);
+    fireEvent.click(knopf, { detail: 1 });
+    expect(dialog.hasAttribute("open")).toBe(true);
+
+    // Ein bewusster Tipp nach dem Lesen wirkt.
+    vi.setSystemTime(Date.now() + 400);
+    fireEvent.click(knopf, { detail: 1 });
+    await expect(antwort).resolves.toBe(true);
+  });
+
+  it("ohne zerstörende Wahl nimmt die Rückfrage den Tipp nach 450 ms an", async () => {
+    prellschutzSetzen(450);
+    render(<Dialogschicht />);
+    const antwort = frageJaNein({ titel: "Weiter?", text: "?", ok: "Weiter" });
+    const dialog = await screen.findByRole("dialog", { name: "Weiter?" });
+    const knopf = within(dialog).getByRole("button", { name: "Weiter" });
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
+    vi.setSystemTime(Date.now() + 150);
+    fireEvent.click(knopf, { detail: 1 });
+    expect(dialog.hasAttribute("open")).toBe(true);
+    vi.setSystemTime(Date.now() + 400);
     fireEvent.click(knopf, { detail: 1 });
     await expect(antwort).resolves.toBe(true);
   });
@@ -63,12 +83,20 @@ describe("Ortssperre der Rückfrage", () => {
     el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: x, clientY: y, detail: 1 }));
   }
 
-  it("verschluckt den zweiten Tipp an der Stelle des Auslösers bis 1,5 s, daneben nicht", async () => {
+  it("sperrt die Stelle des Auslösers hinter dem Dialog, nicht die Knöpfe des Dialogs (R8-H5, R8-S4)", async () => {
     tippSchutzZuruecksetzen();
+    prellschutzSetzen(450);
     let antwort: Promise<boolean> | null = null;
+    let ausgeloest = 0;
     render(
       <>
-        <button type="button" onClick={() => (antwort = frageJaNein({ titel: "Einsatz löschen?", text: "?", ok: "In den Papierkorb", gefahr: true }))}>
+        <button
+          type="button"
+          onClick={() => {
+            ausgeloest++;
+            antwort = frageJaNein({ titel: "Einsatz löschen?", text: "?", ok: "In den Papierkorb", gefahr: true });
+          }}
+        >
           Einsatz löschen…
         </button>
         <Dialogschicht />
@@ -79,14 +107,44 @@ describe("Ortssperre der Rückfrage", () => {
     const knopf = within(dialog).getByRole("button", { name: "In den Papierkorb" });
     vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
     const start = Date.now();
-    for (const ms of [574, 746, 1156, 1400]) {
+    // Der Prellschutz der Rückfrage fängt den Zweittipp bis 800 ms ab …
+    for (const ms of [574, 746]) {
       vi.setSystemTime(start + ms);
       tippAuf(knopf, 182, 404);
       expect(dialog.hasAttribute("open")).toBe(true);
+      expect(document.getElementById("tipp-moment")).toBeNull(); // … ohne „Einen Moment …“ über dem Dialogtext
     }
-    // Bewusst getippt, eine Fingerbreite tiefer: wirkt.
-    tippAuf(knopf, 180, 470);
+    // … ein bewusster Tipp danach auf dieselbe Stelle wirkt, auch vor Ablauf von 1,5 s.
+    vi.setSystemTime(start + 1156);
+    tippAuf(knopf, 182, 404);
     await expect(antwort).resolves.toBe(true);
+    expect(ausgeloest).toBe(1);
+  });
+
+  it("nach „Abbrechen“ bleibt die Stelle des Auslösers 1,5 s gesperrt", async () => {
+    tippSchutzZuruecksetzen();
+    let ausgeloest = 0;
+    render(
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            ausgeloest++;
+            void frageJaNein({ titel: "Verwerfen?", text: "?", ok: "Verwerfen", gefahr: true });
+          }}
+        >
+          Verwerfen…
+        </button>
+        <Dialogschicht />
+      </>,
+    );
+    const ausloeser = screen.getByRole("button", { name: "Verwerfen…" });
+    tippAuf(ausloeser, 180, 400);
+    const dialog = await screen.findByRole("dialog", { name: "Verwerfen?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Abbrechen" }), { detail: 0 });
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    tippAuf(ausloeser, 182, 404); // sofort wieder: Doppeltipp, verschluckt
+    expect(ausgeloest).toBe(1);
   });
 
   it("gibt die Stelle nach der Sperre frei", async () => {

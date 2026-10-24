@@ -40,6 +40,13 @@ export const PRELLSCHUTZ_MS: number = (globalThis as { __EEB_PRELLSCHUTZ_MS?: nu
 export const ORTSSPERRE_MS: number =
   (globalThis as { __EEB_ORTSSPERRE_MS?: number }).__EEB_ORTSSPERRE_MS ?? (PRELLSCHUTZ_MS === 0 ? 0 : 1500);
 
+/**
+ * Sperre der Stelle unter einer aufgegangenen Quittungsleiste mit „Rückgängig". Ein Zweittipp ab 1,5 s
+ * nahm „Abrücken" an derselben Stelle zurück, weil dort jetzt „Rückgängig" lag (R8-D5); der
+ * bewusste Rückweg kommt erst nach dem Lesen der Quittung und liegt über 2,5 s.
+ */
+export const QUITTUNG_SPERRE_MS: number = ORTSSPERRE_MS === 0 ? 0 : Math.max(ORTSSPERRE_MS, 2500);
+
 /** Halbmesser der gesperrten Stelle: eine Fingerkuppe mit Handschuh samt Zittern. */
 export const ORTSSPERRE_RADIUS_PX = 40;
 
@@ -76,6 +83,14 @@ interface Sperre {
   bis: number;
   kappe: number;
   verlaengern: boolean;
+  /**
+   * Gilt nicht für Tipps INNERHALB einer offenen Rückfrage (`dialog.abfrage`): Die Sperre, die das
+   * Öffnen der Rückfrage setzt, schützt die Stelle des auslösenden Tipps hinter dem Dialog, nicht
+   * die Knöpfe des Dialogs. Deren Schutz ist der Prellschutz der Rückfrage (dialoge.tsx); sonst
+   * verwarf die Sperre den ersten bewussten Tipp auf einen frisch erschienenen Knopf, und
+   * „Einen Moment …“ verdeckte den Dialogtext (R8-H5, R8-S4).
+   */
+  nurAusserhalbRueckfrage: boolean;
 }
 
 /** Obergrenze einer verlängerten Sperre, vom Beginn an gerechnet. */
@@ -99,9 +114,15 @@ function radiusFuer(halb: number): number {
   return halb > 0 ? Math.min(ORTSSPERRE_RADIUS_PX, Math.max(ORTSSPERRE_RADIUS_MIN_PX, halb)) : ORTSSPERRE_RADIUS_PX;
 }
 
-function sperreAn(x: number, y: number, jetzt: number): Sperre | undefined {
+const IN_RUECKFRAGE = "dialog.abfrage[open]";
+
+function inRueckfrage(e: MouseEvent): boolean {
+  return (e.target as Element | null)?.closest?.(IN_RUECKFRAGE) != null;
+}
+
+function sperreAn(x: number, y: number, jetzt: number, imDialog = false): Sperre | undefined {
   sperren = sperren.filter((s) => s.bis >= jetzt);
-  return sperren.find((s) => Math.hypot(x - s.x, y - s.y) <= s.radius);
+  return sperren.find((s) => !(imDialog && s.nurAusserhalbRueckfrage) && Math.hypot(x - s.x, y - s.y) <= s.radius);
 }
 
 /**
@@ -136,6 +157,18 @@ function verworfenZeigen(e: MouseEvent): void {
   const breite = window.innerWidth || 360;
   pille.style.left = `${Math.round(Math.min(Math.max(e.clientX, 72), Math.max(72, breite - 72)))}px`;
   pille.style.top = `${Math.round(Math.max(8, e.clientY - 72))}px`;
+  // In einer Rückfrage läge die Pille 72 px über dem Finger mitten im Text („dort abgel…“ verdeckt,
+  // R8-H5). Dort steht sie unmittelbar unter dem angetippten Knopf (passt sie nicht mehr ins Bild,
+  // darüber) — nie im Fließtext, der über den Knöpfen steht.
+  if (host.classList.contains("abfrage")) {
+    const r = ziel?.getBoundingClientRect?.();
+    if (r && r.height > 0) {
+      const hoehe = 36;
+      const hoch = window.innerHeight || 640;
+      const unten = r.bottom + 4;
+      pille.style.top = `${Math.round(unten + hoehe <= hoch ? unten : Math.max(8, r.top - hoehe - 4))}px`;
+    }
+  }
   // Im QR-Vollbild quer lag die Pille über „Teil n von m" (R7-H4): dort steht sie fest unten
   // in der Spalte, nicht über dem Tipport (die Regel steht in index.html, `.im-vollbild`).
   pille.classList.toggle("im-vollbild", host.classList.contains("qr-vollbild"));
@@ -151,7 +184,7 @@ function verworfenZeigen(e: MouseEvent): void {
 function klickPruefen(e: MouseEvent) {
   if (!mitOrt(e)) return;
   const jetzt = Date.now();
-  const s = sperreAn(e.clientX, e.clientY, jetzt);
+  const s = sperreAn(e.clientX, e.clientY, jetzt, inRueckfrage(e));
   if (s) {
     if (s.verlaengern) s.bis = Math.min(Math.max(s.bis, jetzt + ORTSSPERRE_MS), s.kappe);
     e.preventDefault();
@@ -165,7 +198,7 @@ function klickPruefen(e: MouseEvent) {
 /** Ein Feld nimmt den Fokus schon beim Drücken — auch das an der gesperrten Stelle abfangen. */
 function druckPruefen(e: MouseEvent) {
   if (!mitOrt(e) || sperren.length === 0) return;
-  if (sperreAn(e.clientX, e.clientY, Date.now())) {
+  if (sperreAn(e.clientX, e.clientY, Date.now(), inRueckfrage(e))) {
     e.preventDefault();
     e.stopImmediatePropagation();
   }
@@ -192,7 +225,7 @@ tippSchutzInstallieren();
 export function ortSperren(
   ms: number = ORTSSPERRE_MS,
   ort?: { x: number; y: number },
-  optionen: { verlaengern?: boolean } = {},
+  optionen: { verlaengern?: boolean; nurAusserhalbRueckfrage?: boolean } = {},
 ): void {
   if (ms <= 0) return;
   let stelle = ort;
@@ -209,11 +242,15 @@ export function ortSperren(
   if (vorhanden && Math.hypot(stelle.x - vorhanden.x, stelle.y - vorhanden.y) < 4) {
     vorhanden.bis = Math.max(vorhanden.bis, bis);
     vorhanden.verlaengern ||= optionen.verlaengern === true;
+    vorhanden.nurAusserhalbRueckfrage &&= optionen.nurAusserhalbRueckfrage === true;
     vorhanden.kappe = Math.max(vorhanden.kappe, jetzt + VERLAENGERN_KAPPE_MS);
     vorhanden.radius = Math.max(vorhanden.radius, radius);
     return;
   }
-  sperren.push({ x: stelle.x, y: stelle.y, radius, bis, kappe: jetzt + VERLAENGERN_KAPPE_MS, verlaengern: optionen.verlaengern === true });
+  sperren.push({ x: stelle.x, y: stelle.y, radius, bis, kappe: jetzt + VERLAENGERN_KAPPE_MS,
+    verlaengern: optionen.verlaengern === true,
+    nurAusserhalbRueckfrage: optionen.nurAusserhalbRueckfrage === true,
+  });
 }
 
 /** Ort des letzten Tipps (Bildschirmkoordinaten), solange er frisch ist. */

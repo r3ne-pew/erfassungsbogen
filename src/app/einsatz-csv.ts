@@ -240,7 +240,7 @@ function summenZeile(meldungen: MeldeEintrag[], titel: string, mitGrund = false)
 
 /**
  * Einsatz-Sammlung → CSV-Text (mit BOM). Zeilen: Kopf, je anwesende Einheit
- * eine Zeile (nach Anzeigename sortiert), zuletzt die Summenzeile.
+ * eine Zeile (nach Nr. sortiert), zuletzt die Summenzeile.
  *
  * Als Nachtrag („nur neue Bögen", `s.nachtragGruende`) nennt eine letzte Spalte
  * den Grund jeder Zeile („neu", „geändert: Zug"). Die „Summe Nachtrag" zählt nur
@@ -260,8 +260,12 @@ export function einsatzCsvInhalt(
   // als Übung geführte Einheit fiel bisher wortlos aus der Datei — die
   // Führungsstelle sah eine Lücke, die sie nicht als Lücke erkennen konnte.
   // Die Spalten „Status" und „Zählt in Lage" sagen, was die Summe enthält.
-  const alle = geltendeJeEinheit(s.eintraege).sort((a, b) =>
-    einheitName(a.bogen).localeCompare(einheitName(b.bogen), "de"),
+  // Nach Nr. wie Lageblatt, Sammel-PDF und Liste am Gerät (R8-A2): Wer Blatt und Tabelle nebeneinanderlegt,
+  // vergleicht Zeile für Zeile. Ohne Nummer (kommt nicht vor) nach Name.
+  const alle = geltendeJeEinheit(s.eintraege).sort(
+    (a, b) =>
+      (nummern.get(a.einheitSchluessel) ?? Infinity) - (nummern.get(b.einheitSchluessel) ?? Infinity) ||
+      einheitName(a.bogen).localeCompare(einheitName(b.bogen), "de"),
   );
   const gruende = s.nachtragGruende;
   const zaehlende = aktuelleMeldungen(s.eintraege, s.art);

@@ -17,6 +17,8 @@ import { geltendeJeEinheit } from "./fassung-vorrang";
 import { einheitAnzeigename } from "./hilfen";
 import { eintreffzeit, papierAbgleichUebernehmen, SpeicherVollFehler, zeitKurz } from "./eintrag-zeiten";
 import { frageJaNein, zeigeHinweis } from "./dialoge";
+import { einsaetzeLaden } from "./einsaetze-lesen";
+import { meldungsNummern, nummernWechsel, nummernWechselListe } from "./einheiten-tabelle";
 import {
   abgleichEntwurfLaden,
   abgleichEntwurfLoeschen,
@@ -174,6 +176,26 @@ export function PapierAbgleich(props: {
       await zeigeHinweis({ titel: "Abgleich unvollständig", text: `${fehler.join("; ")}. Nichts übernommen.` });
       return;
     }
+    // Eine Nummer vom Blatt, die schon eine nicht beteiligte Einheit trägt, verschiebt deren
+    // Nummer (R8-W1): vorher nennen, nicht erst hinterher.
+    const beteiligt = new Set(zeilen.map((z) => eintraege.find((e) => e.id === z.eintragId)?.einheitSchluessel));
+    const jetzigeNummern = meldungsNummern(eintraege);
+    const namenJe = new Map(eintraege.map((e) => [e.einheitSchluessel, einheitAnzeigename(e.bogen.einheit)]));
+    const belegt: string[] = [];
+    for (const d of daten) {
+      if (!("nummer" in d) || d.nummer == null) continue;
+      for (const [schl, nr] of jetzigeNummern) {
+        if (nr === d.nummer && !beteiligt.has(schl)) belegt.push(`Nr. ${nr} trägt schon ${namenJe.get(schl) ?? schl}`);
+      }
+    }
+    if (belegt.length > 0) {
+      const weiter = await frageJaNein({
+        titel: "Nummer schon vergeben",
+        text: `${belegt.join("; ")}. Diese Einheit ist nicht Teil des Abgleichs und bekommt eine andere Nummer. Trotzdem übernehmen?`,
+        ok: "Übernehmen",
+      });
+      if (!weiter) return;
+    }
     try {
       papierAbgleichUebernehmen(einsatzId, daten);
     } catch (e) {
@@ -189,6 +211,9 @@ export function PapierAbgleich(props: {
     setEntwurfAnzahl(0);
     setZeilen(null);
     onGeaendert();
+    // Alle Einheiten, deren Nummer sich ändert — auch die nicht beteiligten (R8-W1).
+    const nachher = einsaetzeLaden().find((x) => x.id === einsatzId)?.eintraege ?? eintraege;
+    const wechsel = nummernWechsel(eintraege, nachher);
     // Ohne „Nr. laut Blatt" vergibt die App die Nummern nach dem Eingang — das
     // sind nach einem Wiederanlauf vom Papier meist andere als auf dem Blatt
     // an der Wand (R4-A1). Das gehört gesagt, bevor jemand „Nr. 3 rückt ab"
@@ -206,10 +231,15 @@ export function PapierAbgleich(props: {
       `Für ${ohneNummer === 1 ? "1 Einheit" : `${ohneNummer} Einheiten`} stand keine „Nr. laut Blatt“ im Abgleich (${nenne(namenOhneNummer)}). ` +
       "Ihre Nummern vergibt die App neu, sie können von denen auf dem alten Lageblatt abweichen: " +
       "neues Lageblatt drucken und das alte abnehmen.";
+    const nummernAenderung =
+      wechsel.length > 0
+        ? `${wechsel.length === 1 ? "1 Nummer ändert sich" : `${wechsel.length} Nummern ändern sich`}: ${nummernWechselListe(wechsel)}. ` +
+          "Am Funk genannte Nummern und das gedruckte Lageblatt gelten für diese Einheiten nicht mehr: Lageblatt neu drucken."
+        : "";
     const hinweise: string[] = [];
     if (ohneZeit > 0) hinweise.push(zeitText);
     if (namenOhneAbrueckzeit.length > 0) hinweise.push(abrueckText);
-    if (ohneNummer > 0) hinweise.push(nummerText);
+    if (ohneNummer > 0 || wechsel.length > 0) hinweise.push(ohneNummer > 0 ? `${nummerText}${nummernAenderung ? ` ${nummernAenderung}` : ""}` : nummernAenderung);
     if (hinweise.length > 1) {
       await zeigeHinweis({
         titel: `Abgleich übernommen – ${hinweise.length === 2 ? "zwei" : "drei"} Hinweise`,
@@ -225,8 +255,8 @@ export function PapierAbgleich(props: {
       await zeigeHinweis({ titel: "Eintreffzeit nicht bestätigt", text: zeitText });
     } else if (namenOhneAbrueckzeit.length > 0) {
       await zeigeHinweis({ titel: "Abrückzeit nicht bestätigt", text: abrueckText });
-    } else if (ohneNummer > 0) {
-      await zeigeHinweis({ titel: "Nummern neu vergeben", text: nummerText });
+    } else if (hinweise.length === 1 && (ohneNummer > 0 || wechsel.length > 0)) {
+      await zeigeHinweis({ titel: "Nummern neu vergeben", text: hinweise[0]! });
     }
   }
 
@@ -346,7 +376,7 @@ export function PapierAbgleich(props: {
         <button type="button" onClick={spaeter}>
           Später
         </button>{" "}
-        <button type="button" className="link gefahr" onClick={() => void eingabenVerwerfen()}>
+        <button type="button" className="gefahr" onClick={() => void eingabenVerwerfen()}>
           Eingaben verwerfen…
         </button>
         <p className="hinweis">„Später“ schließt nur das Formular; die Eingaben bleiben für diese Sitzung erhalten.</p>

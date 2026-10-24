@@ -29,6 +29,8 @@ const URL_PARAMETER = "lagemonitor";
 export const STUFE_SCHLUESSEL = "eeb.lagestufe.v1";
 /** Mehr Bewegungszeilen als das gibt es nicht im Bild; der Rest steht als „+ n weitere" (R7-K2). */
 const BEWEGUNGEN_MAX = 3;
+/** Schriftfaktoren der Einheitentabelle, bevor Zeilen entfallen (R8-L1). */
+const SCHRIFT_STUFEN = [1, 0.95, 0.9, 0.85];
 /** Ab diesem Alter der letzten Meldung wird der Datenstand abgesetzt (R7-K8). */
 const VERALTET_MIN = 60;
 
@@ -131,33 +133,65 @@ function vollbild() {
 /**
  * Einheitentabelle, die auf den Platz im Bild begrenzt ist: Was nicht mehr passt,
  * wird durch „+ n weitere Einheiten" ersetzt statt unter die Bildkante zu laufen
- * (R7-K1). Gemessen wird im Browser; wo es keine Messung gibt (kein Layout) oder
- * der Behälter mitwächst (Telefon), stehen alle Zeilen da.
+ * (R7-K1). Gemessen wird im Browser, und zwar im Endzustand: Für jede Zeilenzahl
+ * wird die Tabelle so gesetzt, wie sie dann steht (Spalten und Zeilenumbrüche
+ * ändern sich mit den ausgeblendeten Zeilen), und die größte Zahl genommen, bei
+ * der Zeilen samt Hinweiszeile in den Behälter passen (R8-L1, R8-N2). Wo es keine
+ * Messung gibt (kein Layout) oder der Behälter mitwächst (Telefon), stehen alle
+ * Zeilen da. Die Zeilen sind nach „zuletzt gemeldet zuerst" geordnet (R8-K5).
  */
 function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] }) {
   const behaelter = useRef<HTMLDivElement>(null);
+  const hinweisEl = useRef<HTMLDivElement>(null);
+  const tabelleEl = useRef<HTMLTableElement>(null);
   const [weitere, setWeitere] = useState(0);
 
   useLayoutEffect(() => {
     const el = behaelter.current;
-    if (!el) return;
+    const hinweis = hinweisEl.current;
+    const tabelle = tabelleEl.current;
+    if (!el || !hinweis || !tabelle) return;
     const messen = () => {
       const zeilen = Array.from(el.querySelectorAll<HTMLElement>("tbody tr"));
-      for (const z of zeilen) z.style.display = "";
+      const setze = (n: number) => {
+        zeilen.forEach((z, i) => { z.style.display = i >= n ? "none" : ""; });
+        hinweis.style.display = n < zeilen.length ? "" : "none";
+      };
       const hoehe = el.clientHeight;
-      if (hoehe === 0 || zeilen.length === 0) return setWeitere(0);
+      if (hoehe === 0 || zeilen.length === 0) {
+        setze(zeilen.length);
+        return setWeitere(0);
+      }
       const oben = el.getBoundingClientRect().top;
-      const hinweis = parseFloat(getComputedStyle(el).fontSize) * 2;
-      let zeigen = 0;
-      zeilen.forEach((z, i) => {
-        const unten = z.getBoundingClientRect().bottom - oben;
-        const letzte = i === zeilen.length - 1;
-        if (unten <= hoehe - (letzte ? 0 : hinweis) + 0.5) zeigen = i + 1;
-      });
-      if (zeigen === zeilen.length) return setWeitere(0);
-      zeigen = Math.max(1, zeigen);
-      zeilen.forEach((z, i) => { if (i >= zeigen) z.style.display = "none"; });
-      setWeitere(zeilen.length - zeigen);
+      /** Passt die Tabelle mit den ersten n Zeilen (und Hinweiszeile, wenn n < alle) in den Behälter? */
+      const passt = (n: number) => {
+        setze(n);
+        const letzte = zeilen[n - 1]!.getBoundingClientRect().bottom - oben;
+        const ende = n < zeilen.length ? Math.max(letzte, hinweis.getBoundingClientRect().bottom - oben) : letzte;
+        return ende <= hoehe + 0.5;
+      };
+      // Zuerst die Schrift um höchstens 15 % verkleinern, wenn dadurch alle Zeilen passen (ein Umbruch kostet sonst eine Zeile).
+      let n = zeilen.length;
+      let ganz = false;
+      for (const faktor of SCHRIFT_STUFEN) {
+        tabelle.style.fontSize = faktor === 1 ? "" : `${1.1 * faktor}em`;
+        if (passt(n)) { ganz = true; break; }
+      }
+      if (!ganz) tabelle.style.fontSize = "";
+      if (!ganz) {
+        // Schätzung aus dem vollen Zustand, dann im Endzustand nach unten und oben abgleichen.
+        setze(zeilen.length);
+        let schaetz = 0;
+        zeilen.forEach((z, i) => { if (z.getBoundingClientRect().bottom - oben <= hoehe) schaetz = i + 1; });
+        n = Math.min(zeilen.length - 1, Math.max(1, schaetz));
+        if (passt(n)) {
+          while (n + 1 < zeilen.length && passt(n + 1)) n++;
+        } else {
+          while (n > 1 && !passt(n)) n--;
+        }
+      }
+      setze(n);
+      setWeitere(zeilen.length - n);
     };
     messen();
     if (typeof ResizeObserver === "undefined") return;
@@ -168,10 +202,10 @@ function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] })
 
   return (
     <div className="lm-tabelle" ref={behaelter}>
-      <table className="lm-einheiten">
+      <table className="lm-einheiten" ref={tabelleEl}>
         <thead>
           <tr>
-            <th className="lm-orga">Orga</th><th>Ort</th><th>Funkrufname</th><th>Einheitentyp</th>
+            <th className="lm-orga">Orga</th><th>Ort</th><th><span className="lm-lang">Funkrufname</span><span className="lm-kurz">Funkruf</span></th><th className="lm-typ">Einheitentyp</th>
             <th className="lm-zahl" title="Führer">F</th>
             <th className="lm-zahl" title="Unterführer">U</th>
             <th className="lm-zahl" title="Mannschaft">M</th>
@@ -183,7 +217,7 @@ function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] })
               <td className="lm-orga">{e.orga}</td>
               <td>{e.ort || "–"}</td>
               <td>{e.funkruf || "–"}</td>
-              <td>{e.typ || "–"}</td>
+              <td className="lm-typ">{e.typ || "–"}</td>
               <td className="lm-zahl">{e.fuehrer}</td>
               <td className="lm-zahl">{e.unterfuehrer}</td>
               <td className="lm-zahl">{e.mannschaft}</td>
@@ -191,7 +225,9 @@ function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] })
           ))}
         </tbody>
       </table>
-      {weitere > 0 && <div className="lm-weitere">+ {weitere} weitere {weitere === 1 ? "Einheit" : "Einheiten"}</div>}
+      <div className="lm-weitere" ref={hinweisEl} style={weitere === 0 ? { display: "none" } : undefined}>
+        + {Math.max(weitere, 1)} weitere {weitere <= 1 ? "Einheit" : "Einheiten"} · zuletzt gemeldet zuerst
+      </div>
     </div>
   );
 }
@@ -210,13 +246,15 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
     document.title = einsatz ? `Lage – ${einsatz.name}` : "Lagemonitor";
   }, [einsatz]);
 
-  // Dunkel → Gedimmt → Hell: Die helle Stufe liegt am Ende, ein Tipp blendet nicht mehr sofort voll (R6-L4).
+  // Leiter Gedimmt < Dunkel < Hell: „heller" und „dunkler" gehen je eine Sprosse. Aus Gedimmt führt ein Tipp nie auf Hell,
+  // aus Hell führt ein Tipp zurück auf Dunkel statt über ein zweites helles Bild (R8-L4).
   const [stufe, setStufe] = useState<Stufe>(stufeLesen);
   const klasse = `lm${stufe === "hell" ? " lm-hell" : stufe === "gedimmt" ? " lm-gedimmt" : ""}`;
-  const naechsteStufe: Stufe = stufe === "dunkel" ? "gedimmt" : stufe === "gedimmt" ? "hell" : "dunkel";
-  function stufeWechseln() {
-    setStufe(naechsteStufe);
-    stufeMerken(naechsteStufe);
+  const heller: Stufe | null = stufe === "gedimmt" ? "dunkel" : stufe === "dunkel" ? "hell" : null;
+  const dunkler: Stufe | null = stufe === "hell" ? "dunkel" : stufe === "dunkel" ? "gedimmt" : null;
+  function stufeWechseln(neu: Stufe) {
+    setStufe(neu);
+    stufeMerken(neu);
   }
 
   if (!einsatz) {
@@ -347,9 +385,16 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
       <details className="lm-zeile lm-klapp">
         <summary>Optionen</summary>
         <div className="lm-optionen">
-          <button type="button" className="lm-knopf" onClick={stufeWechseln}>
-            Stufe: {STUFEN_NAME[stufe]} · weiter: {STUFEN_NAME[naechsteStufe]}
-          </button>
+          {heller && (
+            <button type="button" className="lm-knopf" onClick={() => stufeWechseln(heller)}>
+              Stufe: {STUFEN_NAME[stufe]} · heller: {STUFEN_NAME[heller]}
+            </button>
+          )}
+          {dunkler && (
+            <button type="button" className="lm-knopf" onClick={() => stufeWechseln(dunkler)}>
+              {heller ? "" : `Stufe: ${STUFEN_NAME[stufe]} · `}dunkler: {STUFEN_NAME[dunkler]}
+            </button>
+          )}
           <button type="button" className="lm-knopf" onClick={vollbild}>Vollbild</button>
           <button type="button" className="lm-knopf" onClick={schliessen}>Schließen</button>
         </div>

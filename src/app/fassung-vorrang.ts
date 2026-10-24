@@ -257,6 +257,25 @@ export function fassungObenauf(einsatzId: string, eintragId: string): boolean {
   return true;
 }
 
+/**
+ * Die eben eingelesene Fassung `neuId` liegt nur in der Historie, `bisherId` gilt weiter
+ * (Audit Runde 8, R8-W2): Sie wird als verdrängt vermerkt — dann ist sie keine „Folgemeldung",
+ * Karte und Quittung tragen weder „neue Fassung" noch einen Vergleich bisher → neu. Über
+ * „Diese Fassung gilt" lässt sie sich jederzeit holen. Rückgabe: ob etwas zu tun war.
+ */
+export function fassungInHistorieLegen(einsatzId: string, neuId: string, bisherId: string, jetzt = Date.now()): boolean {
+  const liste = alleSammlungen();
+  const s = liste.find((x) => x.id === einsatzId);
+  const neu = s?.eintraege.find((e) => e.id === neuId);
+  if (!s || !neu || neuId === bisherId || neu.ersetztDurch === bisherId) return false;
+  if (!s.eintraege.some((e) => e.id === bisherId)) return false;
+  neu.ersetztDurch = bisherId;
+  neu.ersetztAm = jetzt;
+  s.geaendert = Date.now();
+  sammlungenSchreiben(liste);
+  return true;
+}
+
 /** {@link fassungGiltSetzen} zurücknehmen: die Verweise wie vorher. */
 export function vorrangZuruecknehmen(a: VorrangAenderung): void {
   const liste = alleSammlungen();

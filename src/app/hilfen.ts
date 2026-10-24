@@ -563,7 +563,7 @@ export async function bogenLaden(datei: File): Promise<Erfassungsbogen> {
       return bogenPruefen(huelle.bogen);
     } catch (e) {
       const grund = e instanceof Error ? e.message.replace(/ Beim Absender neu anfordern.*$/, "") : "";
-      throw new Error(`Der gesicherte Entwurf lässt sich nicht öffnen. ${grund} In der App lässt sich das Fehlende nicht nachtragen; die Datei taugt dann nur noch für die Support-Stelle.`);
+      throw new Error(`Der gesicherte Entwurf lässt sich nicht öffnen. ${grund} In der App lässt sich das Fehlende nicht nachtragen; die Datei braucht dann, wer die App betreut.`);
     }
   }
   return bogenPruefen(daten);
@@ -576,7 +576,9 @@ export async function bogenLaden(datei: File): Promise<Erfassungsbogen> {
  */
 export function bogenPruefen(daten: unknown): Erfassungsbogen {
   const b = daten as Erfassungsbogen;
-  if (typeof b?.schemaVersion !== "number" || b.schemaVersion < 2 || b.schemaVersion > SCHEMA_VERSION || !b.einheit || !b.einsatz || !Array.isArray(b.personal)) {
+  // Nur eine fehlende oder fremde Schema-Version heißt „keine Bogen-Datei"; ein defektes Feld bei gültiger
+  // Version nennt `bogenBefund` mit dem Feld (R8-E3) — vorher hieß es „Schema-Version 2–9 erwartet" bei Version 8.
+  if (typeof b?.schemaVersion !== "number" || b.schemaVersion < 2 || b.schemaVersion > SCHEMA_VERSION) {
     throw new Error(`Keine gültige Erfassungsbogen-Datei (Schema-Version 2–${SCHEMA_VERSION} erwartet).`);
   }
   // Pflichtfelder: Ein Bogen ohne Einheitstyp ließ die Ansicht weiß werden

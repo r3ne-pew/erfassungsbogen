@@ -397,6 +397,7 @@ export function einsatzDetailCsvInhalt(
 ): string {
   const meldungen = geltendeJeEinheit(s.eintraege).sort(
     (a, b) =>
+      (nummern.get(a.einheitSchluessel) ?? Infinity) - (nummern.get(b.einheitSchluessel) ?? Infinity) ||
       einheitAnzeigename(a.bogen.einheit).localeCompare(einheitAnzeigename(b.bogen.einheit), "de") ||
       (a.teilEtikett ?? "").localeCompare(b.teilEtikett ?? "", "de"),
   );

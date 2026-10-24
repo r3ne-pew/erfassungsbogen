@@ -1030,40 +1030,6 @@ export function Uebersicht(props: {
             {qr?.segmentiert ? ` — ${qr.teile.length} Teile nacheinander` : ""}.
           </p>
         </div>
-        {zeitraumVorbei && props.onNeuerEinsatz && (
-          <div className="teilen-weg">
-            {/* Kein zweiter Primärknopf: Nachts standen zwei gleich
-                bernsteinfarbene Knöpfe untereinander (Audit Runde 3, R3-L7);
-                die Übergabe bleibt der eine Primärknopf, er steht jetzt vorn. */}
-            <button
-              type="button"
-              onClick={async () => {
-                // Rückfrage mit den Feldern, die verloren gehen (R7-G2): Der Knopf
-                // steht neben QR-Code und PDF, ein Fehltipp setzte sonst Auftrag
-                // und Sofortbedarf ohne Frage zurück.
-                const ort = bogen.einsatz.ortAuftrag.trim();
-                const verloren = [
-                  `Zeitraum ${zeitraumDeutsch(bogen)} (wird auf heute gesetzt)`,
-                  ort ? `Ort/Auftrag „${ort.length > 60 ? `${ort.slice(0, 59)}…` : ort}"` : "",
-                  bogen.sofortbedarf ? "der Sofortbedarf" : "",
-                ].filter(Boolean);
-                const ja = await frageJaNein({
-                  titel: "Für neuen Einsatz vorbereiten?",
-                  text: `Zurückgesetzt werden: ${verloren.join("; ")}. Personal und Fahrzeuge bleiben. Das lässt sich hier nicht zurücknehmen — wer die Angaben noch braucht, gibt den Bogen vorher weiter.`,
-                  ok: "Zurücksetzen",
-                  abbruch: "Abbrechen, Bogen behalten",
-                  gefahr: true,
-                });
-                if (!ja) return;
-                teilenDialog.current?.close();
-                props.onNeuerEinsatz?.();
-              }}
-            >
-              Für neuen Einsatz vorbereiten
-            </button>
-            <p className="hinweis">Zeitraum heute, Ort/Auftrag und Sofortbedarf leer — Personal und Fahrzeuge bleiben.</p>
-          </div>
-        )}
         {/* Handy zu Handy ohne Papier und ohne Kamera. Nur dort anbieten, wo es
             ein Share-Sheet gibt — sonst zeigte der Knopf ins Leere. */}
         {shareSheetVerfuegbar() && (
@@ -1139,6 +1105,42 @@ export function Uebersicht(props: {
             </div>
           )}
         </details>
+        {/* R8-D6: Das Zurücksetzende steht am Ende des Dialogs, abgesetzt — nicht zwischen „QR-Code im
+            Vollbild zeigen“ und „PDF erzeugen“, den beiden Wegen zum Weitergeben. */}
+        {zeitraumVorbei && props.onNeuerEinsatz && (
+          <div className="teilen-weg teilen-weg-ende">
+            {/* Kein zweiter Primärknopf: Nachts standen zwei gleich
+                bernsteinfarbene Knöpfe untereinander (Audit Runde 3, R3-L7);
+                die Übergabe bleibt der eine Primärknopf, er steht jetzt vorn. */}
+            <button
+              type="button"
+              onClick={async () => {
+                // Rückfrage mit den Feldern, die verloren gehen (R7-G2): Der Knopf
+                // steht neben QR-Code und PDF, ein Fehltipp setzte sonst Auftrag
+                // und Sofortbedarf ohne Frage zurück.
+                const ort = bogen.einsatz.ortAuftrag.trim();
+                const verloren = [
+                  `Zeitraum ${zeitraumDeutsch(bogen)} (wird auf heute gesetzt)`,
+                  ort ? `Ort/Auftrag „${ort.length > 60 ? `${ort.slice(0, 59)}…` : ort}"` : "",
+                  bogen.sofortbedarf ? "der Sofortbedarf" : "",
+                ].filter(Boolean);
+                const ja = await frageJaNein({
+                  titel: "Für neuen Einsatz vorbereiten?",
+                  text: `Zurückgesetzt werden: ${verloren.join("; ")}. Personal und Fahrzeuge bleiben. Das lässt sich hier nicht zurücknehmen — wer die Angaben noch braucht, gibt den Bogen vorher weiter.`,
+                  ok: "Zurücksetzen",
+                  abbruch: "Abbrechen, Bogen behalten",
+                  gefahr: true,
+                });
+                if (!ja) return;
+                teilenDialog.current?.close();
+                props.onNeuerEinsatz?.();
+              }}
+            >
+              Für neuen Einsatz vorbereiten
+            </button>
+            <p className="hinweis">Zeitraum heute, Ort/Auftrag und Sofortbedarf leer — Personal und Fahrzeuge bleiben.</p>
+          </div>
+        )}
         {fehler && <p className="fehler">{fehler}</p>}
       </dialog>
 

@@ -219,21 +219,48 @@ describe("Lagemonitor, Runde 7", () => {
     expect(document.querySelector(".lm-stand .lm-veraltet")!.textContent).toMatch(/vor 5 Std/);
   });
 
-  it("übernimmt den Nacht-Modus als Stufe „Gedimmt“, merkt die Wahl und nennt die Stufe auf der Taste (R7-L3)", () => {
+  it("übernimmt den Nacht-Modus als Stufe „Gedimmt“, merkt die Wahl und führt nie mit einem Tipp auf Hell (R7-L3, R8-L4)", () => {
     document.documentElement.classList.add("nacht-modus");
     const e = einsatzAnlegen("Nacht", EinsatzArt.EINSATZ);
     render(<Lagemonitor einsatzId={e.id} />);
     expect(document.querySelector("main.lm")!.className).toContain("lm-gedimmt");
-    const taste = screen.getByRole("button", { name: /Stufe: Gedimmt · weiter: Hell/ });
-    fireEvent.click(taste); // -> Hell, wird nicht gemerkt
-    expect(document.querySelector("main.lm")!.className).toContain("lm-hell");
-    expect(localStorage.getItem(STUFE_SCHLUESSEL)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Stufe: Hell · weiter: Dunkel/ }));
+    expect(screen.queryByRole("button", { name: /dunkler/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Stufe: Gedimmt · heller: Dunkel/ })); // Gedimmt -> Dunkel, nicht Hell
+    const klasse = () => document.querySelector("main.lm")!.className;
+    expect(klasse()).not.toContain("lm-hell");
+    expect(klasse()).not.toContain("lm-gedimmt");
     expect(localStorage.getItem(STUFE_SCHLUESSEL)).toBe("dunkel");
+    fireEvent.click(screen.getByRole("button", { name: /Stufe: Dunkel · heller: Hell/ })); // -> Hell, wird nicht gemerkt
+    expect(klasse()).toContain("lm-hell");
+    expect(localStorage.getItem(STUFE_SCHLUESSEL)).toBe("dunkel");
+    expect(screen.queryByRole("button", { name: /heller/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Stufe: Hell · dunkler: Dunkel/ })); // ein Tipp zurück, ohne zweites helles Bild
+    expect(klasse()).not.toContain("lm-hell");
+    fireEvent.click(screen.getByRole("button", { name: /dunkler: Gedimmt/ }));
+    expect(localStorage.getItem(STUFE_SCHLUESSEL)).toBe("gedimmt");
     cleanup();
     render(<Lagemonitor einsatzId={e.id} />);
-    expect(document.querySelector("main.lm")!.className).not.toContain("lm-gedimmt");
-    expect(screen.getByRole("button", { name: /Stufe: Dunkel · weiter: Gedimmt/ })).toBeTruthy();
+    expect(klasse()).toContain("lm-gedimmt");
+  });
+
+  it("ordnet die Einheiten nach „zuletzt gemeldet zuerst“ (R8-K5)", () => {
+    const e = einsatzAnlegen("Reihenfolge", EinsatzArt.EINSATZ);
+    for (const name of ["OV Alt", "OV Neu"]) {
+      const b = neuerBogen();
+      b.einheit.hierarchie[0]!.name = name;
+      meldungHinzufuegen(e.id, b);
+    }
+    const liste = structuredClone(einsaetzeLaden());
+    const eintraege = liste.find((s) => s.id === e.id)!.eintraege;
+    const t = Date.now();
+    eintraege.forEach((x, i) => { x.empfangenAm = t - (eintraege.length - i) * 60_000 * (i === 0 ? 5 : 1); });
+    einsaetzeSpeichern(liste);
+    render(<Lagemonitor einsatzId={e.id} />);
+    const zeilen = Array.from(document.querySelectorAll(".lm-einheiten tbody tr")).map((r) => r.textContent ?? "");
+    expect(zeilen).toHaveLength(2);
+    expect(zeilen[0]).toContain("OV Neu");
+    expect(zeilen[1]).toContain("OV Alt");
+    expect(document.querySelector(".lm-weitere")!.textContent).toMatch(/zuletzt gemeldet zuerst/);
   });
 });
 

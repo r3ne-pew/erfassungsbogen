@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { PRELLSCHUTZ_MS, letzterTippOrt, ortSperren } from "./tipp-schutz";
+import { PRELLSCHUTZ_MS, QUITTUNG_SPERRE_MS, letzterTippOrt, ortSperren } from "./tipp-schutz";
 
 /** Die Karte (Einheit, Person, Fahrzeug) unter der getippten Stelle, durch die Leiste hindurch. */
 function darunterLiegendeKarte(tipp: { x: number; y: number }, leiste: HTMLElement): HTMLElement | null {
@@ -92,7 +92,7 @@ export function DaumenQuittung({ children, prellschutz = false, onRueckgaengig, 
       }
     }
     if (tipp && tipp.y >= r.top - 8 && tipp.y <= r.bottom + 8) {
-      ortSperren();
+      ortSperren(QUITTUNG_SPERRE_MS); // 2,5 s statt 1,5 s: Zweittipp ab 1,5 s nahm das Abrücken zurück (R8-D5)
       let rollen = tipp.y - r.top + 40;
       const karte = darunterLiegendeKarte(tipp, el);
       if (karte) {

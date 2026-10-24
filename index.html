@@ -628,16 +628,22 @@
     /* Heller Kasten mit Kennfarben-Rand, nicht flächig in der Kennfarbe: die
        Marke erscheint über dem Seitenkopf, der selbst schon die Kennfarbe
        trägt — akzent auf akzent wäre unsichtbar. */
+    /* R8-M1, R8-O1, R8-G3, R8-S1: Der Versatz hing an einem festen Wert (-3rem) und
+       reichte bei 200 % Schrift auf 320 px (Link 118 px hoch, weil der Text umbrach)
+       22 px ins Bild. Jetzt rückt die Marke um ihre EIGENE Höhe nach oben (translateY(-100%)),
+       bricht nicht um und ist in Ruhe vollständig außerhalb; nur der Fokus holt sie herein. */
     .sprungmarke {
-      position: absolute; left: var(--r-2); top: -3rem; z-index: 100;
+      position: absolute; left: var(--r-2); top: 0; z-index: 100;
+      transform: translateY(calc(-100% - 8px));
       padding: 0.5rem 0.9rem; border-radius: var(--radius);
       background: var(--flaeche); color: var(--akzent);
       border: var(--strich-stark) solid var(--akzent);
-      font-size: var(--t-s); font-weight: 600; text-decoration: none;
-      min-height: 0; transition: top var(--dauer-1) ease-out;
+      font-size: min(var(--t-s), 16px); font-weight: 600; text-decoration: none; line-height: 1.3;
+      white-space: nowrap; max-width: calc(100vw - 2 * var(--r-2)); overflow: hidden; text-overflow: ellipsis;
+      min-height: 0; transition: transform var(--dauer-1) ease-out;
     }
     @media (hover: hover) { .sprungmarke:hover { background: var(--flaeche); color: var(--akzent); } }
-    .sprungmarke:focus { top: var(--r-2); }
+    .sprungmarke:focus { transform: translateY(var(--r-2)); }
 
     /* ---------------------------------------------------------------
        Kopfnavigation — die Leiste der Themenwelt, hier über der App.
@@ -2390,8 +2396,11 @@
        auf Schreibtischgröße stehen. */
     .muster-zeile { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.2rem; border-top: 1px solid var(--rand); cursor: pointer; min-height: calc(var(--ziel-basis) + var(--ziel)); }
     .muster-zeile input[type=checkbox] { width: 1.25rem; height: 1.25rem; flex: 0 0 auto; }
-    .muster-zeile.gestrichen { opacity: 0.45; }
-    .muster-zeile.gestrichen .muster-name { text-decoration: line-through; }
+    /* R8-L2: Abgewählt zeigen Durchstreichung und leeres Kästchen, nicht ein
+       abgeblendeter Text (Deckkraft 0,45 gab 1,96 bis 3,9:1). Der Name geht auf
+       die Nebenfarbe (>= 4,5:1 in allen Modi), die Nebenzeile — auch „Stammt aus
+       einem früheren Einsatz …" — bleibt, wie sie ist. */
+    .muster-zeile.gestrichen .muster-name { text-decoration: line-through; color: var(--text-2); }
     .muster-text { display: flex; flex-direction: column; min-width: 0; }
     .muster-name { font-size: var(--t-m); }
     /* Nebenzeile über Farbe zurücknehmen, nicht über Deckkraft: Opacity trifft
@@ -3476,12 +3485,19 @@
     dialog.abfrage form > .abfrage-aktionen { margin-top: var(--r-3); }
     /* Querformat und knappe Höhe: Antwort und „Abbrechen" nebeneinander statt
        untereinander, damit die Frage im Rumpf Platz behält (640 × 360, 200 %). */
-    @media (max-height: 480px) {
-      dialog.abfrage .abfrage-fuss { display: flex; flex-wrap: nowrap; align-items: stretch; gap: var(--r-2); margin-top: var(--r-3); }
+    /* R8-G1, R8-M2: nur, wenn die Breite für zwei Knöpfe nebeneinander reicht (ab 280 px).
+       Im Zoom-Fenster 180 × 320 stand der Fuß als Zeile in einer 98 px breiten Spalte, die
+       Beschriftungen überdeckten sich; dort stehen die Knöpfe untereinander (Block „Runde 8: Rückfragen"). */
+    @media (max-height: 480px) and (min-width: 280px) {
+      dialog.abfrage .abfrage-fuss { display: flex; flex-wrap: nowrap; align-items: stretch; gap: var(--r-4); margin-top: var(--r-3); }
       dialog.abfrage .abfrage-fuss .abfrage-weg { flex: 1 1 0; min-width: 0; margin: 0; }
       dialog.abfrage .abfrage-fuss .abfrage-aktionen,
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen:not(.abgesetzt),
       dialog.abfrage .abfrage-fuss .abfrage-aktionen.abgesetzt { flex: 1 1 0; min-width: 0; margin: 0; padding: 0; border: 0; }
-      dialog.abfrage .abfrage-fuss .abfrage-aktionen > button { width: 100%; }
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen > button,
+      dialog.abfrage .abfrage-fuss .abfrage-weg > button { width: 100%; height: 100%; }
+      /* R8-G5: Steht eine zerstörende Wahl im Dialog, rückt „Abbrechen" zusätzlich ab (24 statt 16 px). */
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen.abgesetzt { margin-left: var(--r-2); }
     }
     /* Dialoge mit Tabelle (Beispielbögen) brauchen mehr Breite als die
        Textdialoge: 80 % der Seitenbreite, damit die vier Spalten samt
@@ -3650,7 +3666,8 @@
       --ios-fuellung: rgba(118, 118, 128, 0.12); /* tertiarySystemFill */
       --ios-akzent: var(--blau);                 /* Tint für Text und Links */
       --ios-akzent-flaeche: var(--blau);         /* Tint als Button-Füllung */
-      --ios-rot: #ff3b30;                        /* systemRed */
+      --ios-rot: #d70015;                        /* systemRed, Zugänglich-Fassung (R8-L6: 5,9:1 statt 3,6:1 auf Weiß) */
+      --ios-auf-akzent: #fff;                    /* Schrift auf der Tint-Füllung; nachts nie reinweiß */
       --ios-warnung-text: #7a5200;
       --ios-warnung-fond: #fff7e0;
       --ios-balken: rgba(249, 249, 249, 0.8);    /* Glas-Material (iOS 27: weniger transparent) */
@@ -3669,7 +3686,7 @@
       --ios-fuellung: rgba(118, 118, 128, 0.24);
       --ios-akzent: var(--org-akzent-dunkel, #a8bdf2);        /* aufgehellter Org-Ton, lesbar auf Dunkel */
       --ios-akzent-flaeche: var(--org-akzent, #3f63cc);       /* Grundton als Füllung (weiße Schrift bleibt lesbar) */
-      --ios-rot: #ff453a;
+      --ios-rot: #ff6b61;                        /* R8-L6: heller als systemRed (dark), >= 4,5:1 auch auf der Füllung */
       --ios-warnung-text: #ffd60a;
       --ios-warnung-fond: rgba(255, 214, 10, 0.12);
       --ios-balken: rgba(29, 29, 31, 0.8);
@@ -3734,7 +3751,7 @@
     .platform-ios button.primaer,
     .platform-ios .datei-knopf.primaer {
       background: var(--ios-akzent-flaeche);
-      color: #fff;
+      color: var(--ios-auf-akzent);
       font-weight: 600;
     }
     .platform-ios button.primaer:hover { background: var(--ios-akzent-flaeche); }
@@ -3771,7 +3788,7 @@
       position: relative;
     }
     .platform-ios .schritte button::after { content: ""; position: absolute; inset: -5px -2px; }
-    .platform-ios .schritte button.aktiv { background: var(--ios-akzent-flaeche); color: #fff; }
+    .platform-ios .schritte button.aktiv { background: var(--ios-akzent-flaeche); color: var(--ios-auf-akzent); }
 
     /* Karten ohne Rahmen – Trennung über Flächenkontrast (grouped style);
        größere, konzentrische Radien passend zu den Kapsel-Buttons. */
@@ -4754,6 +4771,10 @@
     .nacht-modus input::-webkit-calendar-picker-indicator, .nacht-modus input::-webkit-inner-spin-button {
       filter: sepia(1) saturate(0.6) brightness(0.78);
     }
+    /* R8-L7: Der Haken im gewählten Kästchen war 2,79:1 gegen die Füllung (123/114/99
+       gegen 199). Dunklere Füllung: Haken 5,3:1, das leere Kästchen (60/56/48) bleibt
+       daneben klar anders. Der Haken bleibt bei Luma 199, nichts wird heller. */
+    .nacht-modus input[type="checkbox"] { accent-color: #6b4d0e; }
     /* Der Rahmen „Ohne Kamera: mit dem USB-Handscanner" war kaltgrau (179/179/179). */
     .nacht-modus .scanner-handscanner { color: var(--text); border-color: var(--text-2); }
     .nacht-modus .scanner-handscanner .scanner-schritte { color: var(--text); }
@@ -4798,11 +4819,13 @@
       --ios-text:     var(--text);
       --ios-text-2:   var(--text-2);
       --ios-trenner:  var(--linie);
-      --ios-fuellung: rgba(217, 205, 182, 0.14);
+      --ios-fuellung: rgba(217, 205, 182, 0.10);
       --ios-akzent:   var(--akzent-hell);
       /* Die Füllung trägt weiße Schrift (button.primaer) — dafür der tiefere
          Bernsteinton statt des Akzents selbst. */
       --ios-akzent-flaeche: #6d4d10;
+      /* R8-L6: nicht reinweiß (Luma 255), sondern die Nachtschrift (Luma 206): 4,7:1 auf der Füllung. */
+      --ios-auf-akzent:     var(--text);
       --ios-rot:            var(--alarm);
       --ios-warnung-text:   var(--warn-text);
       --ios-warnung-fond:   var(--warn-fond);
@@ -4909,6 +4932,52 @@
     @media (min-width: 540.02px) {
       .abfrage-aktionen > button { flex: 1 1 0; }
     }
+    /* ===== Runde 8: Rückfragen bei Browser-Zoom und großer Schrift (Block „Dialoge") ===== */
+    /* R8-G1, R8-M2, R8-H2: Maße in px gedeckelt (Deckel-Regel). Bei 200 % Schrift waren die Knöpfe
+       88 bis 118 px hoch, weil die Beschriftung in 32-px-Schrift umbrach, und der Rumpf mit den Folgen
+       hatte nur noch 32 % der Höhe. Jetzt bleiben Knöpfe einzeilig-kompakt, der Rumpf behält Platz. */
+    /* R8-G6: „Eingaben verwerfen…“ im Papier-Abgleich ist ein Knopf (44 px) mit 16 px Abstand zu „Später“,
+       kein Textlink von 33 px Höhe 8 px daneben. */
+    .papier-abgleich-weg { gap: var(--r-4); }
+    .papier-abgleich-weg > button { min-height: calc(44px + var(--ziel)); }
+    .papier-abgleich-weg > .hinweis { flex: 1 1 100%; margin: 0; }
+    /* R8-H4, R8-S2: „Mehr dazu“ im Kasten zum beiseitegelegten Bogen als 44-px-Ziel. */
+    .entwurf-karte details.beschaedigt-mehr > summary { min-height: calc(44px + var(--ziel)); display: flex; align-items: center; cursor: pointer; font-size: min(var(--t-s), 16px); font-weight: 600; }
+    /* R8-D6: „Für neuen Einsatz vorbereiten“ steht am Ende von „Bogen übergeben“, durch Linie und Abstand
+       von den Wegen zum Weitergeben getrennt. */
+    .teilen-dialog .teilen-weg.teilen-weg-ende { margin-top: var(--r-5); padding-top: var(--r-4); border-top: var(--strich) solid var(--linie); }
+    dialog.abfrage h2 { font-size: min(var(--t-xl), 24px); overflow-wrap: break-word; hyphens: auto; }
+    dialog.abfrage p { font-size: min(var(--t-m), 20px); }
+    dialog.abfrage .hinweis { font-size: min(var(--t-xs), 16px); }
+    dialog.abfrage button {
+      font-size: min(var(--t-m), 18px); line-height: 1.2; min-height: calc(44px + var(--ziel));
+      padding: min(0.55rem, 10px) min(1.1rem, 18px); overflow-wrap: anywhere; hyphens: auto;
+    }
+    /* Sehr niedriges Bild (320 × 180, Querformat bei Zoom 200 %): Rand und Schrift enger, die Knopfzeile
+       einzeilig-kompakt (44 px hoch, Beschriftung höchstens zwei kleine Zeilen), damit der Rumpf mit den
+       Folgen mehr als 40 % der Höhe behält. */
+    @media (max-height: 240px) {
+      dialog { max-height: calc(100dvh - 12px); }
+      dialog.abfrage { padding: 6px 10px; }
+      dialog.abfrage h2 { font-size: min(var(--t-l), 16px); margin: 0 0 2px; line-height: 1.2; }
+      dialog.abfrage p { font-size: min(var(--t-s), 14px); margin-bottom: 4px; line-height: 1.3; }
+      dialog.abfrage .abfrage-fuss, dialog.abfrage form > .abfrage-aktionen { margin-top: 4px; }
+      dialog.abfrage button { font-size: min(var(--t-s), 14px); line-height: 1.1; padding: 2px 6px; }
+    }
+    /* Zoom-Fenster (unter 280 px Breite, 180 × 320 und 160 × 284): Knöpfe untereinander in voller
+       Breite, Beschriftung bricht um; Rand, Überschrift und Abstände enger, damit der Rumpf trägt. */
+    @media (max-width: 279.98px) {
+      dialog.abfrage { padding: 8px 8px; }
+      dialog.abfrage h2 { font-size: min(var(--t-l), 17px); margin-bottom: 4px; }
+      dialog.abfrage p { font-size: min(var(--t-s), 15px); margin-bottom: 6px; }
+      dialog.abfrage .abfrage-fuss { display: block; margin-top: 6px; }
+      dialog.abfrage .abfrage-fuss .abfrage-weg { margin: 6px 0 0; }
+      dialog.abfrage .abfrage-fuss .abfrage-weg > button,
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen > button { width: 100%; font-size: min(var(--t-s), 15px); line-height: 1.15; padding-block: 4px; }
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen { margin-top: 6px; flex-direction: column; }
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen.abgesetzt { margin-top: 8px; padding-top: 8px; }
+      dialog.abfrage form > .abfrage-aktionen { margin-top: 6px; }
+    }
     /* ===== Runde 7: Layout, Bedienbarkeit und Anzeige (Block „Layout") ===== */
     /* R7-M1, R7-G9: „Bedarf:" steht als unteilbare Beschriftung, die Werte dahinter umbrechen
        (vorher schrumpfte die Beschriftung als Flex-Teil und brach im Wort: „Bed / arf:"). Bei großer
@@ -4997,10 +5066,17 @@
       footer.nav.assistent-nav.mit-uebernehmen > .anzeige-leiste,
       footer.nav.assistent-nav.mit-uebernehmen > .primaer { grid-row: 2; }
       footer.nav.assistent-nav.mit-uebernehmen > .uebernehmen { grid-row: 1; grid-column: 1 / -1; justify-self: stretch; white-space: normal; }
-      footer.nav.assistent-nav .nav-weiter-wort { display: none; }
+      /* R8-G2: „Weiter" bleibt als Wort stehen (kleine Schrift); nur „Zur Übersicht" ist zu lang und zeigt den Pfeil. */
+      footer.nav.assistent-nav .nav-zur ~ .nav-weiter-wort { display: none; }
+      footer.nav.assistent-nav > .primaer { font-size: min(var(--t-s), 13px); white-space: nowrap; min-height: calc(44px + var(--ziel)); }
     }
-    /* Noch enger (Zoom 250 % im Feld-Modus, 160 px): Der Pfeil vorwärts bekommt wieder eine eigene Zeile, statt über den Rand zu ragen. */
+    /* R8-G2, R8-M3: Bis 160 px bleibt die Leiste einzeilig: Die Abstände schrumpfen (drei 44-px-Ziele brauchen 132 px), statt dass der
+       Pfeil vorwärts schon bei 180 px eine eigene Zeile bekam (122 px, 38 % der Höhe). */
     @media (max-width: 12rem) {
+      footer.nav.assistent-nav { column-gap: 4px; padding-inline: max(6px, env(safe-area-inset-left)) max(6px, env(safe-area-inset-right)); }
+    }
+    /* Noch enger (unter 144 px): Der Pfeil vorwärts bekommt wieder eine eigene Zeile, statt über den Rand zu ragen. */
+    @media (max-width: 9rem) {
       footer.nav.assistent-nav:not(.mit-uebernehmen) > .primaer { grid-row: 1; grid-column: 1 / -1; }
       footer.nav.assistent-nav:not(.mit-uebernehmen) > .nav-zurueck,
       footer.nav.assistent-nav:not(.mit-uebernehmen) > .anzeige-leiste { grid-row: 2; }
@@ -5019,6 +5095,12 @@
       .seiten-kopf.assistent-kopf .schritte .schritt-status { margin-left: 0; }
       .seiten-kopf.assistent-kopf .schritte button.status-begonnen .schritt-status { font-size: 0; border: 0; padding: 0; }
       .seiten-kopf.assistent-kopf .schritte button.status-begonnen .schritt-status::after { content: "•"; font-size: 1rem; }
+      /* R8-M3: Sechs Reiter in 164 px waren 23 bis 25 px breit. Drei je Zeile, zwei Zeilen: je Reiter rund 54 × 44 px (Ziffer, darunter
+         der Status), kein Rollen und keine Fehltipps auf den Nachbarn; der Kopf rollt mit der Seite weg und kostet nichts Festes. */
+      :root .seiten-kopf.assistent-kopf .schritte { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }
+      :root .seiten-kopf.assistent-kopf .schritte button { min-width: 0; min-height: calc(44px + var(--ziel)); }
+      :root .seiten-kopf.assistent-kopf .schritte button:nth-child(n + 4) { border-top: 2px solid var(--kopf-linie); }
+      :root .seiten-kopf.assistent-kopf .schritte button:nth-child(3n + 1) { border-left: 0; }
     }
     /* R7-M7: Der Knopf „Ansicht" der Fußleiste zeigt auf 360 px (Container unter 22rem) nur „◐" — in allen Schritten gleich breit
        (in Schritt 5 schrumpfte er sonst auf 102 px und schnitt sein Wort ab). */

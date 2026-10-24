@@ -260,7 +260,10 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
 
   /** Zeiger-Klicks kurz nach dem Öffnen verschlucken (siehe `prellschutzMs`). */
   function prellschutz(e: MouseEvent<HTMLFormElement>) {
-    if (e.detail > 0 && Date.now() - geoeffnetUm.current < prellschutzMs) {
+    // Mit zerstörender Wahl länger: Ein zögernder Zweittipp kam bis ~0,6 s später (R4-G1); weil die
+    // Ortssperre die Knöpfe der Rückfrage nicht mehr erfasst (R8-H5), trägt der Prellschutz das allein.
+    const dauer = prellschutzMs === 0 ? 0 : abfrage.art === "wahl" && abfrage.wege.some((w) => w.gefahr) ? Math.max(prellschutzMs, 800) : prellschutzMs;
+    if (e.detail > 0 && Date.now() - geoeffnetUm.current < dauer) {
       e.preventDefault();
       e.stopPropagation();
     }
@@ -283,7 +286,9 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
     eigeneEbene.current = ersteEbeneBetreten() || eigeneEbene.current; // StrictMode ruft den Effekt zweimal auf
     // Die Fingerstelle des Auslösers: Dort liegt jetzt womöglich der
     // bestätigende Knopf (R4-G1).
-    ortSperren();
+    // Die Sperre gilt hinter dem Dialog (R8-H5, R8-S4): Tipps auf die Knöpfe der Rückfrage selbst
+    // fängt nur der Prellschutz ab, ein bewusster Tipp nach dem Lesen geht durch.
+    ortSperren(undefined, undefined, { nurAusserhalbRueckfrage: true });
     // Wie beim alten `window.prompt` steht eine Vorgabe markiert da:
     // weitertippen ersetzt sie, ohne sie erst löschen zu müssen. Vor dem
     // `showModal()` geht das nicht — ein geschlossener Dialog ist unsichtbar

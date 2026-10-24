@@ -34,6 +34,7 @@ import {
   funkrufText,
   funktionsText,
   kennzeichenText,
+  nurSollstaerke,
   orgLabel,
   vokabText,
   vokabularFuer,
@@ -227,6 +228,48 @@ export function winAnsiText(text: string): string {
     aus += [...grund].every(winAnsiKennt) && grund !== "" ? grund : "?";
   }
   return geaendert ? aus : text;
+}
+
+/** Umschrift kyrillischer und griechischer Buchstaben in lateinische (R8-A3) — klein, die Großschreibung setzt {@link umschrift}. */
+const UMSCHRIFT: Record<string, string> = {
+  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "jo", ж: "zh", з: "z", и: "i", й: "j", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p",
+  р: "r", с: "s", т: "t", у: "u", ф: "f", х: "ch", ц: "z", ч: "tsch", ш: "sch", щ: "schtsch", ъ: "", ы: "y", ь: "", э: "e", ю: "ju", я: "ja",
+  і: "i", ї: "ji", є: "je", ґ: "g", ў: "u", ј: "j", љ: "lj", њ: "nj", ћ: "c", ђ: "dj", џ: "dz",
+  α: "a", β: "v", γ: "g", δ: "d", ε: "e", ζ: "z", η: "i", θ: "th", ι: "i", κ: "k", λ: "l", μ: "m", ν: "n", ξ: "x", ο: "o", π: "p",
+  ρ: "r", σ: "s", ς: "s", τ: "t", υ: "y", φ: "f", χ: "ch", ψ: "ps", ω: "o", ά: "a", έ: "e", ή: "i", ί: "i", ό: "o", ύ: "y", ώ: "o", ϊ: "i", ϋ: "y",
+};
+
+/**
+ * Kyrillisch/griechisch → lateinisch („Владимир" → „Vladimir"); alles andere bleibt. Nur für das
+ * Rückruf-Feld auf Papier (R8-A3): Der Name steht dort lesbar statt als „????????".
+ */
+export function umschrift(text: string): string {
+  let aus = "";
+  for (const z of text) {
+    const klein = z.toLowerCase();
+    const u = UMSCHRIFT[klein];
+    if (u === undefined) {
+      aus += z;
+    } else if (klein !== z && u) {
+      aus += u[0]!.toUpperCase() + u.slice(1);
+    } else {
+      aus += u;
+    }
+  }
+  return aus;
+}
+
+/**
+ * Der Name im Feld „Ansprechpartner/in": darstellbar unverändert; kyrillisch/griechisch in Umschrift
+ * mit dem Vermerk dazu; was auch so nicht druckbar ist, mit dem Hinweis auf die digitale Meldung —
+ * kein „????????" mehr an der Stelle, wo der Meldekopf zurückruft (R8-A3).
+ */
+export function ansprechpersonPapier(name: string): string {
+  const weg = (t: string) => winAnsiText(t).includes("?") && !t.includes("?");
+  if (!weg(name)) return name;
+  const u = umschrift(name);
+  if (!weg(u)) return `${u} (Umschrift)`;
+  return `${winAnsiText(u)} (Name nicht darstellbar – siehe digitale Meldung)`;
 }
 
 /**
@@ -671,6 +714,8 @@ function uebersichtsTabelle(
     if (teil) namensZeilen.push({ text: teil, italics: true });
     if (b.uebung) namensZeilen.push({ text: "ÜBUNG", bold: true, color: UEBUNG_FARBE });
     if (!e.abgerueckt && e.zaehlt === false) namensZeilen.push({ text: "zählt nicht in diese Lage", italics: true });
+    // Niemand hat gezählt: Die Zahl ist die Sollstärke der Vorbelegung, nicht wie eine Meldung zu lesen (R8-A1).
+    if (nurSollstaerke(b)) namensZeilen.push({ text: "Sollstärke, nicht gemeldet", bold: true });
     // Wie an der Karte: Der Bogen nennt einen anderen Einsatz, gezählt wird er trotzdem (R5-K5).
     if (e.fremderOrt) namensZeilen.push({ text: `Anderer Einsatz? Bogen nennt: „${e.fremderOrt}“`, bold: true });
     // Nachtrag: der Grund je Zeile (R5-W7).
@@ -732,6 +777,12 @@ function uebersichtsTabelle(
   const summe = summiereBoegen(zaehlendeBoegen(eintraege));
   const uebungen = anwesend.filter((e) => e.zaehlt === false).length;
   const beschriftung = [`${summe.einheiten} zählend`];
+  // Die Sollstärke steht in der Summe — das Blatt sagt, wie viel davon nicht gezählt ist (R8-A1).
+  const sollEinheiten = eintraege.filter((e) => zaehlend(e) && nurSollstaerke(e.bogen));
+  if (sollEinheiten.length > 0) {
+    const personen = sollEinheiten.reduce((n, e) => n + staerke(e.bogen).gesamt, 0);
+    beschriftung.push(`davon ${sollEinheiten.length} Sollstärke, nicht gemeldet (${personen} Pers.)`);
+  }
   if (uebungen > 0) beschriftung.push(`${uebungen} Übung`);
   // Im Nachtrag: Einheiten, die schon in der letzten Lieferung standen, ersetzen
   // ihre Zeile und stehen nicht in dieser Summe (R5-W7).
@@ -1880,7 +1931,7 @@ export function pdfDokument(
         ],
       },
       { text: "Ansprechpartner/in:", bold: true },
-      { text: ansprech ? `${ansprech.vorname} ${ansprech.nachname}` : "" },
+      { text: ansprech ? ansprechpersonPapier(`${ansprech.vorname} ${ansprech.nachname}`) : "" },
     ],
   ];
   for (const h of b.einheit.hierarchie) {
@@ -2135,7 +2186,7 @@ export function pdfDokument(
         margin: [0, luecke(12), 0, luecke(10)],
       },
       ...(b.personalErfassung === PersonalErfassung.NUR_STAERKE
-        ? [{ text: "Personal am Meldekopf nur in Stärke erfasst.", italics: true, margin: [0, 0, 0, 6] } as Content]
+        ? [{ text: nurSollstaerke(b) ? "Personal am Meldekopf nur in Stärke erfasst. Die Zahl ist die Sollstärke der Vorbelegung, nicht gezählt." : "Personal am Meldekopf nur in Stärke erfasst.", italics: true, margin: [0, 0, 0, 6] } as Content]
         : []),
       { text: "weitere interne / externe Qualifikationen obiger Helfer/-innen:", margin: [0, 0, 0, 4] },
       { ...(tabLayout ? { layout: tabLayout } : {}), table: { widths: [180, "*"], body: qualiZeilen } },

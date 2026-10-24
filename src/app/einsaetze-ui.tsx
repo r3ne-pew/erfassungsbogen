@@ -119,6 +119,8 @@ import {
   vergleichKurztext,
   rueckkehrText,
   meldungsNummern,
+  entfernenNummernText,
+  sollstaerkeAnteil,
   passtZuBedarfsfilter,
   type BedarfsFilter,
   merkeAnsicht,
@@ -285,8 +287,11 @@ function ausgabeStandText(s: Einsatzsammlung): string {
   // Exporte je Format (R4-W2): nur die, die es gab, sonst „noch keiner".
   const staende = exportStaendeLaden(s.id);
   const exporte = EXPORT_ZIELE.filter((z) => staende[z]).map((z) => `${EXPORT_ZIEL_NAME[z]} ${exportZeitKurz(staende[z]!.zeitpunkt)} (${seit(staende[z]!)})`);
+  // Ein veraltetes Blatt sagt es auch hier: „… — neu drucken" (R8-W6).
+  const lbStand = lageblattStandLaden(s.id);
+  const lbVeraltet = lbStand != null && (neueEintraege(s.eintraege, lbStand).length > 0 || aenderungenSeit(s.eintraege, lbStand).anzahl > 0);
   return [
-    teil("Lageblatt", lageblattStandLaden(s.id), "noch keins"),
+    teil("Lageblatt", lbStand, "noch keins") + (lbVeraltet ? " — neu drucken" : ""),
     exporte.length > 0 ? `Export ${exporte.join(", ")}` : "Export: noch keiner",
     ...(weitergabe ? [weitergabeTeil(s, weitergabe)] : []),
   ].join(" · ");
@@ -889,6 +894,9 @@ export function EinsatzDetail(props: {
   const lageblattVeraltet =
     lageblattStand != null &&
     (neueEintraege(einsatz.eintraege, lageblattStand).length > 0 || aenderungenSeit(einsatz.eintraege, lageblattStand).anzahl > 0);
+  // „✓ Lageblatt erzeugt" über einer Zeile „Aushang ist nicht mehr aktuell" widerspricht sich: Nach der
+  // ersten Änderung fällt die Bestätigung weg (R8-W6).
+  const ausgabeQuittungSichtbar = ausgabeQuittung?.startsWith("✓ Lageblatt erzeugt") && lageblattVeraltet ? null : ausgabeQuittung;
   // Letzte Weitergabe der ganzen Sammlung — nach einer Schichtübergabe führt
   // womöglich ein anderes Gerät die Lage (Audit Runde 2, R2-W5).
   const weitergabeStand = weitergabeStandLaden(einsatz.id);
@@ -935,6 +943,7 @@ export function EinsatzDetail(props: {
   const [ansicht, setAnsicht] = useState<EinheitenAnsicht>(gemerkteAnsicht);
   const kompakt = useSchmal();
   const sum = aggregiere(einsatz.eintraege, einsatz.art);
+  const sollAnteil = sollstaerkeAnteil(einsatz.eintraege, einsatz.art);
   const zugGruppen = aggregiereNachZug(einsatz.eintraege, einsatz.art);
   // Was die Lage NICHT enthält, gehört genauso sichtbar gemacht wie das, was
   // sie enthält (siehe zaehltInLage).
@@ -1371,6 +1380,13 @@ export function EinsatzDetail(props: {
         <div><Zaehlwert wert={sum.staerke.mannschaft} /><span>Mannsch.</span></div>
         <div className="gesamt"><Zaehlwert wert={sum.staerke.gesamt} /><span>Gesamt</span></div>
       </section>
+      {/* Eine nicht gezählte Sollstärke steckt in der Summe: Die Summe sagt, wie viel davon (R8-A1). */}
+      {sollAnteil.einheiten > 0 && (
+        <p className="hinweis soll-anteil" role="status">
+          Davon {sollAnteil.einheiten === 1 ? "1 Einheit" : `${sollAnteil.einheiten} Einheiten`} nur Sollstärke, nicht gemeldet
+          ({sollAnteil.personen} {sollAnteil.personen === 1 ? "Person" : "Personen"}) — zählt in der Summe mit, bis eine Zahl vorliegt.
+        </p>
+      )}
 
       {/* Aufnahme direkt unter der Summe: Beim Blick aufs Telefon steht oben
           die Gesamtzahl und gleich darunter „nächste Einheit". Unter Bedarf
@@ -1951,7 +1967,7 @@ export function EinsatzDetail(props: {
       {/* Rückmeldung dort, wo getippt wurde: während der Arbeit, dass sie läuft
           und nicht noch einmal getippt werden muss; danach die Bestätigung
           (R5-O3, R5-L4). */}
-      {(onWeitergeben || onLageblatt || onBlanko) && (arbeitet === "weitergeben" || arbeitet === "lageblatt" || arbeitet === "blanko" || ausgabeQuittung) && (
+      {(onWeitergeben || onLageblatt || onBlanko) && (arbeitet === "weitergeben" || arbeitet === "lageblatt" || arbeitet === "blanko" || ausgabeQuittungSichtbar) && (
         <p className="hinweis arbeitet-zeile ausgabe-quittung" role="status">
           {arbeitet === "weitergeben"
             ? "Die Sammel-PDF mit allen Bögen wird erzeugt — bei vielen Bögen dauert das bis zu einer halben Minute. Bitte nicht noch einmal tippen."
@@ -1959,7 +1975,7 @@ export function EinsatzDetail(props: {
               ? "Das Lageblatt wird erzeugt — einen Moment, bitte nicht noch einmal tippen."
               : arbeitet === "blanko"
                 ? "Der Blanko-Vordruck wird erzeugt — einen Moment, bitte nicht noch einmal tippen."
-                : ausgabeQuittung}
+                : ausgabeQuittungSichtbar}
         </p>
       )}
       {/* Die PDFs sind weiß und bleiben es: auch in „Dunkel“ und „Nacht“ (R5-L5). Wer sie nachts auf
@@ -2125,6 +2141,7 @@ export function EinsatzDetail(props: {
                 Entfernt{zuletztEntfernt.eintraege.length > 1 ? ` (${zuletztEntfernt.eintraege.length} Fassungen)` : ""}:
               </strong>{" "}
               Meldung {zuletztEntfernt.nummer != null ? `Nr. ${zuletztEntfernt.nummer} ` : ""}„{einheitAnzeigename(zuletztEntfernt.eintraege[0]!.bogen.einheit)}"
+              {zuletztEntfernt.verschoben ? `. ${zuletztEntfernt.verschoben}.` : ""}
             </>
           )}
         </DaumenQuittung>
@@ -2361,6 +2378,7 @@ function TabellenZeileZelle({ zeile: z, eingang, nummer, neueFassung }: { zeile:
         <AnonymBadge bogen={z.eintrag.bogen} />
         <SignaturWarnung eintrag={z.eintrag} />
         {z.teilEtikett ? <span className="teil-badge">{z.teilEtikett}</span> : null}
+        {z.anwesend && nurSollstaerke(z.eintrag.bogen) ? <span className="bedarf-marke" title="Niemand hat gezählt: Die Zahl ist die Sollstärke der Vorbelegung.">Sollstärke, nicht gemeldet</span> : null}
         {neueFassung ? <span className="fassung-badge">neue Fassung</span> : null}
         {!z.anwesend && (
           <span className="status-badge">
@@ -2636,6 +2654,8 @@ interface Entfernt {
   eintraege: MeldeEintrag[];
   /** Laufende Nummer vor dem Entfernen — danach hat die Einheit keine mehr. */
   nummer?: number;
+  /** Folge für die Nummern der übrigen Einheiten (R8-D2), leer ohne Verschiebung. */
+  verschoben?: string;
 }
 
 /** Eine Revisionszeile in der Historie, mit Diff zur direkt älteren Fassung. */
@@ -2797,7 +2817,8 @@ function EinheitKarte(props: {
   const revs = revisionenJe(alle, kopf.einheitSchluessel);
   // Folgemeldung: die direkt ältere Fassung derselben Einheit ist der Bezug für
   // „was hat sich seit der letzten Meldung geändert?".
-  const vorige = revs[1];
+  // Eine nur in die Historie gelegte ältere Fassung (verdrängt) ist kein Vorgänger (R8-W2).
+  const vorige = revs[1] && !istVerdraengt(revs[1], revs) ? revs[1] : undefined;
   // Bogen der Einheit kam nach der Schnellerfassung, trägt aber den älteren
   // Stand — die Lage rechnet sonst still weiter mit Platzhaltern (R4-W1).
   const nachgereicht = nachgereichterBogen(kopf, revs);
@@ -3197,6 +3218,7 @@ function EinheitKarte(props: {
     // (Audit Runde 4, R4-D3).
     const ids = alle.filter((e) => e.einheitSchluessel === kopf.einheitSchluessel).map((e) => e.id);
     const kopie = letzterStandMit(einsatzId, ids);
+    const verschoben = entfernenNummernText(alle, kopf.einheitSchluessel);
     const sicher = await frageJaNein({
       titel: "Meldung entfernen?",
       text: (
@@ -3205,6 +3227,12 @@ function EinheitKarte(props: {
             „{einheitAnzeigename(kopf.bogen.einheit)}" (Stand {standText(kopf.bogen)}) wird aus diesem Einsatz entfernt — samt
             Historie.
           </p>
+          {verschoben && (
+            <p>
+              <strong>Nummern ändern sich:</strong> {verschoben}. Am Funk genannte Nummern und ein schon gedrucktes Lageblatt
+              passen dann nicht mehr; „Rückgängig" stellt die alten Nummern wieder her.
+            </p>
+          )}
           <p>
             „Rückgängig" gibt es nur, solange die App geöffnet bleibt. Nach dem Neuladen oder Beenden der App ist die
             Meldung endgültig weg.{" "}
@@ -3232,7 +3260,7 @@ function EinheitKarte(props: {
       // Die Einträge reisen vollständig zurück an die Ansicht: Sie bietet sie
       // zum Zurückholen an, solange niemand weitergeklickt hat. Für Einsätze
       // gibt es einen Papierkorb, für die einzelne Meldung bisher nichts.
-      if (weg.length > 0) onEntfernt?.({ art: "einheit", eintraege: fassungenJeEinheit(weg, kopf.einheitSchluessel) });
+      if (weg.length > 0) onEntfernt?.({ art: "einheit", eintraege: fassungenJeEinheit(weg, kopf.einheitSchluessel), verschoben });
       onGeaendert();
     });
   }
@@ -3368,6 +3396,11 @@ function EinheitKarte(props: {
             // Bedarf steht dafür in der Kurzform der Tabelle.
             <span className="muster-sub kompakt-zeile">
               <span>Stärke {staerkeText(kopf.bogen)}</span>
+              {zaehlt && nurSollstaerke(kopf.bogen) && (
+                <span className="kompakt-merkmal luecken-merkmal" title="Niemand hat gezählt: Die Zahl ist die Sollstärke der Vorbelegung.">
+                  Sollstärke, nicht gemeldet
+                </span>
+              )}
               {folge && (
                 <span className={`kompakt-merkmal folge-merkmal${folge.verlust ? " staerke-verlust" : ""}`} title={`Folgemeldung ${zeitLang(folge.gemeldetAm)}: ${folge.kurz}`}>
                   Folgem. {zeitKurz(folge.gemeldetAm)}

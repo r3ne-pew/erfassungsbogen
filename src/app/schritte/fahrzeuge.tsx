@@ -142,7 +142,7 @@ function FahrzeugKarte(props: {
                verschwindet ohne Dialog. */
             if (!fahrzeugLeer(f) && !(await frageJaNein({
               titel: `${bezeichnung} entfernen?`,
-              text: "Die erfassten Angaben dieses Fahrzeugs gehen verloren — Typ, Kennzeichen, Funkrufname, Sitzplätze und Änderungen.",
+              text: "Die erfassten Angaben dieses Fahrzeugs werden entfernt — Typ, Kennzeichen, Funkrufname, Sitzplätze und Änderungen. „Rückgängig“ in der Leiste unten holt es zurück.",
               ok: "Fahrzeug entfernen",
               gefahr: true,
             }))) {
