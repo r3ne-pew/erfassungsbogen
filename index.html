@@ -5202,6 +5202,10 @@
        die Zeilen der Beispielliste haben mindestens 44 px (vorher 30 bis 33 px). */
     dialog > .kopfzeile:first-child { position: sticky; top: 0; z-index: 3; background: var(--flaeche); padding-block: var(--r-2); box-shadow: 0 1px 0 var(--linie-fein); align-items: center; }
     dialog > .kopfzeile:first-child h2 { min-width: 0; overflow-wrap: break-word; hyphens: auto; }
+    dialog:has(> .kopfzeile:first-child) { padding-top: 0; }
+    dialog > .kopfzeile:first-child { padding-top: min(var(--r-4), 16px); }
+    html.schrift-gross dialog > .kopfzeile:first-child h2 { font-size: min(var(--t-xl), 22px); line-height: 1.2; }
+    html.schrift-gross dialog > .kopfzeile:first-child > button { font-size: min(var(--t-m), 18px); padding-inline: min(1.1rem, 16px); }
     dialog > .kopfzeile:first-child > button { flex: 0 0 auto; min-height: calc(44px + var(--ziel)); }
     dialog button.link { min-height: calc(44px + var(--ziel)); }
     .beispiel-liste li > button.link { display: flex; align-items: center; width: 100%; text-align: left; }
