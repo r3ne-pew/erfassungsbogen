@@ -56,7 +56,7 @@ Funktionalität: Bogen im Assistenten erfassen
     Und ich das Feld "Organisationsname (optional)" mit "Freiwillige Feuerwehr Wardenburg" fülle
     Und ich das Feld "Einheitstyp" mit "Löschzug" fülle
     Und ich das Feld "Ebene (eigene Einheit)" auf "Gemeinde – Gemeinde/Stadt" stelle
-    Und ich das Feld "Name (Pflicht)" mit "Wardenburg" fülle
+    Und ich das Feld "Ort der Einheit (Pflicht)" mit "Wardenburg" fülle
     Und ich zum Schritt "6. Übersicht" wechsle
     Dann sehe ich den Hinweis "Feuerwehr — Freiwillige Feuerwehr Wardenburg"
     Und sehe ich den Hinweis "Löschzug"
@@ -64,7 +64,7 @@ Funktionalität: Bogen im Assistenten erfassen
 
   Szenario: THW-Ortsverband aus der Vorschlagsliste übernehmen
     Wenn ich das Feld "Organisation" auf "THW" stelle
-    Und ich das Feld "Name (Pflicht)" mit "Oldenburg" fülle
+    Und ich das Feld "Ort der Einheit (Pflicht)" mit "Oldenburg" fülle
     Und ich in der Vorschlagsliste "Oldenburg (NI)" wähle
     Dann steht im Feld "Dienststellen-Kürzel (optional)" der Wert "OODE"
     Und steht im Feld "Telefon" der Wert "04413401050"
@@ -72,7 +72,7 @@ Funktionalität: Bogen im Assistenten erfassen
   Szenario: Eine Ebene hinzufügen und wieder entfernen
     Wenn ich das Feld "Organisation" auf "Feuerwehr" stelle
     Und ich auf "+ übergeordnete Ebene" klicke
-    Und ich das Feld "Name (Pflicht)" mit "Wardenburg" fülle
+    Und ich das Feld "Ort der Einheit (Pflicht)" mit "Wardenburg" fülle
     Dann sehe ich die Schaltfläche "Ebene LK entfernen"
     Wenn ich auf "Ebene LK entfernen" klicke
     Dann sehe ich die Schaltfläche "Ebene LK entfernen" nicht
@@ -219,7 +219,7 @@ Funktionalität: Bogen im Assistenten erfassen
   # — ein Funkrufname, den es in Berlin nicht gibt.
   Szenario: In der Großstadt steht der Ortsverband als Kennzahl im Funkrufnamen
     Wenn ich das Feld "Organisation" auf "THW" stelle
-    Und ich das Feld "Name (Pflicht)" mit "Steglitz" fülle
+    Und ich das Feld "Ort der Einheit (Pflicht)" mit "Steglitz" fülle
     Und ich in der Vorschlagsliste "Berlin Steglitz-Zehlendorf" wähle
     Und ich das Feld "Einheitstyp" auf "B – Bergungsgruppe" stelle
     Und ich zum Schritt "6. Übersicht" wechsle
@@ -263,11 +263,11 @@ Funktionalität: Bogen im Assistenten erfassen
 
   Szenario: Der Entwurf übersteht einen Neustart der App
     Wenn ich das Feld "Organisation" auf "Feuerwehr" stelle
-    Und ich das Feld "Name (Pflicht)" mit "Wardenburg" fülle
+    Und ich das Feld "Ort der Einheit (Pflicht)" mit "Wardenburg" fülle
     Und ich die Seite neu lade
     Dann sehe ich den Hinweis "Entwurf vom"
     Und sehe ich die Schaltfläche "Fortsetzen"
     Wenn ich auf "Fortsetzen" klicke
     # „Fortsetzen" öffnet den Schritt, auf dem gearbeitet wurde (R2-N7).
     Dann sehe ich die Überschrift "1. Einheit"
-    Und steht im Feld "Name (Pflicht)" der Wert "Wardenburg"
+    Und steht im Feld "Ort der Einheit (Pflicht)" der Wert "Wardenburg"
