@@ -4114,16 +4114,20 @@ function AppInhalt() {
         <UnlesbarHinweis />
         {beschaedigt && (
           <section className="entwurf-karte verdraengt beschaedigt" role="alert">
-            <span className="entwurf-text">
-              <strong>{beschaedigt.ungesichert ? "Ein Bogen ließ sich nicht öffnen und nicht beiseitelegen" : "Ein Bogen ließ sich nicht öffnen"}</strong>
-              {/* R8-H4, R8-S2: zwei Sätze und der Weg; die Einzelheiten hinter „Mehr dazu“. */}
-              <span className="hinweis warnung-text">
+            {/* Zugeklappt eine Kopfzeile (R9-S4: zusammen mit dem Kasten zur Sammlung blieb „Neuen Bogen erstellen“
+                im ersten Bild); Text, Ursache und Knöpfe stehen dahinter. */}
+            <details className="beschaedigt-mehr" style={{ width: "100%" }}>
+              <summary>
                 {beschaedigt.ungesichert
-                  ? "Speicher voll – beschädigte Daten nicht gesichert. Der Text liegt unverändert auf dem Gerät. „Als Datei sichern“, dann Platz schaffen (Papierkorb leeren) und neu laden; neue Bögen werden bis dahin nicht gespeichert."
-                  : "Nicht gelöscht, nur beiseitegelegt. „Als Datei sichern“ und an den geben, der die App betreut — oder unten gleich einen neuen Bogen beginnen."}
-              </span>
-              <details className="beschaedigt-mehr">
-                <summary>Mehr dazu</summary>
+                  ? "Ein Bogen ließ sich nicht öffnen und nicht beiseitelegen — Speicher voll ›"
+                  : "Ein Bogen ließ sich nicht öffnen — beiseitegelegt, nicht gelöscht ›"}
+              </summary>
+              <span className="entwurf-text">
+                <span className="hinweis warnung-text">
+                  {beschaedigt.ungesichert
+                    ? "Speicher voll – beschädigte Daten nicht gesichert. Der Text liegt unverändert auf dem Gerät. „Als Datei sichern“, dann Platz schaffen (Papierkorb leeren) und neu laden; neue Bögen werden bis dahin nicht gespeichert."
+                    : "Nicht gelöscht, nur beiseitegelegt. „Als Datei sichern“ und an den geben, der die App betreut — oder unten gleich einen neuen Bogen beginnen."}
+                </span>
                 <span className="hinweis">
                   Ursache: {beschaedigt.ursache}. „Aus Datei laden…“ öffnet die Datei nur, wenn diese Ursache nicht mehr zutrifft; fehlt
                   eine Pflichtangabe, nennt die App sie beim Einlesen. Nachtragen lässt sie sich in der App nicht — dann braucht, wer die
@@ -4132,36 +4136,36 @@ function AppInhalt() {
                     ? "Die Frist von 90 Tagen läuft erst nach dem Beiseitelegen; bis dahin bleibt der Text unverändert liegen."
                     : `Die App löscht den Bogen am ${datumZweistellig(beschaedigt.am + DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000)} von selbst (${DATENSCHUTZFRIST_TAGE} Tage nach dem Beiseitelegen).`}
                 </span>
-              </details>
-            </span>
-            <span className="entwurf-aktionen">
-              <button
-                type="button"
-                onClick={() => {
-                  blobAlsDownload("eeb-beschaedigter-entwurf.json", new Blob([beschaedigt.text], { type: "application/json" }));
-                  setMeldung("Datei „eeb-beschaedigter-entwurf.json“ gespeichert (Downloads). Der beiseitegelegte Bogen bleibt zusätzlich auf dem Gerät.");
-                }}
-              >
-                Als Datei sichern
-              </button>
-              <button
-                type="button"
-                className="gefahr"
-                onClick={async () => {
-                  const ja = await frageJaNein({
-                    titel: "Beschädigten Bogen entfernen?",
-                    text: "Der beiseitegelegte Bogen wird endgültig gelöscht. Wenn du ihn noch prüfen willst, vorher „Als Datei sichern“.",
-                    ok: "Endgültig entfernen",
-                    gefahr: true,
-                  });
-                  if (!ja) return;
-                  beschaedigtenEntwurfVerwerfen();
-                  setBeschaedigt(beschaedigterEntwurfAnzeige());
-                }}
-              >
-                Entfernen…
-              </button>
-            </span>
+              </span>
+              <span className="entwurf-aktionen">
+                <button
+                  type="button"
+                  onClick={() => {
+                    blobAlsDownload("eeb-beschaedigter-entwurf.json", new Blob([beschaedigt.text], { type: "application/json" }));
+                    setMeldung("Datei „eeb-beschaedigter-entwurf.json“ gespeichert (Downloads). Der beiseitegelegte Bogen bleibt zusätzlich auf dem Gerät.");
+                  }}
+                >
+                  Als Datei sichern
+                </button>
+                <button
+                  type="button"
+                  className="gefahr"
+                  onClick={async () => {
+                    const ja = await frageJaNein({
+                      titel: "Beschädigten Bogen entfernen?",
+                      text: "Der beiseitegelegte Bogen wird endgültig gelöscht. Wenn du ihn noch prüfen willst, vorher „Als Datei sichern“.",
+                      ok: "Endgültig entfernen",
+                      gefahr: true,
+                    });
+                    if (!ja) return;
+                    beschaedigtenEntwurfVerwerfen();
+                    setBeschaedigt(beschaedigterEntwurfAnzeige());
+                  }}
+                >
+                  Entfernen…
+                </button>
+              </span>
+            </details>
           </section>
         )}
         {/* Rückholung: Was ein anderer Bogen verdrängt hat, ist nicht verloren.
