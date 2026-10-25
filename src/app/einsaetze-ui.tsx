@@ -1377,7 +1377,7 @@ export function EinsatzDetail(props: {
           contents" den Rahmen auf, es bleibt eine Spalte. */}
       <div className="einsatz-seite">
       <section className="karte staerke-leiste">
-        <div><Zaehlwert wert={sum.einheiten} /><span>Einheiten</span></div>
+        <div className="anzahl"><Zaehlwert wert={sum.einheiten} /><span>Einheiten</span></div>
         <div><Zaehlwert wert={sum.staerke.fuehrer} /><span>Führer</span></div>
         <div><Zaehlwert wert={sum.staerke.unterfuehrer} /><span>Unterf.</span></div>
         <div><Zaehlwert wert={sum.staerke.mannschaft} /><span>Mannsch.</span></div>

@@ -30,6 +30,21 @@ describe("Schritt Sofortbedarf", () => {
     expect(screen.getByText(/Verpflegung ist aus der Stärke vorbelegt und zieht mit ihr mit/)).toBeDefined();
   });
 
+  // Rückmeldung aus der Erprobung: ein geleertes Zahlenfeld sprang auf „0" zurück, neu tippen ergab „07".
+  it("lässt ein Zahlenfeld leer, solange man es leert und neu tippt", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    const diesel = screen.getByLabelText("Diesel (l)") as HTMLInputElement;
+    await nutzer.clear(diesel);
+    await nutzer.type(diesel, "70");
+    expect(diesel.value).toBe("70");
+    await nutzer.clear(diesel);
+    expect(diesel.value).toBe("");
+    await nutzer.tab();
+    expect(diesel.value).toBe("0");
+  });
+
   // Audit Runde 7, R7-E6: Eine begrenzte Eingabe wird genannt.
   it("sagt, wenn ein negativer Wert auf 0 gesetzt wurde (R7-E6)", async () => {
     const nutzer = userEvent.setup();

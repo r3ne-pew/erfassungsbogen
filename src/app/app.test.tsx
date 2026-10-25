@@ -317,7 +317,7 @@ describe("Assistenten-Durchlauf", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Punkthausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Punkthausen");
     await nutzer.click(screen.getByRole("button", { name: /^6\. Übersicht/ }));
     await nutzer.click(screen.getAllByRole("button", { name: "Ort/Auftrag ist noch leer." })[0]!);
     expect(document.activeElement?.id).toBe("feld-ort-auftrag");
@@ -356,7 +356,7 @@ describe("Assistenten-Durchlauf", () => {
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
 
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Musterhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Musterhausen");
 
     // Ein Klick je Schritt: Einheit → Einsatz → Personal → Fahrzeuge →
     // Sofortbedarf → Übersicht. Jede Zwischenüberschrift bestätigt, dass der
@@ -528,7 +528,7 @@ describe("Assistenten-Durchlauf", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Doppelhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Doppelhausen");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
     await nutzer.click(screen.getByRole("button", { name: "Verwerfen" }));
     const text = rueckfrage("Angefangenen Bogen verwerfen?").textContent!;
@@ -540,7 +540,7 @@ describe("Assistenten-Durchlauf", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Wegwerfhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Wegwerfhausen");
     await nutzer.click(screen.getByRole("button", { name: /^6\. Übersicht/ }));
 
     await nutzer.click(screen.getByRole("button", { name: "Bogen schließen" }));
@@ -573,7 +573,7 @@ describe("Assistenten-Durchlauf", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Entwurfshausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Entwurfshausen");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
 
     // Der Entwurf steht auf der Startseite zum Fortsetzen bereit.
@@ -600,7 +600,7 @@ describe("Assistenten-Durchlauf", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Verdrängthausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Verdrängthausen");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
 
     // Abbruch: der angefangene Bogen bleibt im Arbeitsplatz.
@@ -632,12 +632,12 @@ describe("Assistenten-Durchlauf", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Eigenhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Eigenhausen");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
 
     await nutzer.click(screen.getByRole("button", { name: "Einheit schnell erfassen (nur Stärke)…" }));
     await nutzer.click(within(rueckfrage("Einheit schnell erfassen?")).getByRole("button", { name: "Schnell erfassen" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Fremdstadt");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Fremdstadt");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
     // Die Karte sagt, dass das nicht der eigene Bogen ist.
     expect(screen.getByText(/Angefangene Erfassung einer fremden Einheit/)).toBeDefined();
@@ -662,7 +662,7 @@ describe("Assistenten-Durchlauf", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Eigenhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Eigenhausen");
     await nutzer.click(screen.getByRole("button", { name: /^6\. Übersicht/ }));
     await nutzer.click(screen.getByRole("button", { name: "In Einsatz-Sammlung ablegen…" }));
     const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='In Einsatz-Sammlung ablegen']")!;
@@ -674,7 +674,7 @@ describe("Assistenten-Durchlauf", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Eigenhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Eigenhausen");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
 
     for (const name of ["Aalen", "Biberach"]) {
@@ -683,7 +683,7 @@ describe("Assistenten-Durchlauf", () => {
       await nutzer.click(within(rueckfrage("Einheit schnell erfassen — für welche Sammlung?")).getByRole("button", { name: "Ohne Sammlung erfassen" }));
       const frage = document.querySelector<HTMLDialogElement>("dialog[aria-label='Einheit schnell erfassen?']");
       if (frage) await nutzer.click(within(frage).getByRole("button", { name: "Schnell erfassen" }));
-      await nutzer.type(screen.getByLabelText("Name (Pflicht)"), name);
+      await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), name);
       await nutzer.click(screen.getByRole("button", { name: /^6\. Übersicht/ }));
       await nutzer.click(screen.getByRole("button", { name: "In Einsatz-Sammlung ablegen…" }));
       expect(screen.getByText(/Die Erfassung wird in der Sammlung abgelegt und hier geschlossen/)).toBeDefined();
@@ -706,7 +706,7 @@ describe("Assistenten-Durchlauf", () => {
     await nutzer.click(screen.getByRole("button", { name: "Einheit schnell erfassen (nur Stärke)…" }));
     await nutzer.click(within(rueckfrage("Einheit schnell erfassen — für welche Sammlung?")).getByRole("button", { name: /Für „Sammelhausen" erfassen/ }));
     expect(within(screen.getByRole("banner")).getByText(/Aufnahme für: Sammelhausen/)).toBeDefined();
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Schnellhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Schnellhausen");
     await nutzer.click(screen.getByRole("button", { name: "Weiter →" }));
     // Direkt zur Stärke, ohne Umweg über „2. Einsatz".
     expect(screen.getByRole("heading", { level: 2, name: "3. Personal" })).toBeDefined();
@@ -749,20 +749,20 @@ describe("Assistenten-Durchlauf", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Eigenhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Eigenhausen");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
     await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
     await screen.findByRole("heading", { level: 1, name: "Sammelhausen" });
 
     await nutzer.click(screen.getByRole("button", { name: "Einheit manuell erfassen…" }));
     await nutzer.click(within(rueckfrage("Einheit für den Einsatz erfassen?")).getByRole("button", { name: "Einheit erfassen" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Falschstadt");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Falschstadt");
     await nutzer.click(screen.getByRole("button", { name: /‹ Einsatz „Sammelhausen"/ }));
 
     // Fortsetzen führt zurück in dieselbe Erfassung.
     await nutzer.click(screen.getByRole("button", { name: "Einheit manuell erfassen…" }));
     await nutzer.click(within(rueckfrage("Angefangene Erfassung")).getByRole("button", { name: "Diese Erfassung fortsetzen" }));
-    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("Falschstadt");
+    expect((screen.getByLabelText("Ort der Einheit (Pflicht)") as HTMLInputElement).value).toBe("Falschstadt");
     await nutzer.click(screen.getByRole("button", { name: /‹ Einsatz „Sammelhausen"/ }));
 
     // Verwerfen: Die falsche Erfassung geht, der eigene Bogen bleibt.
@@ -770,7 +770,7 @@ describe("Assistenten-Durchlauf", () => {
     const frage = rueckfrage("Angefangene Erfassung");
     expect(frage.textContent).toMatch(/Dein eigener Bogen „THW Eigenhausen" bleibt/);
     await nutzer.click(within(frage).getByRole("button", { name: "Verwerfen und neue Einheit erfassen" }));
-    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("Ort der Einheit (Pflicht)") as HTMLInputElement).value).toBe("");
 
     const rueck = localStorage.getItem("eeb.entwurf.ersetzt.v1") ?? "";
     expect(rueck).toContain("Eigenhausen");
@@ -789,13 +789,13 @@ describe("Assistenten-Durchlauf", () => {
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
     await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Aalen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Aalen");
     await nutzer.click(screen.getByRole("button", { name: /‹ Einsatz „Hochwasser Deich"/ }));
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
 
     await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
     await nutzer.click(within(rueckfrage("Neuen Bogen anfangen?")).getByRole("button", { name: "Neu anfangen" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Eigenstadt");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Eigenstadt");
 
     expect(screen.getByRole("button", { name: "‹ Startseite" })).toBeDefined();
     expect(within(screen.getByRole("banner")).queryByText(/Aufnahme für/)).toBeNull();
@@ -813,7 +813,7 @@ describe("Assistenten-Durchlauf", () => {
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
     await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Sollhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Sollhausen");
     const feld = screen.getByRole("combobox", { name: "Einheitstyp" });
     await nutzer.type(feld, "Bergungsgruppe");
     const liste = screen.getByRole("listbox", { name: "Vorschläge zu Einheitstyp" });
@@ -838,7 +838,7 @@ describe("Assistenten-Durchlauf", () => {
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
     await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Sollhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Sollhausen");
     await nutzer.type(screen.getByRole("combobox", { name: "Einheitstyp" }), "Bergungsgruppe");
     await nutzer.click(within(screen.getByRole("listbox", { name: "Vorschläge zu Einheitstyp" })).getAllByText(/Bergungsgruppe/)[0]!);
     await nutzer.click(screen.getByRole("button", { name: /^3\. Personal/ }));
@@ -888,7 +888,7 @@ describe("Assistenten-Durchlauf", () => {
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
     await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Rottweil");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Rottweil");
     await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
 
     const frage = await screen.findByRole("dialog", { name: "Stärke fehlt" });
@@ -916,7 +916,7 @@ describe("Assistenten-Durchlauf", () => {
     await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
     await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
     await nutzer.type(screen.getByLabelText("Eingetroffen um (vom Meldeblock)"), blatt);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "OV Papierhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "OV Papierhausen");
     await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
     await nutzer.click(within(await screen.findByRole("dialog", { name: "Stärke fehlt" })).getByRole("button", { name: "Trotzdem mit Stärke 0 übernehmen" }));
 
@@ -943,7 +943,7 @@ describe("Assistenten-Durchlauf", () => {
     await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
     await nutzer.type(screen.getByLabelText("Nr. laut Zettel (leer = die App vergibt)"), "9");
     await nutzer.type(screen.getByLabelText("Zug / Verband (laut Zettel)"), "2. TZ");
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Neudorf");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Neudorf");
     await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
     await nutzer.click(within(await screen.findByRole("dialog", { name: "Stärke fehlt" })).getByRole("button", { name: "Trotzdem mit Stärke 0 übernehmen" }));
     await waitFor(() => expect(einsaetzeLaden().find((s) => s.id === einsatz.id)!.eintraege).toHaveLength(2));
@@ -962,7 +962,7 @@ describe("Assistenten-Durchlauf", () => {
     await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
     // Altstadt ist die erste Einheit und trägt Nr. 1.
     await nutzer.type(screen.getByLabelText("Nr. laut Zettel (leer = die App vergibt)"), "1");
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Neudorf");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Neudorf");
     await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
     await nutzer.click(within(await screen.findByRole("dialog", { name: "Stärke fehlt" })).getByRole("button", { name: "Trotzdem mit Stärke 0 übernehmen" }));
     const hinweis = await screen.findByRole("dialog", { name: "Nr. schon vergeben" });
@@ -981,7 +981,7 @@ describe("Assistenten-Durchlauf", () => {
     await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
     const beginn = Date.now();
     await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Pausenhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Pausenhausen");
     const echt = Date.now.bind(Date);
     const uhr = vi.spyOn(Date, "now").mockImplementation(() => echt() + 25 * 60_000);
     try {
@@ -1010,7 +1010,7 @@ describe("Assistenten-Durchlauf", () => {
       await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
       await nutzer.click(await screen.findByRole("button", { name: "Einheit manuell erfassen…" }));
       await nutzer.type(screen.getByLabelText("Eingetroffen um (vom Meldeblock)"), "12:30");
-      await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Zeithausen");
+      await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Zeithausen");
       await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
       await nutzer.click(within(await screen.findByRole("dialog", { name: "Stärke fehlt" })).getByRole("button", { name: "Trotzdem mit Stärke 0 übernehmen" }));
       const frage = await screen.findByRole("dialog", { name: "Stimmt die Zeit?" });
@@ -1064,7 +1064,7 @@ describe("Assistenten-Durchlauf", () => {
     const frage = await screen.findByRole("dialog", { name: "Neuen Bogen anfangen?" });
     expect(frage.textContent).toContain("In einem anderen Fenster ist „THW TabA\" angefangen");
     await nutzer.click(within(frage).getByRole("button", { name: "Neu anfangen" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "TabB");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "TabB");
 
     expect(localStorage.getItem("eeb.entwurf.v1")).toContain("TabB");
     expect(localStorage.getItem("eeb.entwurf.ersetzt.v1")).toContain("TabA");
@@ -1126,7 +1126,7 @@ describe("Assistenten-Durchlauf", () => {
     // zum Wegtippen erziehen.
     await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
     expect(screen.queryByRole("dialog", { name: "Neuen Bogen anfangen?" })).toBeNull();
-    expect(screen.getByLabelText("Name (Pflicht)")).toBeDefined();
+    expect(screen.getByLabelText("Ort der Einheit (Pflicht)")).toBeDefined();
   }, 20000);
 
   // Audit Runde 2, R2-H5: „Neuen Bogen erstellen" legte keinen
@@ -1136,10 +1136,10 @@ describe("Assistenten-Durchlauf", () => {
     render(<App />);
     const laenge = history.length;
     await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
-    expect(screen.getByLabelText("Name (Pflicht)")).toBeDefined();
+    expect(screen.getByLabelText("Ort der Einheit (Pflicht)")).toBeDefined();
     expect(history.length).toBe(laenge + 1);
     act(() => { history.back(); });
-    await waitFor(() => expect(screen.queryByLabelText("Name (Pflicht)")).toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText("Ort der Einheit (Pflicht)")).toBeNull());
     expect(screen.getByRole("button", { name: "Neuen Bogen erstellen" })).toBeDefined();
   });
 
@@ -1163,7 +1163,7 @@ describe("Assistenten-Durchlauf", () => {
     // Der verbrauchte Eintrag ist neu angelegt: Das nächste Zurück führt zur Startseite.
     expect(history.length).toBe(laenge);
     act(() => { history.back(); });
-    await waitFor(() => expect(screen.queryByLabelText("Name (Pflicht)")).toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText("Ort der Einheit (Pflicht)")).toBeNull());
     expect(screen.getByRole("button", { name: "Neuen Bogen erstellen" })).toBeDefined();
   });
 
@@ -1255,7 +1255,7 @@ describe("Assistenten-Durchlauf", () => {
 
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Eigenhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Eigenhausen");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
 
     await nutzer.click(screen.getByRole("button", { name: "Beispielbögen" }));
@@ -1352,17 +1352,17 @@ describe("Assistenten-Durchlauf", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Eigenstadt");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Eigenstadt");
 
     fragmentSetzen(encodePayloadUrl(bogenMitName("Bamberg"), browserKompressor));
     const frage = await screen.findByRole("dialog", { name: "Empfangenen Bogen öffnen?" });
     expect(frage.textContent).toContain("THW Eigenstadt");
     await nutzer.click(within(frage).getByRole("button", { name: "Abbrechen" }));
-    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("Eigenstadt");
+    expect((screen.getByLabelText("Ort der Einheit (Pflicht)") as HTMLInputElement).value).toBe("Eigenstadt");
     expect(localStorage.getItem("eeb.entwurf.ersetzt.v1")).toBeNull();
 
     // Weitertippen, dann derselbe Weg mit „Meldung öffnen": zurückholbar ist der aktuelle Stand.
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "-Nord");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "-Nord");
     fragmentSetzen(encodePayloadUrl(bogenMitName("Bamberg"), browserKompressor));
     await nutzer.click(within(await screen.findByRole("dialog", { name: "Empfangenen Bogen öffnen?" })).getByRole("button", { name: "Meldung öffnen" }));
     expect(await screen.findByRole("heading", { name: "Gesamtübersicht" })).toBeDefined();
@@ -1375,7 +1375,7 @@ describe("Assistenten-Durchlauf", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Biberach");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Biberach");
     const link = encodePayloadUrl(bogenMitName("Ulm"), browserKompressor);
     fragmentSetzen(link);
     const frage = await screen.findByRole("dialog", { name: "Empfangenen Bogen öffnen?" });
@@ -1486,7 +1486,7 @@ describe("Assistenten-Durchlauf", () => {
 
     expect(await screen.findByRole("button", { name: "In Einsatz übernehmen" })).toBeDefined();
     expect(screen.getByRole("button", { name: /‹ Einsatz „Hochwasser Deich"/ })).toBeDefined();
-    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("Rottweil");
+    expect((screen.getByLabelText("Ort der Einheit (Pflicht)") as HTMLInputElement).value).toBe("Rottweil");
   }, 20000);
 
   it("bleibt nach „‹ Startseite“ und Neuladen auf der Startseite, die Erfassung wartet dort (R5-N3)", async () => {
@@ -2116,7 +2116,7 @@ describe("Speicher voll", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "V");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "V");
     expect(await screen.findByText(/^✓ gespeichert · .* Uhr · nur auf diesem Gerät$/)).toBeDefined();
   });
 
@@ -2129,7 +2129,7 @@ describe("Speicher voll", () => {
       if (k === "eeb.entwurf.v1") throw new DOMException("voll", "QuotaExceededError");
       return echt.call(this, k, v);
     });
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "V");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "V");
 
     expect(await screen.findByText(/Nicht gespeichert — der Speicher dieses Geräts ist voll/)).toBeDefined();
     expect(screen.queryByText(/✓ gespeichert/)).toBeNull();
@@ -2140,14 +2140,14 @@ describe("Speicher voll", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "V");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "V");
     expect(await screen.findByText(/^✓ gespeichert · .* Uhr · nur auf diesem Gerät$/)).toBeDefined();
     const echt = Storage.prototype.setItem;
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, k: string, v: string) {
       if (k === "eeb.entwurf.v1") throw new DOMException("voll", "QuotaExceededError");
       return echt.call(this, k, v);
     });
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "W");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "W");
     await screen.findByText(/Nicht gespeichert — der Speicher dieses Geräts ist voll/);
 
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
@@ -2170,7 +2170,7 @@ describe("Speicher voll", () => {
       if (k === "eeb.entwurf.v1") throw new DOMException("voll", "QuotaExceededError");
       return echt.call(this, k, v);
     });
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "V");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "V");
 
     const zeile = await screen.findByText(/Nicht gespeichert — der Speicher dieses Geräts ist voll/);
     expect(zeile.textContent).toMatch(/Die Stärke jetzt auf dem Meldeblock notieren/);
@@ -2187,7 +2187,7 @@ describe("Speicher voll", () => {
       if (k === "eeb.entwurf.v1") throw new DOMException("voll", "QuotaExceededError");
       return echt.call(this, k, v);
     });
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "V");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "V");
     await screen.findByText(/Nicht gespeichert/);
     const fest = document.querySelector<HTMLElement>(".fest-warnung.speicher-fehler")!;
     expect(fest).not.toBeNull();
@@ -2207,7 +2207,7 @@ describe("Speicher voll", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new DOMException("gesperrt", "QuotaExceededError");
     });
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "G");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "G");
     expect(await screen.findByText(/dieser Browser lässt die App nichts speichern/)).toBeDefined();
     expect(screen.queryByText(/Speicher dieses Geräts ist voll/)).toBeNull();
 
@@ -2220,7 +2220,7 @@ describe("Speicher voll", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "G");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "G");
     const schliessen = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(schliessen);
     expect(schliessen.defaultPrevented).toBe(false);
@@ -2255,7 +2255,7 @@ describe("Speicher voll", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Eigenhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Eigenhausen");
     await nutzer.click(screen.getByRole("button", { name: /^6\. Übersicht/ }));
     sammlungenVoll();
     await nutzer.click(screen.getByRole("button", { name: "In Einsatz-Sammlung ablegen…" }));
@@ -2461,7 +2461,7 @@ describe("Bogen aus einer PDF laden (Startseite, „Aus Datei laden“)", () => 
     const nutzer = userEvent.setup();
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Bamberg");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Bamberg");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
 
     const kaputt = new File(['{"schemaVersion": 9, "einheit": {'], "abgeschnitten.json", { type: "application/json" });
@@ -2486,7 +2486,7 @@ describe("Bogen aus einer PDF laden (Startseite, „Aus Datei laden“)", () => 
     const nutzer = userEvent.setup();
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Biberach");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Biberach");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
     const ulm = bogenMitName("Ulm");
     await nutzer.upload(screen.getByLabelText("Aus Datei laden…"), pdfDatei(ulm));
@@ -2513,7 +2513,7 @@ describe("Bogen aus einer PDF laden (Startseite, „Aus Datei laden“)", () => 
     const nutzer = userEvent.setup();
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Mühldorf");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Mühldorf");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
 
     await nutzer.upload(screen.getByLabelText("Aus Datei laden…"), pdfDatei(bogenMitName("Bamberg")));
@@ -2533,7 +2533,7 @@ describe("Bogen aus einer PDF laden (Startseite, „Aus Datei laden“)", () => 
     const nutzer = userEvent.setup();
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Mühldorf");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Mühldorf");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
 
     await nutzer.upload(screen.getByLabelText("Aus Datei laden…"), pdfDatei(bogenMitName("Bamberg")));
@@ -2862,7 +2862,7 @@ describe("Vorlage bearbeiten (Karte in „Gespeicherte Vorlagen“)", () => {
     await nutzer.click(screen.getByRole("button", { name: "Bearbeiten" }));
 
     // Schritt 1 mit dem Stand der Vorlage; die Marke sagt, was hier geändert wird.
-    const name = screen.getByLabelText("Name (Pflicht)") as HTMLInputElement;
+    const name = screen.getByLabelText("Ort der Einheit (Pflicht)") as HTMLInputElement;
     expect(name.value).toBe("OV Alt");
     expect(screen.getByText("Vorlage", { selector: ".modus-marke" })).toBeDefined();
     // Der Entwurf kennt die Vorlage — nach einem Neustart findet die App zu ihr zurück.
@@ -2899,12 +2899,12 @@ describe("Vorlage bearbeiten (Karte in „Gespeicherte Vorlagen“)", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await neuerBogenBis(nutzer, 0);
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Angefangenhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Angefangenhausen");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
 
     await nutzer.click(screen.getByRole("button", { name: "Bearbeiten" }));
     await nutzer.click(within(rueckfrage("Vorlage bearbeiten?")).getByRole("button", { name: "Vorlage bearbeiten" }));
-    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("OV Vorlage");
+    expect((screen.getByLabelText("Ort der Einheit (Pflicht)") as HTMLInputElement).value).toBe("OV Vorlage");
 
     // Ein neuer Bogen an dieser Stelle ist kein Vorlagen-Bogen mehr.
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
@@ -2929,7 +2929,7 @@ describe("Vorlage bearbeiten (Karte in „Gespeicherte Vorlagen“)", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Ulm");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Ulm");
     await nutzer.click(screen.getByRole("button", { name: "Weiter →" }));
     await nutzer.type(document.getElementById("feld-ort-auftrag")!, "ECHTER EINSATZ Deichsicherung");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
@@ -2966,7 +2966,7 @@ describe("Musterung bei offenem Bogen: eine Rückfrage statt zwei (R4-S5)", () =
     const nutzer = userEvent.setup();
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Eigenhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Eigenhausen");
     await nutzer.click(screen.getByRole("button", { name: "‹ Startseite" }));
 
     await nutzer.click(screen.getByRole("button", { name: `Einsatz vorbereiten: ${v.name}` }));

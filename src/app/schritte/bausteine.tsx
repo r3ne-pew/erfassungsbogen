@@ -581,6 +581,37 @@ export const zahl = (s: string): number => {
 };
 
 /**
+ * Zahlenfeld, das sich leeren lässt. Ein `type="number"`-Feld, dessen Wert beim
+ * Löschen sofort auf „0" zurückspringt, lässt sich nicht neu tippen: aus „5"
+ * löschen und „7" tippen wurde „07". Der Bogen bekommt weiter 0, das Feld zeigt
+ * solange leer, bis jemand tippt, den Wert anderweitig ändert (Stepper) oder
+ * das Feld verlässt.
+ */
+export function ZahlEingabe(props: Omit<ComponentProps<"input">, "value" | "onChange" | "type"> & {
+  wert: number;
+  setzen: (n: number, text: string) => void;
+}) {
+  const { wert, setzen, onBlur, ...rest } = props;
+  const [leerBei, setLeerBei] = useState<number | null>(null);
+  return (
+    <input
+      {...rest}
+      type="number"
+      value={leerBei === wert ? "" : wert}
+      onChange={(e) => {
+        const n = zahl(e.target.value);
+        setLeerBei(e.target.value.trim() === "" ? n : null);
+        setzen(n, e.target.value);
+      }}
+      onBlur={(e) => {
+        setLeerBei(null);
+        onBlur?.(e);
+      }}
+    />
+  );
+}
+
+/**
  * Satz für ein Zahlenfeld, dessen Eingabe begrenzt wurde — leer, wenn der Wert
  * unverändert übernommen wird (Audit Runde 7, R7-E6: 999 wurde still zu 99,
  * −5 zu 0, 1,5 zu 1).
@@ -626,13 +657,12 @@ export function Stepper(props: { titel: string; wert: number; setzen: (n: number
         >
           −
         </button>
-        <input
-          type="number"
+        <ZahlEingabe
           inputMode="numeric"
           min={min}
-          value={props.wert}
+          wert={props.wert}
           aria-label={props.titel}
-          onChange={(e) => setze(zahl(e.target.value))}
+          setzen={(n) => setze(n)}
         />
         <button type="button" aria-label={`${props.titel}: erhöhen`} onClick={() => setze(props.wert + 1)}>
           +

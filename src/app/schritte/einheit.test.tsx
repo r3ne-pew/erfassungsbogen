@@ -75,7 +75,7 @@ describe("Schritt Einheit", () => {
     const nutzer = userEvent.setup();
     buehne();
 
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Oldenburg");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Oldenburg");
 
     // Die OV-Liste lädt asynchron nach (dynamischer Import) — auf einer kalten
     // Maschine steht sie beim Tippen noch nicht, daher warten statt zugreifen.
@@ -86,7 +86,7 @@ describe("Schritt Einheit", () => {
     );
     await nutzer.click(treffer);
 
-    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("Oldenburg (NI)");
+    expect((screen.getByLabelText("Ort der Einheit (Pflicht)") as HTMLInputElement).value).toBe("Oldenburg (NI)");
     expect((screen.getAllByLabelText("Dienststellen-Kürzel (optional)")[0] as HTMLInputElement).value).toBe("OODE");
     // Ziffern only — die Eingabe filtert Trenn- und Leerzeichen heraus.
     expect((screen.getAllByLabelText("Telefon")[0] as HTMLInputElement).value).toBe("04413401050");
@@ -106,14 +106,14 @@ describe("Schritt Einheit", () => {
     const nutzer = userEvent.setup();
     buehne();
 
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Neustadt");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Neustadt");
     await screen.findByText((_t, el) => el?.tagName === "LI" && el.textContent?.startsWith("Neustadt an der Aisch") === true, undefined, { timeout: 5000 });
     await nutzer.tab();
     expect((screen.getAllByLabelText("Dienststellen-Kürzel (optional)")[0] as HTMLInputElement).value).toBe("");
 
     // Das Kürzel bleibt eindeutig und wird weiter aufgelöst.
-    await nutzer.clear(screen.getByLabelText("Name (Pflicht)"));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "OODE");
+    await nutzer.clear(screen.getByLabelText("Ort der Einheit (Pflicht)"));
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "OODE");
     await nutzer.tab();
     expect((screen.getAllByLabelText("Dienststellen-Kürzel (optional)") as HTMLInputElement[]).map((f) => f.value)).toContain("OODE");
   });
@@ -121,7 +121,7 @@ describe("Schritt Einheit", () => {
   it("sagt an, was ein eindeutiger Name beim Verlassen ergänzt, und nimmt es auf Wunsch zurück (R3-S4)", async () => {
     const nutzer = userEvent.setup();
     buehne();
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Ulm");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Ulm");
     await screen.findByText((_t, el) => el?.tagName === "LI" && el.textContent?.startsWith("Ulm") === true, undefined, { timeout: 5000 });
     await nutzer.tab();
     const kuerzel = () => (screen.getAllByLabelText("Dienststellen-Kürzel (optional)") as HTMLInputElement[]).map((f) => f.value);
@@ -131,7 +131,7 @@ describe("Schritt Einheit", () => {
 
     await nutzer.click(within(hinweis).getByRole("button", { name: "Rückgängig" }));
     expect(kuerzel()).toEqual([""]);
-    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("Ulm");
+    expect((screen.getByLabelText("Ort der Einheit (Pflicht)") as HTMLInputElement).value).toBe("Ulm");
     expect(document.querySelector(".ov-ergaenzt")).toBeNull();
   });
 
@@ -213,7 +213,7 @@ describe("Schritt Einheit", () => {
     expect(bogenStand.b!.einheit.einheitsTyp.code).toBeDefined();
     expect(bogenStand.b!.einheit.einheitsTyp.freitext).toBeUndefined();
 
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "ulm");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "ulm");
     await screen.findByText((_t, el) => el?.tagName === "LI" && el.textContent?.startsWith("Ulm") === true, undefined, { timeout: 5000 });
     await nutzer.tab();
     expect(bogenStand.b!.einheit.hierarchie[0]!.kurz).toBe("OULM");
@@ -240,7 +240,7 @@ describe("Schritt Einheit", () => {
   it("sagt für einen OV-Namen ohne Verzeichnis-Treffer, dass Kürzel und Kontakt fehlen (R4-H1)", async () => {
     const nutzer = userEvent.setup();
     buehne();
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Xyzstadt");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Xyzstadt");
     await nutzer.tab();
     await screen.findByText(/ist nicht im OV-Verzeichnis/, undefined, { timeout: 5000 });
     expect(document.querySelector(".ov-frei-hinweis")!.textContent).toContain("„Xyzstadt\"");
@@ -268,7 +268,7 @@ describe("Schritt Einheit", () => {
     const nutzer = userEvent.setup();
     buehne();
 
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Musterhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Musterhausen");
 
     expect(screen.getByText("THW Musterhausen")).toBeDefined();
   });
@@ -298,11 +298,11 @@ describe("Schritt Einheit", () => {
     buehne();
 
     await nutzer.click(screen.getByRole("button", { name: "+ übergeordnete Ebene" }));
-    expect(screen.getAllByLabelText(/^Name/)).toHaveLength(2);
+    expect(screen.getAllByLabelText(/^(Ort der Einheit|Name)/)).toHaveLength(2);
 
     // Eine leere Ebene geht ohne Rückfrage (Rückfrage-Regel).
     await nutzer.click(screen.getByRole("button", { name: /^Ebene .* entfernen$/ }));
-    expect(screen.getAllByLabelText(/^Name/)).toHaveLength(1);
+    expect(screen.getAllByLabelText(/^(Ort der Einheit|Name)/)).toHaveLength(1);
   });
 
   it("belegt beim Hinzufügen die jeweils nächsthöhere Ebene vor", async () => {
@@ -377,7 +377,7 @@ describe("Schritt Einheit", () => {
 });
 
 /**
- * „Name (Pflicht)" war keine Pflicht: Mit leerem Feld führte „Weiter" ohne ein
+ * „Ort der Einheit (Pflicht)" war keine Pflicht: Mit leerem Feld führte „Weiter" ohne ein
  * Wort auf Schritt 2, und die einzige Rückmeldung war ein „•" statt „✓" in der
  * Schrittleiste — ein Zeichen, dessen Bedeutung nirgends erklärt wird. Der
  * Fehler fiel erst fünf Schritte später in der Übersicht auf, als
@@ -703,8 +703,8 @@ describe("Schritt Einheit — Organisation wechseln", () => {
     await nutzer.click(within(dialog).getByRole("button", { name: "Abbrechen" }));
 
     expect((screen.getByLabelText("Organisation") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("THW");
-    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("Wardenburg");
-    expect(screen.getAllByLabelText(/^Name/)).toHaveLength(2);
+    expect((screen.getByLabelText("Ort der Einheit (Pflicht)") as HTMLInputElement).value).toBe("Wardenburg");
+    expect(screen.getAllByLabelText(/^(Ort der Einheit|Name)/)).toHaveLength(2);
   });
 
   it("wechselt nach Bestätigung und setzt die Zugehörigkeit neu auf", async () => {
@@ -716,8 +716,8 @@ describe("Schritt Einheit — Organisation wechseln", () => {
     await nutzer.click(within(dialog).getByRole("button", { name: "Organisation wechseln" }));
 
     expect((screen.getByLabelText("Organisation") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("Feuerwehr");
-    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("");
-    expect(screen.getAllByLabelText(/^Name/)).toHaveLength(1);
+    expect((screen.getByLabelText("Ort der Einheit (Pflicht)") as HTMLInputElement).value).toBe("");
+    expect(screen.getAllByLabelText(/^(Ort der Einheit|Name)/)).toHaveLength(1);
   });
 
   // Audit Runde 7, R7-E5: Nach dem Wechsel gibt es einen Tipp zurück.
@@ -729,14 +729,14 @@ describe("Schritt Einheit — Organisation wechseln", () => {
     const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Organisation auf „Feuerwehr\" wechseln?']")!;
     expect(dialog.textContent).toContain("Rückgängig");
     await nutzer.click(within(dialog).getByRole("button", { name: "Organisation wechseln" }));
-    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("Ort der Einheit (Pflicht)") as HTMLInputElement).value).toBe("");
     expect(screen.getByText(/Organisation auf „Feuerwehr" gewechselt/)).toBeDefined();
 
     await nutzer.click(screen.getByRole("button", { name: "Rückgängig" }));
 
     expect((screen.getByLabelText("Organisation") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("THW");
-    expect((screen.getByLabelText("Name (Pflicht)") as HTMLInputElement).value).toBe("Wardenburg");
-    expect(screen.getAllByLabelText(/^Name/)).toHaveLength(2);
+    expect((screen.getByLabelText("Ort der Einheit (Pflicht)") as HTMLInputElement).value).toBe("Wardenburg");
+    expect(screen.getAllByLabelText(/^(Ort der Einheit|Name)/)).toHaveLength(2);
   });
 
   it("wechselt ohne Rückfrage, solange nichts ausgefüllt ist", async () => {
@@ -767,12 +767,12 @@ describe("Schritt Einheit — Ebene entfernen", () => {
     expect(dialog).not.toBeNull();
     expect(dialog.textContent).toContain("Telefon 07071123");
     await nutzer.click(within(dialog).getByRole("button", { name: "Abbrechen" }));
-    expect(screen.getAllByLabelText(/^Name/)).toHaveLength(2);
+    expect(screen.getAllByLabelText(/^(Ort der Einheit|Name)/)).toHaveLength(2);
 
     await nutzer.click(screen.getByRole("button", { name: "Ebene RB Tübingen entfernen" }));
     const zweiter = document.querySelector<HTMLDialogElement>("dialog[aria-label='RB Tübingen entfernen?']")!;
     await nutzer.click(within(zweiter).getByRole("button", { name: "Ebene entfernen" }));
-    expect(screen.getAllByLabelText(/^Name/)).toHaveLength(1);
+    expect(screen.getAllByLabelText(/^(Ort der Einheit|Name)/)).toHaveLength(1);
   });
 });
 

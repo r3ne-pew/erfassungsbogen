@@ -6,7 +6,7 @@
 import { PersonalErfassung, staerke, verpflegung } from "@bos/eeb-format/model";
 import { pruefpunkte } from "../hilfen";
 import { useState } from "react";
-import { Feld, Hinweise, zahl, zahlBegrenzung, type SchrittProps } from "./bausteine";
+import { Feld, Hinweise, ZahlEingabe, zahlBegrenzung, type SchrittProps } from "./bausteine";
 
 export function SchrittSofortbedarf({ bogen, aendern }: SchrittProps) {
   const s = bogen.sofortbedarf;
@@ -46,15 +46,15 @@ export function SchrittSofortbedarf({ bogen, aendern }: SchrittProps) {
         <>
           <div className="zeile">
             <Feld titel="Verpflegung (Personen)" schmal>
-              <input type="number" min={0} value={s.verpflegungPersonen} onChange={(e) => { merkeGrenze("verpflegungPersonen", e.target.value); aendern({ sofortbedarf: { ...s, verpflegungPersonen: zahl(e.target.value) } }); }} />
+              <ZahlEingabe min={0} wert={s.verpflegungPersonen} setzen={(n, text) => { merkeGrenze("verpflegungPersonen", text); aendern({ sofortbedarf: { ...s, verpflegungPersonen: n } }); }} />
             </Feld>
             {nurStaerke ? (
               <>
                 <Feld titel="davon vegetarisch" schmal>
-                  <input type="number" min={0} value={vp.vegetarisch} onChange={(e) => setVpManuell({ vegetarisch: zahl(e.target.value) })} />
+                  <ZahlEingabe min={0} wert={vp.vegetarisch} setzen={(n) => setVpManuell({ vegetarisch: n })} />
                 </Feld>
                 <Feld titel="davon vegan" schmal>
-                  <input type="number" min={0} value={vp.vegan} onChange={(e) => setVpManuell({ vegan: zahl(e.target.value) })} />
+                  <ZahlEingabe min={0} wert={vp.vegan} setzen={(n) => setVpManuell({ vegan: n })} />
                 </Feld>
               </>
             ) : (
@@ -63,13 +63,13 @@ export function SchrittSofortbedarf({ bogen, aendern }: SchrittProps) {
               </Feld>
             )}
             <Feld titel="Diesel (l)" schmal>
-              <input type="number" min={0} value={s.dieselLiter} onChange={(e) => { merkeGrenze("dieselLiter", e.target.value); aendern({ sofortbedarf: { ...s, dieselLiter: zahl(e.target.value) } }); }} />
+              <ZahlEingabe min={0} wert={s.dieselLiter} setzen={(n, text) => { merkeGrenze("dieselLiter", text); aendern({ sofortbedarf: { ...s, dieselLiter: n } }); }} />
             </Feld>
             <Feld titel="Benzin (l)" schmal>
-              <input type="number" min={0} value={s.benzinLiter} onChange={(e) => { merkeGrenze("benzinLiter", e.target.value); aendern({ sofortbedarf: { ...s, benzinLiter: zahl(e.target.value) } }); }} />
+              <ZahlEingabe min={0} wert={s.benzinLiter} setzen={(n, text) => { merkeGrenze("benzinLiter", text); aendern({ sofortbedarf: { ...s, benzinLiter: n } }); }} />
             </Feld>
             <Feld titel="Gemisch (l)" schmal>
-              <input type="number" min={0} value={s.gemischLiter} onChange={(e) => { merkeGrenze("gemischLiter", e.target.value); aendern({ sofortbedarf: { ...s, gemischLiter: zahl(e.target.value) } }); }} />
+              <ZahlEingabe min={0} wert={s.gemischLiter} setzen={(n, text) => { merkeGrenze("gemischLiter", text); aendern({ sofortbedarf: { ...s, gemischLiter: n } }); }} />
             </Feld>
           </div>
           {grenze && (

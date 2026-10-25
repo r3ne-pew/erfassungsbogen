@@ -100,7 +100,7 @@ describe("Gemerkter Rückweg des Personalschritts (R7-O5)", () => {
     const nutzer = userEvent.setup();
     render(<App />);
     await nutzer.click(screen.getByRole("button", { name: "Neuen Bogen erstellen" }));
-    await nutzer.type(screen.getByLabelText("Name (Pflicht)"), "Verwerfhausen");
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Verwerfhausen");
     sessionStorage.setItem(
       "eeb.personal.rueckweg",
       JSON.stringify({ rueckweg: { art: "liste", text: "x", personal: [] }, einheit: "{}", zeit: Date.now() }),

@@ -57,7 +57,7 @@ import {
   VokabListe,
   type FreitextVorschlag,
   staerkeVorlesen,
-  zahl,
+  ZahlEingabe,
   type SchrittProps,
 } from "./bausteine";
 
@@ -1276,7 +1276,8 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
           {bogen.personal.length > 0 && (
             <p className="hinweis">
               {bogen.personal.length === 1 ? "Diese Person zählt" : `Diese ${bogen.personal.length} Personen zählen`} nicht in die
-              Stärke — die steht oben von Hand. Hier stehen nur die Erreichbarkeiten für Rückfragen.
+              Stärke mit. Die Stärke ist nur die Zahl, die du oben einträgst; die Angaben hier sind Telefon oder E-Mail für Rückfragen.
+              Gehört die Person zur Einheit, zähle sie oben selbst mit.
             </p>
           )}
         </>
@@ -1599,13 +1600,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             </p>
             <div className="zeile">
               <Feld titel="Anzahl" schmal>
-                <input
-                  type="number"
-                  min={1}
-                  max={99}
-                  value={beispielAnzahl}
-                  onChange={(e) => setBeispielAnzahl(zahl(e.target.value))}
-                />
+                <ZahlEingabe min={1} max={99} wert={beispielAnzahl} setzen={(n) => setBeispielAnzahl(n)} />
               </Feld>
               <button type="button" onClick={beispielnamenUebernehmen}>
                 Beispielpersonen einfügen

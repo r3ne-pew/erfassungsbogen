@@ -702,7 +702,7 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
             onFocusCapture={() => setNameImFokus(i)}
             onBlurCapture={() => setNameImFokus((z) => (z === i ? null : z))}
           >
-          <Feld titel={i === 0 ? "Name (Pflicht)" : "Name"}>
+          <Feld titel={i === 0 ? "Ort der Einheit (Pflicht)" : "Name"}>
             {e.organisation === OrganisationsTyp.THW && h.bezeichnung.code === 1 ? (
               <OvVorschlagFeld
                 id={i === 0 ? "feld-einheit-name" : undefined}
@@ -885,7 +885,7 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
         )}
       </p>
       {/* Derselbe Hinweisblock wie im Personal-Schritt, und aus demselben
-          Grund: „Name (Pflicht)" konnte man kommentarlos leer lassen und
+          Grund: „Ort der Einheit (Pflicht)" konnte man kommentarlos leer lassen und
           „Weiter" drücken — der Fehler fiel erst fünf Schritte später in der
           Übersicht auf, als „(Standort offen)" auf dem Bogen. Gesperrt wird
           weiterhin nichts: wer den OV-Namen gerade nicht weiß, soll
