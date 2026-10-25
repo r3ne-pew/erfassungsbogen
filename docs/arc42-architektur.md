@@ -380,12 +380,19 @@ wieder.
 | Kamera-Zugriff | Erfordert Secure Context (HTTPS/localhost) für `getUserMedia`; in Electron zusätzliche macOS-Entitlements nötig (`NSCameraUsageDescription`, Hardened-Runtime-Camera-Entitlement) | `docs/TODO.md` |
 | Sprache der Oberfläche und des Codes | Durchgängig Deutsch – Bezeichner, Kommentare, Fachbegriffe, Gherkin-Szenarien | `PRODUCT.md`, gesamter Quellcode |
 
-> *Prüfvermerk:* Versionen in `package.json` bestätigt (react ^19.2.7,
-> vite ^8.2.2, electron ^44.4.5, typescript ^7.0.2, pako ^3.0.2,
-> pdfmake ^0.3.11, @noble/ed25519 ^2.3.0, jsqr ^1.4.0, zxing-wasm ^3.1.4,
-> qrcode ^1.5.4); CI-Jobs laufen auf `node-version: 24`. Vite bleibt
-> vorerst bei 8.2.2: mit 8.3.0 bricht der Build in vite-plugin-pwa 1.3.0
-> ab, `.github/dependabot.yml` blendet genau diese Version aus.
+> *Prüfvermerk (Stand 2026-10-25):* Versionen in `package.json` bestätigt
+> (react ^19.2.7, vite ^8.3.5, electron ^44.9.1, typescript ^7.0.2,
+> pako ^3.0.2, pdfmake ^0.3.11, @noble/ed25519 ^3.2.0, jsqr ^1.4.0,
+> zxing-wasm ^3.1.4, qrcode ^1.5.4); CI-Jobs laufen auf `node-version: 24`.
+> Vite wurde wegen der Dependabot-Meldungen zu 8.2.x (u. a. GHSA-587h-7wmj-h5pm,
+> GHSA-rq7h-c2jc-7f22) auf 8.3.5 gehoben; der Build mit vite-plugin-pwa 1.3.0
+> läuft damit wieder durch. Nur 8.3.0 (Workbox fand die Build-Ausgabe nicht)
+> bleibt in `.github/dependabot.yml` ausgeblendet. Im selben Schritt: vitest
+> und @vitest/coverage-v8 ^4.1.12 (GHSA-qxg6-89mg-rqv8 in @vitest/mocker),
+> concurrently ^10.0.6 (shell-quote ≥ 1.11, GHSA-pqg4-j6r4-53mv) sowie die
+> transitiven Pakete axios 1.20.0, http-cache-semantics 4.3.0, fast-uri 3.1.9
+> und serialize-javascript 7.1.4 über `package-lock.json`. Alle Treffer lagen
+> im Bau-/Testwerkzeug; `npm audit --omit=dev` war durchgehend leer.
 
 ### 2.2 Organisatorische Randbedingungen
 
