@@ -62,7 +62,7 @@ export const START_ABSCHNITTE: Abschnitt[] = [
             "Ausfüllen: Die Stärke wird als Führer, Unterführer, Mannschaft und Gesamtzahl geführt; taktische Zeichen und Funkrufnamen sind hinterlegt und werden vorgeschlagen.",
           ],
           [
-            "Ausgeben: Das PDF folgt dem gewohnten Papierbogen — und trägt den kompletten Bogeninhalt zusätzlich als QR-Code auf der letzten Seite.",
+            "Ausgeben: Das PDF folgt dem gewohnten Papierbogen — und trägt den kompletten Bogeninhalt zusätzlich als QR-Code am Ende (große Einheiten brauchen mehrere Codes).",
           ],
           [
             "Übergeben: Die Gegenstelle liest den QR-Code mit der Kamera oder einem USB-Handscanner ein, oder sie bekommt den Bogen als Datei. Ohne Netz, ohne Server, ohne Kopplung der Geräte.",

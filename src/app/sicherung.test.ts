@@ -160,6 +160,7 @@ describe("datenUmfang()", () => {
       rueckholplatz: null,
       absender: false,
       beiseitegelegt: false,
+      beiseiteDaten: null,
       geraeteschluessel: false,
       ohneExport: [],
     });

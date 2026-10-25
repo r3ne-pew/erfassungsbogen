@@ -264,7 +264,9 @@ export function FensterKonflikt({ abgleich }: { abgleich: FensterAbgleich }) {
   const entfernt = abgleich.art === "entfernt";
   const anderes = entfernt ? null : entwurfAusAnderemFenster();
   const eigener = abgleich.eigenerBogen?.() ?? null;
-  const unterschied = anderes && eigener ? unterschiedText(eigener, anderes.bogen, 2) : "";
+  // Mit den Werten beider Fenster, gekürzt (R9-W2): „Diesel (dort: „150 l“, hier: „80 l“)“.
+  const unterschied = anderes && eigener ? unterschiedText(eigener, anderes.bogen, 2, { werte: true, laenge: 20 }) : "";
+  const alleUnterschiede = anderes && eigener ? unterschiedText(eigener, anderes.bogen, 8, { werte: true }) : "";
   const hierUm = entwurfEigenerStandUm();
   return (
     <FesteWarnung
@@ -298,6 +300,12 @@ export function FensterKonflikt({ abgleich }: { abgleich: FensterAbgleich }) {
                 <br />
                 <strong>Hier:</strong> {eigener ? `Stand ${standKurz(eigener)} Uhr, ${personenText(eigener)}` : "Stand unbekannt"}
                 {hierUm != null ? `, zuletzt gespeichert ${zeitMitSekunden(hierUm)}` : ""}.
+              </p>
+            )}
+            {/* Alle Unterschiede mit den Werten beider Fenster, nicht nur die ersten zwei der Leiste (R9-W2). */}
+            {alleUnterschiede && (
+              <p>
+                <strong>Anders:</strong> {alleUnterschiede}.
               </p>
             )}
             <p>

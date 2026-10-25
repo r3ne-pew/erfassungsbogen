@@ -45,7 +45,7 @@ export function unterschiedText(
   hier: Erfassungsbogen,
   dort: Erfassungsbogen,
   hoechstens = 4,
-  optionen: { werte?: boolean } = {},
+  optionen: { werte?: boolean; laenge?: number } = {},
 ): string {
   let d;
   try {
@@ -54,14 +54,20 @@ export function unterschiedText(
     return "";
   }
   if (d.anzahl === 0) return "";
+  const laenge = optionen.laenge ?? 28;
+  const q = (t: string) => `„${kurz(t, laenge)}“`;
+  // Richtung immer gleich: erst „dort" (das andere Fenster), dann „hier" (R9-E3, R9-W2).
   const feld = (a: { feld: string; vorher: string; nachher: string }) =>
-    optionen.werte ? `${a.feld} (dort: „${kurz(a.nachher)}“, hier: „${kurz(a.vorher)}“)` : a.feld;
+    optionen.werte ? `${a.feld} (dort: ${q(a.nachher)}, hier: ${q(a.vorher)})` : a.feld;
   const eintraege = (n: number) => `${n} ${n === 1 ? "Eintrag" : "Einträge"}`;
+  // Ein Eintrag pro Teil, durch Semikolon getrennt, Namen in Anführungszeichen: Namen tragen selbst
+  // ein Komma („Nachname, Vorname"), und das Komma trennte vorher auch die Einträge (R9-E3).
   const mitNamen = (n: number, namen: string[]) => {
     const einzigartig = [...new Set(namen.filter(Boolean))];
-    const gezeigt = einzigartig.slice(0, 3).join(", ");
+    const gezeigt = einzigartig.slice(0, 3).join("; ");
     return gezeigt ? `${eintraege(n)}: ${gezeigt}${einzigartig.length > 3 ? " …" : ""}` : eintraege(n);
   };
+  const umbenennung = (alt: string, neu: string) => `dort ${q(neu)} statt hier ${q(alt)}`;
   const teile: string[] = [];
   for (const a of d.sonstiges) teile.push(feld(a));
 
@@ -71,10 +77,10 @@ export function unterschiedText(
   const personal = d.personalZugang.length + d.personalAbgang.length - umbenannt + geaenderte.size;
   if (personal > 0) {
     const namen = [
-      ...d.personalAbgang.slice(0, umbenannt).map((alt, i) => `${nurName(alt)} → ${nurName(d.personalZugang[i] ?? "")}`),
-      ...d.personalZugang.slice(umbenannt).map(nurName),
-      ...d.personalAbgang.slice(umbenannt).map(nurName),
-      ...geaenderte,
+      ...d.personalAbgang.slice(0, umbenannt).map((alt, i) => umbenennung(nurName(alt), nurName(d.personalZugang[i] ?? ""))),
+      ...d.personalZugang.slice(umbenannt).map((x) => `${q(nurName(x))} nur dort`),
+      ...d.personalAbgang.slice(umbenannt).map((x) => `${q(nurName(x))} nur hier`),
+      ...[...geaenderte].map((x) => `${q(x)} unterschiedlich`),
     ];
     teile.push(`Personal (${mitNamen(personal, namen)})`);
   } else if (d.staerke.length > 0) teile.push("Stärke");
@@ -84,10 +90,10 @@ export function unterschiedText(
   const fahrzeuge = d.fahrzeugeZugang.length + d.fahrzeugeAbgang.length - fzUmbenannt + fzGeaendert.size;
   if (fahrzeuge > 0) {
     const namen = [
-      ...d.fahrzeugeAbgang.slice(0, fzUmbenannt).map((alt, i) => `${alt} → ${d.fahrzeugeZugang[i] ?? ""}`),
-      ...d.fahrzeugeZugang.slice(fzUmbenannt),
-      ...d.fahrzeugeAbgang.slice(fzUmbenannt),
-      ...fzGeaendert,
+      ...d.fahrzeugeAbgang.slice(0, fzUmbenannt).map((alt, i) => umbenennung(alt, d.fahrzeugeZugang[i] ?? "")),
+      ...d.fahrzeugeZugang.slice(fzUmbenannt).map((x) => `${q(x)} nur dort`),
+      ...d.fahrzeugeAbgang.slice(fzUmbenannt).map((x) => `${q(x)} nur hier`),
+      ...[...fzGeaendert].map((x) => `${q(x)} unterschiedlich`),
     ];
     teile.push(`Fahrzeuge (${mitNamen(fahrzeuge, namen)})`);
   }
@@ -95,5 +101,5 @@ export function unterschiedText(
   if (teile.length === 0) teile.push("Sofortbedarf");
   const gezeigt = teile.slice(0, hoechstens);
   const rest = teile.length - gezeigt.length;
-  return gezeigt.join(", ") + (rest > 0 ? ` und ${rest} weitere` : "");
+  return gezeigt.join("; ") + (rest > 0 ? ` und ${rest} weitere` : "");
 }

@@ -188,6 +188,8 @@ export function Uebersicht(props: {
       text: `Der Bogen wird geschlossen, nicht gelöscht. ${folgen.satz} Einen neuen Bogen beginnst du auf der Startseite.`,
       ok: "Schließen, zur Startseite",
       gefahr: folgen.verlust,
+      // Wie alle Rückfragen mit Folgen: Der Fokus liegt auf dem Weg, der nichts ändert (R9-M7).
+      fokus: "abbruch",
     });
     if (sicher) neu();
   }
@@ -494,14 +496,23 @@ export function Uebersicht(props: {
           ? `PDF erstellt und im Teilen-Fenster übergeben: ${dateiname}`
           : `PDF gespeichert: ${dateiname} — liegt im Download-Ordner des Browsers.`,
       );
-      // Zeichen, die die PDF-Schrift nicht kennt, stehen als „?" auf dem Papier (R6-A5).
-      if (nichtDarstellbar > 0) {
-        setPdfFehler(
-          `${nichtDarstellbar === 1 ? "1 Name enthält" : `${nichtDarstellbar} Namen enthalten`} Zeichen, die die PDF nicht darstellen kann (z. B. kyrillisch, arabisch, Emoji) – sie stehen dort als „?".${
-            betroffen.length > 0 ? ` Betroffen: ${betroffen.slice(0, 4).join("; ")}${betroffen.length > 4 ? `; und ${betroffen.length - 4} weitere` : ""}.` : ""
-          } Der QR-Code trägt die Namen unverändert.`,
+      // Zeichen, die die PDF-Schrift nicht kennt, stehen als „?" auf dem Papier (R6-A5); kyrillische und
+      // griechische Namen stehen in Umschrift, im Feld „Ansprechpartner/in" wie in der Personenliste (R9-W3).
+      const umschrift = pdfErgebnis?.umschrift ?? [];
+      const teile: string[] = [];
+      if (umschrift.length > 0) {
+        teile.push(
+          `${umschrift.length === 1 ? "1 Name steht" : `${umschrift.length} Namen stehen`} in Umschrift („(Umschrift)" dahinter): ${umschrift.slice(0, 4).join("; ")}${umschrift.length > 4 ? `; und ${umschrift.length - 4} weitere` : ""}.`,
         );
       }
+      if (nichtDarstellbar > 0) {
+        teile.push(
+          `${nichtDarstellbar === 1 ? "1 Name enthält" : `${nichtDarstellbar} Namen enthalten`} Zeichen, die die PDF nicht darstellen kann (z. B. arabisch, Emoji) – sie stehen dort als „?".${
+            betroffen.length > 0 ? ` Betroffen: ${betroffen.slice(0, 4).join("; ")}${betroffen.length > 4 ? `; und ${betroffen.length - 4} weitere` : ""}.` : ""
+          }`,
+        );
+      }
+      if (teile.length > 0) setPdfFehler(`${teile.join(" ")} Der QR-Code trägt die Namen unverändert.`);
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") return; // Abbruch im Teilen-Fenster
       // Der Ausweg gehört zur Meldung: Fehlt der PDF-Baustein (Netz weg vor dem
@@ -867,7 +878,7 @@ export function Uebersicht(props: {
             <>
               <p className="hinweis">
                 Bogen zu groß für einen Code — in {qr.teile.length} Teile aufgeteilt. Alle Teile
-                nacheinander scannen; die App setzt sie zusammen. Auch auf der letzten PDF-Seite.
+                nacheinander scannen; die App setzt sie zusammen. Auch auf den letzten PDF-Seiten, je Teil eine Seite.
               </p>
               <div className="qr-teile">
                 {qr.teile.map((t) => (
@@ -882,7 +893,7 @@ export function Uebersicht(props: {
             <>
               <img src={qr.teile[0]!.datenUrl} alt="EEB2-QR-Code" />
               <p className="hinweis">
-                Öffnet beim Scannen mit der Kamera die App; dieser Code steht auch auf der letzten PDF-Seite.
+                Öffnet beim Scannen mit der Kamera die App; dieser Code steht auch am Ende der PDF.
               </p>
             </>
           )
@@ -1046,7 +1057,7 @@ export function Uebersicht(props: {
           <button type="button" className={pdfLaeuft ? "arbeitet" : ""} aria-busy={pdfLaeuft || undefined} onClick={pdf} disabled={pdfLaeuft}>
             {pdfLaeuft ? "PDF wird erstellt…" : "PDF erzeugen"}
           </button>
-          <p className="hinweis">Zum Drucken oder Versenden, mit QR-Code auf der letzten Seite. Das PDF ist immer hell, für Papier — auch in der Ansicht „Nacht“.</p>
+          <p className="hinweis">Zum Drucken oder Versenden, mit QR-Code am Ende (große Einheiten: mehrere Codes, je einer pro Seite). Das PDF ist immer hell, für Papier — auch in der Ansicht „Nacht“.</p>
           {/* role="status": die Quittung kommt asynchron, nach dem Klick — ohne
               Ansage erführe ein Screenreader nichts davon. */}
           {pdfQuittung && <p className="hinweis pdf-quittung" role="status">✓ {pdfQuittung}</p>}

@@ -6,7 +6,8 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { Dialogschicht, frageJaNein, frageWahl, prellschutzSetzen } from "./dialoge";
+import { Dialogschicht, frageFelder, frageJaNein, frageWahl, prellschutzSetzen } from "./dialoge";
+import userEvent from "@testing-library/user-event";
 import { tippSchutzZuruecksetzen } from "./tipp-schutz";
 
 describe("Prellschutz der Rückfrage", () => {
@@ -108,11 +109,13 @@ describe("Ortssperre der Rückfrage", () => {
     vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
     const start = Date.now();
     // Der Prellschutz der Rückfrage fängt den Zweittipp bis 800 ms ab …
-    for (const ms of [574, 746]) {
+    for (const ms of [520, 640]) {  // knapp unter 800 ms mit Luft für die Laufzeit des Tests
       vi.setSystemTime(start + ms);
       tippAuf(knopf, 182, 404);
       expect(dialog.hasAttribute("open")).toBe(true);
-      expect(document.getElementById("tipp-moment")).toBeNull(); // … ohne „Einen Moment …“ über dem Dialogtext
+      // … mit „Einen Moment …“ (R9-S2) und gestricheltem Rahmen auf dem angetippten Knopf, nicht im Text
+      expect(document.getElementById("tipp-moment")?.hidden).toBe(false);
+      expect(knopf.hasAttribute("data-tipp-gesperrt")).toBe(true);
     }
     // … ein bewusster Tipp danach auf dieselbe Stelle wirkt, auch vor Ablauf von 1,5 s.
     vi.setSystemTime(start + 1156);
@@ -192,7 +195,7 @@ describe("Fokus in Rückfragen", () => {
 
 // Audit Runde 7, R7-W1: Frage und Wege rollen im Rumpf, die Antwortzeile am Fuß steht fest und deckt nichts.
 describe("Aufbau der Rückfrage", () => {
-  it("trennt bei Wegen mit Erklärtext den rollenden Rumpf vom festen Fuß mit „Abbrechen“", async () => {
+  it("stellt bis zu drei Wege samt „Abbrechen“ an den festen Fuß, die Erklärungen rollen im Rumpf (R9-W1, R9-M2)", async () => {
     render(<Dialogschicht />);
     void frageWahl({
       titel: "Einheit ist bereits gemeldet",
@@ -200,15 +203,34 @@ describe("Aufbau der Rückfrage", () => {
       wege: [
         { wert: "fassung", label: "Als neue Fassung anhängen", hinweis: "Normalfall." },
         { wert: "eigene", label: "Als eigene Einheit führen", hinweis: "Zweite Einheit." },
+        { wert: "historie", label: "Nur in die Historie legen", hinweis: "Die bisherige Meldung gilt weiter." },
       ],
     });
     const d = await screen.findByRole("dialog", { name: "Einheit ist bereits gemeldet" });
     const rumpf = d.querySelector(".abfrage-rumpf")!;
     const fuss = d.querySelector(".abfrage-fuss")!;
-    expect(rumpf.contains(within(d).getByRole("button", { name: "Als neue Fassung anhängen" }))).toBe(true);
-    expect(rumpf.contains(within(d).getByRole("button", { name: "Als eigene Einheit führen" }))).toBe(true);
-    expect(fuss.contains(within(d).getByRole("button", { name: "Abbrechen" }))).toBe(true);
-    expect(rumpf.contains(within(d).getByRole("button", { name: "Abbrechen" }))).toBe(false);
+    for (const name of ["Als neue Fassung anhängen", "Als eigene Einheit führen", "Nur in die Historie legen", "Abbrechen"]) {
+      const knopf = within(d).getByRole("button", { name });
+      expect(fuss.contains(knopf)).toBe(true);
+      expect(rumpf.contains(knopf)).toBe(false);
+    }
+    // Die Erklärungen stehen im Rumpf und hängen als Beschreibung am Knopf.
+    expect(rumpf.textContent).toContain("Normalfall.");
+    const normal = within(d).getByRole("button", { name: "Als neue Fassung anhängen" });
+    expect(normal.getAttribute("aria-describedby")).toBeTruthy();
+    expect(document.getElementById(normal.getAttribute("aria-describedby")!)?.textContent).toContain("Normalfall.");
+  });
+
+  it("lässt lange Wahllisten (mehr als drei Wege) im rollenden Rumpf", async () => {
+    render(<Dialogschicht />);
+    void frageWahl({
+      titel: "In anderen Einsatz verschieben",
+      text: "Ziel:",
+      wege: ["a", "b", "c", "d"].map((x) => ({ wert: x, label: `Einsatz ${x}`, hinweis: "Einsatz" })),
+    });
+    const d = await screen.findByRole("dialog", { name: "In anderen Einsatz verschieben" });
+    expect(d.querySelector(".abfrage-rumpf")!.contains(within(d).getByRole("button", { name: "Einsatz d" }))).toBe(true);
+    expect(d.querySelector(".abfrage-fuss")!.contains(within(d).getByRole("button", { name: "Abbrechen" }))).toBe(true);
   });
 
   it("stellt bei einem Weg ohne Erklärtext Antwort und „Abbrechen“ zusammen an den festen Fuß", async () => {
@@ -218,5 +240,45 @@ describe("Aufbau der Rückfrage", () => {
     const fuss = d.querySelector(".abfrage-fuss")!;
     expect(fuss.contains(within(d).getByRole("button", { name: "Weiter" }))).toBe(true);
     expect(fuss.contains(within(d).getByRole("button", { name: "Abbrechen" }))).toBe(true);
+  });
+});
+
+
+// Audit Runde 9: Fokus, Hinweis auf fehlende Felder, Ziffernblock.
+describe("Rückfragen und Eingaben (Runde 9)", () => {
+  it("nennt, welches Pflichtfeld noch fehlt, und warum der Knopf ausgegraut ist (R9-E7)", async () => {
+    render(<Dialogschicht />);
+    void frageFelder({
+      titel: "Stärke ändern",
+      ok: "Stärke übernehmen",
+      felder: [
+        { name: "u", label: "Unterführer", vorgabe: "", zahl: true },
+        { name: "m", label: "Mannschaft", vorgabe: "3", zahl: true },
+      ],
+    });
+    const d = await screen.findByRole("dialog", { name: "Stärke ändern" });
+    const ok = within(d).getByRole("button", { name: "Stärke übernehmen" }) as HTMLButtonElement;
+    expect(ok.disabled).toBe(true);
+    expect(d.textContent).toContain("Stärke übernehmen geht erst, wenn das Feld „Unterführer“ ausgefüllt ist");
+    expect(d.textContent).toContain("eine 0 eintragen");
+    await userEvent.type(within(d).getByLabelText("Unterführer"), "0");
+    expect(ok.disabled).toBe(false);
+    expect(d.textContent).not.toContain("geht erst, wenn");
+  });
+
+  it("Zahlenfelder bekommen den Ziffernblock und „Weiter“ bzw. „Fertig“ (R9-G6)", async () => {
+    render(<Dialogschicht />);
+    void frageFelder({ titel: "Zahlen", felder: [{ name: "a", label: "Eins", zahl: true }, { name: "b", label: "Zwei", zahl: true }] });
+    const d = await screen.findByRole("dialog", { name: "Zahlen" });
+    expect(within(d).getByLabelText("Eins").getAttribute("inputmode")).toBe("numeric");
+    expect(within(d).getByLabelText("Eins").getAttribute("enterkeyhint")).toBe("next");
+    expect(within(d).getByLabelText("Zwei").getAttribute("enterkeyhint")).toBe("done");
+  });
+
+  it("legt den Fokus bei `fokus: abbruch` auf „Abbrechen“, auch ohne zerstörende Wahl (R9-D4, R9-M7)", async () => {
+    render(<Dialogschicht />);
+    void frageJaNein({ titel: "Bogen schließen?", text: "Nicht gelöscht.", ok: "Schließen, zur Startseite", fokus: "abbruch" });
+    const d = await screen.findByRole("dialog", { name: "Bogen schließen?" });
+    expect(document.activeElement).toBe(within(d).getByRole("button", { name: "Abbrechen" }));
   });
 });

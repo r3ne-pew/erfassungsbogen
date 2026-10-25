@@ -20,6 +20,10 @@
  * 2. **Zählen:** Meldungen, die der Kern behält, die die App aber nicht
  *    anzeigen kann (Pflichtfeld fehlt), zählt einsaetze-lesen.ts je Sammlung.
  * 3. **Zeigen:** unlesbar-hinweis.tsx nennt die Zahl und bietet die Sicherung an.
+ * 4. **Nicht überschreiben, was sich nicht beiseitelegen lässt (R9-O1):** Ist der Speicher voll und
+ *    scheitert das Beiseitelegen, lassen die Hüllen (uhr-korrektur.ts, vorlagen.ts, entwurf.ts) das
+ *    Überschreiben des Originals nicht durch; die Startseite sagt „Speicher voll – beschädigte Daten nicht
+ *    gesichert“. Aufräumen am Ursprungsort: unlesbar-aufraeumen.ts (R9-E4).
  */
 
 import { migriereBogen } from "./hilfen";
@@ -28,6 +32,9 @@ import { DATENSCHUTZFRIST_TAGE } from "@bos/eeb-format/datenschutzfrist";
 import { geprueftesJetztMs } from "./datenschutz-uhr";
 
 export const UNLESBAR_SCHLUESSEL = "eeb.unlesbar.v1";
+
+/** Was als ganzer Text beiseitegelegt wird: Sammlungen, Vorlagen, die Absenderkarte (R9-O3). */
+export type TextArt = "sammlungen" | "vorlagen" | "absenderkarte";
 
 export interface UnlesbarBestand {
   /** Wann zum ersten Mal beiseitegelegt (Date.now()). */
@@ -43,7 +50,7 @@ export interface UnlesbarBestand {
    * JSON nach vollem Speicher oder Absturz, ein fremder Wert): Ohne sie ersetzte
    * die App den Text beim ersten Lesen still durch `[]` (R8-D1).
    */
-  texte: { art: "sammlungen" | "vorlagen"; text: string }[];
+  texte: { art: TextArt; text: string }[];
 }
 
 function istObjekt(x: unknown): x is Record<string, unknown> {
@@ -122,24 +129,102 @@ export function unlesbarerGesamttext(
 let sammlungenGeprueft: string | null | undefined;
 
 /**
+ * Konnte der beschädigte Text NICHT beiseitegelegt werden (Speicher voll, R9-O1/R9-E5), bleibt er
+ * unter seinem Schlüssel stehen: Die Hüllen (uhr-korrektur.ts, vorlagen.ts) lassen dann kein
+ * Überschreiben durch, solange dort noch genau dieser Text liegt. Sonst ersetzte der Kern ihn
+ * beim ersten Speichern durch `[]`, und die einzige Spur wäre weg.
+ */
+export type RettungArt = "sammlungen" | "vorlagen";
+interface OffeneRettung {
+  roh: string;
+  /** Letzter Versuch (ms), damit die Wiederholung nicht bei jedem Lesen den ganzen Text prüft. */
+  versuch: number;
+}
+const rettungOffen = new Map<RettungArt, OffeneRettung>();
+const RETTUNG_WIEDERHOLUNG_MS = 2_000;
+
+/** Ist ein beschädigter Text offen, der sich nicht beiseitelegen ließ? (Für den Hinweis auf der Startseite.) */
+export function rettungOffenArten(): RettungArt[] {
+  return [...rettungOffen.keys()];
+}
+
+/** Der Rohtext, der wegen vollen Speichers nicht beiseitegelegt wurde, oder null. */
+export function rettungOffenText(art: RettungArt): string | null {
+  return rettungOffen.get(art)?.roh ?? null;
+}
+
+/** Voller Speicher: ist es Zeit für einen neuen Versuch, den Text beiseitezulegen? */
+export function rettungWiederholenFaellig(art: RettungArt): boolean {
+  const o = rettungOffen.get(art);
+  return !!o && Date.now() - o.versuch >= RETTUNG_WIEDERHOLUNG_MS;
+}
+
+/** Darf unter dem Schlüssel dieser Art geschrieben werden, wenn dort aktuell `gespeichert` steht? */
+export function schreibenErlaubt(art: RettungArt, gespeichert: string | null | undefined): boolean {
+  const o = rettungOffen.get(art);
+  if (!o) return true;
+  if (gespeichert === o.roh) return false;
+  // Der Text ist inzwischen ein anderer (anderes Fenster, Einspielen): nichts mehr zu schützen.
+  rettungOffen.delete(art);
+  return true;
+}
+
+/** Nach dem Verwerfen oder Bereinigen von Hand: nichts mehr offen. */
+export function rettungOffenVergessen(art?: RettungArt): void {
+  if (art) rettungOffen.delete(art);
+  else rettungOffen.clear();
+}
+
+/** Fehler, den ein gesperrtes Schreiben wirft — die Oberfläche liest ihn wie „Speicher voll“. */
+export function rettungGesperrtFehler(): Error {
+  const e = new Error("Speicher voll – beschädigter Text nicht gesichert; er bleibt unverändert liegen.");
+  e.name = "QuotaExceededError";
+  return e;
+}
+
+/**
+ * Beiseitelegen mit Ergebnis: true, wenn alles Neue jetzt beiseite liegt (oder schon lag).
+ * Ein Wert, den es nicht gab und der sich nicht schreiben ließ, ergibt false.
+ */
+function beiseiteGesichert(neu: Partial<Omit<UnlesbarBestand, "am">>): boolean {
+  if (!(neu.sammlungen?.length || neu.meldungen?.length || neu.vorlagen?.length || neu.texte?.length)) return true;
+  return ablegen(neu) !== "gescheitert";
+}
+
+/**
  * Was der Kern beim Lesen der Sammlungen überspringt oder ersetzt, liegt danach nur noch hier:
  * vor dem ersten Lesen eines geänderten Textes beiseitelegen. Hängt in der Hülle um die Ablage
  * (uhr-korrektur.ts), damit jeder Lesezugriff auf den Schlüssel davor geprüft wird — auch der
- * Aufräumlauf beim Start (R8-D1).
+ * Aufräumlauf beim Start (R8-D1). Gelingt das Beiseitelegen nicht, bleibt der Text stehen
+ * ({@link schreibenErlaubt}) und wird nach kurzer Frist erneut versucht.
  */
 export function sammlungenRetten(roh: string | null | undefined): void {
-  if (roh === undefined || roh === sammlungenGeprueft) return;
+  if (roh === undefined) return;
+  if (roh === sammlungenGeprueft && !rettungWiederholenFaellig("sammlungen")) return;
   sammlungenGeprueft = roh;
+  rettungOffen.delete("sammlungen");
   const teile = unlesbareSammlungsteile(roh);
   const text = unlesbarerGesamttext(roh, "sammlungen");
   if (teile.sammlungen.length > 0 || teile.meldungen.length > 0 || text) {
-    unlesbaresBeiseitelegen({ ...teile, texte: text ? [text] : [] });
+    if (!beiseiteGesichert({ ...teile, texte: text ? [text] : [] }) && roh != null) {
+      rettungOffen.set("sammlungen", { roh, versuch: Date.now() });
+    }
+  }
+}
+
+/** Dasselbe für den Vorlagentext (vorlagen.ts). */
+export function vorlagenRetten(roh: string | null | undefined, vorlagenteile: unknown[], text: UnlesbarBestand["texte"][number] | null): void {
+  rettungOffen.delete("vorlagen");
+  if (vorlagenteile.length === 0 && !text) return;
+  if (!beiseiteGesichert({ vorlagen: vorlagenteile, texte: text ? [text] : [] }) && roh != null) {
+    rettungOffen.set("vorlagen", { roh, versuch: Date.now() });
   }
 }
 
 /** Nur für Tests: den geprüften Text vergessen. */
 export function sammlungenRetteZuruecksetzen(): void {
   sammlungenGeprueft = undefined;
+  rettungOffen.clear();
 }
 
 /** Vorlagen, die `vorlagenAusJson` weglässt. */
@@ -155,24 +240,31 @@ function leer(am: number): UnlesbarBestand {
   return { am, sammlungen: [], meldungen: [], vorlagen: [], texte: [] };
 }
 
+/** Der beiseitegelegte Bestand aus seinem gespeicherten Text (auch aus einer Sicherungsdatei), oder null. Ohne Fristprüfung. */
+export function unlesbarAusText(text: string | null | undefined): UnlesbarBestand | null {
+  const roh = parsen(text);
+  if (!istObjekt(roh) || typeof roh.am !== "number") return null;
+  const liste = (x: unknown) => (Array.isArray(x) ? x : []);
+  const b: UnlesbarBestand = {
+    am: roh.am,
+    sammlungen: liste(roh.sammlungen),
+    meldungen: liste(roh.meldungen) as UnlesbarBestand["meldungen"],
+    vorlagen: liste(roh.vorlagen),
+    texte: liste(roh.texte) as UnlesbarBestand["texte"],
+  };
+  return b.sammlungen.length + b.meldungen.length + b.vorlagen.length + b.texte.length > 0 ? b : null;
+}
+
 /** Der beiseitegelegte Bestand, oder null. Nach der Datenschutzfrist wird er entfernt. */
 export function unlesbarBestand(): UnlesbarBestand | null {
   try {
-    const roh = parsen(speicher()?.getItem(UNLESBAR_SCHLUESSEL));
-    if (!istObjekt(roh) || typeof roh.am !== "number") return null;
-    if (geprueftesJetztMs() - roh.am > DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000) {
+    const b = unlesbarAusText(speicher()?.getItem(UNLESBAR_SCHLUESSEL));
+    if (!b) return null;
+    if (geprueftesJetztMs() - b.am > DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000) {
       unlesbarVerwerfen();
       return null;
     }
-    const liste = (x: unknown) => (Array.isArray(x) ? x : []);
-    const b: UnlesbarBestand = {
-      am: roh.am,
-      sammlungen: liste(roh.sammlungen),
-      meldungen: liste(roh.meldungen) as UnlesbarBestand["meldungen"],
-      vorlagen: liste(roh.vorlagen),
-      texte: liste(roh.texte) as UnlesbarBestand["texte"],
-    };
-    return b.sammlungen.length + b.meldungen.length + b.vorlagen.length + b.texte.length > 0 ? b : null;
+    return b;
   } catch {
     return null;
   }
@@ -210,27 +302,37 @@ function ergaenzt<T>(vorhanden: T[], neu: T[]): { liste: T[]; neu: number } {
 /**
  * Unlesbares dazulegen (ohne Doppelte). Rückgabe: true, wenn etwas Neues
  * abgelegt wurde. Scheitert das Schreiben (Speicher voll), bleibt alles
- * andere unberührt — der Hinweis in der Oberfläche zählt dann trotzdem.
+ * andere unberührt — die Hüllen lassen dann das Überschreiben des
+ * Originals nicht zu (R9-O1, {@link schreibenErlaubt}).
  */
 export function unlesbaresBeiseitelegen(neu: Partial<Omit<UnlesbarBestand, "am">>): boolean {
+  return ablegen(neu) === "abgelegt";
+}
+
+function ablegen(neu: Partial<Omit<UnlesbarBestand, "am">>): "abgelegt" | "vorhanden" | "gescheitert" | "nichts" {
   const s = speicher();
-  if (!s) return false;
-  if (!(neu.sammlungen?.length || neu.meldungen?.length || neu.vorlagen?.length || neu.texte?.length)) return false;
+  if (!s) return "gescheitert";
+  if (!(neu.sammlungen?.length || neu.meldungen?.length || neu.vorlagen?.length || neu.texte?.length)) return "nichts";
   const alt = unlesbarBestand() ?? leer(geprueftesJetztMs());
   const a = ergaenzt(alt.sammlungen, neu.sammlungen ?? []);
   const b = ergaenzt(alt.meldungen, neu.meldungen ?? []);
   const c = ergaenzt(alt.vorlagen, neu.vorlagen ?? []);
   const d = ergaenzt(alt.texte, neu.texte ?? []);
-  if (a.neu + b.neu + c.neu + d.neu === 0) return false;
+  if (a.neu + b.neu + c.neu + d.neu === 0) return "vorhanden";
   try {
-    s.setItem(
-      UNLESBAR_SCHLUESSEL,
-      JSON.stringify({ ...alt, sammlungen: a.liste, meldungen: b.liste, vorlagen: c.liste, texte: d.liste } satisfies UnlesbarBestand),
-    );
-    return true;
+    const text = JSON.stringify({ ...alt, sammlungen: a.liste, meldungen: b.liste, vorlagen: c.liste, texte: d.liste } satisfies UnlesbarBestand);
+    s.setItem(UNLESBAR_SCHLUESSEL, text);
+    // Manche Browser scheitern still: dem Speicher glauben, nicht dem Aufruf.
+    return s.getItem(UNLESBAR_SCHLUESSEL) === text ? "abgelegt" : "gescheitert";
   } catch {
-    return false;
+    return "gescheitert";
   }
+}
+
+/** Liegen unlesbare Sammlungen (ganze Texte oder Sammlungen ohne Kennung) beiseite? Für den Lagemonitor (R9-O2). */
+export function sammlungenBeiseitegelegt(): boolean {
+  const b = unlesbarBestand();
+  return !!b && (b.sammlungen.length > 0 || b.texte.some((t) => t.art === "sammlungen"));
 }
 
 /** Zusammenfassung für Hinweise: wie viel liegt beiseite? */

@@ -1,9 +1,10 @@
-import { describe, it, expect, afterEach, beforeEach } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { EinsatzArt, MeldeStatus, einsatzAnlegen, meldungHinzufuegen } from "@bos/meldekopf/einsaetze";
 import { statusMitZeitSetzen } from "./eintrag-zeiten";
 import { neuerBogen, neuesFahrzeug } from "./hilfen";
-import { Lagemonitor, lagemonitorKennung, STUFE_SCHLUESSEL } from "./lagemonitor-ui";
+import { Lagemonitor, lagemonitorKennung, ortImFunkruf, STUFE_SCHLUESSEL, STUFEN_SPERRE_MS } from "./lagemonitor-ui";
 import { fireEvent } from "@testing-library/react";
 import { einsaetzeLaden } from "./einsaetze-lesen";
 import { einsaetzeSpeichern } from "@bos/meldekopf/einsaetze";
@@ -219,28 +220,63 @@ describe("Lagemonitor, Runde 7", () => {
     expect(document.querySelector(".lm-stand .lm-veraltet")!.textContent).toMatch(/vor 5 Std/);
   });
 
-  it("übernimmt den Nacht-Modus als Stufe „Gedimmt“, merkt die Wahl und führt nie mit einem Tipp auf Hell (R7-L3, R8-L4)", () => {
+  it("übernimmt den Nacht-Modus als Stufe „Gedimmt“, merkt die Wahl und führt nie mit einem Tipp auf Hell (R7-L3, R8-L4, R9-M9)", () => {
     document.documentElement.classList.add("nacht-modus");
+    let uhr = 1_000_000;
+    const jetzt = vi.spyOn(Date, "now").mockImplementation(() => uhr);
     const e = einsatzAnlegen("Nacht", EinsatzArt.EINSATZ);
     render(<Lagemonitor einsatzId={e.id} />);
-    expect(document.querySelector("main.lm")!.className).toContain("lm-gedimmt");
-    expect(screen.queryByRole("button", { name: /dunkler/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Stufe: Gedimmt · heller: Dunkel/ })); // Gedimmt -> Dunkel, nicht Hell
     const klasse = () => document.querySelector("main.lm")!.className;
+    const stufe = () => document.querySelector(".lm-stufe")!.textContent;
+    const heller = () => screen.getByRole("button", { name: /^Heller/ });
+    const dunkler = () => screen.getByRole("button", { name: "Dunkler" });
+    expect(klasse()).toContain("lm-gedimmt");
+    // R9-M9: Der Zustand steht als Text, die Knöpfe tragen nur die Aktion.
+    expect(stufe()).toBe("Stufe: Gedimmt");
+    expect(dunkler().getAttribute("aria-disabled")).toBe("true"); // am Ende der Leiter
+    fireEvent.click(heller()); // Gedimmt -> Dunkel
+    expect(stufe()).toBe("Stufe: Dunkel");
     expect(klasse()).not.toContain("lm-hell");
-    expect(klasse()).not.toContain("lm-gedimmt");
     expect(localStorage.getItem(STUFE_SCHLUESSEL)).toBe("dunkel");
-    fireEvent.click(screen.getByRole("button", { name: /Stufe: Dunkel · heller: Hell/ })); // -> Hell, wird nicht gemerkt
+    // R9-L1: Doppeltipp, Prellen und zweiter Tipp innerhalb von 1,5 s führen nie auf Hell.
+    const nachWechsel = uhr;
+    for (const abstand of [0, 120, 350, 700, STUFEN_SPERRE_MS - 1]) {
+      uhr = nachWechsel + abstand;
+      fireEvent.click(heller());
+      expect(klasse()).not.toContain("lm-hell");
+    }
+    uhr = nachWechsel + STUFEN_SPERRE_MS + 1; // bewusster zweiter Tipp nach der Sperre
+    fireEvent.click(heller()); // -> Hell, wird nicht gemerkt
     expect(klasse()).toContain("lm-hell");
     expect(localStorage.getItem(STUFE_SCHLUESSEL)).toBe("dunkel");
-    expect(screen.queryByRole("button", { name: /heller/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Stufe: Hell · dunkler: Dunkel/ })); // ein Tipp zurück, ohne zweites helles Bild
+    expect(heller().getAttribute("aria-disabled")).toBe("true");
+    // Zurück geht sofort, ohne Sperre, und mit einem Tipp (kein zweites helles Bild).
+    fireEvent.click(dunkler());
     expect(klasse()).not.toContain("lm-hell");
-    fireEvent.click(screen.getByRole("button", { name: /dunkler: Gedimmt/ }));
+    expect(stufe()).toBe("Stufe: Dunkel");
+    uhr += STUFEN_SPERRE_MS + 1;
+    fireEvent.click(dunkler());
     expect(localStorage.getItem(STUFE_SCHLUESSEL)).toBe("gedimmt");
     cleanup();
     render(<Lagemonitor einsatzId={e.id} />);
     expect(klasse()).toContain("lm-gedimmt");
+    jetzt.mockRestore();
+  });
+
+  it("nennt den Ort am Telefon nicht doppelt, wenn der Funkrufname ihn schon enthält (R9-K5)", () => {
+    expect(ortImFunkruf({ ort: "Albstadt", funkruf: "Heros Albstadt 21/10" })).toBe(true);
+    expect(ortImFunkruf({ ort: "albstadt", funkruf: "Heros  Albstadt 21/10" })).toBe(true);
+    expect(ortImFunkruf({ ort: "", funkruf: "" })).toBe(true);
+    expect(ortImFunkruf({ ort: "Hamburg Mitte", funkruf: "Heros Hamburg 1/63/44" })).toBe(false);
+    const e = einsatzAnlegen("Orte", EinsatzArt.EINSATZ);
+    const b = neuerBogen();
+    b.einheit.hierarchie[0]!.name = "Aurich";
+    meldungHinzufuegen(e.id, b);
+    render(<Lagemonitor einsatzId={e.id} />);
+    // Ort ohne Funkruf: bleibt als Zusatz der Funkrufzelle für das Telefon erhalten, der Zelltext ändert sich nicht.
+    const zelle = document.querySelector(".lm-einheiten tbody tr td:nth-child(3)")!;
+    expect(zelle.getAttribute("data-ort")).toBe("Aurich");
+    expect(zelle.textContent).toBe("–");
   });
 
   it("ordnet die Einheiten nach „zuletzt gemeldet zuerst“ (R8-K5)", () => {
@@ -323,5 +359,35 @@ describe("Funkrufname speichern", () => {
     einsatzFunkrufSetzen("a", "Salus", ["a"]);
     einsatzFunkrufSetzen("a", "", ["a"]);
     expect(einsatzbeginnLaden("a")).toBe(1000);
+  });
+});
+
+// Stilregeln der Runde 9: jsdom rechnet kein Layout, also wird der Stil selbst geprüft (Messung im Browser: docs/audits/runde-9).
+describe("Lagemonitor, Stil Runde 9", () => {
+  const css = readFileSync("src/app/lagemonitor.css", "utf8");
+  const telefon = css.slice(css.indexOf("@media (max-width: 640px), (max-height: 480px)"));
+
+  it("leitet die Telefon-Größen aus einer rem-Basis ab, Zahlen nie kleiner als Beschriftungen (R9-K2, R9-L2)", () => {
+    expect(telefon).toMatch(/--lm-b:\s*min\(1rem,/);
+    expect(telefon).toMatch(/--lm-min:\s*calc\(var\(--lm-b\) \* 0\.875\)/);
+    for (const k of [".lm-r3", ".lm-bewegungen", ".lm-einheiten-block", ".lm-dtg"]) {
+      expect(telefon, k).toMatch(new RegExp(`${k.replace(".", "\\.")} \\{ font-size:[^}]*var\\(--lm-(b|min)\\)`));
+    }
+    // Tabellenkopf auf Zellenhöhe, nicht kleiner (R9-L2).
+    expect(telefon).toMatch(/\.lm-einheiten th \{ font-size: 1em; \}/);
+    expect(css).not.toMatch(/\.lm-einheiten th \{ font-size: 0\.75em/);
+  });
+
+  it("bricht Wörter nicht mitten im Wort, außer als Notfall der Messung (R9-K5, R9-L3)", () => {
+    expect(css).not.toMatch(/overflow-wrap:\s*anywhere;\s*\n\s*hyphens/);
+    expect(telefon).toMatch(/\.lm-einheiten td \{ overflow-wrap: normal; hyphens: manual; \}/);
+    expect(telefon).toMatch(/\.lm-einheiten\.lm-bruch td \{ overflow-wrap: anywhere; \}/);
+  });
+
+  it("setzt Uhr neutral und die Warnung in eigener Farbe mit Zeichen und Fettschrift (R9-K6)", () => {
+    expect(css).toMatch(/\.lm-dtg \{[^}]*color: var\(--lm-text\);/s);
+    expect(css).toMatch(/\.lm-label\.lm-veraltet \{[^}]*color: var\(--lm-warn\); font-weight: 700;/);
+    expect(css).toContain('.lm-label.lm-veraltet::before { content: "\\26A0');
+    expect(css).not.toMatch(/--lm-warn:\s*#ff0000/);
   });
 });

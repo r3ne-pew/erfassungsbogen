@@ -13,12 +13,24 @@ import { PersonalErfassung, staerke, type Erfassungsbogen } from "@bos/eeb-forma
 import { aufteilungFehler, teileBogen, type AufteilungsWahl, type TeilStaerke } from "@bos/meldekopf/aufteilen";
 import { MeldeStatus, type AufteilungOptionen, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { funktionsText, kennzeichenText, vokabText, vokabularFuer } from "./hilfen";
-import { Auswahl, ZahlEingabe } from "./schritte/bausteine";
+import { Auswahl, useZahlEingabe, ZahlMeldung } from "./schritte/bausteine";
 
 /** Kurzfassung „0 / 1 / 8 / 9 · 2 Fzg" für die Vorschau beider Hälften. */
 function bilanz(b: Erfassungsbogen): string {
   const s = staerke(b);
   return `${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt} · ${b.fahrzeuge.length} Fzg`;
+}
+
+/** Zahl, die mitgeht: Komma gerundet, Minus abgelehnt, Obergrenze genannt (R9-E1). */
+function StaerkeFeld(props: { label: string; wert: number; hoechstens: number; setzen: (n: number) => void }) {
+  const { eingabe, meldung } = useZahlEingabe(props.wert, (n) => props.setzen(n ?? 0), { min: 0, max: props.hoechstens, einheit: "Personen" });
+  return (
+    <label className="feld">
+      {props.label} (von {props.hoechstens})
+      <input {...eingabe} />
+      <ZahlMeldung meldung={meldung} />
+    </label>
+  );
 }
 
 function AnkreuzZeile(props: { an: boolean; umschalten: () => void; name: string; sub?: string }) {
@@ -76,12 +88,7 @@ export function AufteilenPanel(props: {
   }
 
   function staerkeFeld(label: string, wert: number, hoechstens: number, setzen: (n: number) => void) {
-    return (
-      <label className="feld">
-        {label} (von {hoechstens})
-        <ZahlEingabe inputMode="numeric" min={0} max={hoechstens} wert={wert} setzen={(n) => setzen(n)} />
-      </label>
-    );
+    return <StaerkeFeld label={label} wert={wert} hoechstens={hoechstens} setzen={setzen} />;
   }
 
   return (

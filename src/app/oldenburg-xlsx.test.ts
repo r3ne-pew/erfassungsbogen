@@ -371,15 +371,17 @@ describe("Oldenburg-XLSX: Werte", () => {
 });
 
 describe("Oldenburg-XLSX: Sammlung", () => {
-  it("schreibt je Einheit eine Zeile, nach Anzeigename sortiert", () => {
+  it("schreibt je Einheit eine Zeile, nach Nr. sortiert (R9-A2) und mit der Nr. in der Bemerkung", () => {
     const einheit = bogen().einheit;
     const s = sammlung([
-      meldung(bogen({ einheit: { ...einheit, einheitsTyp: { code: 4 } } })), // Bergungsgruppe
-      meldung(bogen()), // Fachgruppe Elektroversorgung
+      meldung(bogen(), { empfangenAm: 1000 }), // Fachgruppe Elektroversorgung: Nr. 1, obwohl nach dem Namen später
+      meldung(bogen({ einheit: { ...einheit, einheitsTyp: { code: 4 } } }), { empfangenAm: 2000 }), // Bergungsgruppe: Nr. 2
     ]);
     const b = blatt(einsatzOldenburgXlsx(s));
-    expect(wert(b, 1, "Bezeichnung")).toBe("B");
-    expect(wert(b, 2, "Bezeichnung")).toBe("FGr E");
+    expect(wert(b, 1, "Bezeichnung")).toBe("FGr E");
+    expect(wert(b, 1, "Bemerkung")).toMatch(/^Nr\. 1/);
+    expect(wert(b, 2, "Bezeichnung")).toBe("B");
+    expect(wert(b, 2, "Bemerkung")).toMatch(/^Nr\. 2/);
     expect(wert(b, 3, "Bezeichnung")).toBeUndefined();
   });
 
@@ -504,8 +506,8 @@ describe("Oldenburg-XLSX: Lage wie in der App (R2-K2)", () => {
     const zZtr = zeileMitId(b, "ztr");
     expect([zEss, zZtr].sort()).toEqual([7, 8]);
     const bem = spalteVon(b, "Bemerkung");
-    expect(zelle(b, `${bem}${zEss}`)).toBe("ABGERÜCKT — zählt nicht in der Lage");
-    expect(zelle(b, `${bem}${zZtr}`)).toBe("ÜBUNG — zählt nicht in der Lage");
+    expect(zelle(b, `${bem}${zEss}`)).toMatch(/^Nr\. \d+ — ABGERÜCKT — zählt nicht in der Lage$/);
+    expect(zelle(b, `${bem}${zZtr}`)).toMatch(/^Nr\. \d+ — ÜBUNG — zählt nicht in der Lage$/);
   });
 
   it("trägt die Abrückzeit in „Einsatz-ende“ und lässt „Rück-führung“ der Führungsstelle", () => {
@@ -551,7 +553,7 @@ describe("Oldenburg-XLSX: Lage wie in der App (R2-K2)", () => {
     });
     const b = blatt(einsatzOldenburgXlsx(sammlung([bergung, teil])));
     expect(zelle(b, `${spalteVon(b, "Bemerkung")}${zeileMitId(b, "teil")}`)).toMatch(
-      /^AUFGEGANGEN in .+ — zählt nicht in der Lage$/,
+      /^Nr\. \d+ — AUFGEGANGEN in .+ — zählt nicht in der Lage$/,
     );
     expect(subtotal(b, "Fü")).toBe(1);
   });

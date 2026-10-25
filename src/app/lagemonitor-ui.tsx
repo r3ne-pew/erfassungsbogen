@@ -22,6 +22,7 @@ import {
   einsatzbeginnLaden,
   einsatzbeginnSetzen,
 } from "./lagemonitor-beginn";
+import { sammlungenBeiseitegelegt } from "./unlesbar";
 import { alterText, ausEingabeWert, dauerText, dtgTeile, lagebild, zuEingabeWert, type EinheitZeile } from "./lagemonitor";
 
 const URL_PARAMETER = "lagemonitor";
@@ -33,6 +34,16 @@ const BEWEGUNGEN_MAX = 3;
 const SCHRIFT_STUFEN = [1, 0.95, 0.9, 0.85];
 /** Ab diesem Alter der letzten Meldung wird der Datenstand abgesetzt (R7-K8). */
 const VERALTET_MIN = 60;
+/** Nach jedem Stufenwechsel ist „heller" so lange gesperrt: ein Doppeltipp führt nie über eine Stufe hinaus (R9-L1). */
+export const STUFEN_SPERRE_MS = 1500;
+
+/** Normalisiert für den Vergleich Ort/Funkrufname (Groß-/Kleinschreibung, Leerraum). */
+const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+/** Steht der Ort einer Einheit schon im Funkrufnamen? Dann wird er am Telefon nicht noch einmal genannt (R9-K5). */
+export function ortImFunkruf(e: { ort?: string | null; funkruf?: string | null }): boolean {
+  const ort = norm(e.ort ?? "");
+  return ort === "" || norm(e.funkruf ?? "").includes(ort);
+}
 
 type Stufe = "dunkel" | "gedimmt" | "hell";
 const STUFEN_NAME: Record<Stufe, string> = { dunkel: "Dunkel", gedimmt: "Gedimmt", hell: "Hell" };
@@ -152,6 +163,9 @@ function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] })
     const tabelle = tabelleEl.current;
     if (!el || !hinweis || !tabelle) return;
     const messen = () => {
+      // Nur wenn die Spalten sonst aus dem Bild liefen (F/U/M!), dürfen Wörter im Notfall mitten im Wort brechen (R9-K2, R9-L3).
+      tabelle.classList.remove("lm-bruch");
+      if (el.scrollWidth > el.clientWidth + 1) tabelle.classList.add("lm-bruch");
       const zeilen = Array.from(el.querySelectorAll<HTMLElement>("tbody tr"));
       const setze = (n: number) => {
         zeilen.forEach((z, i) => { z.style.display = i >= n ? "none" : ""; });
@@ -205,7 +219,7 @@ function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] })
       <table className="lm-einheiten" ref={tabelleEl}>
         <thead>
           <tr>
-            <th className="lm-orga">Orga</th><th>Ort</th><th><span className="lm-lang">Funkrufname</span><span className="lm-kurz">Funkruf</span></th><th className="lm-typ">Einheitentyp</th>
+            <th className="lm-orga">Orga</th><th>Ort</th><th><span className="lm-lang">Funkrufname</span><span className="lm-kurz">Funkruf / Ort</span></th><th className="lm-typ">Einheitentyp</th>
             <th className="lm-zahl" title="Führer">F</th>
             <th className="lm-zahl" title="Unterführer">U</th>
             <th className="lm-zahl" title="Mannschaft">M</th>
@@ -216,7 +230,8 @@ function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] })
             <tr key={e.id}>
               <td className="lm-orga">{e.orga}</td>
               <td>{e.ort || "–"}</td>
-              <td>{e.funkruf || "–"}</td>
+              {/* Am Telefon entfällt die Ort-Spalte: Der Ort steht im Funkrufnamen oder, wenn nicht, als Zusatz darunter (R9-K5). */}
+              <td data-ort={ortImFunkruf(e) ? undefined : e.ort}>{e.funkruf || "–"}</td>
               <td className="lm-typ">{e.typ || "–"}</td>
               <td className="lm-zahl">{e.fuehrer}</td>
               <td className="lm-zahl">{e.unterfuehrer}</td>
@@ -238,7 +253,14 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
   useWachhalten();
   // Bei jedem Durchlauf neu lesen: `stand` und `jetzt` lösen ihn aus, der Lesezugriff ist gepuffert (einsaetze-lesen.ts).
   void stand;
-  const einsatz = einsaetzeLaden().find((s) => s.id === einsatzId);
+  const gelesen = einsaetzeLaden().find((s) => s.id === einsatzId);
+  // Ist der gespeicherte Text unlesbar geworden (anderes Fenster, Absturz), bleibt der letzte gültige Stand mit seiner
+  // Uhrzeit stehen, statt „nicht mehr vorhanden“ zu behaupten (R9-O2).
+  const letzterGueltiger = useRef<{ einsatz: NonNullable<typeof gelesen>; am: number } | null>(null);
+  if (gelesen) letzterGueltiger.current = { einsatz: gelesen, am: Date.now() };
+  const nichtLesbar = !gelesen && sammlungenBeiseitegelegt();
+  const einsatz = gelesen ?? (nichtLesbar ? letzterGueltiger.current?.einsatz : undefined);
+  const staleSeit = !gelesen && einsatz ? letzterGueltiger.current?.am ?? null : null;
   const beginn = einsatzbeginnLaden(einsatzId);
   const funkruf = einsatzFunkrufLaden(einsatzId);
 
@@ -252,10 +274,23 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
   const klasse = `lm${stufe === "hell" ? " lm-hell" : stufe === "gedimmt" ? " lm-gedimmt" : ""}`;
   const heller: Stufe | null = stufe === "gedimmt" ? "dunkel" : stufe === "dunkel" ? "hell" : null;
   const dunkler: Stufe | null = stufe === "hell" ? "dunkel" : stufe === "dunkel" ? "gedimmt" : null;
-  function stufeWechseln(neu: Stufe) {
+  // Sperre gegen Doppeltipp und Prellen: Nach jedem Wechsel ist „heller" 1,5 s gesperrt; „dunkler" nie, damit ein
+  // geblendeter Nutzer sofort zurück kann (R9-L1).
+  const [sperreBis, setSperreBis] = useState(0);
+  const sperreRef = useRef(0);
+  useEffect(() => {
+    if (sperreBis <= Date.now()) return;
+    const t = window.setTimeout(() => setSperreBis(0), sperreBis - Date.now());
+    return () => window.clearTimeout(t);
+  }, [sperreBis]);
+  function stufeWechseln(neu: Stufe, heller: boolean) {
+    if (heller && Date.now() < sperreRef.current) return;
+    sperreRef.current = Date.now() + STUFEN_SPERRE_MS;
+    setSperreBis(sperreRef.current);
     setStufe(neu);
     stufeMerken(neu);
   }
+  const hellerGesperrt = sperreBis > 0;
 
   if (!einsatz) {
     const imPapierkorb = einsaetzePapierkorb().some((s) => s.id === einsatzId);
@@ -267,7 +302,9 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
           {/* Im Papierkorb ist nichts verloren: Das Hauptfenster stellt ihn wieder her (R7-O3). */}
           {imPapierkorb
             ? "Dieser Einsatz liegt im Papierkorb (30 Tage) — im Hauptfenster wiederherstellen."
-            : "Dieser Einsatz ist auf diesem Gerät nicht (mehr) vorhanden."}
+            : nichtLesbar
+              ? "Die gespeicherten Sammlungen sind nicht lesbar und liegen beiseite — im Hauptfenster „Daten sichern…“."
+              : "Dieser Einsatz ist auf diesem Gerät nicht (mehr) vorhanden."}
         </div>
         <div className="lm-zeile lm-dtg" aria-label="Datum-Zeit-Gruppe">
           <div className="lm-dtg-text">
@@ -333,6 +370,19 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
         <span className="lm-label">Stärke F / U / M // gesamt</span>
         {s.staerke.fuehrer} / {s.staerke.unterfuehrer} / {s.staerke.mannschaft} // <u>{s.staerke.gesamt}</u>
       </div>
+      {/* Reine Sollstärke steckt in der Gesamtstärke: der Vorbehalt gehört an die Zahl, die vorgelesen wird (R9-K1). */}
+      {bild.sollstaerke.einheiten > 0 && (
+        <div className="lm-zeile lm-r3 lm-stand">
+          <span className="lm-label lm-veraltet">davon {bild.sollstaerke.personen} Sollstärke, nicht gemeldet</span>
+        </div>
+      )}
+      {staleSeit != null && (
+        <div className="lm-zeile lm-r3 lm-stand" role="alert">
+          <span className="lm-label lm-veraltet">
+            Sammlung nicht lesbar – letzter Stand von {new Date(staleSeit).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr; Hauptfenster: „Daten sichern…“
+          </span>
+        </div>
+      )}
       <div className="lm-zeile lm-r3 lm-stand">
         {lage}
         {datenstand && <span className={`lm-label${veraltet ? " lm-veraltet" : ""}`}>{datenstand}</span>}
@@ -385,16 +435,23 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
       <details className="lm-zeile lm-klapp">
         <summary>Optionen</summary>
         <div className="lm-optionen">
-          {heller && (
-            <button type="button" className="lm-knopf" onClick={() => stufeWechseln(heller)}>
-              Stufe: {STUFEN_NAME[stufe]} · heller: {STUFEN_NAME[heller]}
-            </button>
-          )}
-          {dunkler && (
-            <button type="button" className="lm-knopf" onClick={() => stufeWechseln(dunkler)}>
-              {heller ? "" : `Stufe: ${STUFEN_NAME[stufe]} · `}dunkler: {STUFEN_NAME[dunkler]}
-            </button>
-          )}
+          <p className="lm-stufe">Stufe: {STUFEN_NAME[stufe]}</p>
+          <button
+            type="button"
+            className="lm-knopf"
+            aria-disabled={dunkler == null || undefined}
+            onClick={() => dunkler && stufeWechseln(dunkler, false)}
+          >
+            Dunkler
+          </button>
+          <button
+            type="button"
+            className="lm-knopf"
+            aria-disabled={heller == null || hellerGesperrt || undefined}
+            onClick={() => heller && stufeWechseln(heller, true)}
+          >
+            Heller{stufe === "dunkel" ? " (weiß)" : ""}
+          </button>
           <button type="button" className="lm-knopf" onClick={vollbild}>Vollbild</button>
           <button type="button" className="lm-knopf" onClick={schliessen}>Schließen</button>
         </div>

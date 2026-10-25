@@ -18,7 +18,7 @@
 
 import type { Speicherhuelle } from "@bos/meldekopf/einsaetze";
 import { uhrVersatzMs } from "./datenschutz-uhr";
-import { sammlungenRetten } from "./unlesbar";
+import { rettungGesperrtFehler, sammlungenRetten, schreibenErlaubt } from "./unlesbar";
 
 /** Speicherschlüssel der Sammlungen im Kern (einsaetze.ts, nicht exportiert). */
 const SAMMLUNGEN_SCHLUESSEL = "eeb.einsaetze.v1";
@@ -61,6 +61,9 @@ export function uhrKorrigierteHuelle(innen: Speicherhuelle): Speicherhuelle {
       return text;
     },
     setItem(schluessel: string, wert: string) {
+      // Ließ sich der beschädigte Text nicht beiseitelegen (Speicher voll), darf der Kern ihn nicht
+      // durch `[]` oder den lesbaren Rest ersetzen: Er bliebe sonst nirgends erhalten (R9-O1, R9-E5).
+      if (schluessel === SAMMLUNGEN_SCHLUESSEL && !schreibenErlaubt("sammlungen", innen.getItem(schluessel))) throw rettungGesperrtFehler();
       innen.setItem(schluessel, schluessel === SAMMLUNGEN_SCHLUESSEL ? zeitstempelVerschieben(wert, -gelesenMit) : wert);
     },
   };

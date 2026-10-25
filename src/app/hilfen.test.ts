@@ -1050,3 +1050,33 @@ describe("nurSollstaerke() bei der Schnellerfassung (R7-A1)", () => {
     expect(nurSollstaerke(b)).toBe(false);
   });
 });
+
+
+// Audit Runde 9, R9-H2: Die Vorbelegung nach Einheitstyp zählt in der Schnellerfassung nicht und erzeugt keine Hinweise.
+describe("plausibilitaet() — Schnellerfassung mit Vorbelegung (R9-H2)", () => {
+  const vorgabe = (): Erfassungsbogen => ({
+    ...neuerBogen(),
+    personalErfassung: PersonalErfassung.NUR_STAERKE,
+    staerkeManuell: { fuehrer: 0, unterfuehrer: 1, mannschaft: 5, gesamt: 6 },
+    unterbringungManuell: { m: 9, w: 0, d: 0 },
+    personal: Array.from({ length: 9 }, () => neuePerson()),
+    fahrzeuge: [{ typ: { code: 1 } }, { typ: { code: 2 } }],
+  });
+
+  it("meldet weder Aufteilung, Ansprechpartner, Erreichbarkeit noch Kennzeichen für unbenannte Vorgabe", () => {
+    const hinweise = plausibilitaet(vorgabe());
+    expect(hinweise.filter((h) => /Aufteilung nach Geschlecht|Ansprechpartner|telefonische|Kennzeichen/.test(h))).toEqual([]);
+  });
+
+  it("zählt eingetragene Personen weiter (nicht die Vorgabekarten)", () => {
+    const b = vorgabe();
+    b.personal = [...b.personal, { ...neuePerson(), nachname: "A", vorname: "B" }, { ...neuePerson(), nachname: "C", vorname: "D" }];
+    b.staerkeManuell = { fuehrer: 0, unterfuehrer: 0, mannschaft: 1, gesamt: 1 };
+    expect(plausibilitaet(b).some((h) => /Es sind 2 Ansprechpartner erfasst, die Gesamtstärke ist aber nur 1/.test(h))).toBe(true);
+  });
+
+  it("verlangt in der Vollerfassung weiterhin Kennzeichen", () => {
+    const b: Erfassungsbogen = { ...neuerBogen(), fahrzeuge: [{ typ: { code: 1 } }] };
+    expect(plausibilitaet(b).some((h) => /Fahrzeug 1 hat noch kein Kennzeichen/.test(h))).toBe(true);
+  });
+});

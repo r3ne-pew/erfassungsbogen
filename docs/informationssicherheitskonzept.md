@@ -343,6 +343,20 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > und `vendor/` unverändert. Der Entwurf trägt zusätzlich die Marke „über die
 > Startseite verlassen" (`fremd.startseite`, R5-N3, 3.3 D1) — keine Daten.
 
+> **Nachgezogen 2026-10-25 (Runde 9):** Audit Runde 9. Speicher (3.3, 5.5):
+> zwei weitere sessionStorage-Rückwege (`eeb.fahrzeug.rueckweg`,
+> `eeb.ebene.rueckweg`, 15 Minuten, fallen mit „Alle Daten löschen" weg);
+> `eeb.unlesbar.v1` nimmt auch die Absenderkarte auf; bei vollem Speicher
+> überschreibt die Hülle beschädigte Texte nicht, bevor sie beiseite liegen
+> (6.2). Rückfragen: „Sicherung einspielen…" verlangt einen zweiten Haken für
+> Beiseitegelegtes, „Alle Daten löschen" nennt es (5.5). Bedienung (5.3):
+> Zahlenfelder mit eigener Textverarbeitung statt stiller Änderung, Wege der
+> Wahl-Rückfragen im festen Fuß, Tipp-Sperren 600 ms/1,5 s/2,5 s. Exporte
+> (5.4): Sollstärke-Marke in CSV, Excel, Lageblatt und Sammel-PDF, Umschrift,
+> ASCII-sichere Dateinamen, gestalteter Browser-Druck. Der Lagemonitor zeigt
+> am Telefon keine Ort-Spalte und trägt die Stufentasten „Dunkler"/„Heller".
+> Keine neuen Hosts, CSP und Transportformat unverändert.
+
 > **Nachgezogen 2026-10-24 (Runde 8):** Audit Runde 8. Der beiseitegelegte
 > Bestand (3.3 D2o) nimmt auch beschädigte Gesamttexte von Sammlungen und
 > Vorlagen auf, bevor der Kern sie ersetzt; die Hülle um die Ablage prüft vor

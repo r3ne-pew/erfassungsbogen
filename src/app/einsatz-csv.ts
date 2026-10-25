@@ -16,7 +16,7 @@
 import { staerke, type Erfassungsbogen } from "@bos/eeb-format/model";
 import type { EinsatzArt } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit } from "./fassung-vorrang";
-import { einheitAnzeigename, orgLabel, vokabText, vokabularFuer, zeitpunktDeutsch } from "./hilfen";
+import { einheitAnzeigename, nurSollstaerke, orgLabel, vokabText, vokabularFuer, zeitpunktDeutsch } from "./hilfen";
 import { meldungsNummern, pruefpunkteEintrag } from "./einheiten-tabelle";
 import { aktuelleMeldungen, unterbringungLage, verpflegungLage, zaehltInLage } from "./auswertung";
 import { csvDatei, csvZeile } from "./csv";
@@ -123,6 +123,17 @@ function absenderText(e: MeldeEintrag): string {
   return [a.name, a.telefon, a.email].map((x) => x?.trim()).filter(Boolean).join(" · ");
 }
 
+/** Wie auf Karte, Lageblatt und Sammel-PDF (R8-A1): die Zahl ist die Vorbelegung, nicht gemeldet. */
+const SOLL_MARKE = "Sollstärke, nicht gemeldet";
+
+/** „, davon 9 Personen Sollstärke, nicht gemeldet" für die Summenzeile; leer, wenn alles gezählt ist (R9-A2). */
+function sollAnteilText(meldungen: MeldeEintrag[]): string {
+  const soll = meldungen.filter((e) => nurSollstaerke(e.bogen));
+  if (soll.length === 0) return "";
+  const personen = soll.reduce((n, e) => n + staerke(e.bogen).gesamt, 0);
+  return `, davon ${personen} ${personen === 1 ? "Person" : "Personen"} Sollstärke, nicht gemeldet`;
+}
+
 function datenZeile(art: EinsatzArt, e: MeldeEintrag, nr: number | undefined, grund?: string, fremderOrt?: string): string {
   const b = e.bogen;
   const st = staerke(b);
@@ -167,7 +178,8 @@ function datenZeile(art: EinsatzArt, e: MeldeEintrag, nr: number | undefined, gr
     b.uebung ? "ÜBUNG" : "",
     sofortbedarfText(b),
     // Auch „Anderer Einsatz?": die Warnung der Karte gehört zu den offenen Punkten (R5-K5).
-    [...pruefpunkteEintrag(e).map((p) => p.text), ...(fremderOrt != null ? [ortHinweisText(fremderOrt)] : [])].join(" | "),
+    // Sollstärke zuerst: Die Zahl in „Stärke" hat niemand gezählt (R9-A2).
+    [...(nurSollstaerke(b) ? [SOLL_MARKE] : []), ...pruefpunkteEintrag(e).map((p) => p.text), ...(fremderOrt != null ? [ortHinweisText(fremderOrt)] : [])].join(" | "),
     signaturText(e),
     absenderText(e),
     e.notiz ?? "",
@@ -273,7 +285,7 @@ export function einsatzCsvInhalt(
   const orte = ortHinweise(s);
   const zeilen = alle.map((e) => datenZeile(s.art, e, nummern.get(e.einheitSchluessel), gruende ? nachtragGrundText(gruende[e.einheitSchluessel]) : undefined, orte[e.einheitSchluessel]));
   if (!gruende) {
-    return csvDatei([kopf, ...zeilen, summenZeile(zaehlende, `${nachtrag ? "Summe Nachtrag" : "Summe"} (${zaehlende.length} Einheiten)`)]);
+    return csvDatei([kopf, ...zeilen, summenZeile(zaehlende, `${nachtrag ? "Summe Nachtrag" : "Summe"} (${zaehlende.length} Einheiten${sollAnteilText(zaehlende)})`)]);
   }
   const neu = zaehlende.filter((e) => gruende[e.einheitSchluessel]?.neu);
   const geaendert = zaehlende.filter((e) => gruende[e.einheitSchluessel] && !gruende[e.einheitSchluessel]!.neu);
@@ -281,7 +293,7 @@ export function einsatzCsvInhalt(
   return csvDatei([
     kopf,
     ...zeilen,
-    summenZeile(neu, `Summe Nachtrag — nur neue Einheiten (${neu.length})`, true),
+    summenZeile(neu, `Summe Nachtrag — nur neue Einheiten (${neu.length}${sollAnteilText(neu)})`, true),
     ...(geaendert.length > 0
       ? [summenZeile(geaendert, `Geänderte Einheiten (${geaendert.length}) — ersetzen ihre Zeile der letzten Lieferung, NICHT zur Summe addieren`, true)]
       : []),

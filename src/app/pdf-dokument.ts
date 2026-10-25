@@ -272,33 +272,60 @@ export function ansprechpersonPapier(name: string): string {
   return `${winAnsiText(u)} (Name nicht darstellbar – siehe digitale Meldung)`;
 }
 
+/** Enthält der Text Zeichen, die die PDF-Schrift nicht kennt und die als „?" gedruckt würden? */
+const papierWeg = (t: string): boolean => winAnsiText(t).includes("?") && !t.includes("?");
+
+/**
+ * Ein Personenname für die Listen auf dem Bogen: darstellbar unverändert; kyrillisch/griechisch in
+ * Umschrift mit dem Vermerk dazu — dieselbe Schreibweise wie im Feld „Ansprechpartner/in", damit der
+ * Mensch an beiden Stellen gleich lesbar ist (R9-W3). Was auch so nicht druckbar ist, bleibt, wie es ist
+ * (die PDF druckt dann „?", die Quittung nennt es).
+ */
+export function namePapier(nachname: string, vorname: string, trenner = ", "): string {
+  const roh = `${nachname}${nachname && vorname ? trenner : ""}${vorname}`;
+  if (!papierWeg(roh)) return roh;
+  const u = umschrift(roh);
+  return papierWeg(u) ? roh : `${u} (Umschrift)`;
+}
+
 /**
  * Wie viele Namen im Bogen Zeichen enthalten, die die PDF-Schrift nicht darstellen kann
- * (kyrillisch, arabisch, Emoji …) und die als „?" gedruckt würden (Audit Runde 6, R6-A5).
+ * (arabisch, Emoji …) und die als „?" gedruckt würden (Audit Runde 6, R6-A5). Eine Person zählt einmal
+ * (Vor- und Nachname zusammen), und was in Umschrift gedruckt wird, zählt nicht mit (R9-W3).
  */
 export function nichtDarstellbareNamen(b: Erfassungsbogen): number {
-  const namen = [
-    ...b.personal.flatMap((p) => [p.vorname, p.nachname]),
-    b.einheit.organisationName ?? "",
-    ...b.einheit.hierarchie.map((h) => h.name),
-  ];
-  return namen.filter((n) => n && !n.includes("?") && winAnsiText(n).includes("?")).length;
+  const personen = b.personal.filter((p) => papierWeg(`${p.vorname} ${p.nachname}`) && papierWeg(umschrift(`${p.vorname} ${p.nachname}`))).length;
+  const sonst = [b.einheit.organisationName ?? "", ...b.einheit.hierarchie.map((h) => h.name)].filter((n) => n && papierWeg(n)).length;
+  return personen + sonst;
 }
 
 /**
  * Wer betroffen ist: „Владимир Lehmann (Ansprechperson)" — für die Quittung (R7-A4). Die erste
- * Person steht im Feld „Ansprechpartner/in", also dort, wo der Meldekopf zurückruft.
+ * Person steht im Feld „Ansprechpartner/in", also dort, wo der Meldekopf zurückruft. Nur, was auch in
+ * Umschrift nicht druckbar ist; die Umschrift-Fälle nennt {@link umschriftBetroffene}.
  */
 export function nichtDarstellbareBetroffene(b: Erfassungsbogen): string[] {
-  const betrifft = (...teile: string[]) => teile.some((n) => n && !n.includes("?") && winAnsiText(n).includes("?"));
   const wer: string[] = [];
   b.personal.forEach((p, i) => {
-    if (betrifft(p.vorname, p.nachname)) {
+    const name = `${p.vorname} ${p.nachname}`;
+    if (papierWeg(name) && papierWeg(umschrift(name))) {
       wer.push(`${[p.vorname, p.nachname].filter(Boolean).join(" ")}${i === 0 ? " (Ansprechperson)" : ""}`);
     }
   });
-  if (betrifft(b.einheit.organisationName ?? "")) wer.push(`Organisationsname „${b.einheit.organisationName}"`);
-  for (const h of b.einheit.hierarchie) if (betrifft(h.name)) wer.push(`Zugehörigkeit „${h.name}"`);
+  if (papierWeg(b.einheit.organisationName ?? "")) wer.push(`Organisationsname „${b.einheit.organisationName}"`);
+  for (const h of b.einheit.hierarchie) if (papierWeg(h.name)) wer.push(`Zugehörigkeit „${h.name}"`);
+  return wer;
+}
+
+/** Personen, deren Name in Umschrift gedruckt wird (Feld „Ansprechpartner/in" und Personenliste) — für die Quittung (R9-W3). */
+export function umschriftBetroffene(b: Erfassungsbogen): string[] {
+  const wer: string[] = [];
+  b.personal.forEach((p, i) => {
+    const name = `${p.vorname} ${p.nachname}`;
+    if (papierWeg(name) && !papierWeg(umschrift(name))) {
+      wer.push(`${[p.vorname, p.nachname].filter(Boolean).join(" ")} → ${umschrift(name).trim()}${i === 0 ? " (Ansprechperson)" : ""}`);
+    }
+  });
   return wer;
 }
 
@@ -533,10 +560,13 @@ export function ohneVorbelegung(b: Erfassungsbogen): Erfassungsbogen {
  */
 export function erreichbarkeitZeilen(b: Erfassungsbogen): string[] {
   const zeilen: string[] = [];
+  // Niemand hat gezählt (Sollstärke): Funkrufname und Rufnummer stammen aus der Vorbelegung des Einheitstyps,
+  // nicht von der Einheit — am Wandblatt sähen sie wie ein bestätigter Rückruf aus (R9-A3).
+  const soll = nurSollstaerke(b);
   b = ohneVorbelegung(b);
   const fzg = b.fahrzeuge.find((f) => f.funkrufname);
   const furn = fzg ? funkrufText(fzg, b.einheit) : "";
-  if (furn) zeilen.push(furn);
+  if (furn) zeilen.push(soll ? `${furn} (Vorbelegung)` : furn);
   // Knapp, damit die Zeile in die Spalte passt: „5556968346 (S. Lang)".
   const p = ansprechpartner(b.personal);
   const tel = p?.kontakte.find((k) => k.art !== KontaktArt.EMAIL && k.wert);
@@ -544,7 +574,7 @@ export function erreichbarkeitZeilen(b: Erfassungsbogen): string[] {
     const name = [p.vorname ? `${p.vorname.charAt(0)}.` : "", p.nachname].filter(Boolean).join(" ");
     zeilen.push(name ? `${tel.wert} (${name})` : `${tel.wert}`);
   } else if (b.einheit.hierarchie[0]?.telefon) {
-    zeilen.push(`${b.einheit.hierarchie[0].telefon} (OV)`);
+    zeilen.push(`${b.einheit.hierarchie[0].telefon} (${soll ? "OV, Vorbelegung" : "OV"})`);
   }
   return zeilen;
 }
@@ -2043,7 +2073,7 @@ export function pdfDokument(
     personalZeilen.push([
       { text: funktionsText(p, org) },
       { text: ROLLE_KURZ[p.staerkeRolle] ?? "", alignment: "center" },
-      { text: `${p.nachname}${p.nachname && p.vorname ? ", " : ""}${p.vorname}` },
+      { text: namePapier(p.nachname, p.vorname) },
       { text: kontakte },
     ]);
   }
@@ -2067,7 +2097,7 @@ export function pdfDokument(
   for (const p of blanko ? [] : b.personal) {
     if (p.zusatzqualifikationen.length > 0) {
       qualiZeilen.push([
-        { text: `${p.nachname}, ${p.vorname}` },
+        { text: namePapier(p.nachname, p.vorname) },
         { text: weichUmbrechen(p.zusatzqualifikationen.map((q) => q.freitext ?? `#${q.code}`).join(", ")) },
       ]);
     }

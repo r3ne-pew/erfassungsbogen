@@ -61,6 +61,7 @@ describe("Papier-Abgleich, Bogen übergeben, beiseitegelegter Bogen (R8-G6, R8-D
   it("der Kasten zum beiseitegelegten Bogen nennt keine „Support-Stelle“ und fasst die Einzelheiten unter „Mehr dazu“", () => {
     const quelle = readFileSync(new URL("./app.tsx", import.meta.url), "utf8");
     expect(quelle).not.toMatch(/Support-Stelle/);
-    expect(quelle).toMatch(/<details className="beschaedigt-mehr">\s*<summary>Mehr dazu<\/summary>/);
+    // Seit R9-S4 ist die Kopfzeile selbst der Aufklapper („… beiseitegelegt, nicht gelöscht ›“); die Einzelheiten stehen dahinter.
+    expect(quelle).toMatch(/<details className="beschaedigt-mehr"[^>]*>\s*<summary>[\s\S]*?nicht gelöscht ›/);
   });
 });

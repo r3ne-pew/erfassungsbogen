@@ -17,8 +17,8 @@
  * überschreiben.
  */
 
-import { useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
-import { ortSperren } from "./tipp-schutz";
+import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
+import { ortSperren, tippVerworfenZeigen } from "./tipp-schutz";
 import { ersteEbeneBetreten, ersteEbeneVerlassen } from "./modal-overlay";
 
 /** Ein Eingabefeld einer Abfrage. `name` ist der Schlüssel im Ergebnis. */
@@ -30,6 +30,8 @@ export type Eingabefeld = {
   /** Leere Eingabe erlaubt. Ohne Angabe ist das Feld Pflicht. */
   optional?: boolean;
   mehrzeilig?: boolean;
+  /** Zahlenfeld: Ziffernblock auf dem Telefon (`inputmode`), „Weiter" der Tastatur (R9-G6). */
+  zahl?: boolean;
   /** Gesetzt = Auswahlliste statt Textfeld (Wert = `wert` des Eintrags). */
   auswahl?: { wert: string; label: string }[];
 };
@@ -204,6 +206,9 @@ export function zeigeHinweis(a: {
   return stellen({ art: "hinweis", titel: a.titel, text: a.text, kopiertext: a.kopiertext, ok: a.ok ?? "Alles klar" });
 }
 
+/** So viele benannte Wege stehen im festen Fuß der Rückfrage; mehr rollen im Rumpf. */
+const WEGE_IM_FUSS = 3;
+
 // ------------------------------------------------------------------ Anzeige
 
 /**
@@ -266,6 +271,8 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
     if (e.detail > 0 && Date.now() - geoeffnetUm.current < dauer) {
       e.preventDefault();
       e.stopPropagation();
+      // Der verworfene Tipp sagt es: „Einen Moment …" auf dem Knopf, nicht im Text (R9-S2).
+      tippVerworfenZeigen(e.nativeEvent);
     }
   }
   const [werte, setWerte] = useState<Record<string, string>>(() =>
@@ -311,9 +318,9 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
   }, []);
 
   /** Pflichtfeld noch leer → die bejahende Antwort bleibt gesperrt. */
-  const unvollstaendig =
-    abfrage.art === "eingabe" &&
-    abfrage.felder.some((f) => !f.optional && !(werte[f.name] ?? "").trim());
+  const fehlend =
+    abfrage.art === "eingabe" ? abfrage.felder.filter((f) => !f.optional && !(werte[f.name] ?? "").trim()) : [];
+  const unvollstaendig = fehlend.length > 0;
 
   /**
    * Abschicken schließt das Fenster mit dem Wert des gedrückten Knopfes. Das
@@ -363,15 +370,23 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
     </button>
   );
 
-  // Ein oder zwei Wege ohne Erklärtext stehen mit „Abbrechen" am festen Fuß; Wege mit
-  // Erklärtext rollen im Rumpf, damit die Erklärung beim Knopf bleibt (R7-W1).
-  const wegeImFuss = abfrage.art === "wahl" && abfrage.wege.length <= 2 && abfrage.wege.every((w) => !w.hinweis);
+  // Bis zu drei Wege stehen mit „Abbrechen" im festen Fuß — auch mit Erklärtext: Im Rumpf lagen sie bei
+  // Querformat, großer Schrift und im Zoom-Fenster hinter dem Text, im Bild stand nur „Abbrechen"
+  // (R9-W1, R9-M2). Die Erklärungen wandern dann als Liste in den Rumpf und hängen per `aria-describedby`
+  // an ihrem Knopf. Längere Listen (Einsatz wählen) rollen im Rumpf.
+  const idBasis = useId();
+  const wegeImFuss = abfrage.art === "wahl" && abfrage.wege.length <= WEGE_IM_FUSS;
   const wegKnopf = (w: Antwortweg, i: number) => (
     <div className="abfrage-weg" key={w.wert}>
-      <button type="submit" value={w.wert} className={w.gefahr ? "gefahr" : i === 0 ? "primaer" : ""}>
+      <button
+        type="submit"
+        value={w.wert}
+        className={w.gefahr ? "gefahr" : i === 0 ? "primaer" : ""}
+        aria-describedby={wegeImFuss && w.hinweis ? `${idBasis}-w${i}` : undefined}
+      >
         {w.label}
       </button>
-      {w.hinweis && <p className="hinweis">{w.hinweis}</p>}
+      {!wegeImFuss && w.hinweis && <p className="hinweis">{w.hinweis}</p>}
     </div>
   );
 
@@ -418,6 +433,8 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
                   <input
                     ref={i === 0 ? merkeErstes : undefined}
                     type="text"
+                    {...(f.zahl ? { inputMode: "numeric" as const } : {})}
+                    enterKeyHint={i < abfrage.felder.length - 1 ? "next" : "done"}
                     value={werte[f.name] ?? ""}
                     placeholder={f.platzhalter}
                     onChange={(e) => setWerte({ ...werte, [f.name]: e.target.value })}
@@ -431,6 +448,17 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
         {abfrage.art === "wahl" && (
           <>
             <p>{abfrage.text}</p>
+            {wegeImFuss && abfrage.wege.some((w) => w.hinweis) && (
+              <ul className="abfrage-wegehinweise">
+                {abfrage.wege.map((w, i) =>
+                  w.hinweis ? (
+                    <li key={w.wert} id={`${idBasis}-w${i}`}>
+                      <strong>{w.label}:</strong> {w.hinweis}
+                    </li>
+                  ) : null,
+                )}
+              </ul>
+            )}
             {!wegeImFuss && abfrage.wege.map((w, i) => wegKnopf(w, i))}
           </>
         )}
@@ -450,6 +478,14 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
           </>
         )}
         </div>
+
+        {abfrage.art === "eingabe" && unvollstaendig && (
+          <p className="hinweis abfrage-fehlt" role="status">
+            {abfrage.ok} geht erst, wenn {fehlend.length === 1 ? "das Feld" : "die Felder"}{" "}
+            {fehlend.map((f) => `„${f.label}“`).join(", ")} {fehlend.length === 1 ? "ausgefüllt ist" : "ausgefüllt sind"}
+            {fehlend.some((f) => f.zahl) ? " — ist keiner da, eine 0 eintragen." : "."}
+          </p>
+        )}
 
         {abfrage.art === "eingabe" && (
           <div className="abfrage-aktionen">

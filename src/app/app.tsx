@@ -37,6 +37,7 @@ import {
   bogenLaden,
   browserKompressor,
   bytesAlsDatei,
+  dateinameTeil,
   einheitAnzeigename,
   einheitOrt,
   neuerBogen,
@@ -61,10 +62,11 @@ import { entfernteImImportKlaeren } from "./entfernte-meldungen";
 import { eigenesZurueckVerbrauchen, rueckfrageEintragErsetzbar } from "./modal-overlay";
 import { FensterKonflikt, nachAbgleichFortsetzen, useFensterAbgleich } from "./fenster-abgleich";
 import { entwirreScanText } from "./tastaturbelegung";
-import { ortSperren } from "./tipp-schutz";
+import { ortSperren, SEITENWECHSEL_SPERRE_MS } from "./tipp-schutz";
 import { vorlageAktualisieren, vorlageAnlegen, vorlageAusDatei, vorlagenLaden, vorlagenPapierkorb, vorlageZuruecksetzen, type Vorlage } from "./vorlagen";
 import { Musterung, VorlagenListe } from "./vorlagen-ui";
 import { musterungVorlageAusStand } from "./musterung-stand";
+import { rueckwegeVergessen } from "./rueckweg-sitzung";
 import { absenderkarteGefuellt, absenderkarteLaden, type Absenderkarte } from "./absenderkarte";
 import { AbsenderkarteFeld } from "./absenderkarte-ui";
 import {
@@ -127,7 +129,8 @@ import { DaumenQuittung } from "./daumen-quittung";
 import {
   entwurfAusAnderemFenster,
   entwurfLaden,
-  beschaedigterEntwurf,
+  zettelPruefen,
+  beschaedigterEntwurfAnzeige,
   beschaedigtenEntwurfVerwerfen,
   entwurfSpeichern,
   entwurfVerwerfen,
@@ -537,6 +540,17 @@ function uhrzeitMitTag(d: Date): string {
     : `${d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}, ${uhr}`;
 }
 
+/**
+ * Der aktive Reiter der Schrittleiste liegt mittig im Bild, wenn die Leiste seitlich rollt (Zoom, Querformat; Audit Runde 9, R9-M8).
+ * Nur der Rollbereich der Leiste wird bewegt, nie die Seite.
+ */
+function reiterZeigen(el: HTMLButtonElement | null): void {
+  const leiste = el?.parentElement;
+  if (!el || !leiste || leiste.scrollWidth <= leiste.clientWidth) return;
+  const abstand = el.getBoundingClientRect().left - leiste.getBoundingClientRect().left;
+  leiste.scrollLeft += abstand - (leiste.clientWidth - el.offsetWidth) / 2;
+}
+
 /** Was die App gerade zeigt — für den Browser-Verlauf (Zurück-Knopf, Audit „Fehler", E3). */
 // `muster`: die Musterung einer Vorlage ist eine eigene Ansicht mit Verlaufseintrag (R7-H2).
 type Ansicht = { schritt: number; zeigeStart: boolean; einsatz: string | null; scanner: boolean; muster?: boolean };
@@ -792,13 +806,18 @@ function AppInhalt() {
   const vorigerSchritt = useRef(schritt);
   // Ziel eines Prüfpunkts („antippen zum Beheben"): Feld statt Schrittanfang (R2-H2).
   const zielFeld = useRef<string | null>(null);
+  // Wer aus der Übersicht einen Punkt beheben geht („Bearbeiten“, offener Punkt), kommt mit „Zur Übersicht →“
+  // zurück, statt sich durch die übrigen Schritte zu tippen (R9-W4). Gilt nur für diesen einen Schritt.
+  const [ausUebersicht, setAusUebersicht] = useState<number | null>(null);
   const geheZuFeld = (s: number, feld?: string) => {
     zielFeld.current = feld ?? null;
+    setAusUebersicht(schritt === UEBERSICHT && s !== UEBERSICHT ? s : null);
     setSchritt(s);
   };
   useEffect(() => {
     if (vorigerSchritt.current === schritt) return;
     vorigerSchritt.current = schritt;
+    setAusUebersicht((a) => (a === schritt ? a : null));
     const feld = zielFeld.current ? document.getElementById(zielFeld.current) : null;
     zielFeld.current = null;
     if (feld) {
@@ -849,7 +868,7 @@ function AppInhalt() {
   // Ein gespeicherter Bogen, den die App nicht lesen kann, liegt beiseite und
   // wird auf der Startseite genannt, statt zu verschwinden oder die Ansicht
   // weiß zu machen (Audit Runde 5, R5-E1).
-  const [beschaedigt, setBeschaedigt] = useState(() => beschaedigterEntwurf());
+  const [beschaedigt, setBeschaedigt] = useState(() => beschaedigterEntwurfAnzeige());
   // Zeigt den Startbildschirm, ohne den aktuellen Bogen zu verwerfen –
   // er lässt sich von dort per „Aktuellen Bogen fortsetzen“ wieder öffnen.
   // Eine angefangene Erfassung für eine Sammlung (Meldekopf) öffnet nach dem
@@ -959,10 +978,11 @@ function AppInhalt() {
   };
   const [scanFortschritt, setScanFortschritt] = useState("");
   // Nacherfassung vom Papier: Uhrzeit vom Meldeblock, leer = Zeit der Übernahme (R2-A5).
-  const [nachEintreffzeit, setNachEintreffzeit] = useState("");
+  // Die drei Zettelangaben liegen mit im Entwurf und überleben das Neuladen (R9-S1).
+  const [nachEintreffzeit, setNachEintreffzeit] = useState(ENTWURF?.fremd?.zettel?.zeit ?? "");
   // „Nr. laut Zettel“ und Zug der von Hand erfassten Einheit (R5-A4).
-  const [nachNummer, setNachNummer] = useState("");
-  const [nachZug, setNachZug] = useState("");
+  const [nachNummer, setNachNummer] = useState(ENTWURF?.fremd?.zettel?.nr ?? "");
+  const [nachZug, setNachZug] = useState(ENTWURF?.fremd?.zettel?.zug ?? "");
   // Zuletzt auf „Ja — dieselbe Einheit" zusammengelegt: für die Quittung mit
   // beiden Namen und „Rückgängig — als eigene Einheit" (Audit Runde 4, R4-E1).
   const [zusammenlegung, setZusammenlegung] = useState<{
@@ -1041,7 +1061,10 @@ function AppInhalt() {
     // erstellen" das „◐" des Assistenten (das Darstellungsmenü ging auf).
     // Die Stelle des Tipps eben nimmt 1,5 s nichts an (Audit Runde 4, R4-S2,
     // R4-S3) — wie nach „Abrücken".
-    ortSperren();
+    // Wechselt nur der Schritt, bleibt „Weiter →" an derselben Stelle: 1,5 s (R4-S2). Öffnet sich dagegen
+    // die Sammlung, die Startseite oder ein anderes Fenster, liegen unter dem Finger andere Knöpfe, und
+    // wer die Knöpfe liest, tippt nach einer halben Sekunde: dort nur 600 ms (R9-H5).
+    ortSperren(vorher.schritt === jetzt.schritt ? SEITENWECHSEL_SPERRE_MS : undefined);
     if (verlaufZielRef.current && ansichtGleich(verlaufZielRef.current, jetzt)) {
       verlaufZielRef.current = null; // Rücksprung angekommen — kein neuer Eintrag
       return;
@@ -1153,7 +1176,12 @@ function AppInhalt() {
         {
           vorlageId: vorlageInBearbeitung ?? undefined,
           fremd: fremdeErfassung
-            ? { einsatzId: sammelZielId ?? undefined, beginn: erfassungBeginn ?? undefined, ...(zeigeStart ? { startseite: true as const } : {}) }
+            ? {
+                einsatzId: sammelZielId ?? undefined,
+                beginn: erfassungBeginn ?? undefined,
+                ...(zeigeStart ? { startseite: true as const } : {}),
+                zettel: zettelPruefen({ zeit: nachEintreffzeit, nr: nachNummer, zug: nachZug }),
+              }
             : undefined,
           schritt,
           uebergabe: uebergabe ?? undefined,
@@ -1167,10 +1195,11 @@ function AppInhalt() {
       bogenGespeichert.current = { bogen: null, um: Date.now() };
       entwurfVerwerfen();
       personalRueckwegVergessen(); // R7-O5: kein „Rückgängig" mit Namen im Tab, wenn der Bogen weg ist
+      rueckwegeVergessen(); // dito für Fahrzeuge und Ebenen (R9-D3)
       setGespeichertUm(null);
       setSpeicherFehler(false);
     }
-  }, [bogen, vorlageInBearbeitung, fremdeErfassung, sammelZielId, erfassungBeginn, zeigeStart, schritt, uebergabe, fenster.runde]);
+  }, [bogen, vorlageInBearbeitung, fremdeErfassung, sammelZielId, erfassungBeginn, zeigeStart, schritt, uebergabe, fenster.runde, nachEintreffzeit, nachNummer, nachZug]);
 
   // Nicht Gespeichertes geht nicht ohne Rückfrage verloren: Schließen oder
   // Neuladen fragt nach, solange die Zeile „Nicht gespeichert" steht. Viele
@@ -1391,7 +1420,9 @@ function AppInhalt() {
     const geaendertUm = bogenGespeichert.current.bogen === b ? bogenGespeichert.current.um : undefined;
     const ok = ersetztenEntwurfMerken(
       b,
-      fremdeErfassung ? { einsatzId: sammelZielId ?? undefined, beginn: erfassungBeginn ?? undefined } : undefined,
+      fremdeErfassung
+        ? { einsatzId: sammelZielId ?? undefined, beginn: erfassungBeginn ?? undefined, zettel: zettelPruefen({ zeit: nachEintreffzeit, nr: nachNummer, zug: nachZug }) }
+        : undefined,
       { ...opt, geaendertUm },
     );
     if (ok) setErsetzterEntwurf(ersetztenEntwurfLaden());
@@ -1694,6 +1725,9 @@ function AppInhalt() {
     const ziel = zurueck.fremd?.einsatzId;
     setFremdeErfassung(!!zurueck.fremd);
     setErfassungBeginn(zurueck.fremd?.beginn ?? null);
+    setNachEintreffzeit(zurueck.fremd?.zettel?.zeit ?? "");
+    setNachNummer(zurueck.fremd?.zettel?.nr ?? "");
+    setNachZug(zurueck.fremd?.zettel?.zug ?? "");
     setSammelZiel(ziel && einsaetzeLaden().some((x) => x.id === ziel) ? ziel : null);
     setzeEmpfang(null);
     setSchritt(UEBERSICHT);
@@ -2158,6 +2192,7 @@ function AppInhalt() {
         { wert: "bisher", label: `Die bisherige (Stärke ${staerkeKurz(p.bisher.bogen)})${p.neu.rueckkehr ? " — Einheit bleibt abgerückt" : ""}` },
       ],
       abbruch: "Bisherige behalten",
+      fokus: "abbruch", // Enter lässt die Meldung unverändert (R9-D4)
     });
     if (wahl === "neu") {
       await vorrangSetzen(zielId, p.neu.id);
@@ -2296,7 +2331,8 @@ function AppInhalt() {
         herkunft === "Datei"
           ? `Bogen von „${einheitAnzeigename(b.einheit)}" aus der Datei`
           : `Meldung von „${einheitAnzeigename(b.einheit)}" empfangen`,
-      text: `Stärke ${staerkeKurz(b)}${b.uebung ? " · ÜBUNG" : ""}. Wohin damit?`,
+      // Niemand hat gezählt: Die Zahl ist die Sollstärke der Vorbelegung — das gehört vor die Entscheidung (R9-W5).
+      text: `Stärke ${staerkeKurz(b)}${nurSollstaerke(b) ? ` (nur Sollstärke: ${b.personal.length} Plätze ohne Namen, niemand hat gezählt)` : ""}${b.uebung ? " · ÜBUNG" : ""}. Wohin damit?`,
       wege,
     });
   }
@@ -2745,7 +2781,7 @@ function AppInhalt() {
     // dazu der Weg „Zahlen stimmen" für eine Einheit, die wirklich in Sollstärke kommt.
     const nurZahl = b.personalErfassung === PersonalErfassung.NUR_STAERKE;
     const wahl = await frageWahl({
-      titel: "Stärke nicht gezählt",
+      titel: "Nur Sollplätze, keine gemeldete Stärke",
       text: nurZahl
         ? `Für „${einheitAnzeigename(b.einheit)}" stehen noch die Zahlen der Vorbelegung nach Einheitstyp (Soll: ${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt}${b.fahrzeuge.length ? `, ${b.fahrzeuge.length} Fahrzeug${b.fahrzeuge.length === 1 ? "" : "e"}` : ""}) — niemand hat gezählt. Die Lage zählte sie sonst als gemeldete Stärke.`
         : `Für „${einheitAnzeigename(b.einheit)}" stehen nur die Sollplätze nach StAN (Stärke ${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt}${b.fahrzeuge.length ? `, ${b.fahrzeuge.length} Fahrzeug${b.fahrzeuge.length === 1 ? "" : "e"}` : ""}) — niemand hat Personen eingetragen.`,
@@ -2859,6 +2895,7 @@ function AppInhalt() {
           ),
           ok: "Ja, so übernehmen",
           abbruch: "Zahlen korrigieren",
+          fokus: "abbruch", // Enter ersetzt sonst die Zahlen (R9-D4)
         });
         if (!ja) {
           setSchritt(2);
@@ -3080,7 +3117,7 @@ function AppInhalt() {
   }
 
   function einsatzDateiname(s: Einsatzsammlung): string {
-    return (s.name || "einsatz").replace(/[^\wäöüÄÖÜß-]+/g, "_");
+    return dateinameTeil(s.name || "einsatz");
   }
 
   /**
@@ -4077,52 +4114,58 @@ function AppInhalt() {
         <UnlesbarHinweis />
         {beschaedigt && (
           <section className="entwurf-karte verdraengt beschaedigt" role="alert">
-            <span className="entwurf-text">
-              <strong>Ein Bogen ließ sich nicht öffnen</strong>
-              {/* R8-H4, R8-S2: zwei Sätze und der Weg; die Einzelheiten hinter „Mehr dazu“. */}
-              <span className="hinweis warnung-text">
-                Nicht gelöscht, nur beiseitegelegt. „Als Datei sichern“ und an den geben, der die App betreut — oder unten
-                gleich einen neuen Bogen beginnen.
-              </span>
-              <details className="beschaedigt-mehr">
-                <summary>Mehr dazu</summary>
+            {/* Zugeklappt eine Kopfzeile (R9-S4: zusammen mit dem Kasten zur Sammlung blieb „Neuen Bogen erstellen“
+                im ersten Bild); Text, Ursache und Knöpfe stehen dahinter. */}
+            <details className="beschaedigt-mehr" style={{ width: "100%" }}>
+              <summary>
+                {beschaedigt.ungesichert
+                  ? "Ein Bogen ließ sich nicht öffnen und nicht beiseitelegen — Speicher voll ›"
+                  : "Ein Bogen ließ sich nicht öffnen — beiseitegelegt, nicht gelöscht ›"}
+              </summary>
+              <span className="entwurf-text">
+                <span className="hinweis warnung-text">
+                  {beschaedigt.ungesichert
+                    ? "Speicher voll – beschädigte Daten nicht gesichert. Der Text liegt unverändert auf dem Gerät. „Als Datei sichern“, dann Platz schaffen (Papierkorb leeren) und neu laden; neue Bögen werden bis dahin nicht gespeichert."
+                    : "Nicht gelöscht, nur beiseitegelegt. „Als Datei sichern“ und an den geben, der die App betreut — oder unten gleich einen neuen Bogen beginnen."}
+                </span>
                 <span className="hinweis">
                   Ursache: {beschaedigt.ursache}. „Aus Datei laden…“ öffnet die Datei nur, wenn diese Ursache nicht mehr zutrifft; fehlt
                   eine Pflichtangabe, nennt die App sie beim Einlesen. Nachtragen lässt sie sich in der App nicht — dann braucht, wer die
-                  App betreut, die Datei. Die App löscht den Bogen am{" "}
-                  {datumZweistellig(beschaedigt.am + DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000)} von selbst ({DATENSCHUTZFRIST_TAGE} Tage nach
-                  dem Beiseitelegen).
+                  App betreut, die Datei.{" "}
+                  {beschaedigt.ungesichert
+                    ? "Die Frist von 90 Tagen läuft erst nach dem Beiseitelegen; bis dahin bleibt der Text unverändert liegen."
+                    : `Die App löscht den Bogen am ${datumZweistellig(beschaedigt.am + DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000)} von selbst (${DATENSCHUTZFRIST_TAGE} Tage nach dem Beiseitelegen).`}
                 </span>
-              </details>
-            </span>
-            <span className="entwurf-aktionen">
-              <button
-                type="button"
-                onClick={() => {
-                  blobAlsDownload("eeb-beschaedigter-entwurf.json", new Blob([beschaedigt.text], { type: "application/json" }));
-                  setMeldung("Datei „eeb-beschaedigter-entwurf.json“ gespeichert (Downloads). Der beiseitegelegte Bogen bleibt zusätzlich auf dem Gerät.");
-                }}
-              >
-                Als Datei sichern
-              </button>
-              <button
-                type="button"
-                className="gefahr"
-                onClick={async () => {
-                  const ja = await frageJaNein({
-                    titel: "Beschädigten Bogen entfernen?",
-                    text: "Der beiseitegelegte Bogen wird endgültig gelöscht. Wenn du ihn noch prüfen willst, vorher „Als Datei sichern“.",
-                    ok: "Endgültig entfernen",
-                    gefahr: true,
-                  });
-                  if (!ja) return;
-                  beschaedigtenEntwurfVerwerfen();
-                  setBeschaedigt(null);
-                }}
-              >
-                Entfernen…
-              </button>
-            </span>
+              </span>
+              <span className="entwurf-aktionen">
+                <button
+                  type="button"
+                  onClick={() => {
+                    blobAlsDownload("eeb-beschaedigter-entwurf.json", new Blob([beschaedigt.text], { type: "application/json" }));
+                    setMeldung("Datei „eeb-beschaedigter-entwurf.json“ gespeichert (Downloads). Der beiseitegelegte Bogen bleibt zusätzlich auf dem Gerät.");
+                  }}
+                >
+                  Als Datei sichern
+                </button>
+                <button
+                  type="button"
+                  className="gefahr"
+                  onClick={async () => {
+                    const ja = await frageJaNein({
+                      titel: "Beschädigten Bogen entfernen?",
+                      text: "Der beiseitegelegte Bogen wird endgültig gelöscht. Wenn du ihn noch prüfen willst, vorher „Als Datei sichern“.",
+                      ok: "Endgültig entfernen",
+                      gefahr: true,
+                    });
+                    if (!ja) return;
+                    beschaedigtenEntwurfVerwerfen();
+                    setBeschaedigt(beschaedigterEntwurfAnzeige());
+                  }}
+                >
+                  Entfernen…
+                </button>
+              </span>
+            </details>
           </section>
         )}
         {/* Rückholung: Was ein anderer Bogen verdrängt hat, ist nicht verloren.
@@ -4479,6 +4522,7 @@ function AppInhalt() {
               key={name}
               type="button"
               className={klassen}
+              ref={i === schritt ? reiterZeigen : undefined}
               aria-current={i === schritt ? "step" : undefined}
               aria-label={st ? `${i + 1}. ${name} — ${SCHRITT_STATUS_TITEL[st]}` : undefined}
               title={st ? SCHRITT_STATUS_TITEL[st] : undefined}
@@ -4505,7 +4549,7 @@ function AppInhalt() {
           details={speicherFehlerDetails(speicherArt, fremdeErfassung, gespeichertUm ? uhrzeitMitTag(gespeichertUm) : null)}
         />
       ) : gespeichertUm ? (
-        <p className="autosave" role="status">
+        <p className="autosave" role="status" data-kurz={`✓ ${uhrzeitMitTag(gespeichertUm)}`}>
           {/* R4-M7: „✓ automatisch gespeichert · 22:24 Uhr — bleibt auf die…" wurde auf
               360 px an genau der Stelle gekürzt, um die es geht („nur auf diesem
               Gerät"). Kürzer, und das Wichtige steht hinten, wo gekürzt wird,
@@ -4669,14 +4713,16 @@ function AppInhalt() {
           <button
             type="button"
             className="primaer"
-            aria-label={schritt === UEBERSICHT - 1 ? "Zur Übersicht →" : "Weiter →"}
+            aria-label={schritt === UEBERSICHT - 1 || ausUebersicht === schritt ? "Zur Übersicht →" : "Weiter →"}
             onClick={() =>
               setSchritt(
-                schritt === 0 && fremdeErfassung && bogen.personalErfassung === PersonalErfassung.NUR_STAERKE ? 2 : schritt + 1,
+                ausUebersicht === schritt
+                  ? UEBERSICHT
+                  : schritt === 0 && fremdeErfassung && bogen.personalErfassung === PersonalErfassung.NUR_STAERKE ? 2 : schritt + 1,
               )
             }
           >
-            {schritt === UEBERSICHT - 1 ? (
+            {schritt === UEBERSICHT - 1 || ausUebersicht === schritt ? (
               <>
                 {/* Auf dem kleinsten Bild fällt „Zur" weg, damit „◐" nicht unter den Knopf gerät (R6-G1). */}
                 <span className="nav-zur">Zur </span>

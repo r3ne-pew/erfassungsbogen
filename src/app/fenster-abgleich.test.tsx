@@ -246,6 +246,20 @@ describe("Fensterabgleich", () => {
     expect(warnung.textContent).toMatch(/Dort: .*gespeichert .* Uhr, \d+ Personen?\.\s*Hier: Stand .* Uhr, \d+ Personen?/);
   });
 
+  // Audit Runde 9, R9-W2: Auch bei Ort/Auftrag und Diesel steht in der Leiste, was dort und was hier steht.
+  it("nennt in der Leiste bei Ort / Auftrag und Diesel die Werte von dort und hier (R9-W2)", async () => {
+    const nutzer = userEvent.setup();
+    render(<Buehne />);
+    const b = neuerBogen();
+    b.einsatz.ortAuftrag = "Ort aus Fenster B";
+    b.sofortbedarf = { verpflegungPersonen: 0, dieselLiter: 150, benzinLiter: 0, gemischLiter: 0, unterbringung: false, ruhezeitErforderlich: false };
+    anderesFensterSchreibt(ENTWURF_SCHLUESSEL, entwurfZuJson(b));
+    const warnung = screen.getByRole("alert");
+    expect(warnung.textContent).toMatch(/Ort \/ Auftrag \(dort: „Ort aus Fenster B“, hier: „Ort A“\)/);
+    await nutzer.click(within(warnung).getByRole("button", { name: "Genauer" }));
+    expect(warnung.textContent).toMatch(/Anders: .*Diesel \(dort: „150[^“]*“, hier: „[^“]*“\)/);
+  });
+
   // Audit Runde 6, R6-S1: „Stand laden" verwarf die eigene, nicht gespeicherte Arbeit still.
   it("fragt vor „Stand aus dem anderen Fenster laden“ und legt die eigene Fassung auf den Rückholplatz (R6-S1)", async () => {
     const nutzer = userEvent.setup();

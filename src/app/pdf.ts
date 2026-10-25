@@ -14,9 +14,9 @@ import * as pdfFonts from "pdfmake/build/vfs_fonts";
 import helvetica from "pdfmake/build/standard-fonts/Helvetica";
 import type { Erfassungsbogen } from "@bos/eeb-format/model";
 import { base64UrlDekodieren } from "@bos/eeb-format/codec";
-import { einheitAnzeigename, natoZeitstempel, qrErzeugen } from "./hilfen";
+import { dateinameTeil, einheitAnzeigename, natoZeitstempel, qrErzeugen } from "./hilfen";
 import { istNativ, binaerTeilen } from "./nativ";
-import { einsatzLageblattSeiteFuellen, einsatzPdfDokumentGesetzt, einzelPdfDokument, nichtDarstellbareBetroffene, nichtDarstellbareNamen, pdfDokument, type SammelBogen, type UebersichtEintrag } from "./pdf-dokument";
+import { einsatzLageblattSeiteFuellen, einsatzPdfDokumentGesetzt, einzelPdfDokument, nichtDarstellbareBetroffene, nichtDarstellbareNamen, pdfDokument, umschriftBetroffene, type SammelBogen, type UebersichtEintrag } from "./pdf-dokument";
 import { einsatzDateiInhalt } from "./einsatz-transport";
 import { lageAngabenLaden } from "./lage-angaben";
 import { BLANKO_DATEINAME, BLANKO_INFO, BLANKO_ZEILEN, leererBogen } from "./blanko";
@@ -76,12 +76,13 @@ export async function pdfErzeugen(
   b: Erfassungsbogen,
   name?: string,
   herkunft?: Uint8Array | null,
-): Promise<{ nichtDarstellbar: number; betroffen: string[] }> {
+): Promise<{ nichtDarstellbar: number; betroffen: string[]; umschrift: string[] }> {
   const qr = await qrErzeugen(b, herkunft);
   const dd = await einzelDokument(b, qr);
   const nichtDarstellbar = nichtDarstellbareNamen(b);
   const betroffen = nichtDarstellbareBetroffene(b);
-  const rumpf = einheitAnzeigename(b.einheit).replace(/[^\wäöüÄÖÜß-]+/g, "_");
+  const umschrift = umschriftBetroffene(b);
+  const rumpf = dateinameTeil(einheitAnzeigename(b.einheit));
   const dateiname = name ?? `eeb-${natoZeitstempel()}_${rumpf}.pdf`;
   if (istNativ()) {
     // In der App gibt es keinen Browser-Download: PDF übers Share-Sheet anbieten
@@ -90,7 +91,7 @@ export async function pdfErzeugen(
   } else {
     pdfMake.createPdf(dd).download(dateiname);
   }
-  return { nichtDarstellbar, betroffen };
+  return { nichtDarstellbar, betroffen, umschrift };
 }
 
 /**
@@ -208,7 +209,7 @@ export function alleAktuellen(einsatz: Einsatzsammlung): MeldeEintrag[] {
 
 /** Dateiname-tauglicher Rumpf aus dem Einsatznamen. */
 function dateiRumpf(einsatz: Einsatzsammlung): string {
-  return (einsatz.name || "sammlung").replace(/[^\wäöüÄÖÜß-]+/g, "_");
+  return dateinameTeil(einsatz.name || "sammlung");
 }
 
 /**

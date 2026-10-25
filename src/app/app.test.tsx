@@ -820,7 +820,7 @@ describe("Assistenten-Durchlauf", () => {
     await nutzer.click(within(liste).getAllByText(/Bergungsgruppe/)[0]!);
 
     await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
-    const frage = rueckfrage("Stärke nicht gezählt");
+    const frage = rueckfrage("Nur Sollplätze, keine gemeldete Stärke");
     expect(frage.textContent).toMatch(/nur die Sollplätze nach StAN/);
     await nutzer.click(within(frage).getByRole("button", { name: "Als Sollstärke ablegen" }));
 
@@ -850,7 +850,7 @@ describe("Assistenten-Durchlauf", () => {
     // Der Hinweis über den Zählfeldern steht, auch wenn Karten schon Funktionen tragen.
     expect(screen.getByText(/Vorgabe nach Einheitstyp \(Sollstärke\), nicht gezählt/)).toBeDefined();
     await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
-    const frage = rueckfrage("Stärke nicht gezählt");
+    const frage = rueckfrage("Nur Sollplätze, keine gemeldete Stärke");
     expect(frage.textContent).toMatch(/Zahlen der Vorbelegung nach Einheitstyp/);
     await nutzer.click(within(frage).getByRole("button", { name: "Zahlen stimmen, so gezählt" }));
 
@@ -2539,7 +2539,8 @@ describe("Bogen aus einer PDF laden (Startseite, „Aus Datei laden“)", () => 
     await nutzer.upload(screen.getByLabelText("Aus Datei laden…"), pdfDatei(bogenMitName("Bamberg")));
     const frage = await screen.findByRole("dialog", { name: 'Bogen von „THW Bamberg" aus der Datei' });
     const offen = within(frage).getByRole("button", { name: "Bogen öffnen (ansehen oder bearbeiten)" });
-    expect(offen.closest(".abfrage-weg")!.textContent).toMatch(/Ersetzt deinen angefangenen Bogen „THW Mühldorf"/);
+    // Die Erklärung steht im Rumpf und hängt per aria-describedby am Knopf im festen Fuß (R9-W1).
+    expect(document.getElementById(offen.getAttribute("aria-describedby")!)!.textContent).toMatch(/Ersetzt deinen angefangenen Bogen „THW Mühldorf"/);
     await nutzer.click(offen);
     // Der Bogen ist offen, ohne dass „Bogen aus Datei öffnen?" dazwischen gefragt hätte.
     expect(await screen.findByRole("heading", { name: "Gesamtübersicht" })).toBeDefined();

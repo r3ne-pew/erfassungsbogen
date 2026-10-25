@@ -5,7 +5,14 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ORTSSPERRE_MS, ORTSSPERRE_RADIUS_PX, QUITTUNG_SPERRE_MS, ortSperren, tippSchutzZuruecksetzen } from "./tipp-schutz";
+import {
+  ORTSSPERRE_MS,
+  ORTSSPERRE_RADIUS_PX,
+  QUITTUNG_SPERRE_MS,
+  SEITENWECHSEL_SPERRE_MS,
+  ortSperren,
+  tippSchutzZuruecksetzen,
+} from "./tipp-schutz";
 
 function tipp(el: HTMLElement, x: number, y: number, detail = 1) {
   el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: x, clientY: y, detail }));
@@ -322,5 +329,39 @@ describe("Sperre hinter der Rückfrage (R8-H5, R8-S4, R8-D5)", () => {
 
   it("die Sperre unter einer Quittung dauert länger als 1,5 s (R8-D5)", () => {
     expect(QUITTUNG_SPERRE_MS).toBeGreaterThanOrEqual(2500);
+  });
+});
+
+
+// Audit Runde 9, R9-H5: Nach einem Wechsel der Ansicht gilt die Sperre 600 ms und nur an der Stelle des Tipps.
+describe("Sperre nach einem Wechsel der Ansicht (R9-H5)", () => {
+  it("ist höchstens 600 ms lang und kürzer als die normale Ortssperre", () => {
+    expect(SEITENWECHSEL_SPERRE_MS).toBeGreaterThan(0);
+    expect(SEITENWECHSEL_SPERRE_MS).toBeLessThanOrEqual(600);
+    expect(SEITENWECHSEL_SPERRE_MS).toBeLessThan(ORTSSPERRE_MS);
+  });
+
+  it("schluckt nach 700 ms nichts mehr, und 255 px weiter unten schon gar nicht", () => {
+    tippSchutzZuruecksetzen();
+    const knopf = document.createElement("button");
+    const getroffen = vi.fn();
+    knopf.addEventListener("click", getroffen);
+    document.body.appendChild(knopf);
+    const t0 = Date.now();
+    vi.useFakeTimers({ toFake: ["Date"], now: t0 });
+    try {
+      tipp(knopf, 180, 272);
+      ortSperren(SEITENWECHSEL_SPERRE_MS);
+      vi.setSystemTime(t0 + 300);
+      tipp(knopf, 180, 527); // andere Stelle, 255 px entfernt
+      expect(getroffen).toHaveBeenCalledTimes(2);
+      vi.setSystemTime(t0 + 700);
+      tipp(knopf, 180, 272); // dieselbe Stelle, nach 700 ms
+      expect(getroffen).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+      knopf.remove();
+      tippSchutzZuruecksetzen();
+    }
   });
 });

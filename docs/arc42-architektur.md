@@ -12,6 +12,33 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-25 (Runde 9):** Audit Runde 9 (53 Befunde ohne
+> Doppelungen, vier Pakete) — Kap. 4.5, 5, 8.2, 8.4, 8.5, 8.6, 9: Rohtext-
+> Rettung: Schlägt das Beiseitelegen eines beschädigten Textes fehl (Speicher
+> voll), lässt die Hülle um die Ablage kein Überschreiben von
+> `eeb.einsaetze.v1`, `eeb.vorlagen.v1` und `eeb.entwurf.v1` zu; die Startseite
+> meldet „Speicher voll – beschädigte Daten nicht gesichert" (R9-O1).
+> `eeb.unlesbar.v1` nimmt auch die Absenderkarte auf (`texte[].art`);
+> „Beiseitegelegtes entfernen…" ersetzt den Originaltext durch den lesbaren
+> Rest (`unlesbar-aufraeumen.ts`). Der Entwurf trägt das Feld `fremd.zettel`
+> (Eintreffzeit, Nr., Zug der manuellen Aufnahme; Schema unverändert). Zwei
+> sessionStorage-Rückwege (`eeb.fahrzeug.rueckweg`, `eeb.ebene.rueckweg`, 15
+> Minuten, wie `eeb.personal.rueckweg`); „Meldung entfernen" hält einen Stapel
+> von 20 im Arbeitsspeicher. Zahlenfelder lesen den Text selbst (`zahl-eingabe.ts`):
+> Komma und Punkt, Rundung mit Hinweis, kein Minus; Tastatur-Weiter
+> (`tastatur.ts`). Rückfragen mit Wahl tragen bis zu drei Wege im festen Fuß
+> (`frageWahl`). Tipp-Sperre: 600 ms nach Ansichtswechsel, 1,5 s nach
+> Schrittwechsel, 2,5 s unter der Quittung. Exporte (CSV, Excel, Lageblatt,
+> Sammel-PDF) tragen die Sollstärke-Marke, Excel hat Nr. und Sortierung nach
+> Nr.; Umschrift auch in der Personenliste; Dateinamen der Downloads sind
+> ASCII-sicher (`dateinameSicher`, `hilfen.ts`); `@media print` gestaltet den
+> Browser-Druck der Ansichten. Lagemonitor: Telefon ohne Ort-Spalte, Größen an
+> einer Basis, Stufentasten „Dunkler"/„Heller" mit 1,5 s Sperre für „Heller",
+> Warnung in Bernstein. Startbündel: `absenderkarte.ts` darf `unlesbar.ts`
+> nicht importieren (Hook über `speicher-browser.ts`,
+> `startbuendel-wacht.test.ts`). Bundle-Budget erneut angehoben. Kein neuer
+> Host, Transportformat und Schema unverändert.
+>
 > **Nachgezogen 2026-10-24 (Runde 8):** Audit Runde 8 (51 Befunde ohne
 > Doppelungen, vier Pakete) — Kap. 5, 8.2, 8.4, 8.5, 8.6, 9: Ablage: Ein
 > Gesamttext von `eeb.einsaetze.v1` oder `eeb.vorlagen.v1`, der sich nicht

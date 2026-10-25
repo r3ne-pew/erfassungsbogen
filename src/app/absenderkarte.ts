@@ -20,6 +20,16 @@ export type { Absenderkarte };
 const KARTE_KEY = "eeb.absenderkarte.v1";
 
 /**
+ * Wer einen beschädigten Karten-Text beiseitelegt (unlesbar.ts). Angemeldet beim Start (speicher-browser.ts)
+ * statt hier importiert: Der Import von unlesbar.ts hätte seine Kette (Uhr, Kern, Vokabulare) in das
+ * Startbündel gezogen (+ 0,6 MB, siehe startbuendel-wacht.test.ts).
+ */
+let beschaedigtBeiseite: ((roh: string) => void) | null = null;
+export function absenderBeschaedigtMeldenSetzen(fn: ((roh: string) => void) | null): void {
+  beschaedigtBeiseite = fn;
+}
+
+/**
  * Längenobergrenzen. Die Karte reist unkomprimiert im QR-Payload; großzügig
  * genug für reale Angaben, knapp genug fürs Größenbudget (siehe README).
  */
@@ -62,9 +72,14 @@ export function absenderkarteLaden(): Absenderkarte {
   const roh = speicher()?.getItem(KARTE_KEY);
   if (!roh) return {};
   try {
-    return normalisiereAbsenderkarte(JSON.parse(roh) as Absenderkarte);
+    const x: unknown = JSON.parse(roh);
+    if (x === null || typeof x !== "object" || Array.isArray(x)) throw new Error("keine Karte");
+    return normalisiereAbsenderkarte(x as Absenderkarte);
   } catch {
-    return {}; // beschädigter Eintrag → wie „keine Karte"
+    // Beschädigter Eintrag: Er gilt als „keine Karte“, geht aber nicht still verloren —
+    // beiseitegelegt wird er auf der Startseite genannt (R9-O3).
+    beschaedigtBeiseite?.(roh);
+    return {};
   }
 }
 
@@ -73,6 +88,7 @@ export function absenderkarteLaden(): Absenderkarte {
  * Eine vollständig leere Karte löscht den Eintrag.
  */
 export function absenderkarteSpeichern(karte: Absenderkarte): Absenderkarte {
+  absenderkarteLaden(); // ein beschädigter alter Eintrag wird vor dem Überschreiben beiseitegelegt (R9-O3)
   const k = normalisiereAbsenderkarte(karte);
   if (!absenderkarteGefuellt(k)) {
     absenderkarteLoeschen();

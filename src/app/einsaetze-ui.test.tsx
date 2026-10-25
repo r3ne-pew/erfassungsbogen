@@ -278,7 +278,9 @@ describe("Einheit mit Folgemeldung entfernen (R2-D1)", () => {
     await nutzer.click(within(karte).getByRole("button", { name: "Entfernen" }));
     let dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Meldung entfernen?']")!;
     expect(dialog.textContent).toMatch(/„Rückgängig" gibt es nur, solange die App geöffnet bleibt/);
-    expect(dialog.textContent).toMatch(/Nach dem Neuladen oder Beenden der App ist die Meldung endgültig weg/);
+    expect(dialog.textContent).toMatch(/danach ist die Meldung endgültig weg/);
+    // R9-E2: mehrere nacheinander entfernte Meldungen lassen sich der Reihe nach zurückholen — die Rückfrage sagt es.
+    expect(dialog.textContent).toMatch(/mehrmals „Rückgängig" zurück, die zuletzt entfernte zuerst/);
     expect(dialog.textContent).toMatch(/noch keinen Export und keine Weitergabe/);
     await nutzer.click(within(dialog).getByRole("button", { name: "Abbrechen" }));
 
@@ -314,6 +316,33 @@ describe("Einheit mit Folgemeldung entfernen (R2-D1)", () => {
     cleanup();
     ansicht(einsatzId);
     expect(screen.queryByRole("button", { name: "Rückgängig" })).toBeNull();
+  });
+
+  // Audit Runde 9, R9-E2: Zwei Meldungen hintereinander entfernt, „Rückgängig" holte nur die letzte zurück.
+  it("holt zwei nacheinander entfernte Meldungen mit zweimal „Rückgängig“ zurück, die jüngste zuerst (R9-E2)", async () => {
+    const nutzer = userEvent.setup();
+    const { einsatzId, neuLaden } = lage();
+    for (const name of ["Ulm", "Blaubeuren"]) {
+      const karte = karteVon(name)!;
+      await nutzer.click(within(karte).getByRole("button", { name: "Details" }));
+      await nutzer.click(within(karte).getByRole("button", { name: "Mehr…" }));
+      await nutzer.click(within(karte).getByRole("button", { name: "Entfernen" }));
+      const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Meldung entfernen?']")!;
+      await nutzer.click(within(dialog).getByRole("button", { name: "Meldung entfernen" }));
+      neuLaden();
+    }
+    expect(einsaetzeLaden().find((x) => x.id === einsatzId)!.eintraege).toHaveLength(0);
+    let quittung = screen.getByRole("status");
+    expect(quittung.textContent).toMatch(/Blaubeuren/);
+    expect(quittung.textContent).toMatch(/davor noch 1 entfernt/);
+    await nutzer.click(within(quittung).getByRole("button", { name: "Rückgängig" }));
+    neuLaden();
+    expect(einsaetzeLaden().find((x) => x.id === einsatzId)!.eintraege.map((e) => e.bogen.einheit.hierarchie[0]!.name)).toEqual(["Blaubeuren"]);
+    quittung = document.querySelector<HTMLElement>(".quittung-daumen")!;
+    expect(quittung.textContent).toMatch(/Ulm/);
+    await nutzer.click(within(quittung).getByRole("button", { name: "Rückgängig" }));
+    neuLaden();
+    expect(einsaetzeLaden().find((x) => x.id === einsatzId)!.eintraege).toHaveLength(3);
   });
 
   it("zeigt in der Historie die Eingangszeit je Fassung und die Vermerke der Führungsstelle (R2-K6)", async () => {

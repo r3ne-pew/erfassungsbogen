@@ -18,7 +18,7 @@ import { bogenPruefen, dateinameTeil, einheitAnzeigename, migriereBogen } from "
 import { bogenBefund } from "./bogen-pruefung";
 import { aktive, imPapierkorb, papierkorbBereinigt } from "@bos/meldekopf/papierkorb";
 import { geprueftesJetztMs, stempelZeitpunkt } from "./datenschutz-uhr";
-import { unlesbarerGesamttext, unlesbareVorlagenteile, unlesbaresBeiseitelegen } from "./unlesbar";
+import { rettungGesperrtFehler, rettungWiederholenFaellig, schreibenErlaubt, unlesbarerGesamttext, unlesbareVorlagenteile, vorlagenRetten } from "./unlesbar";
 
 /** Versionierter Schlüssel — erlaubt spätere Formatwechsel der Sammlung selbst. */
 const SPEICHER_SCHLUESSEL = "eeb.vorlagen.v1";
@@ -208,11 +208,11 @@ function alleVorlagenLaden(): Vorlage[] {
   // Was `vorlagenAusJson` überspringt, ginge beim nächsten Schreiben verloren:
   // erst beiseitelegen, damit es sich sichern lässt (R7-E2).
   const roh = s.getItem(SPEICHER_SCHLUESSEL);
-  if (roh !== zuletztGeprueft) {
+  if (roh !== zuletztGeprueft || rettungWiederholenFaellig("vorlagen")) {
     zuletztGeprueft = roh;
     const unlesbar = unlesbareVorlagenteile(roh);
     const text = unlesbarerGesamttext(roh, "vorlagen");
-    if (unlesbar.length > 0 || text) unlesbaresBeiseitelegen({ vorlagen: unlesbar, texte: text ? [text] : [] });
+    vorlagenRetten(roh, unlesbar, text);
   }
   // Die geprüfte Uhr, nicht die Geräteuhr (R4-D1).
   const r = papierkorbBereinigt(vorlagenAusJson(s.getItem(SPEICHER_SCHLUESSEL)), geprueftesJetztMs());
@@ -231,7 +231,10 @@ export function vorlagenPapierkorb(): Vorlage[] {
 }
 
 export function vorlagenSpeichern(liste: Vorlage[]): void {
-  speicher()?.setItem(SPEICHER_SCHLUESSEL, vorlagenZuJson(liste));
+  const s = speicher();
+  // Ließ sich ein beschädigter Vorlagentext nicht beiseitelegen (Speicher voll), bleibt er unverändert liegen (R9-O1).
+  if (s && !schreibenErlaubt("vorlagen", s.getItem(SPEICHER_SCHLUESSEL))) throw rettungGesperrtFehler();
+  s?.setItem(SPEICHER_SCHLUESSEL, vorlagenZuJson(liste));
 }
 
 let notfallZaehler = 0;
