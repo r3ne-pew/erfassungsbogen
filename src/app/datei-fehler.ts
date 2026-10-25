@@ -112,7 +112,7 @@ export function dateiArt(text: string): DateiArt {
   return "fremd";
 }
 
-const NEU_ANFORDERN = "Bitte beim Absender neu anfordern oder den QR-Code des Bogens scannen.";
+const NEU_ANFORDERN_BOGEN = "Bitte beim Absender neu anfordern oder den QR-Code des Bogens scannen.";
 
 /** Wohin eine Datei gehört, die über den falschen Knopf kam. */
 const RICHTIGER_KNOPF: Partial<Record<DateiArt, string>> = {
@@ -142,6 +142,9 @@ const PASST: Record<DateiWeg, DateiArt[]> = {
 export function dateiFehlerText(name: string, art: DateiArt, weg: DateiWeg, ursache?: string | null): string | null {
   const datei = `„${name}“`;
   const ausSicherung = weg === "sicherung";
+  // „Einsatz importieren…" erwartet eine Sammel-PDF oder Einsatzsicherung, nicht den Bogen (R10-E6).
+  const NEU_ANFORDERN =
+    weg === "einsatz" ? "Bitte beim Absender die Sammel-PDF des Einsatzes oder die Einsatzsicherung neu anfordern." : NEU_ANFORDERN_BOGEN;
   switch (art) {
     case "leer":
       return (
@@ -167,7 +170,9 @@ export function dateiFehlerText(name: string, art: DateiArt, weg: DateiWeg, ursa
         `${datei} stammt nicht aus dieser App. ` +
         (ausSicherung
           ? "Eine Sicherung entsteht über „Sicherung erstellen…“ und heißt eeb-sicherung-….json."
-          : "Beim Absender die PDF des Bogens anfordern oder den QR-Code scannen.")
+          : weg === "einsatz"
+            ? "Beim Absender die Sammel-PDF des Einsatzes („Einsatz weitergeben / sichern“) oder die Einsatzsicherung anfordern."
+            : "Beim Absender die PDF des Bogens anfordern oder den QR-Code scannen.")
       );
     case "bogen-defekt":
       return ausSicherung
@@ -186,7 +191,7 @@ export function dateiFehlerText(name: string, art: DateiArt, weg: DateiWeg, ursa
 export function allgemeineMeldung(name: string, weg: DateiWeg): string {
   return weg === "sicherung"
     ? `„${name}“ ließ sich nicht einspielen. Die Daten auf diesem Gerät sind unverändert. Die Sicherung auf dem alten Gerät neu erstellen und erneut versuchen.`
-    : `„${name}“ ließ sich nicht lesen. ${NEU_ANFORDERN}`;
+    : `„${name}“ ließ sich nicht lesen. ${weg === "einsatz" ? "Bitte beim Absender die Sammel-PDF des Einsatzes oder die Einsatzsicherung neu anfordern." : NEU_ANFORDERN_BOGEN}`;
 }
 
 /**

@@ -21,7 +21,7 @@ import { frageJaNein } from "../dialoge";
 import { einheitOrt } from "@bos/meldekopf/darstellung";
 import { mitAbgang, useEinzugsstempel } from "../eintrag-bewegung";
 import { DaumenQuittung } from "../daumen-quittung";
-import { FAHRZEUG_WEG_SCHLUESSEL, rueckwegHolen, rueckwegMerken } from "../rueckweg-sitzung";
+import { FAHRZEUG_WEG_SCHLUESSEL, funkrufHolen, funkrufMerken, rueckwegHolen, rueckwegMerken } from "../rueckweg-sitzung";
 import {
   Auswahl,
   Feld,
@@ -56,7 +56,9 @@ function FahrzeugKarte(props: {
   const sitz = useZahlEingabe(f.sitzplaetze, (n) => aendern({ ...f, sitzplaetze: n }), { min: 0, max: 99, leer: true, einheit: "Plätze" });
   const grenzeText = sitz.meldung;
   // Zuletzt ausgeschalteter Funkrufname dieser Karte (R9-D1).
+  // Zusätzlich im Sitzungsspeicher dieses Tabs: überlebt Schrittwechsel und Neuladen (R10-D2, R10-E2).
   const funkrufMerker = useRef<Fahrzeug["funkrufname"]>(undefined);
+  const merkerFp = JSON.stringify(f.typ);
   useEinzugsstempel(karte, frisch);
   const set = (patch: Partial<Fahrzeug>) => aendern({ ...f, ...patch });
   return (
@@ -150,11 +152,12 @@ function FahrzeugKarte(props: {
               // stehen Kennwort, Ort und Kennzahlen (71/25) wieder da — ein Doppeltipp verlor sie (R9-D1).
               if (!e.target.checked) {
                 funkrufMerker.current = f.funkrufname;
+                funkrufMerken(index, f.funkrufname ?? null, merkerFp);
                 set({ funkrufname: undefined });
                 return;
               }
               set({
-                funkrufname: funkrufMerker.current ?? {
+                funkrufname: funkrufMerker.current ?? funkrufHolen<NonNullable<Fahrzeug["funkrufname"]>>(index, merkerFp) ?? {
                   kennwort: org === OrganisationsTyp.THW ? { code: 1 } : {},
                   eigenerStandort: true,
                   teile: ovKennzahl != null ? [ovKennzahl] : [],
@@ -187,7 +190,7 @@ function FahrzeugKarte(props: {
                 eigene Zeile unter dem Kästchen: In der Beschriftung brach sie
                 „eigener / Standor / t" um (R3-N6). */}
             <p className="hinweis funkruf-standort">
-              Ort im Funkrufnamen = Standort der Einheit{standort ? ` (${standort})` : " aus Schritt 1"}
+              Ort im Funkrufnamen = Ort der Einheit{standort ? ` (${standort})` : " aus Schritt 1"}
             </p>
             {!f.funkrufname.eigenerStandort && (
               <Feld titel="Ort" schmal>

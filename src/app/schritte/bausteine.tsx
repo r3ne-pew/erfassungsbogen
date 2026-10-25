@@ -9,7 +9,7 @@ import { Erfassungsbogen, VokabularWert } from "@bos/eeb-format/model";
 import type { VokabularEintrag } from "@bos/vokabulare/thw";
 import { vokabSortiert, type Pruefpunkt } from "../hilfen";
 import { funktionVergeben } from "../haeufige-funktionen";
-import { zahlLesen, type ZahlRegeln } from "../zahl-eingabe";
+import { HOECHST_PERSONEN, zahlLesen, type ZahlRegeln } from "../zahl-eingabe";
 
 export type SchrittProps = {
   bogen: Erfassungsbogen;
@@ -652,9 +652,25 @@ export function useZahlEingabe(
   };
 }
 
-/** Der Satz zu {@link useZahlEingabe}, direkt unter dem Feld. */
+/**
+ * Sammelstelle für die Sätze der Zahlenfelder einer Feldzeile (R10-M4, R10-G3): Steht sie im Baum, zeigt
+ * {@link ZahlMeldung} den Satz nicht unter dem Feld, sondern meldet ihn hier an — die Zeile sammelt alle Sätze
+ * über die volle Breite unter den Feldern. In der schmalen Feldspalte (112 px) brach er in bis zu sieben Zeilen
+ * um und verschob die Nachbarfelder.
+ */
+export const ZahlMeldungsSenke = createContext<((feld: string, text: string) => void) | null>(null);
+
+/** Der Satz zu {@link useZahlEingabe}, direkt unter dem Feld (oder gesammelt, siehe {@link ZahlMeldungsSenke}). */
 export function ZahlMeldung(props: { meldung: string; id?: string }) {
-  if (!props.meldung) return null;
+  const senke = useContext(ZahlMeldungsSenke);
+  const feld = useContext(FeldTitel) ?? "";
+  const { meldung } = props;
+  useEffect(() => {
+    if (!senke) return;
+    senke(feld, meldung);
+    return () => senke(feld, "");
+  }, [senke, feld, meldung]);
+  if (!meldung || senke) return null;
   return (
     <small className="hinweis warnung-text zahl-meldung" id={props.id} role="status">
       {props.meldung}
@@ -697,8 +713,8 @@ export function staerkeVorlesen(s: { fuehrer: number; unterfuehrer: number; mann
  */
 export function Stepper(props: { titel: string; wert: number; setzen: (n: number) => void; min?: number }) {
   const min = props.min ?? 0;
-  const setze = (n: number) => props.setzen(Math.max(min, n));
-  const { eingabe, meldung } = useZahlEingabe(props.wert, (n) => setze(n ?? 0), { min, einheit: "Zahlen" });
+  const setze = (n: number) => props.setzen(Math.min(HOECHST_PERSONEN, Math.max(min, n)));
+  const { eingabe, meldung } = useZahlEingabe(props.wert, (n) => setze(n ?? 0), { min, max: HOECHST_PERSONEN, einheit: "Zahlen" });
   return (
     <div className="stepper-feld">
       <span className="stepper-titel">{props.titel}</span>
@@ -779,7 +795,7 @@ export function Vollstaendigkeit(props: {
   return (
     <div className="vollstaendigkeit" role="status">
       <p className="vollstaendigkeit-titel">
-        ⚠ {punkte.length === 1 ? "1 offener Punkt" : `${punkte.length} offene Punkte`} für die Weitergabe — antippen zum Beheben:
+        ⚠ {punkte.length === 1 ? "1 offener Punkt" : `${punkte.length} offene Punkte`} für die Weitergabe<span className="nur-bildschirm"> — antippen zum Beheben</span>:
       </p>
       <ul>
         {punkte.map((p) => (

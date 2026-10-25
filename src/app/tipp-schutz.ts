@@ -48,6 +48,14 @@ export const ORTSSPERRE_MS: number =
 export const SEITENWECHSEL_SPERRE_MS: number = ORTSSPERRE_MS === 0 ? 0 : Math.min(ORTSSPERRE_MS, 600);
 
 /**
+ * Sperre der Stelle nach einem Schrittwechsel („Weiter →" liegt danach wieder unter dem Finger): 900 ms
+ * (R10-S2). Bei 1,5 s verwarf die Sperre bei gleichmäßigem Tippen im Abstand von 1,0 bis 1,3 s jeden
+ * zweiten Tipp; der Doppeltipp (R4-S2, bis rund 700 ms später) bleibt gesperrt, das bewusste Weitertippen
+ * ab einer Sekunde geht durch.
+ */
+export const SCHRITTWECHSEL_SPERRE_MS: number = ORTSSPERRE_MS === 0 ? 0 : Math.min(ORTSSPERRE_MS, 900);
+
+/**
  * Sperre der Stelle unter einer aufgegangenen Quittungsleiste mit „Rückgängig". Ein Zweittipp ab 1,5 s
  * nahm „Abrücken" an derselben Stelle zurück, weil dort jetzt „Rückgängig" lag (R8-D5); der
  * bewusste Rückweg kommt erst nach dem Lesen der Quittung und liegt über 2,5 s.

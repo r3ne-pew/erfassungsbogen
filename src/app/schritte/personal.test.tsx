@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { SchrittBuehne } from "../../test/schritt-buehne";
@@ -225,9 +225,30 @@ describe("Schritt Personal", () => {
     expect(within(tabelle).getAllByRole("row")).toHaveLength(2); // Kopf + 1 Person
 
     const vorname = within(tabelle).getAllByRole("textbox")[0]!;
+    // Eingabetaste im Vornamen: weiter zum Nachnamen derselben Zeile (R10-G1), noch keine neue Zeile.
     await nutzer.type(vorname, "Erika{Enter}");
+    expect(document.activeElement).toBe(within(screen.getByRole("table")).getByLabelText("Person 1: Nachname"));
+    expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(2);
 
+    // Im Nachnamen der letzten Zeile legt sie die nächste Person an.
+    await nutzer.type(document.activeElement as HTMLElement, "Muster{Enter}");
     expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(3);
+    expect((within(screen.getByRole("table")).getByLabelText("Person 1: Nachname") as HTMLInputElement).value).toBe("Muster");
+  });
+
+  it("springt in der Kurz-Liste vom Nachnamen zum Vornamen der nächsten Zeile und markiert ihn (R10-G1)", async () => {
+    const nutzer = userEvent.setup();
+    buehne();
+    await nutzer.click(screen.getByRole("button", { name: "+ Person hinzufügen" }));
+    await nutzer.click(screen.getByRole("button", { name: "+ Person hinzufügen" }));
+    await nutzer.click(screen.getByLabelText("Kurz-Liste (Tabelle)"));
+    const tabelle = screen.getByRole("table");
+    await nutzer.type(within(tabelle).getByLabelText("Person 2: Vorname"), "Otto");
+    await nutzer.type(within(tabelle).getByLabelText("Person 1: Nachname"), "Albers{Enter}");
+    const zwei = within(tabelle).getByLabelText("Person 2: Vorname") as HTMLInputElement;
+    expect(document.activeElement).toBe(zwei);
+    expect(zwei.selectionStart).toBe(0);
+    expect(zwei.selectionEnd).toBe(4);
   });
 
   it("benennt die Namensfelder der Schnelleingabe je Person (R2-M5)", async () => {
@@ -1140,6 +1161,75 @@ describe("Umschalten auf „Nur Stärke“", () => {
     expect(screen.getByText(/Diese 4 Personen zählen nicht in die Stärke/)).toBeDefined();
   });
 
+  it("nennt bei Sollplätzen ohne Namen Plätze statt „erfasster Personen“ (R10-N1, R10-H4)", async () => {
+    const nutzer = userEvent.setup();
+    const b = neuerBogen();
+    b.personal = [
+      { ...neuePerson(), staerkeRolle: StaerkeRolle.FUEHRER, funktionen: [{ code: 1 }] },
+      ...Array.from({ length: 4 }, () => neuePerson()),
+    ];
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={b} />);
+    await nutzer.click(screen.getByLabelText("Nur Stärke (Meldekopf-Schnellerfassung)"));
+    const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Nur die Stärke melden?']")!;
+    expect(dialog.textContent).toContain("Keine Person mit Namen, nur 5 vorbelegte Plätze");
+    expect(dialog.textContent).not.toContain("erfasste Person");
+    await nutzer.click(within(dialog).getByRole("button", { name: "Nur Stärke melden" }));
+    expect(screen.getByText(/Diese 5 vorbelegten Plätze zählen nicht in die Stärke/)).toBeDefined();
+  });
+
+  it("fragt vor „Personal vollständig erfassen“ nach eingetragenen Zahlen und bietet „Rückgängig“ (R10-E1)", async () => {
+    const nutzer = userEvent.setup();
+    buehne();
+    await nutzer.click(screen.getByLabelText("Nur Stärke (Meldekopf-Schnellerfassung)"));
+    const mannschaft = screen.getByLabelText("Mannschaft") as HTMLInputElement;
+    await nutzer.clear(mannschaft);
+    await nutzer.type(mannschaft, "13");
+    expect((screen.getByLabelText("Gesamt") as HTMLInputElement).value).toBe("13");
+
+    // Abbrechen: alles bleibt.
+    await nutzer.click(screen.getByLabelText("Personal vollständig erfassen"));
+    let dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Eingetragene Zahlen verwerfen?']")!;
+    expect(dialog.textContent).toContain("Stärke 0 / 0 / 13 / 13");
+    expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Zahlen behalten" }));
+    await nutzer.click(within(dialog).getByRole("button", { name: "Zahlen behalten" }));
+    expect((screen.getByLabelText("Nur Stärke (Meldekopf-Schnellerfassung)") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText("Gesamt") as HTMLInputElement).value).toBe("13");
+
+    // Verwerfen, dann Rückgängig.
+    await nutzer.click(screen.getByLabelText("Personal vollständig erfassen"));
+    dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Eingetragene Zahlen verwerfen?']")!;
+    await nutzer.click(within(dialog).getByRole("button", { name: "Zahlen verwerfen" }));
+    expect((screen.getByLabelText("Personal vollständig erfassen") as HTMLInputElement).checked).toBe(true);
+    await nutzer.click(await screen.findByRole("button", { name: /Rückgängig/ }));
+    expect((screen.getByLabelText("Nur Stärke (Meldekopf-Schnellerfassung)") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText("Gesamt") as HTMLInputElement).value).toBe("13");
+  });
+
+  it("schaltet ohne eigene Zahlen ohne Rückfrage auf „Personal vollständig erfassen“ (R10-E1)", async () => {
+    const nutzer = userEvent.setup();
+    buehne();
+    await nutzer.click(screen.getByLabelText("Nur Stärke (Meldekopf-Schnellerfassung)"));
+    await nutzer.click(screen.getByLabelText("Personal vollständig erfassen"));
+    expect(document.querySelector("dialog.abfrage")).toBeNull();
+    expect((screen.getByLabelText("Personal vollständig erfassen") as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("fragt vor „Liste leeren“ bei einer längeren eingefügten Liste (R10-D3)", async () => {
+    const nutzer = userEvent.setup();
+    buehne();
+    await nutzer.click(screen.getByRole("button", { name: /Namen einfügen/ }));
+    const feld = document.querySelector<HTMLTextAreaElement>("dialog textarea")!;
+    fireEvent.change(feld, { target: { value: "Anna Albers\nBernd Bruns\nCarla Claus\nDirk Dahl\nEva Ernst" } });
+    await nutzer.click(screen.getByRole("button", { name: "Liste leeren" }));
+    const frage = document.querySelector<HTMLDialogElement>("dialog[aria-label='5 Zeilen verwerfen?']")!;
+    expect(frage).not.toBeNull();
+    await nutzer.click(within(frage).getByRole("button", { name: "Liste behalten" }));
+    expect(feld.value).toContain("Eva Ernst");
+    await nutzer.click(screen.getByRole("button", { name: "Liste leeren" }));
+    await nutzer.click(within(document.querySelector<HTMLDialogElement>("dialog[aria-label='5 Zeilen verwerfen?']")!).getByRole("button", { name: "Liste leeren" }));
+    await waitFor(() => expect(feld.value).toBe(""));
+  });
+
   it("schaltet ohne Personal ohne Rückfrage um", async () => {
     const nutzer = userEvent.setup();
     buehne();
@@ -1303,7 +1393,7 @@ describe("Schritt Personal — nur eigene Hinweise", () => {
     buehne();
 
     expect(screen.getByText(/Stärke ist 0/)).toBeDefined();
-    expect(screen.queryByText(/Name der eigenen Einheit/)).toBeNull();
+    expect(screen.queryByText(/Ort der Einheit .* fehlt/)).toBeNull();
     expect(screen.queryByText(/Ort\/Auftrag/)).toBeNull();
   });
 

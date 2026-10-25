@@ -205,6 +205,10 @@ describe("Assistenten-Durchlauf", () => {
       vi.setSystemTime(Date.now() + 700);
       tipp(screen.getByRole("button", { name: "Weiter →" })); // Doppeltipp mit 700 ms
       expect(screen.getByRole("heading", { level: 2, name: "2. Einsatz" })).toBeDefined();
+      // R10-S2: gleichmäßiges Weitertippen im Abstand von 1 s kommt an (die Sperre dauert 0,9 s).
+      vi.setSystemTime(Date.now() + 1000);
+      tipp(screen.getByRole("button", { name: "Weiter →" }));
+      expect(screen.getByRole("heading", { level: 2, name: "3. Personal" })).toBeDefined();
     } finally {
       vi.useRealTimers();
       tippSchutzZuruecksetzen();
@@ -409,7 +413,7 @@ describe("Assistenten-Durchlauf", () => {
 
     // Frischer Bogen: der Einheitsname fehlt, also meldet die Checkliste ihn —
     // und der Punkt führt per Klick auf den Schritt, der ihn behebt.
-    await nutzer.click(screen.getByRole("button", { name: /Der Name der eigenen Einheit/ }));
+    await nutzer.click(screen.getByRole("button", { name: /Der Ort der Einheit/ }));
 
     expect(screen.getByRole("heading", { name: "1. Einheit" })).toBeDefined();
   });
@@ -871,8 +875,8 @@ describe("Assistenten-Durchlauf", () => {
     await nutzer.click(screen.getByRole("button", { name: /^3\. Personal/ }));
     await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
 
-    const hinweis = await screen.findByRole("dialog", { name: "Name der Einheit fehlt" });
-    await nutzer.click(within(hinweis).getByRole("button", { name: "Zum Namensfeld" }));
+    const hinweis = await screen.findByRole("dialog", { name: "Ort der Einheit fehlt" });
+    await nutzer.click(within(hinweis).getByRole("button", { name: "Zum Feld „Ort der Einheit“" }));
     expect(einsaetzeLaden().find((x) => x.id === einsatz.id)!.eintraege).toHaveLength(0);
     expect(await screen.findByRole("heading", { level: 2, name: "1. Einheit" })).toBeDefined();
     await waitFor(() => expect(document.activeElement?.id).toBe("feld-einheit-name"));
@@ -964,8 +968,9 @@ describe("Assistenten-Durchlauf", () => {
     await nutzer.type(screen.getByLabelText("Nr. laut Zettel (leer = die App vergibt)"), "1");
     await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Neudorf");
     await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
-    await nutzer.click(within(await screen.findByRole("dialog", { name: "Stärke fehlt" })).getByRole("button", { name: "Trotzdem mit Stärke 0 übernehmen" }));
+    // Die Nummer wird vor der Stärke geprüft: keine Rückfrage zur Stärke, die danach doch scheitert (R10-E4).
     const hinweis = await screen.findByRole("dialog", { name: "Nr. schon vergeben" });
+    expect(screen.queryByRole("dialog", { name: "Stärke fehlt" })).toBeNull();
     expect(hinweis.textContent).toContain("Altstadt");
     expect(einsaetzeLaden().find((s) => s.id === einsatz.id)!.eintraege).toHaveLength(1);
   }, 20000);

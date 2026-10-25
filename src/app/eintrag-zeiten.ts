@@ -279,7 +279,8 @@ export function nummerUndZugSetzen(einsatzId: string, eintragId: string, wert: {
   const s = liste.find((x) => x.id === einsatzId);
   const e = s?.eintraege.find((x) => x.id === eintragId);
   if (!s || !e) return;
-  const zug = wert.zug?.trim() || undefined;
+  // Wie beim Zuordnen an der Karte und beim Papier-Abgleich: „2", „Zug 2", „2.Zug" sind ein Zug (R10-S1, R10-A1).
+  const zug = zugNormalisiert(wert.zug ?? "", s.eintraege.map((x) => x.zugEtikett)) || undefined;
   for (const x of s.eintraege) {
     if (x.einheitSchluessel !== e.einheitSchluessel) continue;
     if (wert.nummer != null) x.nummer = wert.nummer;
@@ -612,7 +613,15 @@ export function speicherGesperrt(): boolean {
 export function speicherText(b: { belegt: number; grenze: number; anteil?: number }): string {
   const anteil = b.anteil ?? Math.min(1, b.belegt / b.grenze);
   const mio = (n: number) => (n / 1_000_000).toLocaleString("de-DE", { maximumFractionDigits: 1 });
-  return `${Math.round(anteil * 100)} % (${mio(Math.min(b.belegt, b.grenze))} von ${mio(b.grenze)} Mio. Zeichen)`;
+  // Unter einer Million in Tausend: „0 von 5 Mio." neben „1 %" las sich als leerer Speicher (R10-O4).
+  const belegt = Math.min(b.belegt, b.grenze);
+  const menge =
+    belegt > 0 && belegt < 1_000_000
+      ? belegt < 1000
+        ? "unter 1 Tsd."
+        : `${Math.round(belegt / 1000).toLocaleString("de-DE")} Tsd.`
+      : mio(belegt);
+  return `${Math.round(anteil * 100)} % (${menge} von ${mio(b.grenze)} Mio. Zeichen)`;
 }
 
 /**

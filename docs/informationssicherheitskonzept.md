@@ -343,6 +343,17 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > und `vendor/` unverändert. Der Entwurf trägt zusätzlich die Marke „über die
 > Startseite verlassen" (`fremd.startseite`, R5-N3, 3.3 D1) — keine Daten.
 
+> **Nachgezogen 2026-10-25 (Runde 10):** Audit Runde 10. Speicher (3.3, 5.5): ein
+> weiterer sessionStorage-Rückweg für den Funkrufnamen
+> (`eeb.funkruf.merker.<Index>`, 15 Minuten, fällt mit „Alle Daten löschen" weg).
+> Bedienung (5.3): die Tipp-Sperre nach einem Schrittwechsel beträgt 0,9 s, die
+> Ortssperre sonst 1,5 s; „Personal vollständig erfassen" und „Liste leeren"
+> fragen zurück. Exporte (5.4): PDF mit Vermerk „(vereinfacht)", Lageblatt mit
+> zusammengefassten Hinweisen, Zug normalisiert auch in CSV und Excel. Der
+> Lagemonitor trägt die Stufentasten in einer eigenen Leiste und zeigt eine
+> Bedarfszeile (Einheitsnamen und Zahlen, keine Personen). Keine neuen Hosts,
+> CSP und Transportformat unverändert.
+
 > **Nachgezogen 2026-10-25 (Runde 9):** Audit Runde 9. Speicher (3.3, 5.5):
 > zwei weitere sessionStorage-Rückwege (`eeb.fahrzeug.rueckweg`,
 > `eeb.ebene.rueckweg`, 15 Minuten, fallen mit „Alle Daten löschen" weg);

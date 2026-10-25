@@ -11,6 +11,15 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-25 — Audit Runde 10:** Ein weiterer Rückweg liegt im
+> `sessionStorage` des Tabs: der ausgeschaltete Funkrufname eines Fahrzeugs
+> (`eeb.funkruf.merker.<Index>`, Kennwort und Kennzahlen, 15 Minuten, nicht in der
+> Datensicherung, weg mit dem Tab und mit „Alle Daten löschen"; 5.4, 5.7). Die
+> PDF vermerkt Namen, in denen Buchstaben vereinfacht werden mussten
+> („(vereinfacht)"), und die Quittung nennt sie (Richtigkeit, Art. 5 Abs. 1
+> lit. d DSGVO). Das Lageblatt fasst gleiche Hinweise zusammen. Löschfristen,
+> Empfänger und Netzverbindungen unverändert (5.8).
+>
 > **Nachgezogen 2026-10-25 — Audit Runde 9:** Zwei weitere Rückwege liegen im
 > `sessionStorage` des Tabs (15 Minuten, nicht in der Datensicherung, weg mit
 > dem Tab und mit „Alle Daten löschen"): `eeb.fahrzeug.rueckweg` (Fahrzeugangaben)

@@ -408,7 +408,7 @@ export function lueckeKurz(text: string): string {
   if (/^Stärke: \d+ .* — stimmt das\?/.test(text)) return "Stärke auffällig hoch";
   if (/^Es sind \d+ Ansprechpartner erfasst/.test(text)) return "mehr Personen als Stärke";
   if (/Personenkarten? ohne Angaben/.test(text)) return "leere Personenkarte";
-  if (/^Zugehörigkeit: Der Name der eigenen Einheit/.test(text)) return "Einheitsname fehlt";
+  if (/^Zugehörigkeit: Der (Name der eigenen Einheit|Ort der Einheit)/.test(text)) return "Ort der Einheit fehlt";
   if (/Sitzplätze eingetragen|Sitzplätze \(Richtwert/.test(text) || /: \d+ Sitzplätze/.test(text)) return "Sitzplätze prüfen";
   if (/^Sofortbedarf: .* — mehr als .* je Fahrzeug/.test(text)) return "Kraftstoff auffällig hoch";
   const kopf = text.split(/[:—]/)[0]!.trim();
@@ -442,7 +442,10 @@ export function lueckenText(texte: string[]): string {
  * hinter „+ 2 weitere" verschwinden soll (R4-K3).
  */
 export function lueckenAlle(texte: string[]): string {
-  return texte.map(lueckeKurz).join("; ");
+  // Gleiche Stichworte einmal, mit Anzahl: „Kennzeichen fehlt (2)" statt zweimal „Kennzeichen fehlt" (R10-A4).
+  const anzahl = new Map<string, number>();
+  for (const k of texte.map(lueckeKurz)) anzahl.set(k, (anzahl.get(k) ?? 0) + 1);
+  return [...anzahl].map(([k, n]) => (n > 1 ? `${k} (${n})` : k)).join("; ");
 }
 
 // ------------------------------------------------------------ Folgemeldungen

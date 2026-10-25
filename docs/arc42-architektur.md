@@ -12,6 +12,27 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-25 (Runde 10):** Audit Runde 10 (51 Befunde ohne
+> Doppelungen, drei Pakete) — Kap. 5, 8.2, 8.5, 8.6, 9: Texte und Sprungziele
+> folgen der Umbenennung „Ort der Einheit (Pflicht)"; der Prüfpunkt springt auf
+> das Feld (`feld-einheit-name`). Der Zug aller Schreibwege (manuelle Aufnahme,
+> „Sammlung für Ziel", „Aufteilen") läuft über `zugNormalisiert`. Zahlenfelder
+> lesen Zahl mit Einheit („20 l") und haben Obergrenzen (`zahl-eingabe.ts`).
+> „Personal vollständig erfassen" und „Liste leeren" fragen bei eigenen Werten
+> zurück (Rückgängig nur im Arbeitsspeicher). Der Funkrufname wird beim
+> Ausschalten 15 Minuten im Sitzungsspeicher gemerkt (`eeb.funkruf.merker.<Index>`,
+> `rueckweg-sitzung.ts`). Exporte: PDF vermerkt vereinfachte Buchstaben
+> („(vereinfacht)"), das Lageblatt fasst gleiche Hinweise zusammen, der
+> Browser-Druck zeigt die Texte der offenen Punkte. Tipp-Sperre nach einem
+> Schrittwechsel 0,9 s (`SCHRITTWECHSEL_SPERRE_MS`), sonst unverändert.
+> Einsatztabelle: Zugspalte nur bei vergebenen Zügen, am Telefon „Ges." vorn.
+> Lagemonitor: Uhr „HH:MM" mit Datum, eigene Stufenleiste („Dunkler"/„Heller")
+> oben am Telefon bzw. im Fußbalken, neue Paletten für „Gedimmt" und „Dunkel",
+> Soll-Einheiten mit „S", Zeile „Bedarf: …" (`bedarfText`), Alter der letzten
+> Meldung auch in Einsatzansicht und Kachel. Neue Stilregeln
+> (`stilregeln-r10-layout.test.ts`). Bundle-Budget erneut angehoben. Kein neuer
+> Host, Transportformat und Schema unverändert.
+>
 > **Nachgezogen 2026-10-25 (Runde 9):** Audit Runde 9 (53 Befunde ohne
 > Doppelungen, vier Pakete) — Kap. 4.5, 5, 8.2, 8.4, 8.5, 8.6, 9: Rohtext-
 > Rettung: Schlägt das Beiseitelegen eines beschädigten Textes fehl (Speicher

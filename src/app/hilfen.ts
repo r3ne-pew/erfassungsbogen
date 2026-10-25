@@ -747,7 +747,11 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
   // Ohne den Namen der untersten Ebene bleibt die Einheit auf dem Bogen
   // namenlos (nur Organisation + Einheitstyp) und der Funkrufname ortlos.
   if (!einheitOrt(b.einheit) && b.einheit.standortRef == null) {
-    hinweise.push({ text: "Zugehörigkeit: Der Name der eigenen Einheit (unterste Ebene) fehlt.", schritt: S_EINHEIT });
+    hinweise.push({
+      text: "Zugehörigkeit: Der Ort der Einheit (unterste Ebene) fehlt.",
+      schritt: S_EINHEIT,
+      feld: "feld-einheit-name",
+    });
   }
   // Ein ausgeschriebener Einheitstyp ohne Typ-Code (Freitext) sieht in Schritt 1
   // wie eine Wahl aus, hat aber kein taktisches Zeichen und keinen Soll-Vergleich

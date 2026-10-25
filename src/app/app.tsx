@@ -62,7 +62,7 @@ import { entfernteImImportKlaeren } from "./entfernte-meldungen";
 import { eigenesZurueckVerbrauchen, rueckfrageEintragErsetzbar } from "./modal-overlay";
 import { FensterKonflikt, nachAbgleichFortsetzen, useFensterAbgleich } from "./fenster-abgleich";
 import { entwirreScanText } from "./tastaturbelegung";
-import { ortSperren, SEITENWECHSEL_SPERRE_MS } from "./tipp-schutz";
+import { ortSperren, SCHRITTWECHSEL_SPERRE_MS, SEITENWECHSEL_SPERRE_MS } from "./tipp-schutz";
 import { vorlageAktualisieren, vorlageAnlegen, vorlageAusDatei, vorlagenLaden, vorlagenPapierkorb, vorlageZuruecksetzen, type Vorlage } from "./vorlagen";
 import { Musterung, VorlagenListe } from "./vorlagen-ui";
 import { musterungVorlageAusStand } from "./musterung-stand";
@@ -854,7 +854,7 @@ function AppInhalt() {
     START.vorlage
       ? `Vorlage „${START.vorlage.name}" importiert.`
       : ENTWURF
-        ? `Entwurf vom ${new Date(ENTWURF.gespeichert).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })} Uhr wiederhergestellt.`
+        ? `Entwurf vom ${new Date(ENTWURF.gespeichert).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })} Uhr wiederhergestellt.${ENTWURF.fremd ? " Die Aufnahme läuft dort weiter, wo du warst." : " „Fortsetzen“ öffnet ihn dort, wo du warst."}`
         : "",
   );
   const [scannerOffen, setScannerOffen] = useState(false);
@@ -1061,10 +1061,10 @@ function AppInhalt() {
     // erstellen" das „◐" des Assistenten (das Darstellungsmenü ging auf).
     // Die Stelle des Tipps eben nimmt 1,5 s nichts an (Audit Runde 4, R4-S2,
     // R4-S3) — wie nach „Abrücken".
-    // Wechselt nur der Schritt, bleibt „Weiter →" an derselben Stelle: 1,5 s (R4-S2). Öffnet sich dagegen
+    // Wechselt nur der Schritt, bleibt „Weiter →" an derselben Stelle: 0,9 s (R4-S2; R10-S2: 1,5 s schluckten im Takt von 1 s jeden zweiten Tipp). Öffnet sich dagegen
     // die Sammlung, die Startseite oder ein anderes Fenster, liegen unter dem Finger andere Knöpfe, und
     // wer die Knöpfe liest, tippt nach einer halben Sekunde: dort nur 600 ms (R9-H5).
-    ortSperren(vorher.schritt === jetzt.schritt ? SEITENWECHSEL_SPERRE_MS : undefined);
+    ortSperren(vorher.schritt === jetzt.schritt ? SEITENWECHSEL_SPERRE_MS : SCHRITTWECHSEL_SPERRE_MS);
     if (verlaufZielRef.current && ansichtGleich(verlaufZielRef.current, jetzt)) {
       verlaufZielRef.current = null; // Rücksprung angekommen — kein neuer Eintrag
       return;
@@ -2854,9 +2854,9 @@ function AppInhalt() {
     // eigenen Bogen darf der Name weiter offen bleiben.
     if (!einheitOrt(b.einheit) && b.einheit.standortRef == null) {
       await zeigeHinweis({
-        titel: "Name der Einheit fehlt",
-        text: "Ohne Namen lässt sich die Meldung keiner Einheit zuordnen — in der Lage stünde nur die Organisation. Bitte zuerst den Namen eintragen.",
-        ok: "Zum Namensfeld",
+        titel: "Ort der Einheit fehlt",
+        text: "Ohne Ort lässt sich die Meldung keiner Einheit zuordnen — in der Lage stünde nur die Organisation. Bitte zuerst den Ort der Einheit eintragen.",
+        ok: "Zum Feld „Ort der Einheit“",
       });
       einsatzWahlDialog.current?.close();
       if (schritt !== 0) geheZuFeld(0, "feld-einheit-name");
@@ -2866,6 +2866,26 @@ function AppInhalt() {
         feld?.focus({ preventScroll: true });
       }
       return;
+    }
+    // „Nr. laut Zettel“: eine ganze Zahl ab 1, nicht schon an eine andere Einheit vergeben (R5-A4). Vor allen Rückfragen zur Stärke: Die Übernahme scheitert sonst nach einer schon beschlossenen Stärke trotzdem (R10-E4).
+    let zettelNr: number | undefined;
+    if (nachNummer.trim() !== "") {
+      const n = Number(nachNummer.trim());
+      if (!Number.isInteger(n) || n < 1) {
+        await zeigeHinweis({ titel: "Nr. laut Zettel", text: "Bitte eine ganze Zahl ab 1 eintragen oder das Feld leer lassen — dann vergibt die App die Nummer." });
+        return;
+      }
+      const sammlung = einsaetzeLaden().find((s) => s.id === ziel);
+      const belegt = sammlung ? [...meldungsNummern(sammlung.eintraege)].find(([schl, nr]) => nr === n && schl !== einheitSchluessel(b.einheit)) : undefined;
+      if (belegt) {
+        const wer = sammlung!.eintraege.find((e) => e.einheitSchluessel === belegt[0]);
+        await zeigeHinweis({
+          titel: "Nr. schon vergeben",
+          text: `Nr. ${n} gehört schon ${wer ? `„${einheitAnzeigename(wer.bogen.einheit)}“` : "einer anderen Einheit"}. Eine andere Nummer eintragen oder das Feld leer lassen.`,
+        });
+        return;
+      }
+      zettelNr = n;
     }
     {
       const frei = await sollstaerkeFreigeben(b);
@@ -2940,26 +2960,6 @@ function AppInhalt() {
       if (!wahl) return;
       if (wahl === "beginn") zeit = erfassungBeginn;
     }
-    // „Nr. laut Zettel“: eine ganze Zahl ab 1, nicht schon an eine andere Einheit vergeben (R5-A4).
-    let zettelNr: number | undefined;
-    if (nachNummer.trim() !== "") {
-      const n = Number(nachNummer.trim());
-      if (!Number.isInteger(n) || n < 1) {
-        await zeigeHinweis({ titel: "Nr. laut Zettel", text: "Bitte eine ganze Zahl ab 1 eintragen oder das Feld leer lassen — dann vergibt die App die Nummer." });
-        return;
-      }
-      const sammlung = einsaetzeLaden().find((s) => s.id === ziel);
-      const belegt = sammlung ? [...meldungsNummern(sammlung.eintraege)].find(([schl, nr]) => nr === n && schl !== einheitSchluessel(b.einheit)) : undefined;
-      if (belegt) {
-        const wer = sammlung!.eintraege.find((e) => e.einheitSchluessel === belegt[0]);
-        await zeigeHinweis({
-          titel: "Nr. schon vergeben",
-          text: `Nr. ${n} gehört schon ${wer ? `„${einheitAnzeigename(wer.bogen.einheit)}“` : "einer anderen Einheit"}. Eine andere Nummer eintragen oder das Feld leer lassen.`,
-        });
-        return;
-      }
-      zettelNr = n;
-    }
     setMeldung("");
     const vorherDa = new Set(einsaetzeLaden().find((s) => s.id === ziel)?.eintraege.map((e) => e.id));
     // Manuell erfasster Bogen ist kein signierter Transport.
@@ -2976,7 +2976,8 @@ function AppInhalt() {
               <p>{ablageFehler.current}</p>
               <p>
                 <strong>
-                  „{einheitAnzeigename(b.einheit) || "Einheit"}“, Stärke {staerkeKurz(b)}: bitte auf dem Meldeblock notieren, Platz schaffen und
+                  „{einheitAnzeigename(b.einheit) || "Einheit"}“, {nurSollstaerke(b) ? "Sollstärke" : "Stärke"} {staerkeKurz(b)}
+                  {nurSollstaerke(b) ? " (nur Sollplätze, nicht gezählt)" : ""}: bitte auf dem Meldeblock notieren, Platz schaffen und
                   dann noch einmal übernehmen. Die Eingaben bleiben stehen.
                 </strong>
               </p>
@@ -3013,6 +3014,14 @@ function AppInhalt() {
     setVorlageInBearbeitung(null);
     setzeEmpfang(null);
     setSchritt(0);
+    // Die Sammlung öffnet oben (Name, Kacheln, „Zuletzt abgelegt"), nicht dort, wo der Knopf des Assistenten stand (R10-N5).
+    setTimeout(() => {
+      try {
+        window.scrollTo(0, 0);
+      } catch {
+        /* Testumgebung ohne Layout */
+      }
+    }, 0);
   }
 
   /** Aus der Einsatz-Auswahl heraus einen neuen Einsatz anlegen und den Bogen hineinlegen. */
@@ -4094,7 +4103,7 @@ function AppInhalt() {
                   <span className="hinweis warnung-text speicher-fehler" role="alert">
                     ⚠ Nicht gespeichert — {speicherArt === "gesperrt" ? "dieser Browser lässt die App nichts speichern" : "der Speicher dieses Geräts ist voll"}.
                     {gespeichertUm ? ` Letzter gesicherter Stand: ${uhrzeitMitTag(gespeichertUm)} Uhr.` : ""} Beim Schließen
-                    gehen die Änderungen verloren — {fremdeErfassung ? "die Stärke jetzt auf dem Meldeblock notieren." : "jetzt „Fortsetzen“ und „Bogen übergeben“ (PDF oder QR-Code)."}
+                    gehen die Änderungen verloren — {fremdeErfassung ? (bogen && nurSollstaerke(bogen) ? "die Sollstärke (nicht gezählt) jetzt auf dem Meldeblock notieren." : "die Stärke jetzt auf dem Meldeblock notieren.") : "jetzt „Fortsetzen“ und „Bogen übergeben“ (PDF oder QR-Code)."}
                   </span>
                 )}
               </span>
@@ -4545,7 +4554,7 @@ function AppInhalt() {
         // Hochrollen (Audit Runde 5, R5-O1).
         <FesteWarnung
           klasse="speicher-fehler"
-          kurz={speicherFehlerKurz(speicherArt, fremdeErfassung)}
+          kurz={speicherFehlerKurz(speicherArt, fremdeErfassung, !!bogen && nurSollstaerke(bogen))}
           details={speicherFehlerDetails(speicherArt, fremdeErfassung, gespeichertUm ? uhrzeitMitTag(gespeichertUm) : null)}
         />
       ) : gespeichertUm ? (
@@ -4605,7 +4614,7 @@ function AppInhalt() {
         />
       )}
       {schritt === 0 && <SchrittEinheit bogen={bogen} aendern={aendern} geheZu={setSchritt} />}
-      {schritt === 1 && <SchrittEinsatz bogen={bogen} aendern={aendern} />}
+      {schritt === 1 && <SchrittEinsatz bogen={bogen} aendern={aendern} meldekopf={fremdeErfassung} />}
       {schritt === 2 && <SchrittPersonal bogen={bogen} aendern={aendern} geheZu={setSchritt} />}
       {schritt === 3 && <SchrittFahrzeuge bogen={bogen} aendern={aendern} />}
       {schritt === 4 && <SchrittSofortbedarf bogen={bogen} aendern={aendern} />}

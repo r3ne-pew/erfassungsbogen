@@ -41,6 +41,7 @@ import {
 import { staerke } from "@bos/eeb-format/model";
 import { geltendeJeEinheit, istPlatzhalterFassung } from "./fassung-vorrang";
 import { einheitAnzeigename, zeitpunktDeutsch } from "./hilfen";
+import { zugNormalisiert } from "./zug-name";
 import { sammlungenSchreiben, zeitKurz, type FuehrungsVermerk } from "./eintrag-zeiten";
 
 export type Feld = "status" | "zug" | "notiz" | "eintreffzeit";
@@ -499,7 +500,8 @@ export function sammlungFuerZiel(
 ): Einsatzsammlung {
   const bekannt = new Set(ziel.eintraege.map((e) => e.einheitSchluessel));
   const eintraege: MeldeEintrag[] = JSON.parse(JSON.stringify(quelle.eintraege));
-  const wert = zug.trim();
+  // Eine Schreibweise je Zug, auch für den vorgeschlagenen Zug aus der Quell-Sammlung (R10-S1).
+  const wert = zugNormalisiert(zug, [...ziel.eintraege, ...eintraege].map((e) => e.zugEtikett));
   if (wert) {
     const neueEinheiten = new Set(
       eintraege.filter((e) => !bekannt.has(e.einheitSchluessel) && !e.zugEtikett).map((e) => e.einheitSchluessel),

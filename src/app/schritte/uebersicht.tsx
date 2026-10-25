@@ -505,6 +505,12 @@ export function Uebersicht(props: {
           `${umschrift.length === 1 ? "1 Name steht" : `${umschrift.length} Namen stehen`} in Umschrift („(Umschrift)" dahinter): ${umschrift.slice(0, 4).join("; ")}${umschrift.length > 4 ? `; und ${umschrift.length - 4} weitere` : ""}.`,
         );
       }
+      const vereinfacht = pdfErgebnis?.vereinfacht ?? [];
+      if (vereinfacht.length > 0) {
+        teile.push(
+          `Zeichen vereinfacht bei ${vereinfacht.length === 1 ? "1 Namen" : `${vereinfacht.length} Namen`} („(vereinfacht)" dahinter): ${vereinfacht.slice(0, 4).join("; ")}${vereinfacht.length > 4 ? `; und ${vereinfacht.length - 4} weitere` : ""}.`,
+        );
+      }
       if (nichtDarstellbar > 0) {
         teile.push(
           `${nichtDarstellbar === 1 ? "1 Name enthält" : `${nichtDarstellbar} Namen enthalten`} Zeichen, die die PDF nicht darstellen kann (z. B. arabisch, Emoji) – sie stehen dort als „?".${
@@ -620,7 +626,7 @@ export function Uebersicht(props: {
             <p className="einheit-name">
               {orgLabel(org)}
               {" · "}{vokabText(bogen.einheit.einheitsTyp, vokabularFuer(org, "einheitstyp"), "name") || "(Einheitstyp offen)"}
-              {" · "}{einheitOrt(bogen.einheit) || "(Standort offen)"}
+              {" · "}{einheitOrt(bogen.einheit) || "(Ort offen)"}
             </p>
             <p className="einheit-staerke">
               <span>
@@ -1158,7 +1164,7 @@ export function Uebersicht(props: {
       {vollbild && qr && (
         <QrVollbild
           qr={qr}
-          einheit={`${orgLabel(org)} · ${vokabText(bogen.einheit.einheitsTyp, vokabularFuer(org, "einheitstyp"), "name") || "(Einheitstyp offen)"} · ${einheitOrt(bogen.einheit) || "(Standort offen)"}`}
+          einheit={`${orgLabel(org)} · ${vokabText(bogen.einheit.einheitsTyp, vokabularFuer(org, "einheitstyp"), "name") || "(Einheitstyp offen)"} · ${einheitOrt(bogen.einheit) || "(Ort offen)"}`}
           staerke={staerkeText}
           ohneNamen={nurStaerke ? 0 : bogen.personal.filter(personUnbenannt).length}
           teilIndex={vollbildTeil}

@@ -14,6 +14,10 @@
  *    bleibt stehen.
  *  - Buchstaben und Sonderzeichen werden nicht übernommen.
  *  - Punkt als Tausendertrenner („1.500") gilt als Tausender, nicht als Dezimalpunkt.
+ *  - Eine angehängte Einheit („20 l", „500l", „20 Liter") wird gelesen und der Wert übernommen;
+ *    der Satz sagt, was gelesen wurde (R10-N2, R10-S5). Vorher hieß es „nicht übernommen", während
+ *    die Zahl davor schon gespeichert war.
+ *  - Obergrenzen je Feld stehen bei den Feldern (Liter 99 999, Personen 9 999, Sitzplätze 99).
  */
 
 export interface ZahlErgebnis {
@@ -30,16 +34,27 @@ export interface ZahlRegeln {
   max?: number;
   /** Einheit im Satz „auf ganze Liter gerundet": „Liter", „Personen", ohne Angabe „Zahlen". */
   einheit?: string;
+  /** Satz, wenn das Feld leer gelassen wird und deshalb 0 gilt (R10-N4); ohne Angabe bleibt es still. */
+  leerMeldung?: string;
 }
 
 const MINUS = /^[-−–‒‐]/;
 
+/** Einheit hinter der Zahl: „l", „ltr", „Liter", „Personen", „Pers.", „Plätze", „Stk" (ohne Rücksicht auf Schreibweise). */
+const EINHEIT_HINTEN = /^(.*\d[.,]?\d*)(?:l|ltr\.?|liter|litern|personen|person|pers\.?|plätze|plätzen|platz|stk\.?|stück)$/i;
+
+/** Höchstwerte der Mengenfelder (R10-S5): ein Zahlendreher mit vielen Ziffern fällt sofort auf. */
+export const HOECHST_LITER = 99999;
+export const HOECHST_PERSONEN = 9999;
+
 /** Eingabetext → Zahl oder Meldung. Leer zählt als 0 (ohne Meldung). */
 export function zahlLesen(eingabe: string, regeln: ZahlRegeln = {}): ZahlErgebnis {
   const min = regeln.min ?? 0;
-  const t = eingabe.trim().replace(/\s+/g, "");
-  if (t === "") return { wert: min > 0 ? null : 0, meldung: "" };
   const gezeigt = eingabe.trim();
+  let t = gezeigt.replace(/\s+/g, "");
+  if (t === "") return { wert: min > 0 ? null : 0, meldung: min > 0 ? "" : (regeln.leerMeldung ?? "") };
+  const mitEinheit = EINHEIT_HINTEN.exec(t);
+  if (mitEinheit) t = mitEinheit[1]!;
   if (MINUS.test(t)) {
     return { wert: null, meldung: `Minus geht nicht — „${gezeigt}“ wurde nicht übernommen. Die Menge ohne Vorzeichen eintragen.` };
   }
@@ -60,5 +75,6 @@ export function zahlLesen(eingabe: string, regeln: ZahlRegeln = {}): ZahlErgebni
   if (!Number.isInteger(n)) {
     return { wert: ganz, meldung: `„${gezeigt}“ auf ganze ${regeln.einheit ?? "Zahlen"} gerundet: ${ganz}.` };
   }
+  if (mitEinheit) return { wert: ganz, meldung: `„${gezeigt}“ gelesen als ${ganz}.` };
   return { wert: ganz, meldung: "" };
 }

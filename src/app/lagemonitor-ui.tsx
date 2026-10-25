@@ -23,7 +23,7 @@ import {
   einsatzbeginnSetzen,
 } from "./lagemonitor-beginn";
 import { sammlungenBeiseitegelegt } from "./unlesbar";
-import { alterText, ausEingabeWert, dauerText, dtgTeile, lagebild, zuEingabeWert, type EinheitZeile } from "./lagemonitor";
+import { alterText, ausEingabeWert, bedarfText, dauerText, lagebild, uhrTeile, zuEingabeWert, type EinheitZeile } from "./lagemonitor";
 
 const URL_PARAMETER = "lagemonitor";
 /** Gemerkte Helligkeitsstufe des Monitors („dunkel" oder „gedimmt"; „hell" wird nie gemerkt, R7-L3). */
@@ -228,7 +228,7 @@ function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] })
         <tbody>
           {einheiten.map((e) => (
             <tr key={e.id}>
-              <td className="lm-orga">{e.orga}</td>
+              <td className="lm-orga">{e.orga}{e.soll && <abbr className="lm-soll" title="Sollstärke, nicht gemeldet"> S</abbr>}</td>
               <td>{e.ort || "–"}</td>
               {/* Am Telefon entfällt die Ort-Spalte: Der Ort steht im Funkrufnamen oder, wenn nicht, als Zusatz darunter (R9-K5). */}
               <td data-ort={ortImFunkruf(e) ? undefined : e.ort}>{e.funkruf || "–"}</td>
@@ -291,11 +291,33 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
     stufeMerken(neu);
   }
   const hellerGesperrt = sperreBis > 0;
+  // Helligkeit gehört ins erste Bild, nicht hinter „Optionen": am Telefon steht die Leiste ganz oben, am Fernseher im Fuß (R10-L3).
+  const stufenleiste = (
+    <div className="lm-zeile lm-stufenleiste">
+      <p className="lm-stufe">Stufe: {STUFEN_NAME[stufe]}</p>
+      <button
+        type="button"
+        className="lm-knopf"
+        aria-disabled={dunkler == null || undefined}
+        onClick={() => dunkler && stufeWechseln(dunkler, false)}
+      >
+        Dunkler
+      </button>
+      <button
+        type="button"
+        className="lm-knopf"
+        aria-disabled={heller == null || hellerGesperrt || undefined}
+        onClick={() => heller && stufeWechseln(heller, true)}
+      >
+        Heller{stufe === "dunkel" ? " (weiß)" : ""}
+      </button>
+    </div>
+  );
 
   if (!einsatz) {
     const imPapierkorb = einsaetzePapierkorb().some((s) => s.id === einsatzId);
     // Auch hier läuft die Uhr weiter, damit ein Monitor ohne Daten nicht wie ein eingefrorener aussieht (R6-L6).
-    const leer = dtgTeile(new Date(jetzt));
+    const leer = uhrTeile(new Date(jetzt));
     return (
       <main className={`${klasse} lm-leer`}>
         <div className="lm-zeile lm-r1">
@@ -306,9 +328,9 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
               ? "Die gespeicherten Sammlungen sind nicht lesbar und liegen beiseite — im Hauptfenster „Daten sichern…“."
               : "Dieser Einsatz ist auf diesem Gerät nicht (mehr) vorhanden."}
         </div>
-        <div className="lm-zeile lm-dtg" aria-label="Datum-Zeit-Gruppe">
+        <div className="lm-zeile lm-dtg" aria-label="Uhrzeit und Datum">
           <div className="lm-dtg-text">
-            <span>{leer.tag}</span> <strong>{leer.zeit}</strong> <span>{leer.monat}</span> <span>{leer.jahr}</span>
+            <strong>{leer.zeit}</strong> <span>{leer.datum}</span>
           </div>
         </div>
         <button type="button" className="lm-knopf" onClick={schliessen}>Schließen</button>
@@ -318,7 +340,8 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
 
   const bild = lagebild(einsatz, jetzt);
   const s = bild.summen;
-  const dtg = dtgTeile(new Date(jetzt));
+  const dtg = uhrTeile(new Date(jetzt));
+  const bedarf = bedarfText(s);
   // Ohne gesetzten Beginn gilt die erste Meldung als Vorschlag, statt einen Fehler auf den Fernseher zu schreiben (R6-K4).
   const dauer = beginn != null ? dauerText(beginn, jetzt) : bild.ersteMeldung != null ? dauerText(bild.ersteMeldung, jetzt) : null;
   // Eine Aussage je Zeile: leer -> nur die Lagezeile sagt es (R7-K8); Zeiten in der Zukunft werden genannt statt verschwiegen (R7-K3).
@@ -360,22 +383,26 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
       ) : (
         <h1 className="lm-zeile lm-r1">{einsatz.name}{ortText}</h1>
       )}
-      <div className="lm-zeile lm-dtg" aria-label="Datum-Zeit-Gruppe">
-        <span className="lm-label lm-dtg-label">Uhr</span>
+      <div className="lm-zeile lm-dtg" aria-label="Uhrzeit und Datum">
+        <span className="lm-label lm-dtg-label">Uhrzeit · Datum</span>
         <div className="lm-dtg-text">
-          <span>{dtg.tag}</span> <strong>{dtg.zeit}</strong> <span>{dtg.monat}</span> <span>{dtg.jahr}</span>
+          <strong>{dtg.zeit}</strong> <span>{dtg.datum}</span>
         </div>
       </div>
       <div className="lm-zeile lm-r3" aria-label="Stärke Führer, Unterführer, Mannschaft, gesamt">
-        <span className="lm-label">Stärke F / U / M // gesamt</span>
+        {/* Reine Sollstärke steckt in der Gesamtstärke: der Vorbehalt gehört an die Zahl, die vorgelesen wird (R9-K1);
+            er steht in der Beschriftung der Stärkezeile statt in einer eigenen Zeile, die Einheiten kostet (R10-K4). */}
+        <span className="lm-label">
+          Stärke F / U / M // gesamt
+          {bild.sollstaerke.einheiten > 0 && (
+            <>
+              {" · "}
+              <span className="lm-label lm-veraltet lm-inline">davon {bild.sollstaerke.personen} Sollstärke (S), nicht gemeldet</span>
+            </>
+          )}
+        </span>
         {s.staerke.fuehrer} / {s.staerke.unterfuehrer} / {s.staerke.mannschaft} // <u>{s.staerke.gesamt}</u>
       </div>
-      {/* Reine Sollstärke steckt in der Gesamtstärke: der Vorbehalt gehört an die Zahl, die vorgelesen wird (R9-K1). */}
-      {bild.sollstaerke.einheiten > 0 && (
-        <div className="lm-zeile lm-r3 lm-stand">
-          <span className="lm-label lm-veraltet">davon {bild.sollstaerke.personen} Sollstärke, nicht gemeldet</span>
-        </div>
-      )}
       {staleSeit != null && (
         <div className="lm-zeile lm-r3 lm-stand" role="alert">
           <span className="lm-label lm-veraltet">
@@ -387,7 +414,14 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
         {lage}
         {datenstand && <span className={`lm-label${veraltet ? " lm-veraltet" : ""}`}>{datenstand}</span>}
       </div>
-      {dauerZeile && <div className="lm-zeile lm-r2 lm-dauer">{dauerZeile}</div>}
+      {/* Sofortbedarf wie in der Kopfzeile der Einsatzansicht; eine kleine Zeile, nur wenn etwas angefordert ist (R10-K5). */}
+      {(dauerZeile || bedarf) && (
+        <div className="lm-zeile lm-r2 lm-dauer">
+          {dauerZeile}
+          {dauerZeile && bedarf && <span className="lm-trenn"> · </span>}
+          {bedarf && <span className="lm-bedarf">{bedarf}</span>}
+        </div>
+      )}
       {sichtbareBewegungen.length > 0 && (
         <div className="lm-zeile lm-bewegungen">
           {sichtbareBewegungen.map((b) => (
@@ -424,7 +458,7 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
           <dt>Einsatzbeginn</dt>
           <dd>
             {beginn != null
-              ? (() => { const b = dtgTeile(new Date(beginn)); return `${b.tag} ${b.zeit} ${b.monat} ${b.jahr}`; })()
+              ? (() => { const b = uhrTeile(new Date(beginn)); return `${b.zeit} Uhr, ${b.datum}`; })()
               : "nicht gesetzt (in der Einsatzansicht einstellen)"}
           </dd>
           <dt>Einheiten</dt><dd>{s.einheiten}</dd>
@@ -432,26 +466,10 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
         </dl>
       </details>
 
+      {stufenleiste}
       <details className="lm-zeile lm-klapp">
         <summary>Optionen</summary>
         <div className="lm-optionen">
-          <p className="lm-stufe">Stufe: {STUFEN_NAME[stufe]}</p>
-          <button
-            type="button"
-            className="lm-knopf"
-            aria-disabled={dunkler == null || undefined}
-            onClick={() => dunkler && stufeWechseln(dunkler, false)}
-          >
-            Dunkler
-          </button>
-          <button
-            type="button"
-            className="lm-knopf"
-            aria-disabled={heller == null || hellerGesperrt || undefined}
-            onClick={() => heller && stufeWechseln(heller, true)}
-          >
-            Heller{stufe === "dunkel" ? " (weiß)" : ""}
-          </button>
           <button type="button" className="lm-knopf" onClick={vollbild}>Vollbild</button>
           <button type="button" className="lm-knopf" onClick={schliessen}>Schließen</button>
         </div>

@@ -45,6 +45,41 @@ describe("Schritt Sofortbedarf", () => {
     expect(diesel.value).toBe("0");
   });
 
+  // Audit Runde 10, R10-N2/S5/N4
+  it("liest „20 l“ als 20 und sagt es; Einheit „500l“ und „20 Liter“ gehen ebenso (R10-N2)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    const gemisch = screen.getByLabelText("Gemisch (l)") as HTMLInputElement;
+    await nutzer.type(gemisch, "20 l");
+    expect(screen.getByText(/„20 l“ gelesen als 20/)).toBeDefined();
+    expect(screen.queryByText(/nicht übernommen/)).toBeNull();
+    await nutzer.tab();
+    expect(gemisch.value).toBe("20");
+    await nutzer.clear(gemisch);
+    await nutzer.type(gemisch, "500l");
+    await nutzer.tab();
+    expect(gemisch.value).toBe("500");
+  });
+
+  it("begrenzt Liter auf 99999 und sagt es (R10-S5)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    const benzin = screen.getByLabelText("Benzin (l)") as HTMLInputElement;
+    fireEvent.change(benzin, { target: { value: "99999999999" } });
+    expect(benzin.value).toBe("99999");
+    expect(screen.getByText(/Höchstens 99999/)).toBeDefined();
+  });
+
+  it("nennt, dass ein geleertes Verpflegungsfeld 0 bedeutet (R10-N4)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} bogen={{ ...neuerBogen(), personal: [neuePerson(), neuePerson(), neuePerson()] }} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    await nutzer.clear(screen.getByLabelText("Verpflegung (Personen)"));
+    expect(screen.getByText(/Leer gilt als 0 — keine Verpflegung angefordert. Wie die Stärke wären 3/)).toBeDefined();
+  });
+
   // Audit Runde 9, R9-E1: Komma und Minus verschwinden nicht mehr still.
   it("lehnt ein Minus ab und sagt es, der Wert davor bleibt (R9-E1)", async () => {
     const nutzer = userEvent.setup();
@@ -77,6 +112,41 @@ describe("Schritt Sofortbedarf", () => {
     await nutzer.clear(verpflegung);
     await nutzer.type(verpflegung, "38.5");
     expect(screen.getByText(/„38.5“ auf ganze Personen gerundet: 39/)).toBeDefined();
+  });
+
+  // Audit Runde 10, R10-M4, R10-G3, R10-L2: Der Satz stand in der 112 px schmalen Feldspalte und im Ton der Hilfetexte.
+  it("sammelt die Sätze der Zahlenfelder über die volle Breite unter den Feldern, mit Feldname (R10-M4)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    const diesel = screen.getByLabelText("Diesel (l)") as HTMLInputElement;
+    const benzin = screen.getByLabelText("Benzin (l)") as HTMLInputElement;
+    fireEvent.change(diesel, { target: { value: "-5" } });
+    fireEvent.change(benzin, { target: { value: "12,5" } });
+    const block = document.querySelector<HTMLElement>(".zahl-meldungen")!;
+    expect(block).not.toBeNull();
+    expect(block.getAttribute("role")).toBe("status");
+    // Nicht in der Feldspalte: weder im Label noch als Kind der Feldzeile.
+    expect(diesel.closest("label")!.querySelector(".zahl-meldung")).toBeNull();
+    expect(block.closest(".zeile")).toBeNull();
+    const saetze = [...block.querySelectorAll("p")].map((p) => p.textContent);
+    expect(saetze).toHaveLength(2);
+    expect(saetze[0]).toMatch(/^Diesel \(l\): Minus geht nicht/);
+    expect(saetze[1]).toMatch(/^Benzin \(l\): „12,5“ auf ganze Liter gerundet: 13/);
+    expect(diesel.getAttribute("aria-describedby")).toBe(block.id);
+    // Ist die Eingabe in Ordnung, verschwindet der Satz wieder.
+    fireEvent.change(diesel, { target: { value: "5" } });
+    expect([...document.querySelectorAll(".zahl-meldungen > p")]).toHaveLength(1);
+    fireEvent.change(benzin, { target: { value: "13" } });
+    expect(document.querySelector(".zahl-meldungen")).toBeNull();
+  });
+
+  it("zeigt die Ernährung aus dem Personal als Anzeige, nicht als Feld (R10-N8)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    const anzeige = document.querySelector("output.abgeleitet");
+    expect(anzeige?.classList.contains("nur-anzeige")).toBe(true);
   });
 
   it("lässt nach dem Leeren keine stehengebliebene 0 vor der nächsten Ziffer (R9-E1)", async () => {

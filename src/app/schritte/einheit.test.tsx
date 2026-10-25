@@ -381,7 +381,7 @@ describe("Schritt Einheit", () => {
  * Wort auf Schritt 2, und die einzige Rückmeldung war ein „•" statt „✓" in der
  * Schrittleiste — ein Zeichen, dessen Bedeutung nirgends erklärt wird. Der
  * Fehler fiel erst fünf Schritte später in der Übersicht auf, als
- * „(Standort offen)" auf dem Bogen. Gesperrt wird weiterhin nichts: wer den
+ * „(Ort offen)" auf dem Bogen. Gesperrt wird weiterhin nichts: wer den
  * OV-Namen gerade nicht weiß, kommt weiter und trägt ihn nach.
  */
 describe("Schritt Einheit — Beispiel im Einheitstyp (R3-H7)", () => {
@@ -406,7 +406,7 @@ describe("Schritt Einheit — offene Pflichtangaben", () => {
   it("nennt den fehlenden Namen der eigenen Einheit schon auf Schritt 1", () => {
     render(<SchrittEinheit bogen={neuerBogen()} aendern={() => {}} />);
 
-    expect(screen.getByText(/Name der eigenen Einheit .* fehlt/)).toBeDefined();
+    expect(screen.getByText(/Ort der Einheit .* fehlt/)).toBeDefined();
   });
 
   it("nimmt den Hinweis zurück, sobald der Name steht", () => {
@@ -418,7 +418,7 @@ describe("Schritt Einheit — offene Pflichtangaben", () => {
       />,
     );
 
-    expect(screen.queryByText(/Name der eigenen Einheit .* fehlt/)).toBeNull();
+    expect(screen.queryByText(/Ort der Einheit .* fehlt/)).toBeNull();
   });
 
   /**
@@ -785,7 +785,7 @@ describe("Schritt Einheit — nur eigene Hinweise", () => {
   it("weist auf einem frischen Bogen höchstens auf den fehlenden Namen hin", () => {
     render(<SchrittEinheit bogen={neuerBogen()} aendern={() => {}} />);
 
-    expect(screen.getByText(/Name der eigenen Einheit .* fehlt/)).toBeDefined();
+    expect(screen.getByText(/Ort der Einheit .* fehlt/)).toBeDefined();
     expect(screen.queryByText(/Stärke ist 0/)).toBeNull();
     expect(screen.queryByText(/Ort\/Auftrag/)).toBeNull();
   });

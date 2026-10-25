@@ -4878,6 +4878,9 @@
       --md-deaktiviert-flaeche:  rgba(217, 205, 182, 0.12);
       --md-deaktiviert-text:     rgba(217, 205, 182, 0.38);
     }
+    /* R10-L5: Zusatzzeile des Sammlungsknopfs („Letzte Meldung …") in Nacht unter iOS/Android voll deckend und mindestens 14 px:
+       mit Deckkraft 0,9 lag sie auf der iOS-Füllung bei 4,32:1, unter Android bei 12 px. */
+    .nacht-modus:is(.platform-ios, .platform-android) button.sammlung-oeffnen .knopf-zusatz { opacity: 1; font-size: max(var(--t-xs), 0.875rem); }
 
     /* ---------------------------------------------------------------
        Audit Runde 2, P3 (Themen, Formularfelder, Dialoge). Gesammelt an
@@ -5408,6 +5411,10 @@
       nav.schritte, .zur-start, .kopf-oberzeile, .knopfreihe, .tipp-moment, .start-seo, .offline-badge,
       .entwurf-karte, .ansicht-wahl, .sortieren, .einheiten-filter, .ansicht-umschalter, .luecken-zaehler,
       main button:not(.spalten-sortierung) { display: none !important; }
+      /* R10-A2: Die offenen Punkte der Übersicht sind Knöpfe; ohne diese Ausnahme stand auf Papier „2 offene Punkte … antippen zum
+         Beheben" über leeren Aufzählungspunkten. Im Druck stehen die Texte der Punkte, ohne das „antippen". */
+      .vollstaendigkeit li button.link { display: inline !important; border: 0 !important; padding: 0 !important; min-height: 0 !important; text-align: left; text-decoration: none !important; font: inherit; }
+      .nur-bildschirm { display: none !important; }
       .seiten-kopf { padding: 0 0 6px !important; border: 0 !important; border-bottom: 1px solid #000 !important; }
       .musterung .staerke-leiste, .musterung .kopfzeile.klebend, .seiten-kopf { position: static !important; }
       .tabellen-scroll { overflow: visible !important; }
@@ -5519,6 +5526,135 @@
       table.uebersicht.schnell-tabelle .sortieren { gap: 4px; flex-wrap: nowrap; }
       table.uebersicht.schnell-tabelle tr { row-gap: 5px; padding: 2px 0 3px; }
     }
+
+    /* ===== Runde 10 (Layout) ===== */
+    /* R10-L1 (dialoge.tsx rollt das Feld in den Rumpf): ein paar Pixel Rand um das Feld beim Rollen. */
+    dialog.abfrage label.feld { scroll-margin-block: 8px; }
+
+    /* R10-M8: Im Zoom-Fenster (unter 280 px) 12 statt 6 px zwischen den Wegen der Rückfrage. */
+    @media (max-width: 279.98px) {
+      dialog.abfrage .abfrage-fuss .abfrage-weg { margin: 12px 0 0; }
+    }
+
+    /* R10-K3, R10-M2: Einheitentabelle am Telefon. */
+    @media (max-width: 20rem) {
+      .karte > .tabellen-scroll { padding-inline: 0; }
+    }
+    @container (max-width: 20rem) {
+      table.einheiten-tabelle > * > tr > :first-child { min-width: 0; }
+      table.einheiten-tabelle tbody th { font-size: 11px; padding-inline: 4px; }
+      table.einheiten-tabelle thead th > .spalten-sortierung { padding-inline: 3px; }
+      table.einheiten-tabelle > thead > tr > :first-child { padding-left: 4px; }
+      html.schrift-gross table.einheiten-tabelle th.zahl, html.schrift-gross table.einheiten-tabelle td.zahl { padding-inline: 1px; }
+      html.schrift-gross table.einheiten-tabelle thead th > .spalten-sortierung { padding-inline: 1px; }
+    }
+    @container (max-width: 200px) {
+      table.einheiten-tabelle > * > tr > :first-child {
+        position: static; width: auto; min-width: 96px; max-width: none; padding-inline: 6px;
+        overflow-wrap: normal; word-break: normal; hyphens: manual; -webkit-hyphens: manual;
+      }
+      table.einheiten-tabelle tbody th { font-size: 11px; }
+    }
+
+    /* R10-G2, R10-M7: Die Anzahl der Einheiten ist eine Anzeige, kein Knopf: keine graue Fläche, kein 3-px-Balken (sah wie ein
+       gedrückter Reiter aus, ein Tipp tat nichts). Sie trennt sich von der Stärke nur durch eine kräftigere Linie. */
+    .staerke-leiste > div.anzahl { background: none; }
+    .staerke-leiste > div.anzahl strong { color: var(--text); }
+    .staerke-leiste > div.anzahl + div { border-left: var(--strich) solid var(--linie); }
+    @media (max-width: 30rem) {
+      .staerke-leiste > div.anzahl { border-right: 0; }
+      .staerke-leiste > div.anzahl + div { border-left: var(--strich) solid var(--linie); }
+    }
+
+    /* R10-M6: Die Ansicht-Kacheln (Standard / Feld / Dunkel / Nacht) stießen ohne Abstand aneinander (Ziele mit verschiedener Folge:
+       „Nacht" bei Tageslicht). Jede Kachel trägt jetzt ihren eigenen Rand, dazwischen 8 px. */
+    .seiten-kopf .anzeige-schalter { gap: 8px; border: 0; border-radius: 0; overflow: visible; }
+    .seiten-kopf .anzeige-schalter button,
+    .seiten-kopf .anzeige-schalter button + button,
+    .seiten-kopf .anzeige-schalter .anzeige-klappe + button { border: max(var(--strich), 2px) solid var(--kopf-linie); border-radius: var(--radius); }
+    .anzeige-leiste-wahl { gap: 8px; padding: 6px; }
+    footer.nav .anzeige-leiste-wahl button, footer.nav .anzeige-leiste-wahl button + button,
+    .anzeige-balken .anzeige-leiste-wahl button, .anzeige-balken .anzeige-leiste-wahl button + button { border: max(var(--strich), 2px) solid var(--linie-stark); border-radius: var(--radius); }
+
+    /* R10-M3: Der Kopf der Einsatzansicht zeigte den Ansicht-Wähler doppelt (Kacheln im Kopf, „◐ Ansicht" als fester Balken unten)
+       und füllte bei großer Schrift und im Zoom das erste Bild. Unter der Tabletbreite, bei großer Schrift und im niedrigen Bild
+       steht der Wähler nur im Balken; ab Tablet bleibt er im Kopf. */
+    @media (max-width: 47.999rem) {
+      .seiten-kopf.einsatz-kopf .anzeige-mit-name { display: none; }
+    }
+    html.schrift-gross .seiten-kopf.einsatz-kopf .anzeige-mit-name { display: none; }
+    /* Kopf höchstens rund ein Drittel: knappere Ränder bei großer Schrift und im Zoom-Fenster, Meta-Zeile auf zwei Zeilen begrenzt. */
+    html.schrift-gross .seiten-kopf.einsatz-kopf .kopf-inhalt { padding-block: min(var(--r-3), 8px); }
+    html.schrift-gross .seiten-kopf.einsatz-kopf .titelzeile { padding-block: 0 min(var(--r-2), 4px); }
+    html.schrift-gross .seiten-kopf.einsatz-kopf p.hinweis { margin-top: 2px; }
+    html.schrift-gross .seiten-kopf.einsatz-kopf p.hinweis { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+    @media (max-width: 16rem) {
+      .seiten-kopf.einsatz-kopf .kopf-inhalt { padding-block: 4px; }
+      .seiten-kopf.einsatz-kopf .titelzeile { padding-block: 0 2px; }
+      .seiten-kopf.einsatz-kopf h1 { font-size: min(var(--t-xl), 17px); line-height: 1.2; }
+      .seiten-kopf.einsatz-kopf p.hinweis { margin-top: 2px; font-size: min(var(--t-xs), 12px); line-height: 1.2; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+    }
+
+    /* R10-N6: „Gesamtübersi / cht" im Zoom-Fenster: Überschriften der Schritte kleiner, ohne Wortbruch (nur der Notfall bricht). */
+    @media (max-width: 16rem) {
+      main h2 { font-size: min(var(--t-xl), 17px); overflow-wrap: break-word; }
+    }
+
+    /* R10-M5, R10-N7: Felder einer Zeile gleich breit. Die Ebenen-Zeilen (Schritt 1) hatten 192 / 203 / 192 px, das Pflichtfeld „Ort der
+       Einheit" war schmaler als eine optionale Angabe, und Auswahltexte („RB – Regionalbereicl", „MTW gl – Mannschaftst") liefen ab.
+       Am Telefon füllen Auswahlfelder die ganze Zeile (Telefon und E-Mail teilen sich eine), ab Tablet wachsen alle gleich. */
+    @media (max-width: 47.999rem) {
+      .ebenen-zeile > label.feld.mittel, .ebenen-zeile > span > label.feld { flex: 1 1 100%; }
+    }
+    @media (min-width: 48rem) {
+      .ebenen-zeile > label.feld.mittel, .ebenen-zeile > span > label.feld { flex: 1 1 12rem; }
+      .ebenen-zeile > label.feld.schmal { flex: 1 1 8rem; }
+    }
+    /* Die Auswahl mit „Freitext …" (Ebene, Fahrzeugtyp, Kennwort) steckt in einer Flex-Zeile und blieb so breit wie ihr längster Text:
+       sie füllt jetzt das Feld. */
+    label.feld > span:has(> select) > select { flex: 1 1 10rem; width: auto; min-width: 0; }
+    @media (max-width: 29.999rem) {
+      .zeile > label.feld.mittel { flex: 1 1 100%; }
+      .eintrag-kopf:has(> img.fahrzeug-symbol) > label.feld:first-of-type { flex: 1 1 100%; }
+      .eintrag-kopf:has(> img.fahrzeug-symbol) > img.fahrzeug-symbol { flex: 0 0 100%; width: auto; max-width: 100%; height: 36px; object-fit: contain; object-position: left center; margin-bottom: -0.3rem; }
+    }
+
+    /* R10-L2, R10-M4, R10-G3: Der Satz zu einer gerundeten oder abgelehnten Zahl steht in Warnfarbe, mit Zeichen und Rand statt im
+       Ton der Hilfetexte; im Sofortbedarf über die ganze Breite unter den Feldern (die Felder behalten ihre Höhe). */
+    .zahl-meldung, .zahl-meldungen > p {
+      display: block; margin: var(--r-1) 0 0; padding: 4px 8px; border: 1px solid var(--warn-linie); border-left-width: 4px;
+      border-radius: var(--radius); background: var(--warn-fond); color: var(--warn-text); font-weight: 600; line-height: 1.3;
+    }
+    .zahl-meldung::before, .zahl-meldungen > p::before { content: "⚠ " / ""; }
+    .zahl-meldungen { display: grid; gap: 6px; margin-top: var(--r-3); }
+    .zahl-meldungen > p { margin: 0; font-size: min(var(--t-xs), 16px); overflow-wrap: anywhere; }
+
+    /* R10-N8: „Ernährung (aus Personal)" ist eine Anzeige, kein Feld: ohne gestrichelten Kasten, in Textfarbe, in Feldhöhe. */
+    label.feld > output.abgeleitet.nur-anzeige {
+      display: flex; align-items: center; min-height: calc(var(--ziel-basis) + var(--ziel)); padding: 0; border: 0; border-radius: 0;
+      background: none; color: var(--text); font-weight: 400;
+    }
+
+    /* R10-W4: Rückfrage mit mehreren Wegen im niedrigen Querformat (640 × 360): Die Wege standen nebeneinander im Fuß, der Text mit
+       den Erklärsätzen („Der Bogen trägt einen älteren Stand …") lag darüber im Rumpf außerhalb des Bildes. Jetzt zwei Spalten:
+       links die Frage mit den Erklärsätzen in voller Höhe, rechts die Wege untereinander. */
+    @media (orientation: landscape) and (max-height: 31.25rem) and (min-width: 36rem) {
+      dialog.abfrage form:has(> .abfrage-fuss) {
+        display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, min(18rem, 44%)); grid-template-rows: minmax(0, 1fr);
+        column-gap: var(--r-4); align-items: stretch;
+      }
+      dialog.abfrage form:has(> .abfrage-fuss) > .abfrage-rumpf { grid-column: 1; grid-row: 1; }
+      dialog.abfrage form:has(> .abfrage-fuss) > .abfrage-fuss {
+        grid-column: 2; grid-row: 1; align-self: end; flex-direction: column; flex-wrap: nowrap; gap: var(--r-3); margin-top: 0;
+      }
+      dialog.abfrage form:has(> .abfrage-fuss) .abfrage-fuss .abfrage-weg,
+      dialog.abfrage form:has(> .abfrage-fuss) .abfrage-fuss .abfrage-aktionen,
+      dialog.abfrage form:has(> .abfrage-fuss) .abfrage-fuss .abfrage-aktionen:not(.abgesetzt),
+      dialog.abfrage form:has(> .abfrage-fuss) .abfrage-fuss .abfrage-aktionen.abgesetzt { flex: 0 0 auto; }
+      dialog.abfrage form:has(> .abfrage-fuss) .abfrage-fuss .abfrage-weg > button,
+      dialog.abfrage form:has(> .abfrage-fuss) .abfrage-fuss .abfrage-aktionen > button { height: auto; }
+    }
+    /* ===== Ende Runde 10 (Layout) ===== */
   </style>
 </head>
 <body>

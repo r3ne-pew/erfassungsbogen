@@ -123,7 +123,7 @@ describe("Schritt Einsatz", () => {
     expect(screen.getByText(/„bis“ liegt vor „von“/)).toBeDefined();
     expect(screen.getByText("⚠ Einsatzende 27.09.2026, 06:00 liegt vor dem Einsatzbeginn 27.09.2026, 18:00.")).toBeDefined();
     // Hinweise zu Schritt 1 und 3 bleiben draußen.
-    expect(screen.queryByText(/Name der eigenen Einheit/)).toBeNull();
+    expect(screen.queryByText(/Ort der Einheit .* fehlt/)).toBeNull();
     expect(screen.queryByText(/Stärke ist 0/)).toBeNull();
     expect(datumZuIso(b.einsatz.zeitraumBis) < datumZuIso(b.einsatz.zeitraumVon)).toBe(true);
   });
