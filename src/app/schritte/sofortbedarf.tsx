@@ -7,7 +7,7 @@ import { PersonalErfassung, staerke, verpflegung, type Sofortbedarf } from "@bos
 import { pruefpunkte } from "../hilfen";
 import { frageJaNein } from "../dialoge";
 import { HOECHST_LITER, HOECHST_PERSONEN } from "../zahl-eingabe";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Feld, Hinweise, useZahlEingabe, ZahlMeldung, ZahlMeldungsSenke, type SchrittProps } from "./bausteine";
 
 /** Was beim Ausschalten verloren ginge: leer, wenn nichts Eigenes dahintersteht. */
@@ -45,6 +45,12 @@ export function SchrittSofortbedarf({ bogen, aendern }: SchrittProps) {
   const s = bogen.sofortbedarf;
   // Sätze zu gerundeten oder abgelehnten Zahlen: gesammelt über die volle Breite unter den Feldern (R10-M4, R10-G3).
   const [zahlMeldungen, setZahlMeldungen] = useState<Record<string, string>>({});
+  const meldungenBlock = useRef<HTMLDivElement>(null);
+  const meldungenStand = Object.values(zahlMeldungen).join("|");
+  // Erscheint oder ändert sich ein Satz, rollt er (knapp) ins Bild: Er steht unter der Feldzeile, nicht unter dem Feld.
+  useEffect(() => {
+    if (meldungenStand) meldungenBlock.current?.scrollIntoView?.({ block: "nearest" });
+  }, [meldungenStand]);
   const meldungMelden = useCallback((feld: string, text: string) => {
     setZahlMeldungen((alt) => {
       if ((alt[feld] ?? "") === text) return alt;
@@ -134,7 +140,7 @@ export function SchrittSofortbedarf({ bogen, aendern }: SchrittProps) {
           </div>
           </ZahlMeldungsSenke.Provider>
           {Object.keys(zahlMeldungen).length > 0 && (
-            <div className="zahl-meldungen" id={ZAHL_MELDUNGEN_ID} role="status">
+            <div className="zahl-meldungen" id={ZAHL_MELDUNGEN_ID} role="status" ref={meldungenBlock}>
               {Object.entries(zahlMeldungen).map(([feld, text]) => (
                 <p key={feld}>
                   <strong>{feld}:</strong> {text}

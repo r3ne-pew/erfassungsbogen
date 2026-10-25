@@ -1359,6 +1359,28 @@ describe("Kompakte Einheiten auf dem Telefon (R2-K7)", () => {
     expect(wahl.open).toBe(true);
   });
 
+  // Audit Runde 10, R10-K2: Der Tipp auf „n ohne Auftrag" zeigte das Werkzeug statt der Einheiten.
+  it("Telefon: „n ohne Auftrag“ filtert, ohne das Filterfeld aufzuklappen, und rollt zur Liste (R10-K2)", async () => {
+    const nutzer = userEvent.setup();
+    const rollen = vi.fn();
+    const alt = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = rollen;
+    try {
+      const angelegt = einsatzAnlegen("Hochwasser Test", EinsatzArt.EINSATZ);
+      for (const n of ["Aalen", "Biberach", "Celle"]) meldungHinzufuegen(angelegt.id, bogenMitName(n));
+      ansicht(angelegt.id);
+      const wahl = document.querySelector<HTMLDetailsElement>("details.einheiten-filter-wahl")!;
+      await nutzer.click(screen.getByRole("button", { name: "3 ohne Auftrag" }));
+      expect(wahl.open).toBe(false);
+      expect(wahl.querySelector("summary")!.textContent).toBe("Suchen, sortieren, filtern · Filter aktiv: ohne Auftrag");
+      expect(screen.getByRole("button", { name: "Filter aufheben" })).toBeDefined();
+      await vi.waitFor(() => expect(rollen).toHaveBeenCalled());
+      expect(rollen.mock.contexts.some((el) => (el as Element).classList.contains("luecken-zaehler"))).toBe(true);
+    } finally {
+      Element.prototype.scrollIntoView = alt;
+    }
+  });
+
   it("Telefon: Zwischensummen bei zwei Zügen zugeklappt (R4-K5)", () => {
     const angelegt = einsatzAnlegen("Hochwasser Test", EinsatzArt.EINSATZ);
     const a = meldungHinzufuegen(angelegt.id, bogenMitName("Aalen"))!.eintrag;

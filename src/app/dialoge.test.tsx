@@ -282,3 +282,24 @@ describe("Rückfragen und Eingaben (Runde 9)", () => {
     expect(document.activeElement).toBe(within(d).getByRole("button", { name: "Abbrechen" }));
   });
 });
+
+describe("Eingabefeld im Bild (R10-L1)", () => {
+  it("rollt das erste Feld beim Öffnen und jedes Feld beim Fokus ins Bild, damit es nicht unter der Knopfzeile liegt", async () => {
+    const rollen = vi.fn();
+    const alt = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = rollen;
+    try {
+      render(<Dialogschicht />);
+      void frageFelder({ titel: "Als Vorlage speichern", felder: [{ name: "a", label: "Name der Vorlage" }, { name: "b", label: "Notiz", optional: true }] });
+      const d = await screen.findByRole("dialog", { name: "Als Vorlage speichern" });
+      // Beim Öffnen: die Beschriftung samt Feld (ein <label>), `nearest` (nur rollen, wenn nötig).
+      expect(rollen).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+      expect(rollen.mock.contexts.some((el) => (el as Element).tagName === "LABEL" || (el as Element).tagName === "INPUT")).toBe(true);
+      rollen.mockClear();
+      fireEvent.focus(within(d).getByLabelText("Notiz"));
+      expect(rollen).toHaveBeenCalledTimes(1);
+    } finally {
+      Element.prototype.scrollIntoView = alt;
+    }
+  });
+});

@@ -114,6 +114,41 @@ describe("Schritt Sofortbedarf", () => {
     expect(screen.getByText(/„38.5“ auf ganze Personen gerundet: 39/)).toBeDefined();
   });
 
+  // Audit Runde 10, R10-M4, R10-G3, R10-L2: Der Satz stand in der 112 px schmalen Feldspalte und im Ton der Hilfetexte.
+  it("sammelt die Sätze der Zahlenfelder über die volle Breite unter den Feldern, mit Feldname (R10-M4)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    const diesel = screen.getByLabelText("Diesel (l)") as HTMLInputElement;
+    const benzin = screen.getByLabelText("Benzin (l)") as HTMLInputElement;
+    fireEvent.change(diesel, { target: { value: "-5" } });
+    fireEvent.change(benzin, { target: { value: "12,5" } });
+    const block = document.querySelector<HTMLElement>(".zahl-meldungen")!;
+    expect(block).not.toBeNull();
+    expect(block.getAttribute("role")).toBe("status");
+    // Nicht in der Feldspalte: weder im Label noch als Kind der Feldzeile.
+    expect(diesel.closest("label")!.querySelector(".zahl-meldung")).toBeNull();
+    expect(block.closest(".zeile")).toBeNull();
+    const saetze = [...block.querySelectorAll("p")].map((p) => p.textContent);
+    expect(saetze).toHaveLength(2);
+    expect(saetze[0]).toMatch(/^Diesel \(l\): Minus geht nicht/);
+    expect(saetze[1]).toMatch(/^Benzin \(l\): „12,5“ auf ganze Liter gerundet: 13/);
+    expect(diesel.getAttribute("aria-describedby")).toBe(block.id);
+    // Ist die Eingabe in Ordnung, verschwindet der Satz wieder.
+    fireEvent.change(diesel, { target: { value: "5" } });
+    expect([...document.querySelectorAll(".zahl-meldungen > p")]).toHaveLength(1);
+    fireEvent.change(benzin, { target: { value: "13" } });
+    expect(document.querySelector(".zahl-meldungen")).toBeNull();
+  });
+
+  it("zeigt die Ernährung aus dem Personal als Anzeige, nicht als Feld (R10-N8)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    const anzeige = document.querySelector("output.abgeleitet");
+    expect(anzeige?.classList.contains("nur-anzeige")).toBe(true);
+  });
+
   it("lässt nach dem Leeren keine stehengebliebene 0 vor der nächsten Ziffer (R9-E1)", async () => {
     const nutzer = userEvent.setup();
     render(<SchrittBuehne komponente={SchrittSofortbedarf} />);
