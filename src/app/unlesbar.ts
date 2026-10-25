@@ -20,6 +20,10 @@
  * 2. **Zählen:** Meldungen, die der Kern behält, die die App aber nicht
  *    anzeigen kann (Pflichtfeld fehlt), zählt einsaetze-lesen.ts je Sammlung.
  * 3. **Zeigen:** unlesbar-hinweis.tsx nennt die Zahl und bietet die Sicherung an.
+ * 4. **Nicht überschreiben, was sich nicht beiseitelegen lässt (R9-O1):** Ist der Speicher voll und
+ *    scheitert das Beiseitelegen, lassen die Hüllen (uhr-korrektur.ts, vorlagen.ts, entwurf.ts) das
+ *    Überschreiben des Originals nicht durch; die Startseite sagt „Speicher voll – beschädigte Daten nicht
+ *    gesichert“. Aufräumen am Ursprungsort: unlesbar-aufraeumen.ts (R9-E4).
  */
 
 import { migriereBogen } from "./hilfen";

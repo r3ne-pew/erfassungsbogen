@@ -5419,20 +5419,14 @@
 
     /* R9-M5: „✓ gespeichert · 09:27 Uhr · nur auf diesem Gerät" fiel bei 200 % Schrift, im Zoom und quer ganz weg (`display: none`), und
        nirgends sonst stand, dass der letzte Eintrag gespeichert ist. Jetzt bleibt dort „✓ 09:27" stehen (kurz, in der Reihe mit dem
-       Rücksprung); die Wörter sind nur ausgeblendet und bleiben für Vorlesesoftware im Text. */
+       Rücksprung); der volle Satz bleibt im Text (Schriftgröße 0, für Vorlesesoftware), das Kurzzeichen kommt aus `data-kurz`. */
     @container kopf (max-width: 17.5rem) {
-      .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler):not(.fest-warnung) { display: block; white-space: nowrap; font-size: min(var(--t-xs), 13px); line-height: 1.2; padding-block: 0 2px; }
-      .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler) .auto-wort, .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler) .auto-rest {
-        position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
-      }
+      .seiten-kopf.assistent-kopf .autosave[data-kurz]:not(.speicher-fehler):not(.fest-warnung) { display: block; white-space: nowrap; font-size: 0; line-height: 1.2; padding-block: 0 2px; }
+      .seiten-kopf.assistent-kopf .autosave[data-kurz]:not(.speicher-fehler):not(.fest-warnung)::after { content: attr(data-kurz); font-size: min(var(--t-xs), 13px); }
     }
     @media (orientation: landscape) and (max-height: 31.25rem) {
-      .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler):not(.fest-warnung) {
-        display: block; order: 1; flex: 0 0 auto; white-space: nowrap; padding: 0; font-size: min(var(--t-xs), 14px); line-height: 1.2;
-      }
-      .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler) .auto-wort, .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler) .auto-rest {
-        position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
-      }
+      .seiten-kopf.assistent-kopf .autosave[data-kurz]:not(.speicher-fehler):not(.fest-warnung) { display: block; order: 1; flex: 0 0 auto; white-space: nowrap; padding: 0; font-size: 0; line-height: 1.2; }
+      .seiten-kopf.assistent-kopf .autosave[data-kurz]:not(.speicher-fehler):not(.fest-warnung)::after { content: attr(data-kurz); font-size: min(var(--t-xs), 14px); }
       /* R9-G4: Quer lag „‹ Startseite" 2 px über den Schritt-Tabs 4 bis 6 (ein Fehltipp verließ den Assistenten), und die Ansichtswahl stand
          zweimal im Bild (Segmente oben, „◐ Ansicht" in der Fußleiste). Jetzt 8 px Abstand zwischen Rücksprung und Reitern, und die Wahl
          steht nur in der Fußleiste, die beim Rollen bleibt. */
@@ -5445,7 +5439,7 @@
       .seiten-kopf.assistent-kopf .kopf-inhalt { padding-top: 2px; row-gap: 0; }
       .seiten-kopf.assistent-kopf .kopf-oberzeile { flex: 1 1 0; min-width: 0; }
       .seiten-kopf.assistent-kopf .kopf-oberzeile .zur-start { min-width: 0; }
-      .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler):not(.fest-warnung) { flex: 0 0 auto; order: 1; padding: 0 0 0 6px; }
+      .seiten-kopf.assistent-kopf .autosave[data-kurz]:not(.speicher-fehler):not(.fest-warnung) { flex: 0 0 auto; order: 1; padding: 0 0 0 6px; }
       :root .seiten-kopf.assistent-kopf .schritte { display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex: 1 1 100%; }
       :root .seiten-kopf.assistent-kopf .schritte::-webkit-scrollbar { display: none; }
       :root .seiten-kopf.assistent-kopf .schritte button { flex: 0 0 44px; min-width: 44px; }

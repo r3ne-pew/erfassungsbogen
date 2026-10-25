@@ -4549,12 +4549,12 @@ function AppInhalt() {
           details={speicherFehlerDetails(speicherArt, fremdeErfassung, gespeichertUm ? uhrzeitMitTag(gespeichertUm) : null)}
         />
       ) : gespeichertUm ? (
-        <p className="autosave" role="status">
+        <p className="autosave" role="status" data-kurz={`✓ ${uhrzeitMitTag(gespeichertUm)}`}>
           {/* R4-M7: „✓ automatisch gespeichert · 22:24 Uhr — bleibt auf die…" wurde auf
               360 px an genau der Stelle gekürzt, um die es geht („nur auf diesem
               Gerät"). Kürzer, und das Wichtige steht hinten, wo gekürzt wird,
               nicht vorn. */}
-          ✓ <span className="auto-wort">gespeichert · </span>{uhrzeitMitTag(gespeichertUm)}<span className="auto-rest"> Uhr · nur auf diesem Gerät</span>
+          ✓ gespeichert · {uhrzeitMitTag(gespeichertUm)} Uhr · nur auf diesem Gerät
         </p>
       ) : null}
     </SeitenKopf>
