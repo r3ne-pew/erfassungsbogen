@@ -20,7 +20,7 @@ import { exportVorhanden } from "./export-stand";
 import { einheitAnzeigename } from "./hilfen";
 import { geraeteSchluesselPrivat } from "./geraete-schluessel";
 import { vorlagenLaden, vorlagenPapierkorb } from "./vorlagen";
-import { unlesbarerGesamttext, unlesbareSammlungsteile, unlesbareVorlagenteile } from "./unlesbar";
+import { UNLESBAR_SCHLUESSEL, unlesbarAusText, unlesbarBestand, unlesbarerGesamttext, unlesbareSammlungsteile, unlesbareVorlagenteile } from "./unlesbar";
 import { folgenVorhanden, uhrFolgen, type UhrFolgen } from "./uhr-folgen";
 
 const FORMAT = "eeb-sicherung";
@@ -124,6 +124,30 @@ export interface BestandUmfang {
    * nennt es: Wer die Datei einspielt, bringt es mit (R8-E1). Leer oder fehlend = nichts gefunden.
    */
   beschaedigt?: string[];
+  /**
+   * Beiseitegelegtes (R9-D2): unlesbare Gesamttexte, Sammlungs- und Vorlagenteile unter `eeb.unlesbar.v1`
+   * und ein beschädigter Entwurf. Beides geht beim Einspielen verloren, ohne dass die Rückfrage es nannte.
+   */
+  beiseite?: BeiseiteUmfang;
+}
+
+/** Zahl und Größe des Beiseitegelegten (unlesbarer Text, beschädigter Entwurf). */
+export interface BeiseiteUmfang {
+  /** Beiseitegelegte Einträge (ganze Gesamttexte, Sammlungen, Meldungen, Vorlagen). */
+  eintraege: number;
+  /** Zeichen des beiseitegelegten Textes (der Rohtext, wie er gespeichert ist). */
+  zeichen: number;
+  /** Ein beschädigter Entwurf liegt beiseite. */
+  entwurf: boolean;
+}
+
+/** Wie {@link BeiseiteUmfang}, gemessen an den Einträgen eines Bestands; null, wenn nichts beiseite liegt. */
+export function beiseiteUmfang(eintraege: Record<string, string>): BeiseiteUmfang | null {
+  const b = unlesbarAusText(eintraege[UNLESBAR_SCHLUESSEL]);
+  const anzahl = b ? b.sammlungen.length + b.meldungen.length + b.vorlagen.length + b.texte.length : 0;
+  const entwurf = !!eintraege[BESCHAEDIGT_ENTWURF_SCHLUESSEL];
+  if (anzahl === 0 && !entwurf) return null;
+  return { eintraege: anzahl, zeichen: anzahl > 0 ? (eintraege[UNLESBAR_SCHLUESSEL] ?? "").length : 0, entwurf };
 }
 
 const EINSAETZE_SCHLUESSEL = "eeb.einsaetze.v1";
@@ -132,6 +156,7 @@ const ENTWURF_SCHLUESSEL = "eeb.entwurf.v1";
 const ERSETZT_SCHLUESSEL = "eeb.entwurf.ersetzt.v1";
 const ABSENDER_SCHLUESSEL = "eeb.absenderkarte.v1";
 const GERAETESCHLUESSEL_SCHLUESSEL = "eeb.geraeteschluessel.v1";
+const BESCHAEDIGT_ENTWURF_SCHLUESSEL = "eeb.entwurf.beschaedigt.v1";
 /** Alles, was die Rückfrage vor dem Einspielen zählt — Gerät und Datei mit derselben Elle. */
 const BESTAND_SCHLUESSEL = [
   EINSAETZE_SCHLUESSEL,
@@ -140,6 +165,8 @@ const BESTAND_SCHLUESSEL = [
   ERSETZT_SCHLUESSEL,
   ABSENDER_SCHLUESSEL,
   GERAETESCHLUESSEL_SCHLUESSEL,
+  UNLESBAR_SCHLUESSEL,
+  BESCHAEDIGT_ENTWURF_SCHLUESSEL,
 ];
 
 function jsonListe(roh: string | undefined): unknown[] {
@@ -205,6 +232,7 @@ export function bestandUmfang(eintraege: Record<string, string>): BestandUmfang 
       : null,
     faellig: uhrFolgen(Date.now(), (k) => eintraege[k] ?? null),
     beschaedigt: beschaedigtes(eintraege),
+    beiseite: beiseiteUmfang(eintraege) ?? undefined,
   };
 }
 
@@ -244,7 +272,8 @@ export function bestandBetroffen(b: BestandUmfang): boolean {
     b.entwurf ||
     b.rueckholplatz != null ||
     b.absender ||
-    b.geraeteschluessel != null
+    b.geraeteschluessel != null ||
+    b.beiseite != null
   );
 }
 
@@ -401,6 +430,8 @@ export interface DatenUmfang {
    * (Audit Runde 6, R6-D2).
    */
   beiseitegelegt: boolean;
+  /** Beiseitegelegte unlesbare Sammlungs-/Vorlagentexte und -teile (`eeb.unlesbar.v1`), sonst null (R9-D2). */
+  beiseiteDaten: BeiseiteUmfang | null;
   absender: boolean;
   geraeteschluessel: boolean;
   /**
@@ -416,6 +447,13 @@ function rueckholplatzName(): string | null {
   return e ? einheitAnzeigename(e.bogen.einheit) || "(Bogen ohne Namen)" : null;
 }
 
+function beiseiteUmfangGeraet(): BeiseiteUmfang | null {
+  const b = unlesbarBestand();
+  if (!b) return null;
+  const roh = speicher()?.getItem(UNLESBAR_SCHLUESSEL) ?? "";
+  return { eintraege: b.sammlungen.length + b.meldungen.length + b.vorlagen.length + b.texte.length, zeichen: roh.length, entwurf: false };
+}
+
 export function datenUmfang(): DatenUmfang {
   const s = speicher();
   const einsaetze = [...einsaetzeLaden(), ...einsaetzePapierkorb()];
@@ -427,6 +465,7 @@ export function datenUmfang(): DatenUmfang {
     entwurf: entwurfLaden() != null,
     rueckholplatz: rueckholplatzName(),
     beiseitegelegt: beschaedigterEntwurf() != null,
+    beiseiteDaten: beiseiteUmfangGeraet(),
     absender: absenderkarteGefuellt(absenderkarteLaden()),
     geraeteschluessel: geraeteSchluesselPrivat() != null,
     ohneExport: einsaetze.filter((e) => e.eintraege.length > 0 && !exportVorhanden(e.id)).map((e) => e.name),

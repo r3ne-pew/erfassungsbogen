@@ -9,6 +9,7 @@ import { Erfassungsbogen, VokabularWert } from "@bos/eeb-format/model";
 import type { VokabularEintrag } from "@bos/vokabulare/thw";
 import { vokabSortiert, type Pruefpunkt } from "../hilfen";
 import { funktionVergeben } from "../haeufige-funktionen";
+import { zahlLesen, type ZahlRegeln } from "../zahl-eingabe";
 
 export type SchrittProps = {
   bogen: Erfassungsbogen;
@@ -581,20 +582,103 @@ export const zahl = (s: string): number => {
 };
 
 /**
- * Satz für ein Zahlenfeld, dessen Eingabe begrenzt wurde — leer, wenn der Wert
- * unverändert übernommen wird (Audit Runde 7, R7-E6: 999 wurde still zu 99,
- * −5 zu 0, 1,5 zu 1).
+ * Satz für ein Zahlenfeld, dessen Eingabe begrenzt oder gerundet wurde — leer, wenn der Wert
+ * unverändert übernommen wird (Audit Runde 7, R7-E6: 999 wurde still zu 99, −5 zu 0, 1,5 zu 1;
+ * Runde 9, R9-E1: Komma und Minus verschwanden still). Rechnet wie {@link zahlLesen}.
  */
-export function zahlBegrenzung(eingabe: string, opt: { min?: number; max?: number } = {}): string {
-  const t = eingabe.trim().replace(",", ".");
-  if (t === "") return "";
-  const n = Number(t);
-  if (!Number.isFinite(n)) return "";
-  const min = opt.min ?? 0;
-  if (n < min) return `Mindestens ${min} — dein Wert ${eingabe.trim()} wurde auf ${min} gesetzt.`;
-  if (opt.max != null && n > opt.max) return `Höchstens ${opt.max} — dein Wert ${eingabe.trim()} wurde auf ${opt.max} gesetzt.`;
-  if (!Number.isInteger(n)) return `Nur ganze Zahlen — ${eingabe.trim()} wurde auf ${Math.trunc(n)} gesetzt.`;
-  return "";
+export function zahlBegrenzung(eingabe: string, opt: { min?: number; max?: number; einheit?: string } = {}): string {
+  return zahlLesen(eingabe, opt).meldung;
+}
+
+/**
+ * Zahlenfeld mit Text statt `type="number"`: Der Wert im Feld ist, was getippt wurde, bis das Feld
+ * verlassen wird; ins Modell geht die gelesene ganze Zahl. Jede Abweichung (Komma gerundet, Minus
+ * abgelehnt, Obergrenze) steht als Satz neben dem Feld (R9-E1). Leer ist 0 — oder, mit `leer`,
+ * „nicht angegeben" (`undefined`); das Feld zeigt dann kein stehengebliebenes „0" (R9-E1).
+ * Ziffernblock und „Weiter" der Tastatur (`inputMode`, `enterKeyHint`, R9-G6).
+ */
+export function useZahlEingabe(
+  wert: number | undefined,
+  setzen: (n: number | undefined) => void,
+  regeln: ZahlRegeln & { leer?: boolean } = {},
+): { eingabe: ComponentProps<"input">; meldung: string } {
+  const anzeige = (w: number | undefined) => (w === undefined ? "" : String(w));
+  const [text, setText] = useState(anzeige(wert));
+  const [meldung, setMeldung] = useState("");
+  const [abgelehnt, setAbgelehnt] = useState(false);
+  const zuletzt = useRef(wert);
+  useEffect(() => {
+    // Von außen geändert (Schaltfläche +/−, Vorbelegung aus der Stärke): Feld und Satz folgen.
+    if (wert !== zuletzt.current) {
+      zuletzt.current = wert;
+      setText(anzeige(wert));
+      setMeldung("");
+      setAbgelehnt(false);
+    }
+  }, [wert]);
+  const aufnehmen = (roh: string) => {
+    if (roh.trim() === "" && regeln.leer) {
+      setText(roh);
+      setMeldung("");
+      setAbgelehnt(false);
+      zuletzt.current = undefined;
+      setzen(undefined);
+      return;
+    }
+    const r = zahlLesen(roh, regeln);
+    setMeldung(r.meldung);
+    setAbgelehnt(r.wert === null);
+    if (r.wert === null) {
+      setText(roh);
+      return;
+    }
+    // Führende Nullen („05") und begrenzte Werte zeigt das Feld sofort so, wie sie gelten.
+    setText(r.begrenzt || /^0\d/.test(roh.trim()) ? String(r.wert) : roh);
+    zuletzt.current = r.wert;
+    setzen(r.wert);
+  };
+  return {
+    meldung,
+    eingabe: {
+      type: "text",
+      inputMode: "numeric",
+      enterKeyHint: "next",
+      autoComplete: "off",
+      value: text,
+      "aria-invalid": abgelehnt || undefined,
+      onChange: (e) => aufnehmen(e.target.value),
+      onBlur: () => setText(anzeige(zuletzt.current)),
+    },
+  };
+}
+
+/** Der Satz zu {@link useZahlEingabe}, direkt unter dem Feld. */
+export function ZahlMeldung(props: { meldung: string; id?: string }) {
+  if (!props.meldung) return null;
+  return (
+    <small className="hinweis warnung-text zahl-meldung" id={props.id} role="status">
+      {props.meldung}
+    </small>
+  );
+}
+
+/** Ganzzahlfeld (Liter, Personen, Anzahl) mit {@link useZahlEingabe} und dem Satz darunter. */
+export function ZahlFeld(props: {
+  wert: number;
+  setzen: (n: number) => void;
+  min?: number;
+  max?: number;
+  einheit?: string;
+  "aria-label"?: string;
+  id?: string;
+}) {
+  const { meldung, eingabe } = useZahlEingabe(props.wert, (n) => props.setzen(n ?? 0), props);
+  return (
+    <>
+      <input {...eingabe} id={props.id} aria-label={props["aria-label"]} />
+      <ZahlMeldung meldung={meldung} />
+    </>
+  );
 }
 
 // Die Stärke-Notation „x / x / x / x" ist BOS-Konvention, aber nicht jedem
@@ -614,6 +698,7 @@ export function staerkeVorlesen(s: { fuehrer: number; unterfuehrer: number; mann
 export function Stepper(props: { titel: string; wert: number; setzen: (n: number) => void; min?: number }) {
   const min = props.min ?? 0;
   const setze = (n: number) => props.setzen(Math.max(min, n));
+  const { eingabe, meldung } = useZahlEingabe(props.wert, (n) => setze(n ?? 0), { min, einheit: "Zahlen" });
   return (
     <div className="stepper-feld">
       <span className="stepper-titel">{props.titel}</span>
@@ -626,18 +711,12 @@ export function Stepper(props: { titel: string; wert: number; setzen: (n: number
         >
           −
         </button>
-        <input
-          type="number"
-          inputMode="numeric"
-          min={min}
-          value={props.wert}
-          aria-label={props.titel}
-          onChange={(e) => setze(zahl(e.target.value))}
-        />
+        <input {...eingabe} aria-label={props.titel} />
         <button type="button" aria-label={`${props.titel}: erhöhen`} onClick={() => setze(props.wert + 1)}>
           +
         </button>
       </div>
+      <ZahlMeldung meldung={meldung} />
     </div>
   );
 }

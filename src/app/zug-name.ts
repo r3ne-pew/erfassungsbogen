@@ -12,13 +12,16 @@
  * „Zug2", „zug 2.") — Audit Runde 8, R8-N5: „Zug 2" und „2. Zug" sind derselbe
  * Zug und werden immer als „2. Zug" geführt.
  */
-const NUMMERNZUG = /^(?:zug\s*\.?\s*(\d+)|(\d+)\s*\.?\s*zug)\.?$/i;
+const NUMMERNZUG = /^(?:zug\s*\.?\s*(\d+)|(\d+)\s*\.?\s*zug|z\s*\.?\s*(\d{1,2})|(\d{1,2}))\.?$/i;
+
+/** Die Nummer aus einem Treffer von {@link NUMMERNZUG}. */
+const nummer = (m: RegExpExecArray) => m[1] ?? m[2] ?? m[3] ?? m[4];
 
 /** Vergleichsschlüssel: klein, ohne Leerzeichen und Punkte; „Zug 2" = „2. Zug". */
 export function zugSchluessel(name: string): string {
   const t = name.trim().replace(/\s+/g, " ");
   const m = NUMMERNZUG.exec(t);
-  const kanon = m ? `${m[1] ?? m[2]}. Zug` : t;
+  const kanon = m ? `${nummer(m)}. Zug` : t;
   return kanon.toLocaleLowerCase("de-DE").replace(/[\s.]+/g, "");
 }
 
@@ -26,7 +29,7 @@ export function zugSchluessel(name: string): string {
 function geglaettet(name: string): string {
   const t = name.trim().replace(/\s+/g, " ");
   const m = NUMMERNZUG.exec(t);
-  if (m) return `${m[1] ?? m[2]}. Zug`;
+  if (m) return `${nummer(m)}. Zug`;
   return t.replace(/^(\d+)\.\s*(?=\S)/, "$1. ");
 }
 

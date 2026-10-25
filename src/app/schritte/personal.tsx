@@ -54,10 +54,10 @@ import {
   MWD_LEGENDE,
   STAERKE_LEGENDE,
   Stepper,
+  ZahlFeld,
   VokabListe,
   type FreitextVorschlag,
   staerkeVorlesen,
-  zahl,
   type SchrittProps,
 } from "./bausteine";
 
@@ -1599,13 +1599,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             </p>
             <div className="zeile">
               <Feld titel="Anzahl" schmal>
-                <input
-                  type="number"
-                  min={1}
-                  max={99}
-                  value={beispielAnzahl}
-                  onChange={(e) => setBeispielAnzahl(zahl(e.target.value))}
-                />
+                <ZahlFeld wert={beispielAnzahl} setzen={setBeispielAnzahl} min={1} max={99} einheit="Personen" />
               </Feld>
               <button type="button" onClick={beispielnamenUebernehmen}>
                 Beispielpersonen einfügen

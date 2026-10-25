@@ -37,6 +37,7 @@ import {
   bogenLaden,
   browserKompressor,
   bytesAlsDatei,
+  dateinameTeil,
   einheitAnzeigename,
   einheitOrt,
   neuerBogen,
@@ -61,10 +62,11 @@ import { entfernteImImportKlaeren } from "./entfernte-meldungen";
 import { eigenesZurueckVerbrauchen, rueckfrageEintragErsetzbar } from "./modal-overlay";
 import { FensterKonflikt, nachAbgleichFortsetzen, useFensterAbgleich } from "./fenster-abgleich";
 import { entwirreScanText } from "./tastaturbelegung";
-import { ortSperren } from "./tipp-schutz";
+import { ortSperren, SEITENWECHSEL_SPERRE_MS } from "./tipp-schutz";
 import { vorlageAktualisieren, vorlageAnlegen, vorlageAusDatei, vorlagenLaden, vorlagenPapierkorb, vorlageZuruecksetzen, type Vorlage } from "./vorlagen";
 import { Musterung, VorlagenListe } from "./vorlagen-ui";
 import { musterungVorlageAusStand } from "./musterung-stand";
+import { rueckwegeVergessen } from "./rueckweg-sitzung";
 import { absenderkarteGefuellt, absenderkarteLaden, type Absenderkarte } from "./absenderkarte";
 import { AbsenderkarteFeld } from "./absenderkarte-ui";
 import {
@@ -127,7 +129,8 @@ import { DaumenQuittung } from "./daumen-quittung";
 import {
   entwurfAusAnderemFenster,
   entwurfLaden,
-  beschaedigterEntwurf,
+  zettelPruefen,
+  beschaedigterEntwurfAnzeige,
   beschaedigtenEntwurfVerwerfen,
   entwurfSpeichern,
   entwurfVerwerfen,
@@ -849,7 +852,7 @@ function AppInhalt() {
   // Ein gespeicherter Bogen, den die App nicht lesen kann, liegt beiseite und
   // wird auf der Startseite genannt, statt zu verschwinden oder die Ansicht
   // weiß zu machen (Audit Runde 5, R5-E1).
-  const [beschaedigt, setBeschaedigt] = useState(() => beschaedigterEntwurf());
+  const [beschaedigt, setBeschaedigt] = useState(() => beschaedigterEntwurfAnzeige());
   // Zeigt den Startbildschirm, ohne den aktuellen Bogen zu verwerfen –
   // er lässt sich von dort per „Aktuellen Bogen fortsetzen“ wieder öffnen.
   // Eine angefangene Erfassung für eine Sammlung (Meldekopf) öffnet nach dem
@@ -959,10 +962,11 @@ function AppInhalt() {
   };
   const [scanFortschritt, setScanFortschritt] = useState("");
   // Nacherfassung vom Papier: Uhrzeit vom Meldeblock, leer = Zeit der Übernahme (R2-A5).
-  const [nachEintreffzeit, setNachEintreffzeit] = useState("");
+  // Die drei Zettelangaben liegen mit im Entwurf und überleben das Neuladen (R9-S1).
+  const [nachEintreffzeit, setNachEintreffzeit] = useState(ENTWURF?.fremd?.zettel?.zeit ?? "");
   // „Nr. laut Zettel“ und Zug der von Hand erfassten Einheit (R5-A4).
-  const [nachNummer, setNachNummer] = useState("");
-  const [nachZug, setNachZug] = useState("");
+  const [nachNummer, setNachNummer] = useState(ENTWURF?.fremd?.zettel?.nr ?? "");
+  const [nachZug, setNachZug] = useState(ENTWURF?.fremd?.zettel?.zug ?? "");
   // Zuletzt auf „Ja — dieselbe Einheit" zusammengelegt: für die Quittung mit
   // beiden Namen und „Rückgängig — als eigene Einheit" (Audit Runde 4, R4-E1).
   const [zusammenlegung, setZusammenlegung] = useState<{
@@ -1041,7 +1045,10 @@ function AppInhalt() {
     // erstellen" das „◐" des Assistenten (das Darstellungsmenü ging auf).
     // Die Stelle des Tipps eben nimmt 1,5 s nichts an (Audit Runde 4, R4-S2,
     // R4-S3) — wie nach „Abrücken".
-    ortSperren();
+    // Wechselt nur der Schritt, bleibt „Weiter →" an derselben Stelle: 1,5 s (R4-S2). Öffnet sich dagegen
+    // die Sammlung, die Startseite oder ein anderes Fenster, liegen unter dem Finger andere Knöpfe, und
+    // wer die Knöpfe liest, tippt nach einer halben Sekunde: dort nur 600 ms (R9-H5).
+    ortSperren(vorher.schritt === jetzt.schritt ? SEITENWECHSEL_SPERRE_MS : undefined);
     if (verlaufZielRef.current && ansichtGleich(verlaufZielRef.current, jetzt)) {
       verlaufZielRef.current = null; // Rücksprung angekommen — kein neuer Eintrag
       return;
@@ -1153,7 +1160,12 @@ function AppInhalt() {
         {
           vorlageId: vorlageInBearbeitung ?? undefined,
           fremd: fremdeErfassung
-            ? { einsatzId: sammelZielId ?? undefined, beginn: erfassungBeginn ?? undefined, ...(zeigeStart ? { startseite: true as const } : {}) }
+            ? {
+                einsatzId: sammelZielId ?? undefined,
+                beginn: erfassungBeginn ?? undefined,
+                ...(zeigeStart ? { startseite: true as const } : {}),
+                zettel: zettelPruefen({ zeit: nachEintreffzeit, nr: nachNummer, zug: nachZug }),
+              }
             : undefined,
           schritt,
           uebergabe: uebergabe ?? undefined,
@@ -1167,10 +1179,11 @@ function AppInhalt() {
       bogenGespeichert.current = { bogen: null, um: Date.now() };
       entwurfVerwerfen();
       personalRueckwegVergessen(); // R7-O5: kein „Rückgängig" mit Namen im Tab, wenn der Bogen weg ist
+      rueckwegeVergessen(); // dito für Fahrzeuge und Ebenen (R9-D3)
       setGespeichertUm(null);
       setSpeicherFehler(false);
     }
-  }, [bogen, vorlageInBearbeitung, fremdeErfassung, sammelZielId, erfassungBeginn, zeigeStart, schritt, uebergabe, fenster.runde]);
+  }, [bogen, vorlageInBearbeitung, fremdeErfassung, sammelZielId, erfassungBeginn, zeigeStart, schritt, uebergabe, fenster.runde, nachEintreffzeit, nachNummer, nachZug]);
 
   // Nicht Gespeichertes geht nicht ohne Rückfrage verloren: Schließen oder
   // Neuladen fragt nach, solange die Zeile „Nicht gespeichert" steht. Viele
@@ -1391,7 +1404,9 @@ function AppInhalt() {
     const geaendertUm = bogenGespeichert.current.bogen === b ? bogenGespeichert.current.um : undefined;
     const ok = ersetztenEntwurfMerken(
       b,
-      fremdeErfassung ? { einsatzId: sammelZielId ?? undefined, beginn: erfassungBeginn ?? undefined } : undefined,
+      fremdeErfassung
+        ? { einsatzId: sammelZielId ?? undefined, beginn: erfassungBeginn ?? undefined, zettel: zettelPruefen({ zeit: nachEintreffzeit, nr: nachNummer, zug: nachZug }) }
+        : undefined,
       { ...opt, geaendertUm },
     );
     if (ok) setErsetzterEntwurf(ersetztenEntwurfLaden());
@@ -1694,6 +1709,9 @@ function AppInhalt() {
     const ziel = zurueck.fremd?.einsatzId;
     setFremdeErfassung(!!zurueck.fremd);
     setErfassungBeginn(zurueck.fremd?.beginn ?? null);
+    setNachEintreffzeit(zurueck.fremd?.zettel?.zeit ?? "");
+    setNachNummer(zurueck.fremd?.zettel?.nr ?? "");
+    setNachZug(zurueck.fremd?.zettel?.zug ?? "");
     setSammelZiel(ziel && einsaetzeLaden().some((x) => x.id === ziel) ? ziel : null);
     setzeEmpfang(null);
     setSchritt(UEBERSICHT);
@@ -2158,6 +2176,7 @@ function AppInhalt() {
         { wert: "bisher", label: `Die bisherige (Stärke ${staerkeKurz(p.bisher.bogen)})${p.neu.rueckkehr ? " — Einheit bleibt abgerückt" : ""}` },
       ],
       abbruch: "Bisherige behalten",
+      fokus: "abbruch", // Enter lässt die Meldung unverändert (R9-D4)
     });
     if (wahl === "neu") {
       await vorrangSetzen(zielId, p.neu.id);
@@ -2859,6 +2878,7 @@ function AppInhalt() {
           ),
           ok: "Ja, so übernehmen",
           abbruch: "Zahlen korrigieren",
+          fokus: "abbruch", // Enter ersetzt sonst die Zahlen (R9-D4)
         });
         if (!ja) {
           setSchritt(2);
@@ -3080,7 +3100,7 @@ function AppInhalt() {
   }
 
   function einsatzDateiname(s: Einsatzsammlung): string {
-    return (s.name || "einsatz").replace(/[^\wäöüÄÖÜß-]+/g, "_");
+    return dateinameTeil(s.name || "einsatz");
   }
 
   /**
@@ -4078,20 +4098,22 @@ function AppInhalt() {
         {beschaedigt && (
           <section className="entwurf-karte verdraengt beschaedigt" role="alert">
             <span className="entwurf-text">
-              <strong>Ein Bogen ließ sich nicht öffnen</strong>
+              <strong>{beschaedigt.ungesichert ? "Ein Bogen ließ sich nicht öffnen und nicht beiseitelegen" : "Ein Bogen ließ sich nicht öffnen"}</strong>
               {/* R8-H4, R8-S2: zwei Sätze und der Weg; die Einzelheiten hinter „Mehr dazu“. */}
               <span className="hinweis warnung-text">
-                Nicht gelöscht, nur beiseitegelegt. „Als Datei sichern“ und an den geben, der die App betreut — oder unten
-                gleich einen neuen Bogen beginnen.
+                {beschaedigt.ungesichert
+                  ? "Speicher voll – beschädigte Daten nicht gesichert. Der Text liegt unverändert auf dem Gerät. „Als Datei sichern“, dann Platz schaffen (Papierkorb leeren) und neu laden; neue Bögen werden bis dahin nicht gespeichert."
+                  : "Nicht gelöscht, nur beiseitegelegt. „Als Datei sichern“ und an den geben, der die App betreut — oder unten gleich einen neuen Bogen beginnen."}
               </span>
               <details className="beschaedigt-mehr">
                 <summary>Mehr dazu</summary>
                 <span className="hinweis">
                   Ursache: {beschaedigt.ursache}. „Aus Datei laden…“ öffnet die Datei nur, wenn diese Ursache nicht mehr zutrifft; fehlt
                   eine Pflichtangabe, nennt die App sie beim Einlesen. Nachtragen lässt sie sich in der App nicht — dann braucht, wer die
-                  App betreut, die Datei. Die App löscht den Bogen am{" "}
-                  {datumZweistellig(beschaedigt.am + DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000)} von selbst ({DATENSCHUTZFRIST_TAGE} Tage nach
-                  dem Beiseitelegen).
+                  App betreut, die Datei.{" "}
+                  {beschaedigt.ungesichert
+                    ? "Die Frist von 90 Tagen läuft erst nach dem Beiseitelegen; bis dahin bleibt der Text unverändert liegen."
+                    : `Die App löscht den Bogen am ${datumZweistellig(beschaedigt.am + DATENSCHUTZFRIST_TAGE * 24 * 60 * 60 * 1000)} von selbst (${DATENSCHUTZFRIST_TAGE} Tage nach dem Beiseitelegen).`}
                 </span>
               </details>
             </span>
@@ -4117,7 +4139,7 @@ function AppInhalt() {
                   });
                   if (!ja) return;
                   beschaedigtenEntwurfVerwerfen();
-                  setBeschaedigt(null);
+                  setBeschaedigt(beschaedigterEntwurfAnzeige());
                 }}
               >
                 Entfernen…

@@ -120,11 +120,64 @@ export function tastaturWaechterStarten(
   vv?.addEventListener("resize", pruefen);
   dokument.addEventListener("focusin", spaeter);
   dokument.addEventListener("focusout", spaeter);
+  const enterEnde = enterWaechterStarten(dokument);
   return () => {
+    enterEnde();
     fenster.removeEventListener("resize", pruefen);
     vv?.removeEventListener("resize", pruefen);
     dokument.removeEventListener("focusin", spaeter);
     dokument.removeEventListener("focusout", spaeter);
     dokument.documentElement.classList.remove(TASTATUR_KLASSE);
+  };
+}
+
+
+/**
+ * „Weiter" der Bildschirmtastatur (Audit Runde 9, R9-G6): In den Schritten des Assistenten springt die
+ * Eingabetaste in einem Feld zum nächsten Feld, im letzten schließt sie die Tastatur — dann ist die
+ * Fußleiste mit „Weiter" wieder im Bild (sie weicht, solange die Tastatur offen ist, R4-G3). Die
+ * Tastaturtaste trägt dazu `enterkeyhint` „next" bzw. „done". Felder, die Enter selbst verwenden
+ * (Vorschlagslisten, Schnelleingabe-Tabelle), rufen `preventDefault()` auf und bleiben unberührt;
+ * Textbereiche und Knöpfe auch.
+ */
+const SCHRITT_FELD = ".schritt-inhalt";
+const FOLGEFELD = 'input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="button"]):not([type="submit"]), select, textarea';
+
+function sichtbarBedienbar(el: HTMLElement): boolean {
+  const f = el as HTMLInputElement;
+  if (f.disabled || f.readOnly) return false;
+  return el.getClientRects().length > 0 && el.getAttribute("aria-hidden") !== "true";
+}
+
+/** Das Feld nach `el` im Schritt, das Eingabe annimmt; `null` für das letzte. */
+export function naechstesFeld(el: HTMLElement): HTMLElement | null {
+  const wurzel = el.closest(SCHRITT_FELD);
+  if (!wurzel) return null;
+  const alle = Array.from(wurzel.querySelectorAll<HTMLElement>(FOLGEFELD)).filter((x) => x === el || sichtbarBedienbar(x));
+  const i = alle.indexOf(el);
+  return i >= 0 ? (alle[i + 1] ?? null) : null;
+}
+
+function enterWaechterStarten(dokument: Document): () => void {
+  const hinweis = (e: FocusEvent) => {
+    const el = e.target as HTMLElement | null;
+    if (!el || el.tagName !== "INPUT" || !istTexteingabe(el) || !el.closest(SCHRITT_FELD)) return;
+    el.setAttribute("enterkeyhint", naechstesFeld(el) ? "next" : "done");
+  };
+  const taste = (e: KeyboardEvent) => {
+    if (e.key !== "Enter" || e.defaultPrevented || e.isComposing || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+    const el = e.target as HTMLElement | null;
+    if (!el || el.tagName !== "INPUT" || !istTexteingabe(el) || !el.closest(SCHRITT_FELD)) return;
+    if (el.closest("dialog, form") || el.getAttribute("role") === "combobox") return;
+    e.preventDefault();
+    const weiter = naechstesFeld(el);
+    if (weiter) weiter.focus();
+    else el.blur();
+  };
+  dokument.addEventListener("focusin", hinweis);
+  dokument.addEventListener("keydown", taste);
+  return () => {
+    dokument.removeEventListener("focusin", hinweis);
+    dokument.removeEventListener("keydown", taste);
   };
 }

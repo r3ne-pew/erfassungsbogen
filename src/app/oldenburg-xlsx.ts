@@ -64,6 +64,7 @@ import {
   einheitAnzeigename,
   einheitOrt,
   kontaktText,
+  nurSollstaerke,
   orgLabel,
   vokabText,
   vokabularFuer,
@@ -86,7 +87,7 @@ import {
 } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit } from "./fassung-vorrang";
 import { zaehltInLage } from "./auswertung";
-import { datumVonMs, lueckenAlle, pruefpunkteEintrag } from "./einheiten-tabelle";
+import { datumVonMs, lueckenAlle, meldungsNummern, pruefpunkteEintrag } from "./einheiten-tabelle";
 import { eintreffzeit, zeitLang } from "./eintrag-zeiten";
 import { nachtragGrundText, ortHinweisText, ortHinweise, type NachtragGrund } from "./export-stand";
 
@@ -344,6 +345,8 @@ interface Kontext {
   nachtrag?: string;
   /** Der Ort, den der Bogen nennt, wenn er nicht zur Lage zu passen scheint (R5-K5). */
   fremderOrt?: string;
+  /** Laufende Nummer der Meldung wie auf Karte und Lageblatt; steht vorn in „Bemerkung" (R9-A2). */
+  nr?: number;
 }
 
 function zeileFuer(b: Erfassungsbogen, k: Kontext): Zeile {
@@ -403,7 +406,11 @@ function zeileFuer(b: Erfassungsbogen, k: Kontext): Zeile {
     // Status und Übung zuerst: eine abgerückte oder Übungsmeldung darf in der
     // Liste der Führungsstelle nicht wie eine zählende aussehen.
     bemerkung: [
+      // Die Nr. wie auf dem Lageblatt: Wer Blatt und Tabelle nebeneinanderlegt, findet die Zeile darüber (R9-A2).
+      k.nr != null ? `Nr. ${k.nr}` : "",
       k.status ?? "",
+      // Niemand hat gezählt: Die Zahlen sind die Sollstärke der Vorbelegung (R9-A2).
+      nurSollstaerke(b) ? "Sollstärke, nicht gemeldet" : "",
       k.nachtrag ? `Nachtrag: ${k.nachtrag}` : "",
       k.fremderOrt ? ortHinweisText(k.fremderOrt) : "",
       b.uebung === true ? "ÜBUNG" : "",
@@ -540,15 +547,18 @@ export function bogenOldenburgXlsx(b: Erfassungsbogen): Uint8Array<ArrayBuffer> 
 
 /**
  * Einsatz-Sammlung → XLSX-Bytes: je gemeldeter Einheit eine Zeile in ihrer
- * neuesten Revision, nach Anzeigename sortiert. Oben die Einheiten, die in die
+ * neuesten Revision, nach Nr. sortiert (R9-A2). Oben die Einheiten, die in die
  * Lage zählen — die SUBTOTAL-Summen ergeben damit dieselben Zahlen wie die App
  * und folgen trotzdem dem Filter, den die Führungsstelle setzt. Darunter, in
  * einem eigenen Block außerhalb der Summen, die abgerückten, aufgegangenen und
  * (in einer echten Lage) die Übungsmeldungen (R2-K2).
  */
 export function einsatzOldenburgXlsx(s: Einsatzsammlung): Uint8Array<ArrayBuffer> {
+  // Nach Nr. wie Lageblatt, Sammel-PDF und CSV (R9-A2); ohne Nummer nach Name.
+  const nummern = meldungsNummern(s.eintraege);
   const meldungen = geltendeJeEinheit(s.eintraege).sort(
     (a, b) =>
+      (nummern.get(a.einheitSchluessel) ?? Infinity) - (nummern.get(b.einheitSchluessel) ?? Infinity) ||
       einheitAnzeigename(a.bogen.einheit).localeCompare(einheitAnzeigename(b.bogen.einheit), "de") ||
       (a.teilEtikett ?? "").localeCompare(b.teilEtikett ?? "", "de"),
   );
@@ -556,7 +566,7 @@ export function einsatzOldenburgXlsx(s: Einsatzsammlung): Uint8Array<ArrayBuffer
   const zaehlt = (e: MeldeEintrag) => e.status === MeldeStatus.ANWESEND && zaehltInLage(s.art, e.bogen);
   const gruende = s.nachtragGruende;
   const orte = ortHinweise(s);
-  const zeile = (e: MeldeEintrag) => zeileFuer(e.bogen, kontextAus(s, e, zaehlt(e), gruende?.[e.einheitSchluessel], orte[e.einheitSchluessel]));
+  const zeile = (e: MeldeEintrag) => zeileFuer(e.bogen, { ...kontextAus(s, e, zaehlt(e), gruende?.[e.einheitSchluessel], orte[e.einheitSchluessel]), nr: nummern.get(e.einheitSchluessel) });
   const nichtGezaehlt = meldungen.filter((e) => !zaehlt(e));
   if (!gruende) return blattBauen(meldungen.filter(zaehlt).map(zeile), [{ kopf: blockKopfText(nichtGezaehlt.length), zeilen: nichtGezaehlt.map(zeile) }]);
   // Nachtrag (R5-K6, R5-W7): Die Summen in Zeile 1 gelten nur für die NEUEN

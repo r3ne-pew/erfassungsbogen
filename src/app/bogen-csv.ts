@@ -59,6 +59,7 @@ import {
   fahrzeugSitzplaetze,
   funkrufText,
   kontaktText,
+  nurSollstaerke,
   orgLabel,
   vokabText,
   vokabularFuer,
@@ -275,7 +276,8 @@ function einheitSatz(b: Erfassungsbogen, k: Kontext): Satz {
     "Zeitraum bis": datumText(b.einsatz.zeitraumBis),
     Einsatzbeginn: zeitpunktText(b.einsatz.einsatzbeginn),
     Einsatzende: zeitpunktText(b.einsatz.einsatzende),
-    Personalerfassung: ERFASSUNG_TEXT[b.personalErfassung],
+    // Niemand hat gezählt: Die Stärke ist die Sollstärke der Vorbelegung (R9-A2).
+    Personalerfassung: ERFASSUNG_TEXT[b.personalErfassung] + (nurSollstaerke(b) ? " — Sollstärke, nicht gemeldet" : ""),
     "Stärke F": st.fuehrer,
     "Stärke U": st.unterfuehrer,
     "Stärke M": st.mannschaft,

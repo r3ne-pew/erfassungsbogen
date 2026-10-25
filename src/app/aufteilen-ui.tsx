@@ -13,7 +13,7 @@ import { PersonalErfassung, staerke, type Erfassungsbogen } from "@bos/eeb-forma
 import { aufteilungFehler, teileBogen, type AufteilungsWahl, type TeilStaerke } from "@bos/meldekopf/aufteilen";
 import { MeldeStatus, type AufteilungOptionen, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { funktionsText, kennzeichenText, vokabText, vokabularFuer } from "./hilfen";
-import { Auswahl } from "./schritte/bausteine";
+import { Auswahl, useZahlEingabe, ZahlMeldung } from "./schritte/bausteine";
 
 /** Kurzfassung „0 / 1 / 8 / 9 · 2 Fzg" für die Vorschau beider Hälften. */
 function bilanz(b: Erfassungsbogen): string {
@@ -21,10 +21,16 @@ function bilanz(b: Erfassungsbogen): string {
   return `${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt} · ${b.fahrzeuge.length} Fzg`;
 }
 
-/** Zahl aus einem Eingabefeld; leer oder Unsinn zählt als 0. */
-function zahl(text: string): number {
-  const n = Number.parseInt(text, 10);
-  return Number.isFinite(n) ? n : 0;
+/** Zahl, die mitgeht: Komma gerundet, Minus abgelehnt, Obergrenze genannt (R9-E1). */
+function StaerkeFeld(props: { label: string; wert: number; hoechstens: number; setzen: (n: number) => void }) {
+  const { eingabe, meldung } = useZahlEingabe(props.wert, (n) => props.setzen(n ?? 0), { min: 0, max: props.hoechstens, einheit: "Personen" });
+  return (
+    <label className="feld">
+      {props.label} (von {props.hoechstens})
+      <input {...eingabe} />
+      <ZahlMeldung meldung={meldung} />
+    </label>
+  );
 }
 
 function AnkreuzZeile(props: { an: boolean; umschalten: () => void; name: string; sub?: string }) {
@@ -82,19 +88,7 @@ export function AufteilenPanel(props: {
   }
 
   function staerkeFeld(label: string, wert: number, hoechstens: number, setzen: (n: number) => void) {
-    return (
-      <label className="feld">
-        {label} (von {hoechstens})
-        <input
-          type="number"
-          inputMode="numeric"
-          min={0}
-          max={hoechstens}
-          value={String(wert)}
-          onChange={(e) => setzen(zahl(e.target.value))}
-        />
-      </label>
-    );
+    return <StaerkeFeld label={label} wert={wert} hoechstens={hoechstens} setzen={setzen} />;
   }
 
   return (

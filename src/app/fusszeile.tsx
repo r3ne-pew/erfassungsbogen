@@ -462,6 +462,8 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
     kurzDatei: string | null;
   } | null>(null);
   const [einspielVerstanden, setEinspielVerstanden] = useState(false);
+  // Zweiter Haken, wenn Beiseitegelegtes (nicht lesbare Daten) mit verschwindet (R9-D2).
+  const [beiseiteVerstanden, setBeiseiteVerstanden] = useState(false);
   // Wann zuletzt gesichert, ob eine Erinnerung fällig ist und ob der Browser
   // den Speicher dauerhaft vorhält (Audit Runde 2, R2-O6). Der Speicherstatus
   // wird beim Öffnen der Datensicherung erhoben (asynchron).
@@ -633,6 +635,7 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
       kurzDatei: dateiBestand.geraeteschluessel ? await kurzformAusPrivatHex(dateiBestand.geraeteschluessel) : null,
     });
     setEinspielVerstanden(false);
+    setBeiseiteVerstanden(false);
     einspielen.current?.showModal();
   }
 
@@ -981,11 +984,22 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
                   Ja, die Daten dieses Geräts durch die Sicherung ersetzen
                 </label>
               )}
+              {/* Beiseitegelegtes ist die letzte Spur unlesbarer Daten: eigener Haken (R9-D2). */}
+              {einspielStand.geraet.beiseite && (
+                <label className="inline">
+                  <input
+                    type="checkbox"
+                    checked={beiseiteVerstanden}
+                    onChange={(e) => setBeiseiteVerstanden(e.target.checked)}
+                  />
+                  Beiseitegelegtes geht verloren — ich habe es gesichert („Vorher Sicherung erstellen…“) oder brauche es nicht
+                </label>
+              )}
               <div className="aktionen">
                 <button
                   type="button"
                   className="gefahr"
-                  disabled={betroffen && !einspielVerstanden}
+                  disabled={(betroffen && !einspielVerstanden) || (!!einspielStand.geraet.beiseite && !beiseiteVerstanden)}
                   onClick={() => void einspielenJetzt()}
                 >
                   Einspielen und ersetzen
@@ -1039,6 +1053,13 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
                 )}
                 {loeschUmfang.beiseitegelegt && (
                   <li>ein beiseitegelegter, unlesbarer Bogen (Startseite, „Als Datei sichern“ vorher möglich)</li>
+                )}
+                {loeschUmfang.beiseiteDaten && (
+                  <li>
+                    <strong>beiseitegelegte, nicht lesbare Daten</strong> (Sammlungen oder Vorlagen): {loeschUmfang.beiseiteDaten.eintraege}{" "}
+                    {loeschUmfang.beiseiteDaten.eintraege === 1 ? "Eintrag" : "Einträge"}, {loeschUmfang.beiseiteDaten.zeichen.toLocaleString("de-DE")} Zeichen
+                    — nur „Vorher Sicherung erstellen…“ hebt sie auf
+                  </li>
                 )}
                 <li>{loeschUmfang.absender ? "die hinterlegte Absenderkarte" : "keine Absenderkarte"}</li>
                 <li>
@@ -1282,6 +1303,14 @@ function BestandListe({ bestand, kurzform, geraet = false }: { bestand: BestandU
       {(bestand.beschaedigt ?? []).map((t) => (
         <li key={t}><strong>beschädigt:</strong> {t}</li>
       ))}
+      {/* Beiseitegelegtes geht beim Einspielen mit verloren, auch wenn die Karte „nichts gelöscht“ sagt (R9-D2). */}
+      {bestand.beiseite && bestand.beiseite.eintraege > 0 && (
+        <li>
+          <strong>beiseitegelegt:</strong> {bestand.beiseite.eintraege} {bestand.beiseite.eintraege === 1 ? "nicht lesbarer Eintrag" : "nicht lesbare Einträge"}{" "}
+          (Sammlungen oder Vorlagen, {bestand.beiseite.zeichen.toLocaleString("de-DE")} Zeichen){geraet ? " — ohne Sicherung weg" : ""}
+        </li>
+      )}
+      {bestand.beiseite?.entwurf && <li><strong>beiseitegelegt:</strong> ein beschädigter, nicht lesbarer Bogen (Entwurf){geraet ? " — ohne Sicherung weg" : ""}</li>}
       <li>
         {bestand.vorlagen} {bestand.vorlagen === 1 ? "Vorlage" : "Vorlagen"}
         {bestand.vorlagenPapierkorb > 0 ? `, dazu ${bestand.vorlagenPapierkorb} im Papierkorb` : ""}

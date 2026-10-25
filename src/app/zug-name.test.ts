@@ -34,4 +34,15 @@ describe("Zug-Schreibweise (R7-K4)", () => {
     expect(zugNormalisiert("Zugtrupp 2", [])).toBe("Zugtrupp 2");
     expect(vorhandeneZuege(["Zug 2", "2. Zug"])).toHaveLength(1);
   });
+
+  it("führt die nackte Ziffer und „Z2“ als „2. Zug“ (R9-E6)", () => {
+    for (const e of ["2", "2.", " 2 ", "Z2", "z 2", "Z.2"]) {
+      expect(zugNormalisiert(e, [])).toBe("2. Zug");
+      expect(zugSchluessel(e)).toBe(zugSchluessel("2. Zug"));
+    }
+    expect(vorhandeneZuege(["2", "2. Zug", "Zug 2"])).toHaveLength(1);
+    // Mehr als zwei Ziffern oder Text bleiben, wie sie sind.
+    expect(zugNormalisiert("123", [])).toBe("123");
+    expect(zugNormalisiert("Zug zwei", [])).toBe("Zug zwei");
+  });
 });

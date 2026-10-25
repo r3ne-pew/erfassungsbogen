@@ -14,6 +14,7 @@
  */
 
 import type { Absenderkarte } from "@bos/eeb-format/signatur";
+import { unlesbaresBeiseitelegen } from "./unlesbar";
 
 export type { Absenderkarte };
 
@@ -62,9 +63,14 @@ export function absenderkarteLaden(): Absenderkarte {
   const roh = speicher()?.getItem(KARTE_KEY);
   if (!roh) return {};
   try {
-    return normalisiereAbsenderkarte(JSON.parse(roh) as Absenderkarte);
+    const x: unknown = JSON.parse(roh);
+    if (x === null || typeof x !== "object" || Array.isArray(x)) throw new Error("keine Karte");
+    return normalisiereAbsenderkarte(x as Absenderkarte);
   } catch {
-    return {}; // beschädigter Eintrag → wie „keine Karte"
+    // Beschädigter Eintrag: Er gilt als „keine Karte“, geht aber nicht still verloren —
+    // beiseitegelegt wird er auf der Startseite genannt (R9-O3).
+    unlesbaresBeiseitelegen({ texte: [{ art: "absenderkarte", text: roh }] });
+    return {};
   }
 }
 
@@ -73,6 +79,7 @@ export function absenderkarteLaden(): Absenderkarte {
  * Eine vollständig leere Karte löscht den Eintrag.
  */
 export function absenderkarteSpeichern(karte: Absenderkarte): Absenderkarte {
+  absenderkarteLaden(); // ein beschädigter alter Eintrag wird vor dem Überschreiben beiseitegelegt (R9-O3)
   const k = normalisiereAbsenderkarte(karte);
   if (!absenderkarteGefuellt(k)) {
     absenderkarteLoeschen();

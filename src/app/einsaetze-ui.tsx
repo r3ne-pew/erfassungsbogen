@@ -499,6 +499,8 @@ export function EinsatzListe(props: {
       )}
       {einsaetze.map((s) => {
         const sum = aggregiere(s.eintraege, s.art);
+        // Reine Sollstärke steckt in der Gesamtzahl: die Kachel sagt, wie viel davon (R9-K1).
+        const soll = sollstaerkeAnteil(s.eintraege, s.art);
         return (
           <Kartenstapel className="karte" key={s.id} frisch={s.id === zurueckgeholt}>
             <div className="kopfzeile">
@@ -513,6 +515,7 @@ export function EinsatzListe(props: {
             </p>
             <p className="hinweis">
               {sum.einheiten} Einheit(en) anwesend · Stärke {sum.staerke.fuehrer} / {sum.staerke.unterfuehrer} / {sum.staerke.mannschaft} / {sum.staerke.gesamt}
+              {soll.einheiten > 0 && <> · davon {soll.personen} Sollstärke, nicht gemeldet</>}
             </p>
             {/* Zeitbezug der Zahlen und was seit der letzten Kenntnisnahme kam
                 (R3-K5, R3-K1). */}
@@ -781,8 +784,13 @@ function AufraeumWarnung({ sammlung: s }: { sammlung: Einsatzsammlung }) {
   );
 }
 
-/** Letzte entfernte Meldung je Sammlung, für „Rückgängig" nach dem Zurückkehren (nur Arbeitsspeicher). */
-const entferntGemerkt = new Map<string, Entfernt>();
+/**
+ * Entfernte Meldungen je Sammlung (jüngste zuletzt), für „Rückgängig" nach dem Zurückkehren (nur Arbeitsspeicher).
+ * Ein Stapel statt nur der letzten: Wer zwei falsche Meldungen nacheinander wegräumt, holt beide zurück (R9-E2).
+ */
+const entferntGemerkt = new Map<string, Entfernt[]>();
+/** So viele Entfernungen hintereinander lassen sich zurückholen. */
+const ENTFERNT_STAPEL_MAX = 20;
 
 /** Nonce der Aufnahme, zu der die Quittung zuletzt ins Bild gerollt wurde (je Seite, nicht je Ansicht). */
 let eingangGerollt = 0;
@@ -958,12 +966,15 @@ export function EinsatzDetail(props: {
   // Ansicht (nur Arbeitsspeicher, bis die Seite neu lädt): Bisher führte
   // danach nur „Einsatz importieren…" mit einer älteren Datei zurück (Audit
   // Runde 3, R3-D4).
-  const [zuletztEntfernt, setZuletztEntferntRoh] = useState<Entfernt | null>(() => entferntGemerkt.get(einsatz.id) ?? null);
-  const setZuletztEntfernt = (x: Entfernt | null) => {
-    if (x) entferntGemerkt.set(einsatz.id, x);
+  const [entferntStapel, setEntferntStapel] = useState<Entfernt[]>(() => entferntGemerkt.get(einsatz.id) ?? []);
+  const zuletztEntfernt: Entfernt | null = entferntStapel[entferntStapel.length - 1] ?? null;
+  const stapelSetzen = (neu: Entfernt[]) => {
+    if (neu.length > 0) entferntGemerkt.set(einsatz.id, neu);
     else entferntGemerkt.delete(einsatz.id);
-    setZuletztEntferntRoh(x);
+    setEntferntStapel(neu);
   };
+  /** `x`: oben auf den Stapel; `null`: Leiste schließen, der Rückweg ist damit aufgegeben. */
+  const setZuletztEntfernt = (x: Entfernt | null) => stapelSetzen(x ? [...entferntStapel, x].slice(-ENTFERNT_STAPEL_MAX) : []);
   // Zuletzt aufgeteilt — Quittung mit Rückweg (R2-D6).
   const [aufgeteilt, setAufgeteilt] = useState<Aufgeteilt | null>(null);
   // Zuletzt zusammengeführt — Quittung mit Rückweg (R4-D5).
@@ -1041,8 +1052,12 @@ export function EinsatzDetail(props: {
     });
     if (!ok) return;
     const name = einheitAnzeigename(zuletztEntfernt.eintraege[0]!.bogen.einheit);
-    zurueckQuittieren(zuletztEntfernt.art === "fassung" ? `Fassung von „${name}" zurückgeholt.` : `Meldung „${name}" zurückgeholt.`);
-    setZuletztEntfernt(null);
+    const weitere = entferntStapel.length - 1;
+    zurueckQuittieren(
+      (zuletztEntfernt.art === "fassung" ? `Fassung von „${name}" zurückgeholt.` : `Meldung „${name}" zurückgeholt.`) +
+        (weitere > 0 ? ` Noch ${weitere} weitere zum Zurückholen.` : ""),
+    );
+    stapelSetzen(entferntStapel.slice(0, -1));
     onGeaendert();
   }
 
@@ -1693,7 +1708,12 @@ export function EinsatzDetail(props: {
           die Zahl, damit klar ist, was sich dahinter verbirgt. */}
       {zugGruppen.length > 1 && (
         <details className="karte zug-summen" open={zugGruppen.length < 3 && !kompakt}>
-          <summary><h2>Zwischensummen nach Zug ({zugGruppen.length} Züge)</h2></summary>
+          <summary>
+            <h2>
+              Zwischensummen nach Zug ({zugGruppen.filter((g) => g.zugEtikett).length === 1 ? "1 Zug" : `${zugGruppen.filter((g) => g.zugEtikett).length} Züge`}
+              {zugGruppen.some((g) => !g.zugEtikett) ? " + Einheiten ohne Zug" : ""})
+            </h2>
+          </summary>
           {zugGruppen.map((g) => (
             <div className="zug-summe" key={g.zugEtikett ? `zug:${g.zugEtikett}` : "zug:ohne"}>
               <p>
@@ -1724,6 +1744,22 @@ export function EinsatzDetail(props: {
       )}
 
 
+      {/* Eine Geste von den Summen zur Liste der Einheiten (R9-K3). */}
+      <p className="hinweis ausgabe-sprung">
+        <button
+          type="button"
+          className="link"
+          onClick={() => {
+            try {
+              listeKopf.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+            } catch {
+              /* Testumgebung ohne Layout */
+            }
+          }}
+        >
+          Zur Einheitenliste ↓
+        </button>
+      </p>
       {(onWeitergeben || onLageblatt) && (
         <p className="hinweis ausgabe-sprung">
           <button
@@ -2129,7 +2165,7 @@ export function EinsatzDetail(props: {
           zwei Zeilen und kürzt am Ende (R3-G2). */}
       {zuletztEntfernt && (
         <DaumenQuittung
-          key={`entfernt:${zuletztEntfernt.eintraege.map((e) => e.id).join(",")}`}
+          key={`entfernt:${zuletztEntfernt.eintraege.map((e) => e.id).join(",")}:${entferntStapel.length}`}
           onRueckgaengig={() => void entferntesZurueckholen()}
           onSchliessen={() => setZuletztEntfernt(null)}
         >
@@ -2145,6 +2181,7 @@ export function EinsatzDetail(props: {
               </strong>{" "}
               Meldung {zuletztEntfernt.nummer != null ? `Nr. ${zuletztEntfernt.nummer} ` : ""}„{einheitAnzeigename(zuletztEntfernt.eintraege[0]!.bogen.einheit)}"
               {zuletztEntfernt.verschoben ? `. ${zuletztEntfernt.verschoben}.` : ""}
+              {entferntStapel.length > 1 ? ` · davor noch ${entferntStapel.length - 1} entfernt` : ""}
             </>
           )}
         </DaumenQuittung>
@@ -3066,7 +3103,7 @@ function EinheitKarte(props: {
    */
   async function staerkeAendern() {
     const alt = staerke(kopf.bogen);
-    const feld = (name: string, label: string, wert: string) => ({ name, label, vorgabe: wert });
+    const feld = (name: string, label: string, wert: string) => ({ name, label, vorgabe: wert, zahl: true });
     const zahl = (t: string | undefined) => (/^\s*\d{1,3}\s*$/.test(t ?? "") ? Number(t) : null);
     let eingabe = { fuehrer: String(alt.fuehrer), unterfuehrer: String(alt.unterfuehrer), mannschaft: String(alt.mannschaft) };
     let fehler: string | null = null;
@@ -3135,6 +3172,7 @@ function EinheitKarte(props: {
         ),
         ok: "Ja, so übernehmen",
         abbruch: "Zahlen korrigieren",
+        fokus: "abbruch", // Enter ersetzt sonst die Zahlen (R9-D4)
       });
       if (ja) break;
       fehler = null;
@@ -3239,19 +3277,20 @@ function EinheitKarte(props: {
       titel: "Meldung entfernen?",
       text: (
         <>
-          <p>
-            „{einheitAnzeigename(kopf.bogen.einheit)}" (Stand {standText(kopf.bogen)}) wird aus diesem Einsatz entfernt — samt
-            Historie.
-          </p>
+          {/* Die Folge für die Nummern steht zuerst: Bei großer Schrift sah man neben dem roten Knopf nur
+              ein Drittel des Textes, und dort fehlte genau dieser Satz (R9-D5). */}
           {verschoben && (
             <p>
-              <strong>Nummern ändern sich:</strong> {verschoben}. Am Funk genannte Nummern und ein schon gedrucktes Lageblatt
-              passen dann nicht mehr; „Rückgängig" stellt die alten Nummern wieder her.
+              <strong>Nummern ändern sich:</strong> {verschoben}. Am Funk genannte Nummern und ein gedrucktes Lageblatt
+              passen dann nicht mehr.
             </p>
           )}
           <p>
-            „Rückgängig" gibt es nur, solange die App geöffnet bleibt. Nach dem Neuladen oder Beenden der App ist die
-            Meldung endgültig weg.{" "}
+            „{einheitAnzeigename(kopf.bogen.einheit)}" (Stand {standText(kopf.bogen)}) wird samt Historie aus diesem Einsatz entfernt.
+          </p>
+          <p>
+            „Rückgängig" gibt es nur, solange die App geöffnet bleibt{verschoben ? " und stellt die alten Nummern wieder her" : ""}; danach ist die
+            Meldung endgültig weg. Mehrere nacheinander entfernte holst du mit mehrmals „Rückgängig" zurück, die zuletzt entfernte zuerst.{" "}
             {kopie != null
               ? `Eine Kopie steht im Export oder der Weitergabe vom ${exportZeitKurz(kopie)}.`
               : "Von dieser Meldung gibt es in dieser Sammlung noch keinen Export und keine Weitergabe."}

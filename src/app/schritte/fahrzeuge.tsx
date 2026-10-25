@@ -21,6 +21,7 @@ import { frageJaNein } from "../dialoge";
 import { einheitOrt } from "@bos/meldekopf/darstellung";
 import { mitAbgang, useEinzugsstempel } from "../eintrag-bewegung";
 import { DaumenQuittung } from "../daumen-quittung";
+import { FAHRZEUG_WEG_SCHLUESSEL, rueckwegHolen, rueckwegMerken } from "../rueckweg-sitzung";
 import {
   Auswahl,
   Feld,
@@ -28,21 +29,9 @@ import {
   KennzahlenFeld,
   KENNUNG_EINGABE,
   VokabAuswahl,
-  zahlBegrenzung,
+  useZahlEingabe,
   type SchrittProps,
 } from "./bausteine";
-
-/**
- * Eingabe der Sitzplatzzahl: leer heißt „Richtwert des Typs gilt", nicht null.
- * Begrenzt auf 0..99 — mehr Plätze hat kein Fahrzeug, und eine verrutschte
- * Ziffernfolge soll die Transportbilanz nicht stillschweigend aufgehen lassen.
- */
-function sitzplatzEingabe(eingabe: string): number | undefined {
-  const t = eingabe.trim();
-  if (t === "") return undefined;
-  const n = parseInt(t, 10);
-  return Number.isFinite(n) ? Math.min(99, Math.max(0, n)) : undefined;
-}
 
 function FahrzeugKarte(props: {
   fahrzeug: Fahrzeug;
@@ -63,7 +52,11 @@ function FahrzeugKarte(props: {
   const bezeichnung = fahrzeugBezeichnung(f, index, org);
   const richtwert = sitzplaetzeRichtwert(f, vokabularFuer(org, "fahrzeug"));
   const karte = useRef<HTMLDivElement>(null);
-  const [grenzeText, setGrenzeText] = useState("");
+  // Sitzplätze: Komma gerundet, Minus abgelehnt, Obergrenze genannt — nie still eine andere Zahl (R9-E1).
+  const sitz = useZahlEingabe(f.sitzplaetze, (n) => aendern({ ...f, sitzplaetze: n }), { min: 0, max: 99, leer: true, einheit: "Plätze" });
+  const grenzeText = sitz.meldung;
+  // Zuletzt ausgeschalteter Funkrufname dieser Karte (R9-D1).
+  const funkrufMerker = useRef<Fahrzeug["funkrufname"]>(undefined);
   useEinzugsstempel(karte, frisch);
   const set = (patch: Partial<Fahrzeug>) => aendern({ ...f, ...patch });
   return (
@@ -101,19 +94,11 @@ function FahrzeugKarte(props: {
               Kabine (FüKomKw 1+2 oder 1+6), deshalb ist der Richtwert nur ein
               Vorschlag. */}
           <input
+            {...sitz.eingabe}
             id={`feld-sitzplaetze-${index}`}
-            type="number"
-            min={0}
-            max={99}
-            inputMode="numeric"
-            value={f.sitzplaetze ?? ""}
             placeholder={richtwert != null ? `${richtwert} (Richtwert)` : "unbekannt"}
             title="Sitzplätze inkl. Fahrer/in. Leer lassen = Richtwert des Fahrzeugtyps."
             aria-describedby={grenzeText ? `grenze-sitzplaetze-${index}` : undefined}
-            onChange={(e) => {
-              setGrenzeText(zahlBegrenzung(e.target.value, { min: 0, max: 99 }));
-              set({ sitzplaetze: sitzplatzEingabe(e.target.value) });
-            }}
           />
           {/* Die Begrenzung auf 0 bis 99 wird genannt, statt still einen anderen Wert zu setzen (R7-E6). */}
           {grenzeText && (
@@ -143,7 +128,7 @@ function FahrzeugKarte(props: {
                verschwindet ohne Dialog. */
             if (!fahrzeugLeer(f) && !(await frageJaNein({
               titel: `${bezeichnung} entfernen?`,
-              text: "Die erfassten Angaben dieses Fahrzeugs werden entfernt — Typ, Kennzeichen, Funkrufname, Sitzplätze und Änderungen. „Rückgängig“ in der Leiste unten holt es zurück.",
+              text: "Die erfassten Angaben dieses Fahrzeugs werden entfernt — Typ, Kennzeichen, Funkrufname, Sitzplätze und Änderungen. „Rückgängig“ in der Leiste unten holt es zurück — auch nach „Weiter“ oder Neuladen, 15 Minuten lang.",
               ok: "Fahrzeug entfernen",
               gefahr: true,
             }))) {
@@ -160,17 +145,22 @@ function FahrzeugKarte(props: {
           <input
             type="checkbox"
             checked={f.funkrufname != null}
-            onChange={(e) =>
+            onChange={(e) => {
+              // Ausschalten blendet aus, die Angaben bleiben in der Karte erhalten: Beim erneuten Anhaken
+              // stehen Kennwort, Ort und Kennzahlen (71/25) wieder da — ein Doppeltipp verlor sie (R9-D1).
+              if (!e.target.checked) {
+                funkrufMerker.current = f.funkrufname;
+                set({ funkrufname: undefined });
+                return;
+              }
               set({
-                funkrufname: e.target.checked
-                  ? {
-                      kennwort: org === OrganisationsTyp.THW ? { code: 1 } : {},
-                      eigenerStandort: true,
-                      teile: ovKennzahl != null ? [ovKennzahl] : [],
-                    }
-                  : undefined,
-              })
-            }
+                funkrufname: funkrufMerker.current ?? {
+                  kennwort: org === OrganisationsTyp.THW ? { code: 1 } : {},
+                  eigenerStandort: true,
+                  teile: ovKennzahl != null ? [ovKennzahl] : [],
+                },
+              });
+            }}
           />
           Funkrufname
         </label>
@@ -259,12 +249,18 @@ export function SchrittFahrzeuge({ bogen, aendern }: SchrittProps) {
   //
   // Derselbe Rückweg trägt auch „Vorbelegung entfernen" (R3-N2): Dort gehen
   // mehrere Fahrzeuge auf einmal, jedes kommt an seine alte Stelle zurück.
-  const [rueckweg, setRueckweg] = useState<{
-    eintraege: { fahrzeug: Fahrzeug; index: number }[];
-    text: string;
-    name: string;
-    nonce: number;
-  } | null>(null);
+  //
+  // Der Rückweg liegt zusätzlich im Sitzungsspeicher dieses Tabs und überlebt Schrittwechsel und
+  // Neuladen (15 Minuten, solange die Fahrzeugliste so bleibt), wie bei Personen (R9-D3).
+  type Rueckweg = { eintraege: { fahrzeug: Fahrzeug; index: number }[]; text: string; name: string; nonce: number };
+  const [rueckweg, setRueckwegRoh] = useState<Rueckweg | null>(() =>
+    rueckwegHolen<Rueckweg>(FAHRZEUG_WEG_SCHLUESSEL, JSON.stringify(bogen.fahrzeuge)),
+  );
+  /** `danach`: die Fahrzeugliste nach dem Entfernen — nur dann gilt der Rückweg nach dem Neuladen noch. */
+  const setRueckweg = (r: Rueckweg | null, danach: Fahrzeug[] = bogen.fahrzeuge) => {
+    setRueckwegRoh(r);
+    rueckwegMerken(FAHRZEUG_WEG_SCHLUESSEL, r, JSON.stringify(danach));
+  };
   const [zurueckgeholt, setZurueckgeholt] = useState<{ text: string; nonce: number } | null>(null);
   const rueckgaengig = () => {
     if (!rueckweg) return;
@@ -293,7 +289,7 @@ export function SchrittFahrzeuge({ bogen, aendern }: SchrittProps) {
     const [erstes] = weg;
     const name = weg.length === 1 && erstes ? fahrzeugBezeichnung(erstes.fahrzeug, erstes.index, bogen.einheit.organisation) : `${weg.length} Fahrzeuge der Vorbelegung`;
     setZurueckgeholt(null);
-    setRueckweg({ eintraege: weg, text: "Vorbelegung entfernt:", name, nonce: Date.now() });
+    setRueckweg({ eintraege: weg, text: "Vorbelegung entfernt:", name, nonce: Date.now() }, bogen.fahrzeuge.filter((f) => !fahrzeugUnbenannt(f)));
   };
   const vorlage = fahrzeugVorbelegung(bogen.einheit);
   const ovKennzahl = funkrufOrtsverband(bogen.einheit)?.kennzahl;
@@ -319,7 +315,10 @@ export function SchrittFahrzeuge({ bogen, aendern }: SchrittProps) {
             aendern({ fahrzeuge: bogen.fahrzeuge.filter((_, j) => j !== i) });
             if (fahrzeugLeer(f)) return;
             setZurueckgeholt(null);
-            setRueckweg({ eintraege: [{ fahrzeug: f, index: i }], text: "Entfernt:", name: fahrzeugBezeichnung(f, i, bogen.einheit.organisation), nonce: Date.now() });
+            setRueckweg(
+              { eintraege: [{ fahrzeug: f, index: i }], text: "Entfernt:", name: fahrzeugBezeichnung(f, i, bogen.einheit.organisation), nonce: Date.now() },
+              bogen.fahrzeuge.filter((_, j) => j !== i),
+            );
           }}
         />
       ))}

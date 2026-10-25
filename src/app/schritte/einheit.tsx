@@ -32,6 +32,7 @@ import {
 } from "../hilfen";
 import { frageJaNein } from "../dialoge";
 import { DaumenQuittung } from "../daumen-quittung";
+import { EBENE_WEG_SCHLUESSEL, rueckwegHolen, rueckwegMerken } from "../rueckweg-sitzung";
 import { vorbelegungWegLesen, vorbelegungWegSichern, zustandsAbdruck, type VorbelegungWeg } from "../vorbelegung-rueckweg";
 import { Auswahl, Feld, FREMDE_DATEN, Hinweise, KENNUNG_EINGABE, VokabAuswahl, VorschlagFeld, type SchrittProps } from "./bausteine";
 
@@ -328,6 +329,24 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
       setVorbelegungWeg((alt) => alt ?? neu);
     }
     aendernRoh(verpflegungMitziehen(bogen, patch));
+  }
+  /**
+   * Rückweg nach „Ebene entfernen“ (R9-D3): Person und Fahrzeug haben „Rückgängig“, die Ebene mit Kürzel,
+   * Telefon und E-Mail hatte keins. Wie dort überlebt er Schrittwechsel und Neuladen (15 Minuten, solange
+   * die Ebenen so bleiben, Sitzungsspeicher des Tabs).
+   */
+  type EbenenWeg = { ebene: HierarchieEbene; index: number; name: string; nonce: number };
+  const [ebenenWeg, setEbenenWegRoh] = useState<EbenenWeg | null>(() => rueckwegHolen<EbenenWeg>(EBENE_WEG_SCHLUESSEL, JSON.stringify(bogen.einheit.hierarchie)));
+  const setEbenenWeg = (w: EbenenWeg | null, danach: HierarchieEbene[] = e.hierarchie) => {
+    setEbenenWegRoh(w);
+    rueckwegMerken(EBENE_WEG_SCHLUESSEL, w, JSON.stringify(danach));
+  };
+  function ebeneZurueck() {
+    if (!ebenenWeg) return;
+    const liste = [...e.hierarchie];
+    liste.splice(Math.min(ebenenWeg.index, liste.length), 0, ebenenWeg.ebene);
+    setEbenenWeg(null);
+    setE({ hierarchie: liste });
   }
   function vorbelegungZurueck() {
     if (!vorbelegungWeg) return;
@@ -831,14 +850,16 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
                   ebeneHatInhalt(h) &&
                   !(await frageJaNein({
                     titel: `${name} entfernen?`,
-                    text: `Die Angaben dieser Ebene gehen verloren${kontakt.length > 0 ? ` — ${kontakt.join(", ")}` : ""}.`,
+                    text: `Die Angaben dieser Ebene werden entfernt${kontakt.length > 0 ? ` — ${kontakt.join(", ")}` : ""}. „Rückgängig“ in der Leiste unten holt sie zurück — auch nach „Weiter“ oder Neuladen, 15 Minuten lang.`,
                     ok: "Ebene entfernen",
                     gefahr: true,
                   }))
                 ) {
                   return;
                 }
-                setE({ hierarchie: e.hierarchie.filter((_, j) => j !== i) });
+                const danach = e.hierarchie.filter((_, j) => j !== i);
+                setE({ hierarchie: danach });
+                if (ebeneHatInhalt(h)) setEbenenWeg({ ebene: h, index: i, name, nonce: Date.now() }, danach);
               }}
             >
               ✕
@@ -892,6 +913,11 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
           weiterkommen und ihn nachtragen. Er steht jetzt nur nicht mehr still
           da. */}
       <Hinweise punkte={pruefpunkte(bogen, false)} aktuellerSchritt={0} />
+      {ebenenWeg && !vorbelegungWeg && (
+        <DaumenQuittung key={`ebene:${ebenenWeg.nonce}`} onRueckgaengig={ebeneZurueck} onSchliessen={() => setEbenenWeg(null)}>
+          <strong>Entfernt:</strong> {ebenenWeg.name}
+        </DaumenQuittung>
+      )}
       {vorbelegungWeg && (
         <DaumenQuittung key={`vorbelegung:${vorbelegungWeg.nonce}`} onRueckgaengig={vorbelegungZurueck} onSchliessen={() => setVorbelegungWeg(null)}>
           {vorbelegungWeg.kopf} — Stärke {vorbelegungWeg.vor} → {staerke(bogen).gesamt}.

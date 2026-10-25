@@ -393,7 +393,7 @@ export function blobAlsDownload(dateiname: string, blob: Blob): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = dateiname;
+  a.download = dateinameSicher(dateiname);
   a.hidden = true;
   document.body.append(a);
   a.click();
@@ -493,7 +493,31 @@ export function natoZeitstempel(d: Date = new Date()): string {
 /** Dateinamens-Rumpf aus dem Anzeigenamen der Einheit („THW_Oldenburg_NI_FGr_K_A"). */
 /** Freitext (Einheits-, Vorlagenname) → unbedenklicher Teil eines Dateinamens. */
 export function dateinameTeil(text: string): string {
-  return text.replace(/[^\wäöüÄÖÜß-]+/g, "_");
+  return ascii(text).replace(/[^\w-]+/g, "_");
+}
+
+const UMLAUT: Record<string, string> = { ä: "ae", ö: "oe", ü: "ue", Ä: "Ae", Ö: "Oe", Ü: "Ue", ß: "ss" };
+
+/**
+ * Umlaute und Akzente in Dateinamen umschreiben (ä → ae, ß → ss, é → e; Audit Runde 9, R9-A5). Ein
+ * Browser ohne passende Sprache (Headless-Chromium, manche Android-Download-Manager) machte aus
+ * „Verstärkter.pdf" eine Datei „download" ohne Endung; Meldung und Datei decken sich nur, wenn der
+ * Name in jeder Umgebung derselbe bleibt.
+ */
+function ascii(text: string): string {
+  return text
+    .replace(/[äöüÄÖÜß]/g, (z) => UMLAUT[z]!)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+/**
+ * Ganzer Dateiname (mit Endung) in ASCII-sicherer Form: Umlaute umgeschrieben, Leerzeichen und
+ * Sonderzeichen außer Punkt, Unterstrich und Bindestrich zu „_". Die Endung bleibt unberührt.
+ */
+export function dateinameSicher(name: string): string {
+  const roh = ascii(name).replace(/[^\w.-]+/g, "_").replace(/^\.+/, "");
+  return roh || "datei";
 }
 
 export function bogenDateiname(b: Erfassungsbogen): string {
@@ -618,7 +642,9 @@ export function fahrzeugHinweise(b: Erfassungsbogen): string[] {
   const hinweise: string[] = [];
   const org = b.einheit.organisation;
   b.fahrzeuge.forEach((f, i) => {
-    if (!kennzeichenText(f).trim()) {
+    // Vorgabe nach Einheitstyp in der Schnellerfassung zählt nicht und braucht kein Kennzeichen (R9-H2).
+    const nurVorgabe = b.personalErfassung === PersonalErfassung.NUR_STAERKE && fahrzeugUnbenannt(f);
+    if (!nurVorgabe && !kennzeichenText(f).trim()) {
       hinweise.push(`Fahrzeug ${i + 1} hat noch kein Kennzeichen.`);
     }
     // 0 Sitzplätze an einem Fahrzeug, das laut Typ Leute befördert (MzKW: 7),
@@ -752,7 +778,12 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
   const mwdBelastbar =
     b.personalErfassung === PersonalErfassung.VOLLSTAENDIG || b.unterbringungManuell != null;
   const mwdSumme = mwd.m + mwd.w + mwd.d;
-  if (mwdBelastbar && s.gesamt > 0 && mwdSumme !== s.gesamt) {
+  // Schnellerfassung („Nur Stärke") mit den Karten und Fahrzeugen der Vorbelegung nach Einheitstyp: Sie
+  // zählen nicht (Schritt 3 sagt es), und Hinweise zu ihnen widersprachen dem Satz — „9 Ansprechpartner
+  // erfasst, Gesamtstärke nur 6" (R9-H2). Gewertet wird nur, was jemand eingetragen hat.
+  const nurVorgabe = b.personalErfassung === PersonalErfassung.NUR_STAERKE;
+  const eingetragenePersonen = nurVorgabe ? b.personal.filter((p) => !personUnbenannt(p)) : b.personal;
+  if (mwdBelastbar && s.gesamt > 0 && mwdSumme !== s.gesamt && !(nurVorgabe && eingetragenePersonen.length === 0)) {
     hinweise.push({
       text: `Aufteilung nach Geschlecht: ${mwd.m} männl. + ${mwd.w} weibl. + ${mwd.d} div. = ${mwdSumme} weicht von der Gesamtstärke ${s.gesamt} ab.`,
       schritt: S_PERSONAL,
@@ -761,10 +792,10 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
   if (
     b.personalErfassung === PersonalErfassung.NUR_STAERKE &&
     b.staerkeManuell &&
-    b.personal.length > b.staerkeManuell.gesamt
+    eingetragenePersonen.length > b.staerkeManuell.gesamt
   ) {
     hinweise.push({
-      text: `Es sind ${b.personal.length} Ansprechpartner erfasst, die Gesamtstärke ist aber nur ${b.staerkeManuell.gesamt}.`,
+      text: `Es sind ${eingetragenePersonen.length} Ansprechpartner erfasst, die Gesamtstärke ist aber nur ${b.staerkeManuell.gesamt}.`,
       schritt: S_PERSONAL,
     });
   }
@@ -901,7 +932,7 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
   const telefonErfasst = b.personal.some((p) =>
     p.kontakte.some((k) => k.art !== KontaktArt.EMAIL && (k.wert ?? "").trim() !== ""),
   );
-  if (s.gesamt > 0 && !telefonErfasst) {
+  if (s.gesamt > 0 && !telefonErfasst && !(nurVorgabe && eingetragenePersonen.length === 0)) {
     hinweise.push({
       text: "Keine telefonische Erreichbarkeit erfasst — mindestens eine Führungskraft sollte eine Nummer angeben.",
       schritt: S_PERSONAL,

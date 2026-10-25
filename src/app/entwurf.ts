@@ -39,6 +39,17 @@ const SPEICHER_SCHLUESSEL = "eeb.entwurf.v1";
  */
 const ERSETZT_SCHLUESSEL = "eeb.entwurf.ersetzt.v1";
 
+/**
+ * Angaben vom Meldezettel, die bei „Einheit manuell erfassen…“ neben dem Bogen stehen: „Eingetroffen um“
+ * (HH:MM), „Nr. laut Zettel“ und „Zug / Verband“. Sie wanderten nicht in den Entwurf und fehlten nach dem
+ * Neuladen, obwohl „Entwurf wiederhergestellt“ dastand (R9-S1).
+ */
+export interface ErfassungsZettel {
+  zeit?: string;
+  nr?: string;
+  zug?: string;
+}
+
 export interface Entwurf {
   gespeichert: number; // Date.now()
   bogen: Erfassungsbogen;
@@ -60,7 +71,7 @@ export interface Entwurf {
    * verlassen — nach einem Neuladen steht die App dort, nicht im halbfertigen
    * Formular (R5-N3).
    */
-  fremd?: { einsatzId?: string; beginn?: number; startseite?: true };
+  fremd?: { einsatzId?: string; beginn?: number; startseite?: true; zettel?: ErfassungsZettel };
   /** Zuletzt offener Schritt des Assistenten — „Fortsetzen" öffnet ihn (R2-N7). */
   schritt?: number;
   /** Letzte Übergabe dieses Bogens (QR, Link, PDF, Nahbereich) — siehe uebergabe-stand.ts (R2-W2). */
@@ -82,6 +93,21 @@ export type EntwurfZusatz = Pick<Entwurf, "vorlageId" | "fremd" | "schritt" | "u
 // ------------------------------------------------- Serialisierung (rein)
 
 /** JSON-String → Entwurf. Defensiv: Müll oder fremdes Format ergibt null. */
+/** Nur kurze Texte, nur die drei bekannten Felder; leer = kein Zettel. */
+export function zettelPruefen(x: unknown): ErfassungsZettel | undefined {
+  if (!x || typeof x !== "object") return undefined;
+  const o = x as Record<string, unknown>;
+  const text = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.slice(0, max) : undefined);
+  const z: ErfassungsZettel = {};
+  const zeit = text(o.zeit, 5);
+  const nr = text(o.nr, 8);
+  const zug = text(o.zug, 80);
+  if (zeit && /^\d{2}:\d{2}$/.test(zeit)) z.zeit = zeit;
+  if (nr) z.nr = nr;
+  if (zug) z.zug = zug;
+  return z.zeit || z.nr || z.zug ? z : undefined;
+}
+
 export function entwurfAusJson(text: string | null): Entwurf | null {
   const r = entwurfPruefen(text);
   return "entwurf" in r ? r.entwurf : null;
@@ -127,7 +153,9 @@ export function entwurfPruefen(text: string | null): { entwurf: Entwurf | null }
   if (!e.fremd || typeof e.fremd !== "object") delete e.fremd;
   else {
     const { einsatzId, beginn, startseite } = e.fremd;
+    const zettel = zettelPruefen((e.fremd as { zettel?: unknown }).zettel);
     e.fremd = {
+      ...(zettel ? { zettel } : {}),
       ...(startseite === true ? { startseite: true as const } : {}),
       ...(typeof einsatzId === "string" && einsatzId ? { einsatzId } : {}),
       ...(typeof beginn === "number" && Number.isFinite(beginn) ? { beginn } : {}),
@@ -218,19 +246,45 @@ export interface BeschaedigterEntwurf {
   ursache: string;
   /** Wann beiseitegelegt (Date.now()). */
   am: number;
+  /** Beiseitelegen gescheiterte (Speicher voll): der Text liegt noch unter dem Entwurfs-Schlüssel (R9-O1). */
+  ungesichert?: boolean;
 }
 
+/**
+ * Ein unlesbarer Entwurf, der sich NICHT beiseitelegen ließ (Speicher voll, R9-O1): Er bleibt unter
+ * `eeb.entwurf.v1` stehen, und weder das Autosave noch „Verwerfen“ überschreiben ihn, solange dort
+ * noch genau dieser Text liegt. Sonst ginge die letzte Spur ohne Hinweis verloren.
+ */
+let ungesichert: { text: string; ursache: string } | null = null;
+
 function beschaedigtBeiseite(s: Storage, roh: string, ursache: string): void {
+  ungesichert = null;
   try {
     // Ein früher beiseitegelegter Text bleibt (die Karte nennt ihn zuerst); der
     // neue wird erst entfernt, wenn er sicher irgendwo liegt.
     if (s.getItem(BESCHAEDIGT_SCHLUESSEL) == null) {
       s.setItem(BESCHAEDIGT_SCHLUESSEL, JSON.stringify({ text: roh, ursache, am: Date.now() } satisfies BeschaedigterEntwurf));
     }
-    if (beschaedigterEntwurf()?.text === roh) s.removeItem(SPEICHER_SCHLUESSEL);
+    if (beschaedigterEntwurf()?.text === roh) {
+      s.removeItem(SPEICHER_SCHLUESSEL);
+      return;
+    }
   } catch {
-    /* Speicher voll o. ä. — dann bleibt der Text, wo er ist, und die Karte fehlt weiter */
+    /* Speicher voll o. ä. — dann bleibt der Text, wo er ist */
   }
+  ungesichert = { text: roh, ursache };
+}
+
+/** Darf unter `eeb.entwurf.v1` geschrieben oder gelöscht werden? Nein, wenn dort ein ungesicherter beschädigter Text liegt. */
+function entwurfGeschuetzt(s: Storage): boolean {
+  if (!ungesichert) return false;
+  try {
+    if (s.getItem(SPEICHER_SCHLUESSEL) === ungesichert.text) return true;
+  } catch {
+    return true;
+  }
+  ungesichert = null; // ein anderer Text steht dort: nichts mehr zu schützen
+  return false;
 }
 
 /**
@@ -256,10 +310,29 @@ export function beschaedigterEntwurf(): BeschaedigterEntwurf | null {
   }
 }
 
-/** Den beiseitegelegten Entwurf endgültig entfernen (nach „Als Datei sichern" oder auf Wunsch). */
+/**
+ * Was die Startseite zu einem unlesbaren Entwurf zeigt: zuerst ein Text, der sich nicht beiseitelegen
+ * ließ (er blockiert das Speichern eines neuen Bogens), sonst der beiseitegelegte (R9-O1).
+ */
+export function beschaedigterEntwurfAnzeige(): BeschaedigterEntwurf | null {
+  const s = speicher();
+  if (s && ungesichert && entwurfGeschuetzt(s)) return { text: ungesichert.text, ursache: ungesichert.ursache, am: Date.now(), ungesichert: true };
+  return beschaedigterEntwurf();
+}
+
+/**
+ * Den unlesbaren Entwurf endgültig entfernen (nach „Als Datei sichern" oder auf Wunsch): zuerst den, der sich
+ * nicht beiseitelegen ließ (sein Original unter dem Entwurfs-Schlüssel), sonst den beiseitegelegten.
+ */
 export function beschaedigtenEntwurfVerwerfen(): void {
   try {
-    speicher()?.removeItem(BESCHAEDIGT_SCHLUESSEL);
+    const s = speicher();
+    if (s && ungesichert && entwurfGeschuetzt(s)) {
+      s.removeItem(SPEICHER_SCHLUESSEL);
+      ungesichert = null;
+      return;
+    }
+    s?.removeItem(BESCHAEDIGT_SCHLUESSEL);
   } catch {
     /* nichts zu tun */
   }
@@ -276,6 +349,7 @@ export function beschaedigtenEntwurfVerwerfen(): void {
 export function entwurfSpeichern(bogen: Erfassungsbogen, zusatz: EntwurfZusatz = {}, gespeichert = Date.now()): boolean {
   const s = speicher();
   if (!s) return false;
+  if (entwurfGeschuetzt(s)) return false;
   // Hat ein anderes Fenster den Entwurf seit unserem letzten Schreiben
   // geändert, wird nicht still darübergeschrieben (R2-O4, siehe unten).
   if (entwurfFremdGeaendert()) {
@@ -305,7 +379,8 @@ export function entwurfSpeichern(bogen: Erfassungsbogen, zusatz: EntwurfZusatz =
 export function entwurfVerwerfen(): void {
   // Gehört der gespeicherte Entwurf inzwischen einem anderen Fenster, bleibt
   // er stehen: Dieses Fenster schließt nur SEINEN Bogen (R2-O4).
-  if (!entwurfFremdGeaendert()) speicher()?.removeItem(SPEICHER_SCHLUESSEL);
+  const s = speicher();
+  if (s && !entwurfFremdGeaendert() && !entwurfGeschuetzt(s)) s.removeItem(SPEICHER_SCHLUESSEL);
   eigenerStand = undefined;
 }
 

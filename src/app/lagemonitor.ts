@@ -12,6 +12,7 @@ import { einheitOrt } from "@bos/meldekopf/darstellung";
 import { EinsatzArt, MeldeStatus, revisionen, type Einsatzsammlung } from "@bos/meldekopf/einsaetze";
 import { aggregiere, aktuelleMeldungen, type EinsatzSummen } from "./auswertung";
 import { eintreffzeit } from "./eintrag-zeiten";
+import { sollstaerkeAnteil } from "./einheiten-tabelle";
 import { geltendeJeEinheit } from "./fassung-vorrang";
 import { einheitAnzeigename, funkrufText, natoZeitstempel, orgLabel, vokabText, vokabularFuer } from "./hilfen";
 
@@ -90,6 +91,8 @@ export interface Lagebild {
   bewegungen: Bewegung[];
   /** Meldezeiten liegen in der Zukunft (Geräteuhr nachgestellt?) — der Monitor nennt das, statt „gerade eben" zu behaupten. */
   zeitenPruefen: boolean;
+  /** Einheiten, für die niemand gezählt hat (reine Sollstärke), und ihre Personen: stecken in der Gesamtstärke (R9-K1). */
+  sollstaerke: { einheiten: number; personen: number };
 }
 
 export function lagebildArt(art: EinsatzArt): string {
@@ -157,6 +160,7 @@ export function lagebild(einsatz: Einsatzsammlung, jetzt: number = Date.now()): 
     letzteMeldung: einsatz.eintraege.length > 0 ? Math.max(...einsatz.eintraege.map((e) => e.empfangenAm)) : null,
     ersteMeldung: geltend.length > 0 ? Math.min(...geltend.map(eintreffzeit)) : null,
     bewegungen: bewegungenSeit(einsatz, jetzt),
+    sollstaerke: sollstaerkeAnteil(einsatz.eintraege, einsatz.art),
     zeitenPruefen: einsatz.eintraege.some((e) => e.empfangenAm - jetzt > ZUKUNFT_TOLERANZ_MS) ||
       geltend.some((e) => eintreffzeit(e) - jetzt > ZUKUNFT_TOLERANZ_MS),
   };

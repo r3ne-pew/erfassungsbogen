@@ -264,7 +264,8 @@ export function FensterKonflikt({ abgleich }: { abgleich: FensterAbgleich }) {
   const entfernt = abgleich.art === "entfernt";
   const anderes = entfernt ? null : entwurfAusAnderemFenster();
   const eigener = abgleich.eigenerBogen?.() ?? null;
-  const unterschied = anderes && eigener ? unterschiedText(eigener, anderes.bogen, 2) : "";
+  // Mit den Werten beider Fenster, gekürzt (R9-W2): „Diesel (dort: „150 l“, hier: „80 l“)“.
+  const unterschied = anderes && eigener ? unterschiedText(eigener, anderes.bogen, 2, { werte: true, laenge: 20 }) : "";
   const hierUm = entwurfEigenerStandUm();
   return (
     <FesteWarnung

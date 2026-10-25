@@ -41,6 +41,13 @@ export const ORTSSPERRE_MS: number =
   (globalThis as { __EEB_ORTSSPERRE_MS?: number }).__EEB_ORTSSPERRE_MS ?? (PRELLSCHUTZ_MS === 0 ? 0 : 1500);
 
 /**
+ * Sperre der Stelle nach einem Wechsel der Ansicht (Sammlung öffnen, Startseite, Scanner): 600 ms. Wer die
+ * neuen Knöpfe liest, tippt nach einer halben Sekunde; 1,5 s schluckten den nächsten bewussten Tipp
+ * (Audit Runde 9, R9-H5). Gilt wie jede Ortssperre nur an der Stelle des ersten Tipps, nicht für den Rest des Bildes.
+ */
+export const SEITENWECHSEL_SPERRE_MS: number = ORTSSPERRE_MS === 0 ? 0 : Math.min(ORTSSPERRE_MS, 600);
+
+/**
  * Sperre der Stelle unter einer aufgegangenen Quittungsleiste mit „Rückgängig". Ein Zweittipp ab 1,5 s
  * nahm „Abrücken" an derselben Stelle zurück, weil dort jetzt „Rückgängig" lag (R8-D5); der
  * bewusste Rückweg kommt erst nach dem Lesen der Quittung und liegt über 2,5 s.
@@ -135,6 +142,9 @@ function sperreAn(x: number, y: number, jetzt: number, imDialog = false): Sperre
 const VERWORFEN_ANZEIGE_MS = 900;
 let verworfenUhr: ReturnType<typeof setTimeout> | undefined;
 let verworfenKnopf: Element | null = null;
+export function tippVerworfenZeigen(e: MouseEvent): void {
+  verworfenZeigen(e);
+}
 function verworfenZeigen(e: MouseEvent): void {
   if (typeof document === "undefined") return;
   verworfenKnopf?.removeAttribute("data-tipp-gesperrt");
@@ -163,10 +173,11 @@ function verworfenZeigen(e: MouseEvent): void {
   if (host.classList.contains("abfrage")) {
     const r = ziel?.getBoundingClientRect?.();
     if (r && r.height > 0) {
-      const hoehe = 36;
-      const hoch = window.innerHeight || 640;
-      const unten = r.bottom + 4;
-      pille.style.top = `${Math.round(unten + hoehe <= hoch ? unten : Math.max(8, r.top - hoehe - 4))}px`;
+      // Auf dem angetippten Knopf selbst (R9-S2): Unter dem Knopf lag sie bei gefülltem Fuß außerhalb des
+      // Bildes, darüber im Fließtext oder auf dem nächsten Weg. Der Knopf trägt zugleich den gestrichelten Rahmen.
+      const hoehe = 29;
+      pille.style.left = `${Math.round(r.left + r.width / 2)}px`;
+      pille.style.top = `${Math.round(Math.max(4, r.top + (r.height - hoehe) / 2))}px`;
     }
   }
   // Im QR-Vollbild quer lag die Pille über „Teil n von m" (R7-H4): dort steht sie fest unten

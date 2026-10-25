@@ -4998,6 +4998,45 @@
       dialog.abfrage .abfrage-fuss .abfrage-aktionen.abgesetzt { margin-top: 8px; padding-top: 8px; }
       dialog.abfrage form > .abfrage-aktionen { margin-top: 6px; }
     }
+    /* ===== Runde 9: Eingaben, Schalter, Rückfragen und Dialoge (Block „Eingaben") ===== */
+    /* R9-E1: Zahlenfelder sind Textfelder mit Ziffernblock; der Satz zu Rundung, Minus oder Obergrenze steht darunter. */
+    input[inputmode="numeric"] { font-variant-numeric: tabular-nums; }
+    .zahl-meldung { display: block; margin-top: var(--r-1); font-size: min(var(--t-xs), 16px); overflow-wrap: anywhere; }
+    input[aria-invalid="true"] { border-color: var(--alarm); outline: 2px solid var(--alarm-linie); }
+    /* R9-W1, R9-M2: Bis zu drei Wege stehen im festen Fuß der Rückfrage; ihre Erklärungen rollen als Liste im Rumpf. */
+    dialog.abfrage .abfrage-wegehinweise { margin: 0 0 var(--r-3); padding-left: 1.1em; font-size: min(var(--t-xs), 16px); color: var(--text-2); }
+    dialog.abfrage .abfrage-wegehinweise li + li { margin-top: var(--r-2); }
+    /* R9-E7: Satz, warum „Übernehmen" noch ausgegraut ist. */
+    dialog.abfrage .abfrage-fehlt { flex: 0 0 auto; margin: var(--r-3) 0 0; }
+    /* R9-M7: Zwischen dem letzten Weg und „Abbrechen" 24 px (vorher 12 px hochkant, 16 px quer). */
+    dialog.abfrage .abfrage-fuss .abfrage-aktionen:not(.abgesetzt) { margin-top: var(--r-5); }
+    @media (max-height: 480px) and (min-width: 280px) {
+      /* Querformat: bis zu vier Knöpfe nebeneinander, bei Platzmangel in zwei Reihen (R9-W1). */
+      dialog.abfrage .abfrage-fuss { flex-wrap: wrap; gap: var(--r-3) var(--r-5); }
+      dialog.abfrage .abfrage-fuss .abfrage-weg { flex: 1 1 120px; }
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen,
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen:not(.abgesetzt),
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen.abgesetzt { flex: 1 1 120px; margin: 0; }
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen.abgesetzt { margin-left: 0; }
+    }
+    /* R9-G3: „Dies ist eine Übung" und das Aufklappfeld „Datenschutzfrist" berührten sich. */
+    details.frist-erklaerung { margin-top: var(--r-4); }
+    /* R9-H1, R9-G2: Zoom 200 % (180 × 320 und kleiner) und sehr niedrige Fenster: einfache Dialoge ("Bogen übergeben" u. a.)
+       mit schmalem Rand, Kopfzeile ohne Kleben, Titel in ganzen Wörtern, Inhalt in voller Breite. */
+    @media (max-width: 279.98px) {
+      html dialog { width: calc(100vw - 8px); max-width: calc(100vw - 8px); padding: 8px; }
+      html dialog:has(> .kopfzeile:first-child) { padding-top: 0; }
+      html dialog > .kopfzeile:first-child { padding-top: 8px; padding-block-end: 4px; gap: 2px 8px; }
+      html dialog > .kopfzeile:first-child h2 { font-size: min(var(--t-l), 17px); line-height: 1.2; flex: 1 1 100%; overflow-wrap: normal; word-break: normal; hyphens: auto; }
+      html dialog > .kopfzeile:first-child > button { flex: 1 1 100%; margin-left: 0; }
+      .teilen-dialog .hinweis { margin-top: 2px; }
+      .teilen-dialog .teilen-weg { margin-top: var(--r-2); }
+    }
+    @media (max-width: 279.98px), (max-height: 340px) {
+      /* Die Kopfzeile klebte und nahm 53 bis 61 % der Höhe (R9-G2). */
+      html dialog > .kopfzeile:first-child { position: static; box-shadow: none; }
+    }
+    /* ===== Ende Runde 9: Eingaben ===== */
     /* ===== Runde 7: Layout, Bedienbarkeit und Anzeige (Block „Layout") ===== */
     /* R7-M1, R7-G9: „Bedarf:" steht als unteilbare Beschriftung, die Werte dahinter umbrechen
        (vorher schrumpfte die Beschriftung als Flex-Teil und brach im Wort: „Bed / arf:"). Bei großer
@@ -5267,6 +5306,119 @@
        bleibt bei 22 px (Normalgröße), die Zeile darunter ist gedeckelt (16 px). */
     html.schrift-gross .seiten-kopf.einsatz-kopf h1 { font-size: min(var(--t-xl), 22px); }
     html.schrift-gross .seiten-kopf.einsatz-kopf p.hinweis { font-size: min(var(--t-s), 16px); }
+    /* ===== Runde 9 (Layout) ===== */
+    /* R9-G1: Bei 180 px Breite (Zoom 200 %) reservierte die Ecke „◐" rechts einen 60-px-Streifen über die ganze Seitenhöhe: Inhalt 112 von
+       180 px, „eingetroffen" brach im Wort. Dort ist die Ansichtswahl ein schmaler Balken am unteren Rand (eine Zeile, volle Breite), und
+       der Inhalt hat wieder beide Ränder zu 8 px. */
+    @media (max-width: 16rem) {
+      .anzeige-balken { left: 0; padding: 4px max(8px, env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); border-top: var(--strich-stark) solid var(--linie-stark); background: var(--flaeche); }
+      .anzeige-balken > .anzeige-leiste { width: 100%; max-width: none; margin-inline: 0; }
+      .anzeige-balken .anzeige-leiste-knopf { width: 100%; justify-content: center; box-shadow: none; padding-inline: 6px; white-space: nowrap; overflow: hidden; }
+      .anzeige-balken .anzeige-leiste-text { display: inline; }
+      .anzeige-balken .anzeige-leiste-wahl { left: 0; right: 0; }
+      html:has(.anzeige-balken) main, html:has(.anzeige-balken) footer.seite { padding-right: max(8px, env(safe-area-inset-right)); }
+      .neu-badge .neu-lang { overflow-wrap: normal; word-break: normal; hyphens: manual; }
+    }
+
+    /* R9-N1: Kennzahlen-Kacheln der Sammlung bei großer Schrift: Die Beschriftung wuchs mit der Systemschrift („EINHE / ITEN",
+       „FÜHRE / R", bei 320 px dreiteilig). Sie ist jetzt gedeckelt (12 px, engere Sperrung), die Kacheln haben weniger Innenrand, und
+       der Wortbruch bleibt nur dem Notfall unter 7 rem Rahmenbreite vorbehalten. */
+    html.schrift-gross .staerke-leiste span { font-size: min(var(--t-xs), 12px); letter-spacing: 0.03em; }
+    html.schrift-gross .staerke-leiste > div { padding-inline: min(var(--r-3), 10px); }
+    html.schrift-gross .staerke-leiste strong { font-size: min(var(--t-zahl), 34px); }
+    @media (max-width: 16rem) {
+      .staerke-leiste > div { padding-inline: 6px; }
+      .staerke-leiste span { font-size: min(var(--t-xs), 11px); letter-spacing: 0.02em; }
+    }
+    @container (max-width: 12.5rem) {
+      html.schrift-gross .staerke-leiste span { overflow-wrap: normal; }
+    }
+
+    /* R9-L4: „Bogen anlegen · 38 Pers · 10 Fz" in der Musterung bricht um, statt beidseitig abgeschnitten zu werden (205 px Text in
+       146 px Knopf). Bei normaler Breite bleibt es eine Zeile. */
+    footer.nav .muster-start { white-space: normal; overflow: visible; line-height: 1.2; text-wrap: balance; overflow-wrap: break-word; }
+    @media (max-width: 16rem) {
+      footer.nav .muster-start { font-size: min(var(--t-s), 14px); padding-inline: 6px; }
+    }
+
+    /* R9-L5: Plattformstil Android, Nacht: „‹ Startseite", Textknöpfe und Fußzeilenlinks standen in der Akzentfüllung (#a8791a, 4,24:1
+       auf dem dunklen Grund). Als Text tragen sie die helle Akzentfarbe wie unter iOS (6,0:1). */
+    .nacht-modus.platform-android .zur-start,
+    .nacht-modus.platform-android button.link,
+    .nacht-modus.platform-android footer.seite a { color: var(--akzent-hell); }
+
+    /* R9-G3: „Dies ist eine Übung" (schaltet die Kennzeichnung des Bogens um) und das Aufklappfeld „Datenschutzfrist" lagen ohne Lücke
+       aufeinander. */
+    .zeile + details.frist-erklaerung { margin-top: 14px; }
+    details.frist-erklaerung { margin-top: 14px; }
+
+    /* R9-M3: Tabelle der Einsatzansicht in einem Rahmen unter 200 px (180-px-Fenster): Die Namensspalte war 95 % des Rahmens breit und
+       rollte weg, Zug, F, U, M lagen nur nach langem Wischen im Bild. Jetzt klebt sie wieder, aber höchstens zu 45 %, mit kleinerer
+       Schrift; lange Wörter dürfen dort (nur dort) brechen. */
+    @container (max-width: 200px) {
+      table.einheiten-tabelle > * > tr > :first-child { position: sticky; min-width: 0; width: 45cqw; max-width: 45cqw; overflow-wrap: anywhere; hyphens: auto; -webkit-hyphens: auto; padding-inline: 4px; }
+      table.einheiten-tabelle tbody th { font-size: 11px; }
+    }
+
+    /* R9-A4: Browser-Druck (Strg+P) von Übersicht, Sammlung und Einsatzansicht: nur der Inhalt, schwarz auf weiß, einspaltig, ohne
+       Navigation, Knöpfe und feste Leisten; Karten und Zeilen reißen nicht über eine Seitengrenze. Der Bogen als Papier mit QR-Code
+       bleibt „PDF erzeugen" (der Hinweis oben sagt das). */
+    @media print {
+      @page { margin: 12mm; }
+      html, body { background: #fff !important; color: #000 !important; }
+      *, *::before, *::after { background: transparent !important; color: #000 !important; box-shadow: none !important; text-shadow: none !important; animation: none !important; transition: none !important; }
+      .sprungmarke, .kopfnav, footer.nav, footer.seite, .anzeige-balken, .anzeige-schalter, .anzeige-leiste, .quittung-daumen, .fest-warnung,
+      .uebungs-band + .uebungs-band, nav.schritte, .zur-start, .kopf-oberzeile, .knopfreihe, .tipp-moment, .start-seo, .offline-badge,
+      .entwurf-karte, .musterung-leiste, .ansicht-wahl, .sortieren, .spalten-sortierung > .sortier-pfeil, input[type="search"], .suche, .filter-leiste,
+      main button:not(.spalten-sortierung):not(.tabelle-name), main summary::marker { display: none !important; }
+      .seiten-kopf { padding: 0 0 6px !important; border: 0 !important; border-bottom: 1px solid #000 !important; }
+      .musterung .staerke-leiste, .musterung .kopfzeile.klebend, .seiten-kopf { position: static !important; }
+      .tabellen-scroll { overflow: visible !important; }
+      table.einheiten-tabelle > * > tr > :first-child { position: static !important; width: auto !important; max-width: none !important; }
+      table { width: 100% !important; font-size: 9pt; }
+      tr, .karte, section.karte, .einheit-karte, .eintrag, details, li, figure, .staerke-leiste { break-inside: avoid; page-break-inside: avoid; }
+      h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+      main, #app { display: block !important; max-width: none !important; width: auto !important; margin: 0 !important; padding: 0 !important; }
+      main { container-type: normal; }
+      .staerke-leiste { display: grid !important; grid-template-columns: repeat(5, 1fr) !important; border: 1px solid #000 !important; }
+      .staerke-leiste > div { border-left: 1px solid #000 !important; border-top: 0 !important; grid-column: auto !important; }
+      html:has(.assistent-kopf) main::before, html:has(main.einsatz-detail) main::before {
+        content: "Ausdruck der App-Ansicht. Der Bogen als Papier mit QR-Code: „Bogen übergeben…“ und „PDF erzeugen“.";
+        display: block; margin: 0 0 8px; padding: 4px 6px; border: 1px solid #000; font-size: 9pt;
+      }
+    }
+
+    /* R9-M4: Kurz-Liste der Personen am Telefon: 230 px je Person (339 px bei 200 %, Seite 10 057 px bei 38 Personen). Jetzt drei Zeilen
+       zu je einem Ziel: Stelle (bis zu zwei Zeilen) mit ▲ ▼ ⇑ ✕ rechts daneben, Vor- und Nachname, „Zählt als" und Geschlecht. Die
+       Feldnamen stehen im Feld (kleine Schrift über dem Wert) statt in einer eigenen Zeile darüber; leere Felder zeigen den Namen
+       als Beschriftung, nicht zusätzlich als Platzhalter. Unter 17 rem Rahmenbreite (320 px, große Schrift) steht die Stelle wie bisher
+       über den Pfeilen, damit die Reihe nicht zu eng wird. */
+    @container (max-width: 44rem) {
+      table.uebersicht.schnell-tabelle td:nth-child(n + 2):nth-child(-n + 5) { position: relative; }
+      table.uebersicht.schnell-tabelle td:nth-child(n + 2):nth-child(-n + 5)::before {
+        position: absolute; top: 4px; left: 11px; z-index: 1; display: block; margin: 0; pointer-events: none;
+        max-width: calc(100% - 26px); font-size: min(var(--t-xs), 11px); line-height: 1.1;
+      }
+      table.uebersicht.schnell-tabelle td:nth-child(n + 2):nth-child(-n + 5) input:not([type="checkbox"]):not([type="radio"]),
+      table.uebersicht.schnell-tabelle td:nth-child(n + 2):nth-child(-n + 5) select { padding-top: 16px; padding-bottom: 1px; padding-inline-start: 10px; }
+      table.uebersicht.schnell-tabelle td input::placeholder { color: transparent; }
+      html.schrift-gross .schnell-tabelle td:nth-child(n + 2):nth-child(-n + 5) input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+      html.schrift-gross .schnell-tabelle td:nth-child(n + 2):nth-child(-n + 5) select { padding-top: 16px; padding-bottom: 1px; padding-inline: 10px min(0.55rem, 10px); }
+      table.uebersicht.schnell-tabelle tr { row-gap: 6px; padding: 3px 0 4px; }
+    }
+    @container (min-width: 17rem) and (max-width: 44rem) {
+      table.uebersicht.schnell-tabelle td.stelle {
+        grid-column: 1 / span 2; grid-row: 1; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+        overflow: hidden; font-size: min(var(--t-xs), 13px); line-height: 1.15; overflow-wrap: anywhere;
+      }
+      table.uebersicht.schnell-tabelle td.sortier-spalte { grid-column: 3 / span 3; grid-row: 1; justify-self: end; max-width: none; }
+      table.uebersicht.schnell-tabelle td.sortier-spalte + td { grid-column: 6; grid-row: 1; justify-self: end; }
+      table.uebersicht.schnell-tabelle td.sortier-spalte + td { padding-left: 0; }
+      table.uebersicht.schnell-tabelle td:nth-child(2), table.uebersicht.schnell-tabelle td:nth-child(3) { grid-row: 2; }
+      table.uebersicht.schnell-tabelle td:nth-child(4), table.uebersicht.schnell-tabelle td:nth-child(5) { grid-row: 3; }
+      table.uebersicht.schnell-tabelle .sortieren { gap: 4px; flex-wrap: nowrap; }
+      table.uebersicht.schnell-tabelle tr { row-gap: 5px; padding: 2px 0 3px; }
+    }
   </style>
 </head>
 <body>
