@@ -15,9 +15,14 @@ function ursache(art: SpeicherFehlerArt): string {
   return art === "gesperrt" ? "dieser Browser lässt die App nichts speichern" : "der Speicher dieses Geräts ist voll";
 }
 
-export function speicherFehlerKurz(art: SpeicherFehlerArt, fremd: boolean): string {
+/** `soll`: Die Zahlen sind nur die Vorbelegung nach Einheitstyp — „Sollstärke", nicht gezählt (R10-A3). */
+export function speicherFehlerKurz(art: SpeicherFehlerArt, fremd: boolean, soll = false): string {
   return `⚠ Nicht gespeichert — ${ursache(art)}. ${
-    fremd ? "Die Stärke jetzt auf dem Meldeblock notieren." : "Jetzt „Bogen übergeben“ (PDF)."
+    fremd
+      ? soll
+        ? "Die Sollstärke (nicht gezählt) jetzt auf dem Meldeblock notieren."
+        : "Die Stärke jetzt auf dem Meldeblock notieren."
+      : "Jetzt „Bogen übergeben“ (PDF)."
   }`;
 }
 

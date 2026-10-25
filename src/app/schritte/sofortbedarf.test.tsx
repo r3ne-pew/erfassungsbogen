@@ -45,6 +45,41 @@ describe("Schritt Sofortbedarf", () => {
     expect(diesel.value).toBe("0");
   });
 
+  // Audit Runde 10, R10-N2/S5/N4
+  it("liest „20 l“ als 20 und sagt es; Einheit „500l“ und „20 Liter“ gehen ebenso (R10-N2)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    const gemisch = screen.getByLabelText("Gemisch (l)") as HTMLInputElement;
+    await nutzer.type(gemisch, "20 l");
+    expect(screen.getByText(/„20 l“ gelesen als 20/)).toBeDefined();
+    expect(screen.queryByText(/nicht übernommen/)).toBeNull();
+    await nutzer.tab();
+    expect(gemisch.value).toBe("20");
+    await nutzer.clear(gemisch);
+    await nutzer.type(gemisch, "500l");
+    await nutzer.tab();
+    expect(gemisch.value).toBe("500");
+  });
+
+  it("begrenzt Liter auf 99999 und sagt es (R10-S5)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    const benzin = screen.getByLabelText("Benzin (l)") as HTMLInputElement;
+    fireEvent.change(benzin, { target: { value: "99999999999" } });
+    expect(benzin.value).toBe("99999");
+    expect(screen.getByText(/Höchstens 99999/)).toBeDefined();
+  });
+
+  it("nennt, dass ein geleertes Verpflegungsfeld 0 bedeutet (R10-N4)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} bogen={{ ...neuerBogen(), personal: [neuePerson(), neuePerson(), neuePerson()] }} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    await nutzer.clear(screen.getByLabelText("Verpflegung (Personen)"));
+    expect(screen.getByText(/Leer gilt als 0 — keine Verpflegung angefordert. Wie die Stärke wären 3/)).toBeDefined();
+  });
+
   // Audit Runde 9, R9-E1: Komma und Minus verschwinden nicht mehr still.
   it("lehnt ein Minus ab und sagt es, der Wert davor bleibt (R9-E1)", async () => {
     const nutzer = userEvent.setup();

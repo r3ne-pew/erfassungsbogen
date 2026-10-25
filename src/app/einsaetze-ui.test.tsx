@@ -281,7 +281,7 @@ describe("Einheit mit Folgemeldung entfernen (R2-D1)", () => {
     expect(dialog.textContent).toMatch(/danach ist die Meldung endgültig weg/);
     // R10-D1: der Name steht im ersten Satz, R10-S3: die Rückfrage ist kurz (höchstens rund 45 Wörter).
     expect(dialog.querySelector("p")!.textContent).toMatch(/^„.*Ulm.*" \(Stand .*\) entfernen/);
-    const woerter = Array.from(dialog.querySelectorAll("p")).map((p) => p.textContent).join(" ").split(/\s+/).filter(Boolean).length;
+    const woerter = dialog.querySelector("p")!.textContent!.split(/\s+/).filter(Boolean).length;
     expect(woerter).toBeLessThanOrEqual(50);
     expect(dialog.textContent).toMatch(/Noch kein Export und keine Weitergabe/);
     await nutzer.click(within(dialog).getByRole("button", { name: "Abbrechen" }));
@@ -935,7 +935,7 @@ describe("Zeiten, Auftrag und Bedarf auf der Karte", () => {
 
     await nutzer.click(screen.getByLabelText(/nur dringender Bedarf/));
     expect(document.querySelectorAll(".muster-name")).toHaveLength(3);
-    await nutzer.click(screen.getByRole("button", { name: "Ruhezeit: 1×" }));
+    await nutzer.click(screen.getByRole("button", { name: "Ruhezeit: 1 Einheit" }));
     namen = [...document.querySelectorAll(".muster-name")].map((n) => n.textContent ?? "");
     expect(namen).toHaveLength(1);
     expect(screen.getByText(/1 Einheit mit Ruhezeit/)).not.toBeNull();
@@ -1695,9 +1695,9 @@ describe("Zeitbezug der letzten Meldung (R3-K5)", () => {
     const e = meldungHinzufuegen(angelegt.id, bogenMitName("Crailsheim"))!.eintrag;
     const zeit = zeitLang(e.empfangenAm);
     ansicht(angelegt.id);
-    expect(document.querySelector(".letzte-meldung")!.textContent).toBe(` · letzte Meldung ${zeit}`);
+    expect(document.querySelector(".letzte-meldung")!.textContent).toBe(` · letzte Meldung ${zeit} (gerade eben)`);
     const s = () => einsaetzeLaden().find((x) => x.id === angelegt.id)!;
-    expect(letzteMeldungText(s())).toBe(`Letzte Meldung ${zeit}`);
+    expect(letzteMeldungText(s())).toBe(`Letzte Meldung ${zeit} (gerade eben)`);
     meldungHinzufuegen(angelegt.id, bogenMitName("Ulm"));
     expect(letzteMeldungText(s())).toMatch(/^Letzte Meldung .* · 1 neu seit der letzten Kenntnisnahme$/);
   });

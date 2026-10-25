@@ -5411,6 +5411,10 @@
       nav.schritte, .zur-start, .kopf-oberzeile, .knopfreihe, .tipp-moment, .start-seo, .offline-badge,
       .entwurf-karte, .ansicht-wahl, .sortieren, .einheiten-filter, .ansicht-umschalter, .luecken-zaehler,
       main button:not(.spalten-sortierung) { display: none !important; }
+      /* R10-A2: Die offenen Punkte der Übersicht sind Knöpfe; ohne diese Ausnahme stand auf Papier „2 offene Punkte … antippen zum
+         Beheben" über leeren Aufzählungspunkten. Im Druck stehen die Texte der Punkte, ohne das „antippen". */
+      .vollstaendigkeit li button.link { display: inline !important; border: 0 !important; padding: 0 !important; min-height: 0 !important; text-align: left; text-decoration: none !important; font: inherit; }
+      .nur-bildschirm { display: none !important; }
       .seiten-kopf { padding: 0 0 6px !important; border: 0 !important; border-bottom: 1px solid #000 !important; }
       .musterung .staerke-leiste, .musterung .kopfzeile.klebend, .seiten-kopf { position: static !important; }
       .tabellen-scroll { overflow: visible !important; }

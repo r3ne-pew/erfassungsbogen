@@ -135,7 +135,7 @@ describe("Übersicht — Übergabe-Dialog", () => {
     const dialog = uebergabeDialog();
     expect(within(dialog).getByText(/offene Punkte für die Weitergabe/)).toBeDefined();
     expect(
-      within(dialog).getByRole("button", { name: /Name der eigenen Einheit .* fehlt/ }),
+      within(dialog).getByRole("button", { name: /Ort der Einheit .* fehlt/ }),
     ).toBeDefined();
     // Gesperrt wird nichts — eine Teilmeldung ist manchmal richtig.
     expect(within(dialog).getByText(/Übergeben ist trotzdem möglich/)).toBeDefined();
@@ -149,7 +149,7 @@ describe("Übersicht — Übergabe-Dialog", () => {
 
     await nutzer.click(screen.getByRole("button", { name: "Bogen übergeben…" }));
     await nutzer.click(
-      within(uebergabeDialog()).getByRole("button", { name: /Name der eigenen Einheit .* fehlt/ }),
+      within(uebergabeDialog()).getByRole("button", { name: /Ort der Einheit .* fehlt/ }),
     );
 
     expect(gesprungen).toEqual([0]); // Schritt 1 „Einheit"

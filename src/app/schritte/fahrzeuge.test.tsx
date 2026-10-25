@@ -127,6 +127,23 @@ describe("Schritt Fahrzeuge", () => {
     expect(kennzahlen().value).toBe("71/25");
   });
 
+  // Audit Runde 10, R10-D2/E2: Der Merker hält auch über Schrittwechsel und Neuladen (Sitzungsspeicher dieses Tabs).
+  it("holt Kennwort und Kennzahlen nach Schrittwechsel und Neuladen zurück (R10-D2)", async () => {
+    sessionStorage.clear();
+    const nutzer = userEvent.setup();
+    const start = neuerBogen();
+    start.fahrzeuge = [{ typ: { code: 3 }, funkrufname: { kennwort: { code: 1 }, eigenerStandort: true, teile: [71, 25] } }];
+    const erste = render(<SchrittBuehne komponente={SchrittFahrzeuge} bogen={start} />);
+    await nutzer.click(screen.getByLabelText("Funkrufname")); // aus
+    erste.unmount(); // Schritt verlassen
+    const ohne = neuerBogen();
+    ohne.fahrzeuge = [{ typ: { code: 3 } }];
+    render(<SchrittBuehne komponente={SchrittFahrzeuge} bogen={ohne} />);
+    await nutzer.click(screen.getByLabelText("Funkrufname")); // wieder an
+    expect((screen.getByLabelText("Kennzahlen (z. B. 18/13)") as HTMLInputElement).value).toBe("71/25");
+    sessionStorage.clear();
+  });
+
   it("nimmt bei Sitzplätzen Komma und Minus nicht still an (R9-E1)", async () => {
     const nutzer = userEvent.setup();
     const start = neuerBogen();

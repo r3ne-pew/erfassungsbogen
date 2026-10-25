@@ -98,6 +98,44 @@ describe("Voller Speicher: der Kasten nennt das Scheitern (R9-O1, R9-E5)", () =>
   });
 });
 
+describe("Voller Speicher: Wortlaut und Rat passen zum Zustand (R10-O1, R10-O2, R10-H2)", () => {
+  it("beugt Verb und Satzende in der Mehrzahl und nennt nur erreichbare Wege", () => {
+    const echt = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k: string, v: string) {
+      if (k === "eeb.unlesbar.v1") throw new DOMException("quota", "QuotaExceededError");
+      return echt.call(this, k, v);
+    };
+    try {
+      localStorage.setItem("eeb.einsaetze.v1", "[[[");
+      sammlungenRetten("[[[");
+      render(<UnlesbarHinweis />);
+      const text = document.querySelector(".unlesbar-hinweis")!.textContent!;
+      expect(text).toContain("gespeicherte Einsatz-Sammlungen sind nicht lesbar und konnten nicht beiseitegelegt werden");
+      // Eine unlesbare Sammlung: kein Rat, Papierkorb oder gesicherte Einsätze zu löschen.
+      expect(text).not.toContain("Papierkorb leeren oder gesicherte Einsätze löschen");
+      expect(text).toContain("Beschädigten Text verwerfen…");
+    } finally {
+      Storage.prototype.setItem = echt;
+    }
+  });
+
+  it("nennt in der Rückfrage zum Entfernen, was entfernt wird (R10-H2)", async () => {
+    const nutzer = userEvent.setup();
+    localStorage.setItem("eeb.unlesbar.v1", JSON.stringify({ am: Date.now(), sammlungen: [], meldungen: [], vorlagen: [], texte: [{ art: "vorlagen", text: '[{"id":"v1"' }] }));
+    localStorage.setItem("eeb.vorlagen.v1", '[{"id":"v1"');
+    render(
+      <>
+        <UnlesbarHinweis />
+        <Dialogschicht />
+      </>,
+    );
+    await nutzer.click(document.querySelector<HTMLElement>(".unlesbar-hinweis summary")!);
+    await nutzer.click(screen.getByRole("button", { name: "Beiseitegelegtes entfernen…" }));
+    const dialog = document.querySelector<HTMLDialogElement>("dialog[open]")!;
+    expect(dialog.textContent).toContain("Endgültig gelöscht wird, was beiseitegelegt liegt: gespeicherte Vorlagen");
+  });
+});
+
 describe("Rückwege im Assistenten überleben Schrittwechsel und Neuladen (R9-D3)", () => {
   function Wechsel({ start, Schritt }: { start: Erfassungsbogen; Schritt: ComponentType<SchrittProps> }) {
     const [bogen, setBogen] = useState(start);

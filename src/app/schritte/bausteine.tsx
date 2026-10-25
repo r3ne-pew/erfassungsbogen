@@ -652,9 +652,25 @@ export function useZahlEingabe(
   };
 }
 
-/** Der Satz zu {@link useZahlEingabe}, direkt unter dem Feld. */
+/**
+ * Sammelstelle für die Sätze der Zahlenfelder einer Feldzeile (R10-M4, R10-G3): Steht sie im Baum, zeigt
+ * {@link ZahlMeldung} den Satz nicht unter dem Feld, sondern meldet ihn hier an — die Zeile sammelt alle Sätze
+ * über die volle Breite unter den Feldern. In der schmalen Feldspalte (112 px) brach er in bis zu sieben Zeilen
+ * um und verschob die Nachbarfelder.
+ */
+export const ZahlMeldungsSenke = createContext<((feld: string, text: string) => void) | null>(null);
+
+/** Der Satz zu {@link useZahlEingabe}, direkt unter dem Feld (oder gesammelt, siehe {@link ZahlMeldungsSenke}). */
 export function ZahlMeldung(props: { meldung: string; id?: string }) {
-  if (!props.meldung) return null;
+  const senke = useContext(ZahlMeldungsSenke);
+  const feld = useContext(FeldTitel) ?? "";
+  const { meldung } = props;
+  useEffect(() => {
+    if (!senke) return;
+    senke(feld, meldung);
+    return () => senke(feld, "");
+  }, [senke, feld, meldung]);
+  if (!meldung || senke) return null;
   return (
     <small className="hinweis warnung-text zahl-meldung" id={props.id} role="status">
       {props.meldung}
@@ -779,7 +795,7 @@ export function Vollstaendigkeit(props: {
   return (
     <div className="vollstaendigkeit" role="status">
       <p className="vollstaendigkeit-titel">
-        ⚠ {punkte.length === 1 ? "1 offener Punkt" : `${punkte.length} offene Punkte`} für die Weitergabe — antippen zum Beheben:
+        ⚠ {punkte.length === 1 ? "1 offener Punkt" : `${punkte.length} offene Punkte`} für die Weitergabe<span className="nur-bildschirm"> — antippen zum Beheben</span>:
       </p>
       <ul>
         {punkte.map((p) => (

@@ -65,6 +65,7 @@ import { einheitOrt } from "@bos/meldekopf/darstellung";
 import { RolleMarke } from "./rolle-marke";
 import { useArbeitet } from "./arbeitet";
 import { LagemonitorBlock } from "./lagemonitor-ui";
+import { alterText } from "./lagemonitor";
 import { AufteilenPanel } from "./aufteilen-ui";
 import { ZusammenfuehrenPanel } from "./zusammenfuehren-ui";
 import type { AufteilungsWahl } from "@bos/meldekopf/aufteilen";
@@ -306,6 +307,19 @@ function weitergabeTeil(s: Einsatzsammlung, stand: ExportStand): string {
   return `Weitergegeben ${exportZeitKurz(stand.zeitpunkt)} (${seitdemText(neueEintraege(s.eintraege, stand).length, aenderungenSeit(s.eintraege, stand))})`;
 }
 
+/** Ab diesem Alter der letzten Meldung warnt die App wie der Lagemonitor („Lage ist alt", R10-K1). */
+const VERALTET_MIN = 60;
+
+/**
+ * „04.10.2026, 21:17 (vor 5 Std 1 Min)" mit Warnzeichen ab einer Stunde — dieselbe Regel und dieselbe
+ * Funktion (`alterText`) wie im Lagemonitor: Die Zahlen sollen nicht gleich verlässlich wirken, ob sie
+ * vor einer Minute oder vor fünf Stunden gemeldet wurden (R10-K1).
+ */
+export function meldeZeitMitAlter(letzte: number, jetzt = Date.now()): { text: string; veraltet: boolean } {
+  const veraltet = jetzt - letzte >= VERALTET_MIN * 60_000 || letzte - jetzt > 5 * 60_000;
+  return { text: `${veraltet ? "⚠ " : ""}${zeitLang(letzte)} (${alterText(letzte, jetzt)})`, veraltet };
+}
+
 /**
  * „Letzte Meldung 04.10.2026, 21:17 · 3 neu seit der letzten Kenntnisnahme"
  * — für die Startseitenkarte (Audit Runde 3, R3-K5).
@@ -320,7 +334,7 @@ export function letzteMeldungText(s: Einsatzsammlung): string {
   const neu = stand
     ? neueEintraege(s.eintraege, stand).filter((e) => e.quelle !== "aufteilung" && e.quelle !== "zusammenfuehrung").length
     : 0;
-  return `Letzte Meldung ${zeitLang(letzte)}${neu > 0 ? ` · ${neu} neu seit der letzten Kenntnisnahme` : ""}${unlesbarZusatz ? ` · ${unlesbarZusatz}` : ""}`;
+  return `Letzte Meldung ${meldeZeitMitAlter(letzte).text}${neu > 0 ? ` · ${neu} neu seit der letzten Kenntnisnahme` : ""}${unlesbarZusatz ? ` · ${unlesbarZusatz}` : ""}`;
 }
 
 /** Kalendertag der Geräteuhr: „28.09.2026". */
@@ -1379,7 +1393,10 @@ export function EinsatzDetail(props: {
         {/* Wie aktuell die Zahlen darunter sind: Wer das Gerät übernimmt, sah
             nicht, ob die letzte Meldung von eben oder von gestern war (Audit
             Runde 3, R3-K5). */}
-        {letzte != null && <span className="letzte-meldung"> · letzte Meldung {zeitLang(letzte)}</span>}
+        {letzte != null && (() => {
+          const m = meldeZeitMitAlter(letzte);
+          return <span className={`letzte-meldung${m.veraltet ? " warnung-text" : ""}`}> · letzte Meldung {m.text}</span>;
+        })()}
       </p>
       {/* Übergabevermerk im Kopf: Wer das alte Gerät nach der Schichtübergabe
           wieder in die Hand nimmt, sieht zuerst, dass die Lage weitergegeben
@@ -1594,9 +1611,9 @@ export function EinsatzDetail(props: {
                 sonst als schrumpfender Flex-Teil im Wort („Bed / arf:"; R7-M1, R7-G9). */}
             <span className="bedarf-werte">
               Verpflegung {sum.verpflegung.gesamt}
-              {sum.unterbringungBenoetigt > 0 ? ` · Unterbringung ${sum.unterbringungAngefordert.personen}` : ""}
+              {sum.unterbringungBenoetigt > 0 ? ` · Unterbringung ${sum.unterbringungAngefordert.personen} ${sum.unterbringungAngefordert.personen === 1 ? "Person" : "Personen"}` : ""}
               {` · Diesel ${sum.kraftstoff.dieselLiter} l`}
-              {sum.ruhezeitErforderlich > 0 ? ` · Ruhezeit ${sum.ruhezeitErforderlich}×` : ""}
+              {sum.ruhezeitErforderlich > 0 ? ` · Ruhezeit ${sum.ruhezeitErforderlich} ${sum.ruhezeitErforderlich === 1 ? "Einheit" : "Einheiten"}` : ""}
             </span>
           </summary>
           {/* Vier Bedarfsarten als beschriftete Paare statt als zwei Sätze: nach
@@ -1649,7 +1666,7 @@ export function EinsatzDetail(props: {
               <>
                 {" · "}
                 <button type="button" className="link" onClick={() => aufBedarfFiltern("ruhezeit")}>
-                  Ruhezeit: {sum.ruhezeitErforderlich}×
+                  Ruhezeit: {sum.ruhezeitErforderlich} {sum.ruhezeitErforderlich === 1 ? "Einheit" : "Einheiten"}
                 </button>
               </>
             )}
@@ -1709,7 +1726,7 @@ export function EinsatzDetail(props: {
               <>
                 {" · "}
                 <button type="button" className="link" onClick={() => aufBedarfFiltern("ruhezeit")}>
-                  Ruhezeit: {sum.ruhezeitErforderlich}×
+                  Ruhezeit: {sum.ruhezeitErforderlich} {sum.ruhezeitErforderlich === 1 ? "Einheit" : "Einheiten"}
                 </button>
               </>
             )}

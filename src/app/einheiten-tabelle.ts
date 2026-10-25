@@ -442,7 +442,10 @@ export function lueckenText(texte: string[]): string {
  * hinter „+ 2 weitere" verschwinden soll (R4-K3).
  */
 export function lueckenAlle(texte: string[]): string {
-  return texte.map(lueckeKurz).join("; ");
+  // Gleiche Stichworte einmal, mit Anzahl: „Kennzeichen fehlt (2)" statt zweimal „Kennzeichen fehlt" (R10-A4).
+  const anzahl = new Map<string, number>();
+  for (const k of texte.map(lueckeKurz)) anzahl.set(k, (anzahl.get(k) ?? 0) + 1);
+  return [...anzahl].map(([k, n]) => (n > 1 ? `${k} (${n})` : k)).join("; ");
 }
 
 // ------------------------------------------------------------ Folgemeldungen

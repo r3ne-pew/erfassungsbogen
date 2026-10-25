@@ -68,7 +68,7 @@ export function UnlesbarHinweis({ sammlungId }: { sammlungId?: string }) {
       <div className="warnung unlesbar-hinweis" role="alert">
         <details>
           <summary style={KOPF}>
-            <strong>Speicher voll – beschädigte Daten nicht gesichert:</strong> {was} {mehrzahl ? "sind" : "ist"} nicht lesbar und
+            <strong>Speicher voll – beschädigte Daten nicht gesichert:</strong> {was} {mehrzahl ? "sind" : "ist"} nicht lesbar und{" "}
             {mehrzahl ? "konnten" : "konnte"} nicht beiseitegelegt werden. ›
           </summary>
           <p>

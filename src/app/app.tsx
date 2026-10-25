@@ -2976,7 +2976,8 @@ function AppInhalt() {
               <p>{ablageFehler.current}</p>
               <p>
                 <strong>
-                  „{einheitAnzeigename(b.einheit) || "Einheit"}“, Stärke {staerkeKurz(b)}: bitte auf dem Meldeblock notieren, Platz schaffen und
+                  „{einheitAnzeigename(b.einheit) || "Einheit"}“, {nurSollstaerke(b) ? "Sollstärke" : "Stärke"} {staerkeKurz(b)}
+                  {nurSollstaerke(b) ? " (nur Sollplätze, nicht gezählt)" : ""}: bitte auf dem Meldeblock notieren, Platz schaffen und
                   dann noch einmal übernehmen. Die Eingaben bleiben stehen.
                 </strong>
               </p>
@@ -3013,6 +3014,14 @@ function AppInhalt() {
     setVorlageInBearbeitung(null);
     setzeEmpfang(null);
     setSchritt(0);
+    // Die Sammlung öffnet oben (Name, Kacheln, „Zuletzt abgelegt"), nicht dort, wo der Knopf des Assistenten stand (R10-N5).
+    setTimeout(() => {
+      try {
+        window.scrollTo(0, 0);
+      } catch {
+        /* Testumgebung ohne Layout */
+      }
+    }, 0);
   }
 
   /** Aus der Einsatz-Auswahl heraus einen neuen Einsatz anlegen und den Bogen hineinlegen. */
@@ -4094,7 +4103,7 @@ function AppInhalt() {
                   <span className="hinweis warnung-text speicher-fehler" role="alert">
                     ⚠ Nicht gespeichert — {speicherArt === "gesperrt" ? "dieser Browser lässt die App nichts speichern" : "der Speicher dieses Geräts ist voll"}.
                     {gespeichertUm ? ` Letzter gesicherter Stand: ${uhrzeitMitTag(gespeichertUm)} Uhr.` : ""} Beim Schließen
-                    gehen die Änderungen verloren — {fremdeErfassung ? "die Stärke jetzt auf dem Meldeblock notieren." : "jetzt „Fortsetzen“ und „Bogen übergeben“ (PDF oder QR-Code)."}
+                    gehen die Änderungen verloren — {fremdeErfassung ? (bogen && nurSollstaerke(bogen) ? "die Sollstärke (nicht gezählt) jetzt auf dem Meldeblock notieren." : "die Stärke jetzt auf dem Meldeblock notieren.") : "jetzt „Fortsetzen“ und „Bogen übergeben“ (PDF oder QR-Code)."}
                   </span>
                 )}
               </span>
@@ -4545,7 +4554,7 @@ function AppInhalt() {
         // Hochrollen (Audit Runde 5, R5-O1).
         <FesteWarnung
           klasse="speicher-fehler"
-          kurz={speicherFehlerKurz(speicherArt, fremdeErfassung)}
+          kurz={speicherFehlerKurz(speicherArt, fremdeErfassung, !!bogen && nurSollstaerke(bogen))}
           details={speicherFehlerDetails(speicherArt, fremdeErfassung, gespeichertUm ? uhrzeitMitTag(gespeichertUm) : null)}
         />
       ) : gespeichertUm ? (

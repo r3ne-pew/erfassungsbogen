@@ -7,7 +7,8 @@ import { PersonalErfassung, staerke, verpflegung, type Sofortbedarf } from "@bos
 import { pruefpunkte } from "../hilfen";
 import { frageJaNein } from "../dialoge";
 import { HOECHST_LITER, HOECHST_PERSONEN } from "../zahl-eingabe";
-import { Feld, Hinweise, useZahlEingabe, ZahlMeldung, type SchrittProps } from "./bausteine";
+import { useCallback, useState } from "react";
+import { Feld, Hinweise, useZahlEingabe, ZahlMeldung, ZahlMeldungsSenke, type SchrittProps } from "./bausteine";
 
 /** Was beim Ausschalten verloren ginge: leer, wenn nichts Eigenes dahintersteht. */
 export function sofortbedarfAngaben(s: Sofortbedarf, vorbelegung: number): string[] {
@@ -21,6 +22,9 @@ export function sofortbedarfAngaben(s: Sofortbedarf, vorbelegung: number): strin
   return t;
 }
 
+/** Die gesammelten Sätze der Zahlenfelder unter der Feldzeile (R10-M4). */
+const ZAHL_MELDUNGEN_ID = "sofortbedarf-meldungen";
+
 /** Ein Zahlenfeld des Sofortbedarfs: Liter und Personen, ganze Zahlen, Satz bei Rundung oder Minus (R9-E1). */
 function BedarfZahl(props: { wert: number; setzen: (n: number) => void; einheit: string; leerMeldung?: string }) {
   const { eingabe, meldung } = useZahlEingabe(props.wert, (n) => props.setzen(n ?? 0), {
@@ -31,7 +35,7 @@ function BedarfZahl(props: { wert: number; setzen: (n: number) => void; einheit:
   });
   return (
     <>
-      <input {...eingabe} />
+      <input {...eingabe} aria-describedby={meldung ? ZAHL_MELDUNGEN_ID : undefined} />
       <ZahlMeldung meldung={meldung} />
     </>
   );
@@ -39,6 +43,18 @@ function BedarfZahl(props: { wert: number; setzen: (n: number) => void; einheit:
 
 export function SchrittSofortbedarf({ bogen, aendern }: SchrittProps) {
   const s = bogen.sofortbedarf;
+  // Sätze zu gerundeten oder abgelehnten Zahlen: gesammelt über die volle Breite unter den Feldern (R10-M4, R10-G3).
+  const [zahlMeldungen, setZahlMeldungen] = useState<Record<string, string>>({});
+  const meldungMelden = useCallback((feld: string, text: string) => {
+    setZahlMeldungen((alt) => {
+      if ((alt[feld] ?? "") === text) return alt;
+      if (!text) {
+        const { [feld]: _weg, ...rest } = alt;
+        return rest;
+      }
+      return { ...alt, [feld]: text };
+    });
+  }, []);
   const gesamt = staerke(bogen).gesamt;
   const nurStaerke = bogen.personalErfassung === PersonalErfassung.NUR_STAERKE;
   const vp = verpflegung(bogen);
@@ -82,6 +98,7 @@ export function SchrittSofortbedarf({ bogen, aendern }: SchrittProps) {
       )}
       {s && (
         <>
+          <ZahlMeldungsSenke.Provider value={meldungMelden}>
           <div className="zeile">
             <Feld titel="Verpflegung (Personen)" schmal>
               <BedarfZahl
@@ -102,7 +119,7 @@ export function SchrittSofortbedarf({ bogen, aendern }: SchrittProps) {
               </>
             ) : (
               <Feld titel="Ernährung (aus Personal)" schmal>
-                <output className="abgeleitet">{vp.vegetarisch} vegetarisch · {vp.vegan} vegan</output>
+                <output className="abgeleitet nur-anzeige">{vp.vegetarisch} vegetarisch · {vp.vegan} vegan</output>
               </Feld>
             )}
             <Feld titel="Diesel (l)" schmal>
@@ -115,6 +132,16 @@ export function SchrittSofortbedarf({ bogen, aendern }: SchrittProps) {
               <BedarfZahl wert={s.gemischLiter} einheit="Liter" setzen={(n) => aendern({ sofortbedarf: { ...s, gemischLiter: n } })} />
             </Feld>
           </div>
+          </ZahlMeldungsSenke.Provider>
+          {Object.keys(zahlMeldungen).length > 0 && (
+            <div className="zahl-meldungen" id={ZAHL_MELDUNGEN_ID} role="status">
+              {Object.entries(zahlMeldungen).map(([feld, text]) => (
+                <p key={feld}>
+                  <strong>{feld}:</strong> {text}
+                </p>
+              ))}
+            </div>
+          )}
           {/* Eine Angabe, ein Ort: der Bedarf folgt der Stärke (verpflegungMitziehen
               in hilfen.ts), solange er ihr entspricht — wer bewusst abweicht,
               behält seine Zahl. Das muss dranstehen, sonst wundert man sich,
