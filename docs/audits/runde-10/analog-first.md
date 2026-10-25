@@ -246,9 +246,8 @@ mit zwei Vorbelegungsfahrzeugen (GKW, Anh Plane/Spriegel) → Lageblatt, Spalte
 
 **Beobachtung:** „Hinweise: leere Personenkarte; alle als „männlich"
 (Vorbelegung); Ort/Auftrag leer; keine Rufnummer; Kennzeichen fehlt; Kennzeichen
-fehlt; kein Kraftfahrer". Die Spalte ist schmal; die Zeile ist ohne Aufzählung
-des Fahrzeugs schwer zu lesen. In der Übersicht-CSV steht derselbe Hinweis
-einmal je Fahrzeug nicht doppelt; der Unterschied liegt im Lageblatt.
+fehlt; kein Kraftfahrer". Die Spalte ist schmal; die Zeile ist ohne Angabe, welches
+Fahrzeug gemeint ist, schwer zu lesen.
 
 **Erwartung der Rolle:** Ein Hinweis steht einmal, eventuell mit Anzahl („2
 Kennzeichen fehlen").
