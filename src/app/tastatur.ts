@@ -145,8 +145,12 @@ const FOLGEFELD = 'input:not([type="checkbox"]):not([type="radio"]):not([type="h
 
 function sichtbarBedienbar(el: HTMLElement): boolean {
   const f = el as HTMLInputElement;
-  if (f.disabled || f.readOnly) return false;
-  return el.getClientRects().length > 0 && el.getAttribute("aria-hidden") !== "true";
+  if (f.disabled || f.readOnly || el.hidden || el.getAttribute("aria-hidden") === "true") return false;
+  const stil = el.ownerDocument.defaultView?.getComputedStyle(el);
+  if (stil && (stil.display === "none" || stil.visibility === "hidden")) return false;
+  // Ohne Layout (Testumgebung) gibt es keine Rechtecke; sonst zählt, was gezeichnet wird (geschlossene <details> nicht).
+  const mitLayout = el.ownerDocument.documentElement.getBoundingClientRect().width > 0;
+  return !mitLayout || el.getClientRects().length > 0;
 }
 
 /** Das Feld nach `el` im Schritt, das Eingabe annimmt; `null` für das letzte. */

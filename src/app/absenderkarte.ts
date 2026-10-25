@@ -14,11 +14,20 @@
  */
 
 import type { Absenderkarte } from "@bos/eeb-format/signatur";
-import { unlesbaresBeiseitelegen } from "./unlesbar";
 
 export type { Absenderkarte };
 
 const KARTE_KEY = "eeb.absenderkarte.v1";
+
+/**
+ * Wer einen beschädigten Karten-Text beiseitelegt (unlesbar.ts). Angemeldet beim Start (speicher-browser.ts)
+ * statt hier importiert: Der Import von unlesbar.ts hätte seine Kette (Uhr, Kern, Vokabulare) in das
+ * Startbündel gezogen (+ 0,6 MB, siehe startbuendel-wacht.test.ts).
+ */
+let beschaedigtBeiseite: ((roh: string) => void) | null = null;
+export function absenderBeschaedigtMeldenSetzen(fn: ((roh: string) => void) | null): void {
+  beschaedigtBeiseite = fn;
+}
 
 /**
  * Längenobergrenzen. Die Karte reist unkomprimiert im QR-Payload; großzügig
@@ -69,7 +78,7 @@ export function absenderkarteLaden(): Absenderkarte {
   } catch {
     // Beschädigter Eintrag: Er gilt als „keine Karte“, geht aber nicht still verloren —
     // beiseitegelegt wird er auf der Startseite genannt (R9-O3).
-    unlesbaresBeiseitelegen({ texte: [{ art: "absenderkarte", text: roh }] });
+    beschaedigtBeiseite?.(roh);
     return {};
   }
 }

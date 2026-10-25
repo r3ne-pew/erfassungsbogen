@@ -23,7 +23,7 @@ import {
   type Erfassungsbogen,
 } from "@bos/eeb-format/model";
 import { einheitAnzeigename, neuePerson, neuesFahrzeug, zeitgruppe, type QrSatz } from "./hilfen";
-import { EEB_JSON_DATEINAME, aenderungFuerPapier, bogenAlsEingebetteteDatei, einsatzLageblattDokument, einsatzPdfDokument, pdfDokument, stiftHinweis, STIFT_KAESTCHEN, codeKopfzeile, meldekopfVermerk, ohneVorbelegung, erreichbarkeitZeilen, nichtDarstellbareNamen, nichtDarstellbareBetroffene, ansprechpersonPapier, umschrift } from "./pdf-dokument";
+import { EEB_JSON_DATEINAME, aenderungFuerPapier, bogenAlsEingebetteteDatei, einsatzLageblattDokument, einsatzPdfDokument, pdfDokument, stiftHinweis, STIFT_KAESTCHEN, codeKopfzeile, meldekopfVermerk, ohneVorbelegung, erreichbarkeitZeilen, nichtDarstellbareNamen, nichtDarstellbareBetroffene, ansprechpersonPapier, umschrift, umschriftBetroffene } from "./pdf-dokument";
 
 const QR_BILD = "data:image/png;base64,QRTESTBILD";
 const QR_URL = "https://erfassungsbogen.app/#TESTPAYLOAD";
@@ -878,14 +878,15 @@ describe("ohneVorbelegung() (R6-A3)", () => {
 
 // Audit Runde 6, R6-A5: Namen, die auf Papier als „?" stünden, werden gezählt.
 describe("nichtDarstellbareNamen() (R6-A5)", () => {
-  it("zählt kyrillische und Emoji-Namen, nicht lateinische Akzente", () => {
+  it("zählt Emoji-Namen (kyrillische stehen in Umschrift, R9-W3), nicht lateinische Akzente", () => {
     const b = basisBogen();
     b.personal = [
       { ...b.personal[0]!, vorname: "Дмитрий", nachname: "Иванов" },
       { ...b.personal[0]!, vorname: "Łukasz", nachname: "Şahin" },
       { ...b.personal[0]!, vorname: "Max", nachname: "😀" },
     ];
-    expect(nichtDarstellbareNamen(b)).toBe(3);
+    // Kyrillisch wird umgeschrieben (R9-W3), „Łukasz" ist darstellbar; nur das Emoji bleibt „?".
+    expect(nichtDarstellbareNamen(b)).toBe(1);
   });
 });
 
@@ -911,10 +912,14 @@ describe("nichtDarstellbareBetroffene() (R7-A4)", () => {
       { ...neuePerson(), vorname: "Anna", nachname: "Beispiel" },
       { ...neuePerson(), vorname: "Zoë", nachname: "Ärger" },
     ];
-    expect(nichtDarstellbareBetroffene(b)).toEqual(["Владимир Lehmann (Ansprechperson)"]);
+    // Kyrillisch steht in Umschrift (R9-W3): kein „?", aber in der Quittung genannt.
+    expect(nichtDarstellbareBetroffene(b)).toEqual([]);
+    expect(umschriftBetroffene(b)).toEqual(["Владимир Lehmann → Vladimir Lehmann (Ansprechperson)"]);
+    b.personal[0] = { ...neuePerson(), vorname: "محمد", nachname: "Lehmann" };
+    expect(nichtDarstellbareBetroffene(b)).toEqual(["محمد Lehmann (Ansprechperson)"]);
     expect(nichtDarstellbareNamen(b)).toBe(1);
-    b.personal.push({ ...neuePerson(), vorname: "Анна", nachname: "Meyer" });
-    expect(nichtDarstellbareBetroffene(b)).toEqual(["Владимир Lehmann (Ansprechperson)", "Анна Meyer"]);
+    b.personal.push({ ...neuePerson(), vorname: "علي", nachname: "Meyer" });
+    expect(nichtDarstellbareBetroffene(b)).toEqual(["محمد Lehmann (Ansprechperson)", "علي Meyer"]);
   });
 });
 

@@ -112,6 +112,36 @@ describe("Schritt Fahrzeuge", () => {
     }
   });
 
+  // Audit Runde 9, R9-D1: Das Ausschalten blendet nur aus; beim erneuten Anhaken stehen die Teile wieder da.
+  it("behält die Kennzahlen, wenn „Funkrufname“ aus- und wieder eingeschaltet wird (R9-D1)", async () => {
+    const nutzer = userEvent.setup();
+    buehne();
+    await nutzer.click(screen.getByRole("button", { name: "+ Fahrzeug hinzufügen" }));
+    await nutzer.click(screen.getByLabelText("Funkrufname"));
+    const kennzahlen = () => screen.getByLabelText("Kennzahlen (z. B. 18/13)") as HTMLInputElement;
+    await nutzer.clear(kennzahlen());
+    await nutzer.type(kennzahlen(), "71/25");
+    await nutzer.click(screen.getByLabelText("Funkrufname")); // aus
+    expect(screen.queryByLabelText("Kennzahlen (z. B. 18/13)")).toBeNull();
+    await nutzer.click(screen.getByLabelText("Funkrufname")); // wieder an
+    expect(kennzahlen().value).toBe("71/25");
+  });
+
+  it("nimmt bei Sitzplätzen Komma und Minus nicht still an (R9-E1)", async () => {
+    const nutzer = userEvent.setup();
+    const start = neuerBogen();
+    start.fahrzeuge = [{ typ: { code: 3 } }];
+    render(<SchrittBuehne komponente={SchrittFahrzeuge} bogen={start} />);
+    const feld = screen.getByLabelText("Sitzplätze") as HTMLInputElement;
+    expect(feld.getAttribute("inputmode")).toBe("numeric");
+    await nutzer.type(feld, "2,5");
+    expect(screen.getByText(/„2,5“ auf ganze Plätze gerundet: 3/)).toBeDefined();
+    await nutzer.clear(feld);
+    await nutzer.type(feld, "-4");
+    expect(screen.getByText(/Minus geht nicht — „-4“ wurde nicht übernommen/)).toBeDefined();
+    expect(feld.getAttribute("aria-invalid")).toBe("true");
+  });
+
   // Audit Runde 7, R7-E6: Die Begrenzung auf 0 bis 99 wird genannt, nicht still angewendet.
   it("nennt die Grenze, wenn die Sitzplatzzahl begrenzt wird (R7-E6)", async () => {
     const nutzer = userEvent.setup();

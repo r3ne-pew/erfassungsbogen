@@ -956,6 +956,9 @@ export function EinsatzDetail(props: {
   const sum = aggregiere(einsatz.eintraege, einsatz.art);
   const sollAnteil = sollstaerkeAnteil(einsatz.eintraege, einsatz.art);
   const zugGruppen = aggregiereNachZug(einsatz.eintraege, einsatz.art);
+  // Nur benannte Züge zählen; der Sammelblock „Ohne Zug“ ist kein Zug (R9-K4).
+  const benannteZuege = zugGruppen.filter((g) => g.zugEtikett).length;
+  const zugTitel = `${benannteZuege === 1 ? "1 Zug" : `${benannteZuege} Züge`}${zugGruppen.some((g) => !g.zugEtikett) ? " + Einheiten ohne Zug" : ""}`;
   // Was die Lage NICHT enthält, gehört genauso sichtbar gemacht wie das, was
   // sie enthält (siehe zaehltInLage).
   const uebungenDaneben = uebungenAusserhalbDerLage(einsatz.eintraege, einsatz.art);
@@ -1438,7 +1441,8 @@ export function EinsatzDetail(props: {
           schiebt. */}
       {eingegangen && eingang?.nonce !== eingangWeg && (
         <p className="meldung eingang-quittung" role="status" ref={eingangQuittung}>
-          Zuletzt eingelesen: „{einheitAnzeigename(eingegangen.bogen.einheit)}"
+          {/* Von Hand erfasst oder abgelegt ist nicht „eingelesen“ (R9-N3). */}
+          {eingegangen.quelle === "manuell" ? "Zuletzt abgelegt" : "Zuletzt eingelesen"}: „{einheitAnzeigename(eingegangen.bogen.einheit)}"
           {eingegangen.teilEtikett ? ` (${eingegangen.teilEtikett})` : ""}
           {eingangFolge ? <> — Folgemeldung: <span className={eingangFolge.verlust ? "staerke-verlust" : undefined}>{eingangFolge.kurz}</span></> : null}
           {/* Eine abgerückte Einheit kommt durch die Folgemeldung zurück in die Lage — nicht still (R5-K1). */}
@@ -1708,12 +1712,7 @@ export function EinsatzDetail(props: {
           die Zahl, damit klar ist, was sich dahinter verbirgt. */}
       {zugGruppen.length > 1 && (
         <details className="karte zug-summen" open={zugGruppen.length < 3 && !kompakt}>
-          <summary>
-            <h2>
-              Zwischensummen nach Zug ({zugGruppen.filter((g) => g.zugEtikett).length === 1 ? "1 Zug" : `${zugGruppen.filter((g) => g.zugEtikett).length} Züge`}
-              {zugGruppen.some((g) => !g.zugEtikett) ? " + Einheiten ohne Zug" : ""})
-            </h2>
-          </summary>
+          <summary><h2>Zwischensummen nach Zug ({zugTitel})</h2></summary>
           {zugGruppen.map((g) => (
             <div className="zug-summe" key={g.zugEtikett ? `zug:${g.zugEtikett}` : "zug:ohne"}>
               <p>

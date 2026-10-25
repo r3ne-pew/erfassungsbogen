@@ -15,6 +15,8 @@ import { wertvolleDaten } from "./sicherung";
 import { aufraeumBeobachter } from "./aufraeum-hinweis";
 import { schonendeHuelle } from "./speicher-schonend";
 import { uhrKorrigierteHuelle } from "./uhr-korrektur";
+import { absenderBeschaedigtMeldenSetzen } from "./absenderkarte";
+import { unlesbaresBeiseitelegen } from "./unlesbar";
 
 /** `localStorage`, sofern erreichbar — im Privatmodus oder bei blockiertem
  *  Speicher wirft schon der Zugriff auf die Eigenschaft. */
@@ -38,6 +40,8 @@ export function speicherVerdrahten(): void {
   const h = browserSpeicherhuelle();
   speicherhuelleSetzen(h && schonendeHuelle(uhrKorrigierteHuelle(aufraeumBeobachter(h)), einsaetzeZuJson([])));
   datenschutzUhrSetzen(() => datenschutzZeitpunkt());
+  // Eine beschädigte Absenderkarte wird beiseitegelegt und auf der Startseite genannt (R9-O3).
+  absenderBeschaedigtMeldenSetzen((roh) => void unlesbaresBeiseitelegen({ texte: [{ art: "absenderkarte", text: roh }] }));
 }
 
 // ------------------------------------------------- Dauerhafter Speicher

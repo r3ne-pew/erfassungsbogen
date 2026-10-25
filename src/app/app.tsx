@@ -540,6 +540,17 @@ function uhrzeitMitTag(d: Date): string {
     : `${d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}, ${uhr}`;
 }
 
+/**
+ * Der aktive Reiter der Schrittleiste liegt mittig im Bild, wenn die Leiste seitlich rollt (Zoom, Querformat; Audit Runde 9, R9-M8).
+ * Nur der Rollbereich der Leiste wird bewegt, nie die Seite.
+ */
+function reiterZeigen(el: HTMLButtonElement | null): void {
+  const leiste = el?.parentElement;
+  if (!el || !leiste || leiste.scrollWidth <= leiste.clientWidth) return;
+  const abstand = el.getBoundingClientRect().left - leiste.getBoundingClientRect().left;
+  leiste.scrollLeft += abstand - (leiste.clientWidth - el.offsetWidth) / 2;
+}
+
 /** Was die App gerade zeigt — für den Browser-Verlauf (Zurück-Knopf, Audit „Fehler", E3). */
 // `muster`: die Musterung einer Vorlage ist eine eigene Ansicht mit Verlaufseintrag (R7-H2).
 type Ansicht = { schritt: number; zeigeStart: boolean; einsatz: string | null; scanner: boolean; muster?: boolean };
@@ -795,13 +806,18 @@ function AppInhalt() {
   const vorigerSchritt = useRef(schritt);
   // Ziel eines Prüfpunkts („antippen zum Beheben"): Feld statt Schrittanfang (R2-H2).
   const zielFeld = useRef<string | null>(null);
+  // Wer aus der Übersicht einen Punkt beheben geht („Bearbeiten“, offener Punkt), kommt mit „Zur Übersicht →“
+  // zurück, statt sich durch die übrigen Schritte zu tippen (R9-W4). Gilt nur für diesen einen Schritt.
+  const [ausUebersicht, setAusUebersicht] = useState<number | null>(null);
   const geheZuFeld = (s: number, feld?: string) => {
     zielFeld.current = feld ?? null;
+    setAusUebersicht(schritt === UEBERSICHT && s !== UEBERSICHT ? s : null);
     setSchritt(s);
   };
   useEffect(() => {
     if (vorigerSchritt.current === schritt) return;
     vorigerSchritt.current = schritt;
+    setAusUebersicht((a) => (a === schritt ? a : null));
     const feld = zielFeld.current ? document.getElementById(zielFeld.current) : null;
     zielFeld.current = null;
     if (feld) {
@@ -2315,7 +2331,8 @@ function AppInhalt() {
         herkunft === "Datei"
           ? `Bogen von „${einheitAnzeigename(b.einheit)}" aus der Datei`
           : `Meldung von „${einheitAnzeigename(b.einheit)}" empfangen`,
-      text: `Stärke ${staerkeKurz(b)}${b.uebung ? " · ÜBUNG" : ""}. Wohin damit?`,
+      // Niemand hat gezählt: Die Zahl ist die Sollstärke der Vorbelegung — das gehört vor die Entscheidung (R9-W5).
+      text: `Stärke ${staerkeKurz(b)}${nurSollstaerke(b) ? ` (nur Sollstärke: ${b.personal.length} Plätze ohne Namen, niemand hat gezählt)` : ""}${b.uebung ? " · ÜBUNG" : ""}. Wohin damit?`,
       wege,
     });
   }
@@ -2764,7 +2781,7 @@ function AppInhalt() {
     // dazu der Weg „Zahlen stimmen" für eine Einheit, die wirklich in Sollstärke kommt.
     const nurZahl = b.personalErfassung === PersonalErfassung.NUR_STAERKE;
     const wahl = await frageWahl({
-      titel: "Stärke nicht gezählt",
+      titel: "Nur Sollplätze, keine gemeldete Stärke",
       text: nurZahl
         ? `Für „${einheitAnzeigename(b.einheit)}" stehen noch die Zahlen der Vorbelegung nach Einheitstyp (Soll: ${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt}${b.fahrzeuge.length ? `, ${b.fahrzeuge.length} Fahrzeug${b.fahrzeuge.length === 1 ? "" : "e"}` : ""}) — niemand hat gezählt. Die Lage zählte sie sonst als gemeldete Stärke.`
         : `Für „${einheitAnzeigename(b.einheit)}" stehen nur die Sollplätze nach StAN (Stärke ${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt}${b.fahrzeuge.length ? `, ${b.fahrzeuge.length} Fahrzeug${b.fahrzeuge.length === 1 ? "" : "e"}` : ""}) — niemand hat Personen eingetragen.`,
@@ -4501,6 +4518,7 @@ function AppInhalt() {
               key={name}
               type="button"
               className={klassen}
+              ref={i === schritt ? reiterZeigen : undefined}
               aria-current={i === schritt ? "step" : undefined}
               aria-label={st ? `${i + 1}. ${name} — ${SCHRITT_STATUS_TITEL[st]}` : undefined}
               title={st ? SCHRITT_STATUS_TITEL[st] : undefined}
@@ -4532,7 +4550,7 @@ function AppInhalt() {
               360 px an genau der Stelle gekürzt, um die es geht („nur auf diesem
               Gerät"). Kürzer, und das Wichtige steht hinten, wo gekürzt wird,
               nicht vorn. */}
-          ✓ gespeichert · {uhrzeitMitTag(gespeichertUm)} Uhr · nur auf diesem Gerät
+          ✓ <span className="auto-wort">gespeichert · </span>{uhrzeitMitTag(gespeichertUm)}<span className="auto-rest"> Uhr · nur auf diesem Gerät</span>
         </p>
       ) : null}
     </SeitenKopf>
@@ -4691,14 +4709,16 @@ function AppInhalt() {
           <button
             type="button"
             className="primaer"
-            aria-label={schritt === UEBERSICHT - 1 ? "Zur Übersicht →" : "Weiter →"}
+            aria-label={schritt === UEBERSICHT - 1 || ausUebersicht === schritt ? "Zur Übersicht →" : "Weiter →"}
             onClick={() =>
               setSchritt(
-                schritt === 0 && fremdeErfassung && bogen.personalErfassung === PersonalErfassung.NUR_STAERKE ? 2 : schritt + 1,
+                ausUebersicht === schritt
+                  ? UEBERSICHT
+                  : schritt === 0 && fremdeErfassung && bogen.personalErfassung === PersonalErfassung.NUR_STAERKE ? 2 : schritt + 1,
               )
             }
           >
-            {schritt === UEBERSICHT - 1 ? (
+            {schritt === UEBERSICHT - 1 || ausUebersicht === schritt ? (
               <>
                 {/* Auf dem kleinsten Bild fällt „Zur" weg, damit „◐" nicht unter den Knopf gerät (R6-G1). */}
                 <span className="nav-zur">Zur </span>

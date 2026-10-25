@@ -65,6 +65,19 @@ describe("Alle Daten löschen", () => {
     expect(await screen.findByRole("dialog", { name: "Alle lokalen Daten gelöscht" })).toBeDefined();
   });
 
+  it("nennt den beiseitegelegten Sammlungstext mit Zahl (R9-D2)", async () => {
+    const nutzer = userEvent.setup();
+    localStorage.setItem(
+      "eeb.unlesbar.v1",
+      JSON.stringify({ am: Date.now(), sammlungen: [], meldungen: [], vorlagen: [], texte: [{ art: "sammlungen", text: '[{"id":"s1","name":"Hochwasser' }] }),
+    );
+    buehne();
+    await nutzer.click(screen.getByRole("button", { name: "Alle Daten löschen" }));
+    const text = loeschDialog().textContent!;
+    expect(text).toMatch(/beiseitegelegte, nicht lesbare Daten.*1 Eintrag, \d+ Zeichen/);
+    expect(text).toMatch(/Vorher Sicherung erstellen/);
+  });
+
   it("lässt beim Schließen des Dialogs alles stehen", async () => {
     const nutzer = userEvent.setup();
     buehne();
@@ -224,6 +237,34 @@ describe("Sicherung einspielen", () => {
     expect(within(dialog).getByText("die hinterlegte Absenderkarte")).toBeDefined();
     expect(within(dialog).getByText(/der Signatur-Geräteschlüssel \(Kurzform [0-9a-f]{4} [0-9a-f]{4} [0-9a-f]{4} [0-9a-f]{4}\)/)).toBeDefined();
     expect(within(dialog).getByRole("button", { name: "Einspielen und ersetzen" })).toHaveProperty("disabled", true);
+  });
+
+  /**
+   * Audit Runde 9, R9-D2: Die Karte „Nicht lesbar“ verspricht „nichts gelöscht“ — das Einspielen vernichtete
+   * den beiseitegelegten Text und den beschädigten Entwurf, ohne dass die Rückfrage sie nannte oder einen
+   * Haken verlangte.
+   */
+  it("nennt Beiseitegelegtes mit Zahl, verlangt dafür einen eigenen Haken und bietet die Sicherung vorher an (R9-D2)", async () => {
+    const nutzer = userEvent.setup();
+    const datei = sicherungsdatei();
+    localStorage.setItem(
+      "eeb.unlesbar.v1",
+      JSON.stringify({ am: Date.now(), sammlungen: [], meldungen: [], vorlagen: [], texte: [{ art: "sammlungen", text: '[{"id":"s1","name":"Hochwasser' }] }),
+    );
+    localStorage.setItem("eeb.entwurf.beschaedigt.v1", JSON.stringify({ text: "{", ursache: "abgeschnitten", am: Date.now() }));
+    buehne();
+
+    await nutzer.upload(dateiFeld(), datei);
+    const dialog = await screen.findByRole("dialog", { name: "Sicherung einspielen?" });
+    expect(dialog.textContent).toMatch(/beiseitegelegt: 1 nicht lesbarer Eintrag \(Sammlungen oder Vorlagen, \d+ Zeichen\) — ohne Sicherung weg/);
+    expect(dialog.textContent).toMatch(/beiseitegelegt: ein beschädigter, nicht lesbarer Bogen \(Entwurf\) — ohne Sicherung weg/);
+    expect(within(dialog).getByRole("button", { name: "Vorher Sicherung erstellen…" })).toBeDefined();
+    const ersetzen = within(dialog).getByRole("button", { name: "Einspielen und ersetzen" });
+    await nutzer.click(within(dialog).getByLabelText(/Ja, die Daten dieses Geräts/));
+    // Der Haken fürs Gerät genügt nicht: Beiseitegelegtes verlangt seinen eigenen.
+    expect(ersetzen).toHaveProperty("disabled", true);
+    await nutzer.click(within(dialog).getByLabelText(/Beiseitegelegtes geht verloren/));
+    expect(ersetzen).toHaveProperty("disabled", false);
   });
 
   it("erklärt eine abgeschnittene Sicherung ohne Programmtext und fragt gar nicht erst (R2-E5)", async () => {

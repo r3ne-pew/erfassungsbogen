@@ -121,3 +121,68 @@ describe("tastaturWaechterStarten", () => {
     expect(document.documentElement.classList.contains(TASTATUR_KLASSE)).toBe(false);
   });
 });
+
+
+// Audit Runde 9, R9-G6: „Weiter“ der Bildschirmtastatur springt im Schritt zum nächsten Feld.
+describe("Eingabetaste im Schritt (R9-G6)", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+  function aufbau(html: string) {
+    document.body.innerHTML = `<div class="schritt-inhalt">${html}</div>`;
+    return tastaturWaechterStarten();
+  }
+  const enter = (el: Element) => {
+    const e = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    el.dispatchEvent(e);
+    return e;
+  };
+
+  it("springt vom Feld zum nächsten Feld und schließt im letzten die Tastatur", () => {
+    const ende = aufbau('<input id="a"><input id="b" disabled><input id="c" type="checkbox"><input id="d"><textarea id="t"></textarea>');
+    const a = document.getElementById("a") as HTMLInputElement;
+    const d = document.getElementById("d") as HTMLInputElement;
+    a.focus();
+    const e = enter(a);
+    expect(e.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(d); // übersprungen: gesperrtes Feld und Kästchen
+    enter(d);
+    expect(document.activeElement).toBe(document.getElementById("t")); // Textbereich ist ein Feld
+    ende();
+  });
+
+  it("im letzten Feld verlässt der Fokus das Feld", () => {
+    const ende = aufbau('<input id="a"><input id="z">');
+    const z = document.getElementById("z") as HTMLInputElement;
+    z.focus();
+    enter(z);
+    expect(document.activeElement).not.toBe(z);
+    ende();
+  });
+
+  it("trägt enterkeyhint „next“, im letzten Feld „done“", () => {
+    const ende = aufbau('<input id="a"><input id="z">');
+    const a = document.getElementById("a") as HTMLInputElement;
+    const z = document.getElementById("z") as HTMLInputElement;
+    a.focus();
+    expect(a.getAttribute("enterkeyhint")).toBe("next");
+    z.focus();
+    expect(z.getAttribute("enterkeyhint")).toBe("done");
+    ende();
+  });
+
+  it("lässt Felder in Ruhe, die Enter selbst behandeln (preventDefault), und Felder außerhalb des Schritts", () => {
+    const ende = aufbau('<input id="a"><input id="b">');
+    const a = document.getElementById("a") as HTMLInputElement;
+    a.addEventListener("keydown", (e) => e.preventDefault());
+    a.focus();
+    enter(a);
+    expect(document.activeElement).toBe(a);
+    const aussen = document.createElement("input");
+    document.body.appendChild(aussen);
+    aussen.focus();
+    const e = enter(aussen);
+    expect(e.defaultPrevented).toBe(false);
+    ende();
+  });
+});

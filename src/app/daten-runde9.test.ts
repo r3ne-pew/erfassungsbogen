@@ -13,6 +13,7 @@ import { beiseitegelegtesEntfernen, textBeschreiben } from "./unlesbar-aufraeume
 import { vorlageAnlegen, vorlagenLaden } from "./vorlagen";
 import { neuerBogen } from "./hilfen";
 import { absenderkarteLaden, absenderkarteSpeichern } from "./absenderkarte";
+import { speicherVerdrahten } from "./speicher-browser";
 import { bestandUmfang, bestandBetroffen, datenUmfang } from "./sicherung";
 import { beschaedigterEntwurfAnzeige, beschaedigtenEntwurfVerwerfen, entwurfLaden, entwurfSpeichern, entwurfVerwerfen } from "./entwurf";
 
@@ -151,6 +152,8 @@ describe("Beiseitegelegtes entfernen räumt am Ursprungsort auf (R9-E4)", () => 
 });
 
 describe("Absenderkarte (R9-O3)", () => {
+  beforeEach(() => speicherVerdrahten());
+
   it("legt eine beschädigte Karte beiseite und nennt sie", () => {
     mem.m.set("eeb.absenderkarte.v1", '{"x');
     expect(absenderkarteLaden()).toEqual({});

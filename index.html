@@ -5009,15 +5009,21 @@
     /* R9-E7: Satz, warum „Übernehmen" noch ausgegraut ist. */
     dialog.abfrage .abfrage-fehlt { flex: 0 0 auto; margin: var(--r-3) 0 0; }
     /* R9-M7: Zwischen dem letzten Weg und „Abbrechen" 24 px (vorher 12 px hochkant, 16 px quer). */
-    dialog.abfrage .abfrage-fuss .abfrage-aktionen:not(.abgesetzt) { margin-top: var(--r-5); }
+    dialog.abfrage .abfrage-fuss .abfrage-aktionen:not(.abgesetzt) { margin-top: min(var(--r-5), 24px); }
     @media (max-height: 480px) and (min-width: 280px) {
       /* Querformat: bis zu vier Knöpfe nebeneinander, bei Platzmangel in zwei Reihen (R9-W1). */
-      dialog.abfrage .abfrage-fuss { flex-wrap: wrap; gap: var(--r-3) var(--r-5); }
+      dialog.abfrage .abfrage-fuss { flex-wrap: wrap; gap: var(--r-3) min(var(--r-5), 24px); }
       dialog.abfrage .abfrage-fuss .abfrage-weg { flex: 1 1 120px; }
       dialog.abfrage .abfrage-fuss .abfrage-aktionen,
       dialog.abfrage .abfrage-fuss .abfrage-aktionen:not(.abgesetzt),
       dialog.abfrage .abfrage-fuss .abfrage-aktionen.abgesetzt { flex: 1 1 120px; margin: 0; }
       dialog.abfrage .abfrage-fuss .abfrage-aktionen.abgesetzt { margin-left: 0; }
+    }
+    /* Schmale Fenster (Telefon bei 200 % Schrift, 320 px): weniger Seitenrand, damit die Beschriftung der Wege
+       einzeilig bleibt und der Rumpf mit dem Text mehr Platz behält, wenn die Wege im Fuß stehen (R9-W1). */
+    @media (max-width: 420px) {
+      dialog.abfrage { padding-inline: 12px; }
+      dialog.abfrage button { padding-inline: 10px; }
     }
     /* R9-G3: „Dies ist eine Übung" und das Aufklappfeld „Datenschutzfrist" berührten sich. */
     details.frist-erklaerung { margin-top: var(--r-4); }
@@ -5027,10 +5033,23 @@
       html dialog { width: calc(100vw - 8px); max-width: calc(100vw - 8px); padding: 8px; }
       html dialog:has(> .kopfzeile:first-child) { padding-top: 0; }
       html dialog > .kopfzeile:first-child { padding-top: 8px; padding-block-end: 4px; gap: 2px 8px; }
+      html dialog > .kopfzeile:first-child { flex-wrap: wrap; }
       html dialog > .kopfzeile:first-child h2 { font-size: min(var(--t-l), 17px); line-height: 1.2; flex: 1 1 100%; overflow-wrap: normal; word-break: normal; hyphens: auto; }
-      html dialog > .kopfzeile:first-child > button { flex: 1 1 100%; margin-left: 0; }
+      html dialog > .kopfzeile:first-child > button:last-child { flex: 1 1 100%; margin-left: 0; }
       .teilen-dialog .hinweis { margin-top: 2px; }
       .teilen-dialog .teilen-weg { margin-top: var(--r-2); }
+    }
+    @media (max-width: 279.98px), (max-height: 240px) {
+      /* Zoom-Fenster und sehr niedrige Fenster: 12 statt 24 px vor „Abbrechen", sonst bleibt kein Platz für den Text. */
+      dialog.abfrage .abfrage-fuss .abfrage-aktionen:not(.abgesetzt) { margin-top: var(--r-3); }
+    }
+    @media (max-height: 340px) and (min-width: 280px) {
+      /* Niedriges Fenster (320 × 180): Titel und „Schließen" in einer Zeile, kleiner Rand oben. */
+      html dialog > .kopfzeile:first-child { padding-top: 6px; padding-block-end: 2px; gap: 2px 8px; flex-wrap: nowrap; }
+      html dialog > .kopfzeile:first-child h2 { font-size: min(var(--t-l), 17px); line-height: 1.2; flex: 1 1 0; min-width: 0; }
+    }
+    @media (max-width: 200px) {
+      html dialog > .kopfzeile:first-child h2 { font-size: min(var(--t-m), 15px); }
     }
     @media (max-width: 279.98px), (max-height: 340px) {
       /* Die Kopfzeile klebte und nahm 53 bis 61 % der Höhe (R9-G2). */
@@ -5327,11 +5346,21 @@
     html.schrift-gross .staerke-leiste > div { padding-inline: min(var(--r-3), 10px); }
     html.schrift-gross .staerke-leiste strong { font-size: min(var(--t-zahl), 34px); }
     @media (max-width: 16rem) {
-      .staerke-leiste > div { padding-inline: 6px; }
-      .staerke-leiste span { font-size: min(var(--t-xs), 11px); letter-spacing: 0.02em; }
+      .staerke-leiste > div { padding-inline: 4px; }
+      .staerke-leiste span { font-size: min(var(--t-xs), 10.5px); letter-spacing: 0; }
+      .staerke-leiste span, html.schrift-gross .staerke-leiste span { overflow-wrap: normal; }
     }
     @container (max-width: 12.5rem) {
       html.schrift-gross .staerke-leiste span { overflow-wrap: normal; }
+    }
+    /* Bei 180 px (Zoom) bleibt es bei zwei Kacheln je Zeile statt 3 + 2 aus R8-K3 (50 px je Kachel: „EINHE / ITEN"); „Gesamt" schließt voll ab. */
+    @media (max-width: 16rem) {
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div,
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div:nth-child(n + 4) { grid-column: auto; border-top: var(--strich) solid var(--linie-fein); border-left: var(--strich) solid var(--linie-fein); }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div:nth-child(odd) { border-left: none; }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div:nth-child(-n + 2) { border-top: none; }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div.gesamt { grid-column: 1 / -1; border-left: none; border-top-color: var(--linie); }
     }
 
     /* R9-L4: „Bogen anlegen · 38 Pers · 10 Fz" in der Musterung bricht um, statt beidseitig abgeschnitten zu werden (205 px Text in
@@ -5368,15 +5397,15 @@
       html, body { background: #fff !important; color: #000 !important; }
       *, *::before, *::after { background: transparent !important; color: #000 !important; box-shadow: none !important; text-shadow: none !important; animation: none !important; transition: none !important; }
       .sprungmarke, .kopfnav, footer.nav, footer.seite, .anzeige-balken, .anzeige-schalter, .anzeige-leiste, .quittung-daumen, .fest-warnung,
-      .uebungs-band + .uebungs-band, nav.schritte, .zur-start, .kopf-oberzeile, .knopfreihe, .tipp-moment, .start-seo, .offline-badge,
-      .entwurf-karte, .musterung-leiste, .ansicht-wahl, .sortieren, .spalten-sortierung > .sortier-pfeil, input[type="search"], .suche, .filter-leiste,
-      main button:not(.spalten-sortierung):not(.tabelle-name), main summary::marker { display: none !important; }
+      nav.schritte, .zur-start, .kopf-oberzeile, .knopfreihe, .tipp-moment, .start-seo, .offline-badge,
+      .entwurf-karte, .ansicht-wahl, .sortieren, .einheiten-filter, .ansicht-umschalter, .luecken-zaehler,
+      main button:not(.spalten-sortierung) { display: none !important; }
       .seiten-kopf { padding: 0 0 6px !important; border: 0 !important; border-bottom: 1px solid #000 !important; }
       .musterung .staerke-leiste, .musterung .kopfzeile.klebend, .seiten-kopf { position: static !important; }
       .tabellen-scroll { overflow: visible !important; }
       table.einheiten-tabelle > * > tr > :first-child { position: static !important; width: auto !important; max-width: none !important; }
       table { width: 100% !important; font-size: 9pt; }
-      tr, .karte, section.karte, .einheit-karte, .eintrag, details, li, figure, .staerke-leiste { break-inside: avoid; page-break-inside: avoid; }
+      tr, .einheit-zeile, .eintrag, details, li, figure, .staerke-leiste, .bedarf-block, .zug-summen { break-inside: avoid; page-break-inside: avoid; }
       h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
       main, #app { display: block !important; max-width: none !important; width: auto !important; margin: 0 !important; padding: 0 !important; }
       main { container-type: normal; }
@@ -5386,6 +5415,72 @@
         content: "Ausdruck der App-Ansicht. Der Bogen als Papier mit QR-Code: „Bogen übergeben…“ und „PDF erzeugen“.";
         display: block; margin: 0 0 8px; padding: 4px 6px; border: 1px solid #000; font-size: 9pt;
       }
+    }
+
+    /* R9-M5: „✓ gespeichert · 09:27 Uhr · nur auf diesem Gerät" fiel bei 200 % Schrift, im Zoom und quer ganz weg (`display: none`), und
+       nirgends sonst stand, dass der letzte Eintrag gespeichert ist. Jetzt bleibt dort „✓ 09:27" stehen (kurz, in der Reihe mit dem
+       Rücksprung); die Wörter sind nur ausgeblendet und bleiben für Vorlesesoftware im Text. */
+    @container kopf (max-width: 17.5rem) {
+      .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler):not(.fest-warnung) { display: block; white-space: nowrap; font-size: min(var(--t-xs), 13px); line-height: 1.2; padding-block: 0 2px; }
+      .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler) .auto-wort, .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler) .auto-rest {
+        position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+      }
+    }
+    @media (orientation: landscape) and (max-height: 31.25rem) {
+      .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler):not(.fest-warnung) {
+        display: block; order: 1; flex: 0 0 auto; white-space: nowrap; padding: 0; font-size: min(var(--t-xs), 14px); line-height: 1.2;
+      }
+      .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler) .auto-wort, .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler) .auto-rest {
+        position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+      }
+      /* R9-G4: Quer lag „‹ Startseite" 2 px über den Schritt-Tabs 4 bis 6 (ein Fehltipp verließ den Assistenten), und die Ansichtswahl stand
+         zweimal im Bild (Segmente oben, „◐ Ansicht" in der Fußleiste). Jetzt 8 px Abstand zwischen Rücksprung und Reitern, und die Wahl
+         steht nur in der Fußleiste, die beim Rollen bleibt. */
+      .seiten-kopf.assistent-kopf .kopf-inhalt { row-gap: 8px; }
+      .seiten-kopf.assistent-kopf .kopf-oberzeile > .anzeige-schalter { display: none; }
+    }
+    /* R9-M8: Kopf des Assistenten bei 180 px (Zoom 200 %): 149 px (47 %) mit zwei Reihen Reiter. Jetzt eine Reihe, die seitlich rollt
+       (der aktive Reiter liegt mittig, app.tsx), darüber „‹ Startseite" und „✓ 09:27" in einer Zeile: rund 95 px (30 %). */
+    @media (max-width: 16rem) {
+      .seiten-kopf.assistent-kopf .kopf-inhalt { padding-top: 2px; row-gap: 0; }
+      .seiten-kopf.assistent-kopf .kopf-oberzeile { flex: 1 1 0; min-width: 0; }
+      .seiten-kopf.assistent-kopf .kopf-oberzeile .zur-start { min-width: 0; }
+      .seiten-kopf.assistent-kopf .autosave:not(.speicher-fehler):not(.fest-warnung) { flex: 0 0 auto; order: 1; padding: 0 0 0 6px; }
+      :root .seiten-kopf.assistent-kopf .schritte { display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex: 1 1 100%; }
+      :root .seiten-kopf.assistent-kopf .schritte::-webkit-scrollbar { display: none; }
+      :root .seiten-kopf.assistent-kopf .schritte button { flex: 0 0 44px; min-width: 44px; }
+      :root .seiten-kopf.assistent-kopf .schritte button:nth-child(n + 4) { border-top: 0; }
+      :root .seiten-kopf.assistent-kopf .schritte button:nth-child(3n + 1) { border-left: 2px solid var(--kopf-linie); }
+      :root .seiten-kopf.assistent-kopf .schritte button:first-child { border-left: 0; }
+      /* Fußleiste (R9-M8, R9-G5): 5 px Polster statt 11 und das Zielmaß 44 statt 47 px: 62 statt 70 px (19 % statt 22 % der Höhe). */
+      footer.nav.assistent-nav { padding-top: 5px; padding-bottom: max(5px, env(safe-area-inset-bottom)); }
+      footer.nav.assistent-nav .anzeige-leiste-knopf { min-height: calc(44px + var(--ziel)); }
+    }
+
+    /* R9-G5: Feste Leisten bei Zoom und im niedrigen Bild belegten bis zu 72 % der Höhe (Zwei-Fenster-Leiste 88 bis 160 px, Fußleiste 70 px;
+       nach „Genauer" 50 % und mehr, mit innerem Rollen vor den Knöpfen). Jetzt: Die Leiste der zwei Fenster nimmt höchstens 35 % der
+       Bildhöhe (innen rollen nur noch die Einzelheiten, die Knöpfe stehen oben); bei knappem Bild (Zoom, quer) zeigt „Entscheiden"
+       nur die beiden Knöpfe unter dem Kurztext, der Schalter schrumpft zum „✕" neben dem Text, die Einzelheiten entfallen dort (der
+       Kurztext nennt den Unterschied, die Rückfrage nach dem Knopf die Stände). */
+    .seiten-kopf .autosave.fest-warnung.fenster-konflikt { max-height: 35vh; max-height: 35dvh; }
+    .fest-warnung.fenster-konflikt.knapp .fest-details { display: none; }
+    .fest-warnung.fenster-konflikt.knapp .fest-kurz { flex: 1 1 0; }
+    .fest-warnung.fenster-konflikt.knapp .fest-schalter[aria-expanded="true"] { font-size: 0; min-width: calc(44px + var(--ziel)); padding: 0; position: relative; }
+    .fest-warnung.fenster-konflikt.knapp .fest-schalter[aria-expanded="true"]::before { content: "✕"; font-size: 18px; line-height: 1; }
+    @media (max-width: 16rem) {
+      .fest-warnung.fenster-konflikt.knapp .fest-kurz { font-size: min(var(--t-xs), 12px); }
+      .fest-warnung.fenster-konflikt.knapp .aktionen > button { font-size: min(var(--t-s), 12px); min-height: calc(44px + var(--ziel)); }
+    }
+
+    /* R9-H6: Startseite bei 180 px (Zoom 200 %) mit langem Namen: „Fortsetzen" lag bei 293 bis 337 von 320 px halb unter der Bildkante.
+       Der Name der Entwurfskarte ist auf zwei Zeilen begrenzt (der volle Name steht im Bogen selbst), Kopf und
+       Abstände sind knapper; der Knopf steht in allen gemessenen Entwürfen vollständig im ersten Bild. */
+    @media (max-width: 16rem) {
+      .seiten-kopf.start-kopf .kopf-inhalt { padding-block: 6px; }
+      .seiten-kopf.start-kopf .titelzeile { padding-block: 0; }
+      main.start { padding-top: 8px; }
+      main.start > .entwurf-karte { margin-top: 8px; }
+      .entwurf-karte .entwurf-text > strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
     }
 
     /* R9-M4: Kurz-Liste der Personen am Telefon: 230 px je Person (339 px bei 200 %, Seite 10 057 px bei 38 Personen). Jetzt drei Zeilen
@@ -5405,7 +5500,10 @@
       html.schrift-gross .schnell-tabelle td:nth-child(n + 2):nth-child(-n + 5) input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
       html.schrift-gross .schnell-tabelle td:nth-child(n + 2):nth-child(-n + 5) select { padding-top: 16px; padding-bottom: 1px; padding-inline: 10px min(0.55rem, 10px); }
       table.uebersicht.schnell-tabelle tr { row-gap: 6px; padding: 3px 0 4px; }
+      table.uebersicht.schnell-tabelle td.stelle { font-size: min(var(--t-s), 14px); line-height: 1.2; }
+      table.uebersicht.schnell-tabelle .sortieren { gap: 6px; }
     }
+    html.schrift-gross .schnell-tabelle .sortieren > button, html.schrift-gross .schnell-tabelle td.sortier-spalte + td > button { font-size: min(var(--t-m), 20px); line-height: 1; padding-block: 0; min-height: calc(44px + var(--ziel)); }
     @container (min-width: 17rem) and (max-width: 44rem) {
       table.uebersicht.schnell-tabelle td.stelle {
         grid-column: 1 / span 2; grid-row: 1; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
@@ -5538,7 +5636,7 @@
         <h2>So funktioniert die digitale Stärkemeldung</h2>
         <ul>
           <li>Ausfüllen: Die Stärke wird als Führer, Unterführer, Mannschaft und Gesamtzahl geführt; taktische Zeichen und Funkrufnamen sind hinterlegt und werden vorgeschlagen.</li>
-          <li>Ausgeben: Das PDF folgt dem gewohnten Papierbogen — und trägt den kompletten Bogeninhalt zusätzlich als QR-Code auf der letzten Seite.</li>
+          <li>Ausgeben: Das PDF folgt dem gewohnten Papierbogen — und trägt den kompletten Bogeninhalt zusätzlich als QR-Code am Ende (große Einheiten brauchen mehrere Codes).</li>
           <li>Übergeben: Die Gegenstelle liest den QR-Code mit der Kamera oder einem USB-Handscanner ein, oder sie bekommt den Bogen als Datei. Ohne Netz, ohne Server, ohne Kopplung der Geräte.</li>
         </ul>
         <p>Jeden Schritt erklärt die <a href="./anleitung.html">Anleitung zum Erfassungsbogen</a>; wie sich das Verfahren zum Papierbogen verhält, steht in <a href="./papier-oder-digital.html">Papier oder digital?</a>.</p>
