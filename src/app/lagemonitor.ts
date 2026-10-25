@@ -41,7 +41,7 @@ export function bedarfText(s: EinsatzSummen): string | null {
   const teile: string[] = [];
   if (s.kraftstoff.dieselLiter > 0) teile.push(`Diesel ${s.kraftstoff.dieselLiter} l`);
   if (s.unterbringungBenoetigt > 0) teile.push(`Unterbringung ${s.unterbringungAngefordert.personen}`);
-  if (s.ruhezeitErforderlich > 0) teile.push(`Ruhezeit ${s.ruhezeitErforderlich}×`);
+  if (s.ruhezeitErforderlich > 0) teile.push(`Ruhezeit ${s.ruhezeitErforderlich} ${s.ruhezeitErforderlich === 1 ? "Einheit" : "Einheiten"}`);
   return teile.length > 0 ? `Bedarf: ${teile.join(" · ")}` : null;
 }
 

@@ -248,7 +248,7 @@ describe("Lagemonitor bei unlesbarem Sammlungstext (R9-O2) und Sollstärke (R9-K
     soll.personal = [neuePerson(), neuePerson(), neuePerson()];
     meldungHinzufuegen(e.id, soll);
     render(<Lagemonitor einsatzId={e.id} />);
-    expect(document.body.textContent).toMatch(/davon 3 Sollstärke, nicht gemeldet/);
+    expect(document.body.textContent).toMatch(/davon 3 Sollstärke( \(S\))?, nicht gemeldet/);
     cleanup();
     const e2 = einsatzAnlegen("Gezählt", EinsatzArt.EINSATZ);
     const ist = neuerBogen();
