@@ -226,10 +226,13 @@ export function ersteEbeneVerlassen(): void {
  * R6-S3). Ein Beobachter legt für jedes geöffnete `<dialog>` den Eintrag an und verbraucht ihn
  * beim Schließen; die Zurück-Geste schließt das Fenster über `offenesFensterAbbrechen` (app.tsx).
  * Fenster, die ihren Rücksprung selbst führen (`data-zurueck="eigen"`) und Rückfragen, die schon
- * einen Eintrag tragen, bleiben unberührt.
+ * einen Eintrag tragen, bleiben unberührt. Gibt eine Aufräumfunktion zurück (Beobachter
+ * abhängen, Listener lösen, ausstehende Nachprüfung verwerfen) — die App braucht sie nicht,
+ * Tests schon: Ein Listener, der den Abbau der Testumgebung überlebt, griff sonst aus einem
+ * späten popstate heraus auf ein `document` zu, das es nicht mehr gab.
  */
-export function dialogVerlaufVerdrahten(): void {
-  if (typeof document === "undefined" || typeof MutationObserver === "undefined") return;
+export function dialogVerlaufVerdrahten(): () => void {
+  if (typeof document === "undefined" || typeof MutationObserver === "undefined") return () => {};
   const beobachter = new MutationObserver((muster) => {
     for (const m of muster) {
       const d = m.target;
@@ -244,16 +247,26 @@ export function dialogVerlaufVerdrahten(): void {
   });
   beobachter.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["open"] });
   // Schloss die Zurück-Geste nur das oberste von zwei Fenstern, braucht das darunter wieder einen Eintrag.
-  window.addEventListener("popstate", () => {
-    setTimeout(() => {
-      if (document.querySelector("dialog[open][data-ebene='1']") && !ebeneImVerlauf()) {
-        try {
+  let nachpruefung: ReturnType<typeof setTimeout> | null = null;
+  const beiPopstate = (): void => {
+    if (nachpruefung !== null) clearTimeout(nachpruefung);
+    nachpruefung = setTimeout(() => {
+      nachpruefung = null;
+      try {
+        if (document.querySelector("dialog[open][data-ebene='1']") && !ebeneImVerlauf()) {
           if ((history.state as { eebErste?: boolean } | null)?.eebErste) ebeneBetreten(RUECKFRAGE_EBENE);
-        } catch {
-          /* ohne Verlauf */
         }
+      } catch {
+        /* ohne Verlauf — oder ohne Dokument, wenn die Seite (bzw. Testumgebung) schon abgebaut ist */
       }
     }, 0);
-  });
+  };
+  window.addEventListener("popstate", beiPopstate);
+  return () => {
+    beobachter.disconnect();
+    window.removeEventListener("popstate", beiPopstate);
+    if (nachpruefung !== null) clearTimeout(nachpruefung);
+    nachpruefung = null;
+  };
 }
 
