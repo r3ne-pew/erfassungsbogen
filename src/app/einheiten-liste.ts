@@ -27,8 +27,9 @@
 
 import { OrganisationsTyp, alleFahrerlaubnisse, type Person } from "@bos/eeb-format/model";
 import { MeldeStatus, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
-import { FE_EINGESCHLOSSEN, FE_TEXT, einheitAnzeigename, funkrufText, kennzeichenText, orgLabel, vokabularFuer } from "./hilfen";
+import { FE_EINGESCHLOSSEN, FE_TEXT, vokabText, einheitAnzeigename, funkrufText, kennzeichenText, orgLabel, vokabularFuer } from "./hilfen";
 import { eintreffzeit } from "./eintrag-zeiten";
+import { falte } from "./schreibweise";
 
 export type EinheitenSortierung = "nummer" | "name" | "zuletzt" | "eintreffzeit" | "zug" | "organisation";
 
@@ -48,7 +49,8 @@ export const SORTIERUNGEN: { wert: EinheitenSortierung; label: string }[] = [
 
 /** Klein, ohne Akzente, Whitespace kollabiert — „München" findet man als „munchen". */
 function normalisiere(text: string): string {
-  return text
+  // Zusätzlich ohne Umlaut-Unterschiede: „muenchen" und „Riss" finden „München" und „Riß" (R11-H3).
+  return falte(text)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
@@ -65,7 +67,9 @@ function suchtext(e: MeldeEintrag): string {
     einheit.organisationName ?? "",
     e.zugEtikett ?? "",
     e.teilEtikett ?? "",
-    ...einheit.hierarchie.flatMap((h) => [h.name, h.kurz ?? ""]),
+    ...einheit.hierarchie.flatMap((h) => [h.name, h.kurz ?? "", vokabText(h.bezeichnung, vokabularFuer(einheit.organisation, "ebene"))]),
+    // Das Kürzel des Typs, wie es am Funk fällt: „ZTr", „FGr O" (R11-H3).
+    vokabText(einheit.einheitsTyp, vokabularFuer(einheit.organisation, "einheitstyp"), "kurz"),
     ...e.bogen.fahrzeuge.flatMap((f) => [kennzeichenText(f), funkrufText(f, einheit)]),
     e.notiz ?? "",
     e.bogen.einsatz.ortAuftrag,
@@ -273,6 +277,14 @@ export function einheitenAnsicht(
     sortierung,
     nummern,
   );
+}
+
+/** Einschränkung nach Status: nur Anwesende oder nur Abgerückte (R11-K2). */
+export type StatusFilter = "anwesend" | "abgerueckt";
+
+/** Anwesend heißt nicht abgerückt und nicht zusammengeführt: das ist, was in der Lage zählt. */
+export function passtZuStatusfilter(e: MeldeEintrag, f: StatusFilter): boolean {
+  return f === "anwesend" ? e.status === MeldeStatus.ANWESEND : e.status !== MeldeStatus.ANWESEND;
 }
 
 /** Einschränkung auf Einheiten, denen noch etwas fehlt (R7-K6). */

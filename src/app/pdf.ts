@@ -14,6 +14,7 @@ import * as pdfFonts from "pdfmake/build/vfs_fonts";
 import helvetica from "pdfmake/build/standard-fonts/Helvetica";
 import type { Erfassungsbogen } from "@bos/eeb-format/model";
 import { base64UrlDekodieren } from "@bos/eeb-format/codec";
+import { absenderLabel } from "@bos/eeb-format/signatur";
 import { dateinameTeil, einheitAnzeigename, natoZeitstempel, qrErzeugen } from "./hilfen";
 import { istNativ, binaerTeilen } from "./nativ";
 import { einsatzLageblattSeiteFuellen, einsatzPdfDokumentGesetzt, einzelPdfDokument, nichtDarstellbareBetroffene, nichtDarstellbareNamen, pdfDokument, umschriftBetroffene, vereinfachtBetroffene, type SammelBogen, type UebersichtEintrag } from "./pdf-dokument";
@@ -181,6 +182,7 @@ function uebersichtEintrag(
     abgerueckt: m.status !== MeldeStatus.ANWESEND,
     zaehlt: m.status === MeldeStatus.ANWESEND && zaehltInLage(einsatz.art, m.bogen),
     notiz: m.notiz,
+    ...(absenderLabel(m.signatur?.absender) ? { absender: absenderLabel(m.signatur?.absender) } : {}),
     ...(m.rueckkehr ? { rueckkehr: m.rueckkehr } : {}),
     ...(m.vomPapier != null ? { zeitUnbestaetigt: true } : {}),
     // Anderer Einsatz? wie an der Karte (R5-K5); beim Nachtrag aus der ganzen Sammlung gerechnet.

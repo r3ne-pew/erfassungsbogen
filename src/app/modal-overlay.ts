@@ -138,6 +138,17 @@ function eigenesZurueck(): void {
   history.back();
 }
 
+/**
+ * Mehrere Verlaufseinträge auf einmal verbrauchen (R11-S2): Nach einer abgeschlossenen Handlung („In Einsatz
+ * übernehmen", Scanner „Fertig") führt Zurück aus der neuen Ansicht dorthin, wo die Handlung begann, statt durch
+ * das erledigte Formular oder den Scanner. Wie {@link eigenesZurueck} erkennt der Lauscher den einen Pop daran.
+ */
+export function eigenesZurueckUm(anzahl: number): void {
+  if (anzahl < 1) return;
+  eigenesZurueckBis = Date.now() + 1500;
+  history.go(-anzahl);
+}
+
 /** War der Pop eben die späte Rückkehr eines eigenen `back()`? Verbraucht die Marke. */
 export function eigenesZurueckVerbrauchen(): boolean {
   const war = eigenesZurueckBis > Date.now();

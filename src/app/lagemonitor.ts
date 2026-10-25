@@ -77,6 +77,44 @@ export interface EinheitZeile {
   mannschaft: number;
   /** Niemand hat gezählt: die Zahlen sind nur die Sollstärke der Vorbelegung (in der Tabelle mit „S" markiert, R10-K4). */
   soll: boolean;
+  /** Alter der Meldung in Minuten, nur ab {@link VERALTET_ALTER_MIN} (knappe Altersmarke je Zeile, R11-K1). */
+  alterMin?: number;
+}
+
+/** Ab diesem Alter einer Meldung warnen Kopfzeile, Kachel und Monitor (R10-K1, R11-K1). */
+export const VERALTET_ALTER_MIN = 60;
+
+/** Alter der Meldungen der anwesenden (zählenden) Einheiten — nicht der abgerückten, die die Lage nicht mehr tragen (R11-K1). */
+export interface AnwesendenAlter {
+  /** Eingang der ältesten Meldung unter den Anwesenden (ms). */
+  aeltesteMs: number;
+  anwesend: number;
+  /** Davon älter als {@link VERALTET_ALTER_MIN} Minuten. */
+  aelter: number;
+}
+
+/**
+ * Wie alt sind die Meldungen, auf denen die Stärke beruht? „Letzte Meldung vor 1 Min" sagte nichts, wenn
+ * eine frische abgerückte Einheit die jüngste war und die anwesenden Stunden alt waren (R11-K1).
+ * `null` ohne anwesende Einheit.
+ */
+export function anwesendenAlter(anwesende: readonly { empfangenAm: number }[], jetzt: number): AnwesendenAlter | null {
+  if (anwesende.length === 0) return null;
+  const grenze = VERALTET_ALTER_MIN * 60_000;
+  return {
+    aeltesteMs: Math.min(...anwesende.map((e) => e.empfangenAm)),
+    anwesend: anwesende.length,
+    aelter: anwesende.filter((e) => jetzt - e.empfangenAm >= grenze).length,
+  };
+}
+
+/**
+ * „älteste Meldung vor 8 Std 20 Min, 5 von 6 älter als 1 Std" — nur, wenn mindestens eine anwesende Einheit
+ * älter als eine Stunde ist, sonst `null`.
+ */
+export function anwesendenAlterText(a: AnwesendenAlter | null, jetzt: number): string | null {
+  if (!a || a.aelter === 0) return null;
+  return `älteste Meldung ${alterText(a.aeltesteMs, jetzt)}, ${a.aelter} von ${a.anwesend} älter als 1 Std`;
 }
 
 /** Was sich zuletzt in der Lage bewegt hat — der Fernseher soll nicht nur Zahlen ändern, sondern sagen, warum (Audit Runde 6, R6-K1). */
@@ -116,6 +154,8 @@ export interface Lagebild {
   zeitenPruefen: boolean;
   /** Einheiten, für die niemand gezählt hat (reine Sollstärke), und ihre Personen: stecken in der Gesamtstärke (R9-K1). */
   sollstaerke: { einheiten: number; personen: number };
+  /** Alter der Meldungen der anwesenden Einheiten (R11-K1); `null` ohne Anwesende. */
+  anwesendenAlter: AnwesendenAlter | null;
 }
 
 export function lagebildArt(art: EinsatzArt): string {
@@ -171,6 +211,7 @@ export function lagebild(einsatz: Einsatzsammlung, jetzt: number = Date.now()): 
         unterfuehrer: st.unterfuehrer,
         mannschaft: st.mannschaft,
         soll: nurSollstaerke(m.bogen),
+        ...(jetzt - m.empfangenAm >= VERALTET_ALTER_MIN * 60_000 ? { alterMin: Math.floor((jetzt - m.empfangenAm) / 60_000) } : {}),
       };
     });
   return {
@@ -185,6 +226,7 @@ export function lagebild(einsatz: Einsatzsammlung, jetzt: number = Date.now()): 
     ersteMeldung: geltend.length > 0 ? Math.min(...geltend.map(eintreffzeit)) : null,
     bewegungen: bewegungenSeit(einsatz, jetzt),
     sollstaerke: sollstaerkeAnteil(einsatz.eintraege, einsatz.art),
+    anwesendenAlter: anwesendenAlter(aktuelleMeldungen(einsatz.eintraege, einsatz.art), jetzt),
     zeitenPruefen: einsatz.eintraege.some((e) => e.empfangenAm - jetzt > ZUKUNFT_TOLERANZ_MS) ||
       geltend.some((e) => eintreffzeit(e) - jetzt > ZUKUNFT_TOLERANZ_MS),
   };

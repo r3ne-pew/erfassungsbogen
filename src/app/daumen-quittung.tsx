@@ -33,8 +33,10 @@ function darunterLiegendeKarte(tipp: { x: number; y: number }, leiste: HTMLEleme
   return null;
 }
 
-export function DaumenQuittung({ children, prellschutz = false, onRueckgaengig, rueckgaengigName, onSchliessen }: {
+export function DaumenQuittung({ children, prellschutz = false, onRueckgaengig, rueckgaengigName, onSchliessen, mehrzeilig = false }: {
   children: ReactNode;
+  /** Bis zu vier statt zwei Zeilen Text: der Name der Einheit wird nicht abgeschnitten (R11-M3). */
+  mehrzeilig?: boolean;
   prellschutz?: boolean;
   onRueckgaengig?: () => void;
   /** Voller Name des Rückgängig-Knopfs für Vorlesesoftware und Tooltip, wenn „Rückgängig" allein zu wenig sagt (R5-E3). */
@@ -117,7 +119,7 @@ export function DaumenQuittung({ children, prellschutz = false, onRueckgaengig, 
     };
   }, []);
   return (
-    <div className="quittung-daumen" role="status" ref={leiste}>
+    <div className={mehrzeilig ? "quittung-daumen quittung-mehrzeilig" : "quittung-daumen"} role="status" ref={leiste}>
       <span className="quittung-text">{children}</span>
       {/* Die beiden Knöpfe bleiben als Paar zusammen: reicht die Breite nicht
           für Text und Knöpfe, rutscht das Paar unter den Text (R4-M1) — „✕"

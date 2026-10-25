@@ -53,13 +53,14 @@ import {
   tageBisAnonymisierung,
 } from "@bos/eeb-format/datenschutzfrist";
 import { datenschutzZeitpunkt, stempelZeitpunkt } from "./datenschutz-uhr";
+import { anonymQuittung } from "./anonym-hinweis";
 import { Kopfnav } from "./kopfnav-ui";
 import { bogenLinksEmpfangen, imWebBrowser, istNativ, qrScannen, textTeilen } from "./nativ";
 import { fehlerText } from "./nachladen";
 import { dateiFehlerMeldung } from "./datei-fehler";
 import { FehlerImBild } from "./fehler-im-bild";
 import { entfernteImImportKlaeren } from "./entfernte-meldungen";
-import { eigenesZurueckVerbrauchen, rueckfrageEintragErsetzbar } from "./modal-overlay";
+import { eigenesZurueckUm, eigenesZurueckVerbrauchen, rueckfrageEintragErsetzbar } from "./modal-overlay";
 import { FensterKonflikt, nachAbgleichFortsetzen, useFensterAbgleich } from "./fenster-abgleich";
 import { entwirreScanText } from "./tastaturbelegung";
 import { ortSperren, SCHRITTWECHSEL_SPERRE_MS, SEITENWECHSEL_SPERRE_MS } from "./tipp-schutz";
@@ -553,7 +554,17 @@ function reiterZeigen(el: HTMLButtonElement | null): void {
 
 /** Was die App gerade zeigt — für den Browser-Verlauf (Zurück-Knopf, Audit „Fehler", E3). */
 // `muster`: die Musterung einer Vorlage ist eine eigene Ansicht mit Verlaufseintrag (R7-H2).
-type Ansicht = { schritt: number; zeigeStart: boolean; einsatz: string | null; scanner: boolean; muster?: boolean };
+type Ansicht = { schritt: number; zeigeStart: boolean; einsatz: string | null; scanner: boolean; muster?: boolean; lauf?: string };
+/**
+ * Kennung dieses Seitenaufrufs. Verlaufseinträge tragen sie: Nach dem Neuladen steht der Verlauf aus der Zeit davor
+ * noch da (Schritt 2, 1, 0), und Zurück von der Startseite zeigte weiter die Startseite, zweimal, bevor die App
+ * verlassen wurde (R11-E8). Einträge einer fremden Kennung überspringt die App mit einem weiteren Zurück.
+ */
+const LAUF_ID = Math.random().toString(36).slice(2, 10);
+/** Gehört der Verlaufseintrag zu einem früheren Seitenaufruf (Rest vor dem Neuladen)? */
+export function verlaufRest(ziel: { lauf?: string } | undefined | null, lauf: string = LAUF_ID): boolean {
+  return !!ziel?.lauf && ziel.lauf !== lauf;
+}
 /**
  * Bisherige und neue Meldung in der Rückfrage nebeneinander (R4-N1): Stärke,
  * Ansprechperson, Kennzeichen, Stand — und ein Hinweis, wenn sie keine Person
@@ -1042,8 +1053,13 @@ function AppInhalt() {
   // verließ die App (Audit Runde 2, R2-H5).
   const startSichtbar = zeigeStart || !bogen;
   const musterAktiv = musterVorlage != null;
+  // Ausgangsansicht einer Erfassung oder eines Scans (Startseite, Einsatzansicht) und wie viele Verlaufseinträge
+  // seither dazukamen (R11-S2). Endet die Handlung dort, werden sie mit einem Schritt verbraucht.
+  const ruecksprungRef = useRef<{ ziel: Ansicht; tiefe: number } | null>(null);
+  // Nach dem Sprung ersetzt der Lauscher den Eintrag, auf dem die Ansicht landet, durch die stehende Ansicht.
+  const nachSprungErsetzenRef = useRef(false);
   useEffect(() => {
-    const jetzt: Ansicht = { schritt, zeigeStart: startSichtbar, einsatz: offenerEinsatzId, scanner: scannerOffen, muster: musterAktiv };
+    const jetzt: Ansicht = { schritt, zeigeStart: startSichtbar, einsatz: offenerEinsatzId, scanner: scannerOffen, muster: musterAktiv, lauf: LAUF_ID };
     const vorher = ansichtRef.current;
     ansichtRef.current = jetzt;
     if (typeof history === "undefined") return;
@@ -1079,7 +1095,33 @@ function AppInhalt() {
       else history.replaceState({ ...(st.eebErste ? { eebErste: true } : {}), eeb: jetzt }, "");
       return;
     }
-    if (rueckfrageEintragErsetzbar()) history.replaceState({ eeb: jetzt }, "");
+    // Abgeschlossene Handlung (R11-S2): „In Einsatz übernehmen" und Scanner „Fertig" legten einen Eintrag obendrauf;
+    // Zurück zeigte dann dieselbe Ansicht noch einmal, das ausgefüllte Formular oder die wieder offene Kamera.
+    const hub = (a: Ansicht) => a.zeigeStart && !a.scanner && !a.muster;
+    const rs = ruecksprungRef.current;
+    if (rs && hub(jetzt) && !rueckfrageEintragErsetzbar()) {
+      ruecksprungRef.current = null;
+      if (ansichtGleich(rs.ziel, jetzt)) {
+        // Zurück auf den Eintrag, an dem die Handlung begann: derselbe Ansicht, nichts zu ersetzen.
+        eigenesZurueckUm(rs.tiefe);
+        return;
+      }
+      // Andere Ansicht (Schnellerfassung von der Startseite → Einsatz): auf den ersten Eintrag der Handlung
+      // zurück und ihn durch die neue Ansicht ersetzen — Zurück führt dann dorthin, wo die Handlung begann.
+      if (rs.tiefe > 1) {
+        nachSprungErsetzenRef.current = true;
+        eigenesZurueckUm(rs.tiefe - 1);
+        return;
+      }
+      history.replaceState({ eeb: jetzt }, "");
+      return;
+    }
+    const ersetzbar = rueckfrageEintragErsetzbar();
+    if (!ersetzbar) {
+      if (hub(vorher) && !vorher.muster && (jetzt.scanner || sammelZielRef.current)) ruecksprungRef.current = { ziel: vorher, tiefe: 1 };
+      else if (ruecksprungRef.current) ruecksprungRef.current.tiefe += 1;
+    }
+    if (ersetzbar) history.replaceState({ eeb: jetzt }, "");
     else history.pushState({ eeb: jetzt }, "");
   }, [schritt, startSichtbar, offenerEinsatzId, scannerOffen, musterAktiv]);
   useEffect(() => {
@@ -1096,6 +1138,17 @@ function AppInhalt() {
       // bleibt (e2e-Ausfall „Startseite" nach „Vorlage speichern", Runde 7).
       if (eigenesZurueckVerbrauchen()) {
         const jetzt = ansichtRef.current;
+        if (nachSprungErsetzenRef.current) {
+          nachSprungErsetzenRef.current = false;
+          if (jetzt) {
+            try {
+              history.replaceState({ eeb: jetzt }, "");
+            } catch {
+              /* ohne Verlauf */
+            }
+          }
+          return;
+        }
         if (jetzt && !(ziel && ansichtGleich(ziel, jetzt))) {
           try {
             history.pushState({ eeb: jetzt }, "");
@@ -1116,11 +1169,21 @@ function AppInhalt() {
         }
         return;
       }
+      // Rest des Verlaufs vor dem Neuladen (R11-E8): überspringen, damit Zurück die App beim ersten Mal verlässt.
+      if (verlaufRest(ziel)) {
+        try {
+          history.back();
+        } catch {
+          /* ohne Verlauf */
+        }
+        return;
+      }
       if (!ziel) return;
       // Der Eintrag einer Rückfrage auf dem ersten Eintrag (R5-S5) führt auf
       // dieselbe Ansicht: nichts umzustellen, und das Ziel nicht merken.
       if (ansichtRef.current && ansichtGleich(ziel, ansichtRef.current)) return;
       verlaufZielRef.current = ziel;
+      ruecksprungRef.current = null; // Zurück per Browser: kein Sprung mehr, der Verlauf stimmt nicht mehr mit dem Zähler
       if (!ziel.muster && musterVorlageRef.current) setMusterVorlage(null);
       else if (ziel.muster && !musterVorlageRef.current) setMusterVorlage(musterungVorlageAusStand(vorlagenRef.current));
       setSchritt(ziel.schritt);
@@ -2691,6 +2754,24 @@ function AppInhalt() {
       ],
     });
     if (!werte) return null;
+    // Gleicher Name wie eine vorhandene Sammlung: einmal fragen, statt stumm eine zweite anzulegen, die danach
+    // nur an der Zeit zu unterscheiden ist (R11-K3).
+    const gleichnamig = einsaetzeLaden()
+      .filter((x) => x.name.trim().toLowerCase() === (werte.name ?? "").trim().toLowerCase())
+      .sort((a, b) => b.geaendert - a.geaendert);
+    if (gleichnamig.length > 0) {
+      const vorhanden = gleichnamig[0]!;
+      const wahl = await frageWahl({
+        titel: "Diese Sammlung gibt es schon",
+        text: `„${vorhanden.name}" gibt es schon (${anzahlEinheiten(vorhanden.eintraege)}${vorhanden.ort ? `, ${vorhanden.ort}` : ""}). Die vorhandene öffnen oder trotzdem eine zweite anlegen?`,
+        wege: [
+          { wert: "oeffnen", label: "Vorhandene öffnen" },
+          { wert: "neu", label: "Trotzdem neu anlegen" },
+        ],
+      });
+      if (wahl === null) return null;
+      if (wahl === "oeffnen") return vorhanden;
+    }
     let s: Einsatzsammlung;
     try {
       s = einsatzAnlegen(werte.name!, Number(werte.art) as EinsatzArt, werte.ort);
@@ -3410,6 +3491,15 @@ function AppInhalt() {
     setEinlese(d ? { fehler: d.fehler, meldung: d.meldung } : { fehler: "In der Auswahl sind keine Bilddateien.", meldung: "" });
   }
 
+  /** Satz zu den eben aufgenommenen Bögen, die wegen der Datenschutzfrist ohne Namen ankamen (R11-A1); sonst leer. */
+  function anonymImStapel(zielId: string, neueIds: string[]): string[] {
+    if (neueIds.length === 0) return [];
+    const ids = new Set(neueIds);
+    const eintraege = (einsaetzeLaden().find((x) => x.id === zielId)?.eintraege ?? []).filter((e) => ids.has(e.id));
+    const satz = anonymQuittung(eintraege, datenschutzZeitpunkt());
+    return satz ? [satz] : [];
+  }
+
   async function importiereBoegen(zielId: string, dateien: File[], mitBildern = false): Promise<DateiAnteil & { fehler: string; meldung: string }> {
     let neu = 0;
     let uebersprungen = 0;
@@ -3462,10 +3552,13 @@ function AppInhalt() {
         : dateiImportMeldung(neu, uebersprungen, zusatz);
     // Für den gemeinsamen Bericht mit Bildern: nur, was die Zahl nicht sagt.
     const aehnlich = aehnlichImStapel(zielId, vorher, neueIds);
+    // Bögen mit Stand über der Datenschutzfrist: ohne Namen angekommen, das Papier trägt sie (R11-A1).
+    const anonym = anonymImStapel(zielId, neueIds);
     const hinweise = [
       ...sammlungenUebernommen,
       ...vorrang,
       ...aehnlich,
+      ...anonym,
       zusatz.sammlungInPdf ? SAMMLUNG_IN_PDF_HINWEIS : zusatz.lage && neu > 0 ? LAGE_NACHTRAGEN_HINWEIS : "",
     ].filter(Boolean);
     return {
@@ -3475,7 +3568,7 @@ function AppInhalt() {
       zeilen: [...fehlerZeilen, ...hinweise],
       fehler: fehlerZeilen.join(" "),
       // Die mögliche Doppelung gehört in die sichtbare Quittung, nicht nur in die Zeilen des Berichts (R7-N1).
-      meldung: [...sammlungenUebernommen, bogenMeldung, ...vorrang, ...(mitBildern ? [] : aehnlich)].filter(Boolean).join(" "),
+      meldung: [...sammlungenUebernommen, bogenMeldung, ...anonym, ...vorrang, ...(mitBildern ? [] : aehnlich)].filter(Boolean).join(" "),
     };
   }
 
@@ -3660,7 +3753,7 @@ function AppInhalt() {
       }
       einsaetzeNeuLaden();
       const vorrang = await vorrangImStapel(zielId, vorher, neueIds);
-      setStapelBericht([...stapelBerichtZeilen(erg, neu, uebersprungen, daten, neueIds.length > 0), ...vorrang, ...aehnlichImStapel(zielId, vorher, neueIds)]);
+      setStapelBericht([...stapelBerichtZeilen(erg, neu, uebersprungen, daten, neueIds.length > 0), ...anonymImStapel(zielId, neueIds), ...vorrang, ...aehnlichImStapel(zielId, vorher, neueIds)]);
       const voll = speicherVollMeldung(speicherVoll);
       if (voll) setEinlese({ fehler: voll, meldung: "" });
     } catch (e) {
@@ -3875,7 +3968,7 @@ function AppInhalt() {
               {bogen && fremdeErfassung && sammelZielId === offenerEinsatz.id && (
                 <p className="meldung" role="status" style={{ textAlign: "center" }}>
                   Angefangene Erfassung für diesen Einsatz: „{einheitAnzeigename(bogen.einheit) || "(noch ohne Namen)"}".{" "}
-                  <button type="button" className="link" onClick={() => { setMeldung(""); setOffenerEinsatzId(null); setZeigeStart(false); }}>Weiter erfassen</button>
+                  <button type="button" className="link bogen-weiter" onClick={() => { setMeldung(""); setOffenerEinsatzId(null); setZeigeStart(false); }}>Weiter erfassen</button>
                 </p>
               )}
               {/* Wer Meldekopf und Einheit zugleich ist, landet nach dem Neuladen in der Sammlung: Der eigene,
@@ -3883,7 +3976,7 @@ function AppInhalt() {
               {bogen && !fremdeErfassung && !bearbeiteteVorlage && bogenHatInhalt(bogen) && (
                 <p className="meldung" role="status" style={{ textAlign: "center" }}>
                   Dein eigener Bogen „{einheitAnzeigename(bogen.einheit) || "(noch ohne Namen)"}" ist noch offen.{" "}
-                  <button type="button" className="link" onClick={() => { setMeldung(""); setOffenerEinsatzId(null); setZeigeStart(false); }}>Bogen fortsetzen</button>
+                  <button type="button" className="link bogen-weiter" onClick={() => { setMeldung(""); setOffenerEinsatzId(null); setZeigeStart(false); }}>Bogen fortsetzen</button>
                 </p>
               )}
               {/* Stapel-Fortschritt und -Bericht holen sich selbst ins Bild (R2-A2). */}
@@ -4339,6 +4432,8 @@ function AppInhalt() {
                   onClick={() => { setMeldung(""); setOffenerEinsatzId(s.id); }}
                 >
                   „{s.name}" öffnen
+                  {/* Einheitenzahl und Ort: zwei gleichnamige Sammlungen sind sonst nur an der Zeit zu unterscheiden (R11-K3). */}
+                  <span className="knopf-zusatz sammlung-kenndaten">{anzahlEinheiten(s.eintraege)}{s.ort ? ` · ${s.ort}` : ""}</span>
                   <span className="knopf-zusatz">{letzteMeldungText(s)}</span>
                 </button>
               ))}
@@ -4613,7 +4708,7 @@ function AppInhalt() {
           zuege={[...new Set(sammelEinsatz.eintraege.map((e) => e.zugEtikett).filter((z): z is string => !!z))].sort()}
         />
       )}
-      {schritt === 0 && <SchrittEinheit bogen={bogen} aendern={aendern} geheZu={setSchritt} />}
+      {schritt === 0 && <SchrittEinheit bogen={bogen} aendern={aendern} geheZu={setSchritt} ortFokus={!!sammelEinsatz && fremdeErfassung} />}
       {schritt === 1 && <SchrittEinsatz bogen={bogen} aendern={aendern} meldekopf={fremdeErfassung} />}
       {schritt === 2 && <SchrittPersonal bogen={bogen} aendern={aendern} geheZu={setSchritt} />}
       {schritt === 3 && <SchrittFahrzeuge bogen={bogen} aendern={aendern} />}

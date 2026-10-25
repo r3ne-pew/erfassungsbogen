@@ -45,6 +45,7 @@ import {
 import { debugAktiv } from "../debug-plattform";
 import { mwdText } from "../auswertung";
 import { bogenCsvInhalt } from "../bogen-csv";
+import { qrGroessePosten, VIELE_TEILE } from "../qr-posten";
 import { einheitSymbolSvg, svgDataUrl } from "../taktische-zeichen-bogen";
 import {
   absenderLabel,
@@ -885,6 +886,7 @@ export function Uebersicht(props: {
               <p className="hinweis">
                 Bogen zu groß für einen Code — in {qr.teile.length} Teile aufgeteilt. Alle Teile
                 nacheinander scannen; die App setzt sie zusammen. Auch auf den letzten PDF-Seiten, je Teil eine Seite.
+                {qr.teile.length > VIELE_TEILE && qrGroessePosten(bogen) ? ` Den größten Anteil haben: ${qrGroessePosten(bogen)}.` : ""}
               </p>
               <div className="qr-teile">
                 {qr.teile.map((t) => (

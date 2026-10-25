@@ -45,6 +45,7 @@ import {
 } from "../hilfen";
 import { mwdText } from "../auswertung";
 import { frageJaNein, frageWahl } from "../dialoge";
+import { TelefonFeld } from "./telefon-feld";
 import { nachzueglerFuer } from "../vorlage-nachzuegler";
 import { TabellenScroll } from "../tabellen-scroll";
 import {
@@ -117,7 +118,31 @@ function KontakteEditor(props: { kontakte: Kontakt[]; aendern: (k: Kontakt[]) =>
           <Feld titel="Art" schmal>
             <Auswahl
               value={k.art}
-              onChange={(e) => set(i, { art: Number(e.target.value), emailTemplate: undefined, wert: "" })}
+              onChange={async (e) => {
+                const neu = Number(e.target.value);
+                const wert = k.wert?.trim() ?? "";
+                const vonOderNachEmail = (k.art === KontaktArt.EMAIL) !== (neu === KontaktArt.EMAIL);
+                // Mobil ↔ Festnetz ist nur eine Beschriftung: die Nummer bleibt (R11-E2).
+                if (!vonOderNachEmail || !wert) {
+                  set(i, { art: neu, ...(vonOderNachEmail ? { emailTemplate: undefined, wert: "" } : {}) });
+                  return;
+                }
+                // Von oder nach E-Mail passt der Wert nicht mehr zum Feld: nicht still leeren (R11-E2).
+                if (
+                  await frageJaNein({
+                    titel: `Art ändern — ${k.art === KontaktArt.EMAIL ? "Adresse" : "Nummer"} ${wert} geht verloren?`,
+                    text: `Die ${k.art === KontaktArt.EMAIL ? "Adresse" : "Nummer"} ${wert} passt nicht zur Art „${
+                      neu === KontaktArt.EMAIL ? "E-Mail" : neu === KontaktArt.FESTNETZ ? "Festnetz" : "Mobil"
+                    }“ und wird aus dem Feld entfernt. Die Zeile bleibt, das Feld ist danach leer.`,
+                    ok: "Art ändern, Wert entfernen",
+                    abbruch: "Art behalten",
+                    gefahr: true,
+                    fokus: "abbruch",
+                  })
+                ) {
+                  set(i, { art: neu, emailTemplate: undefined, wert: "" });
+                }
+              }}
             >
               <option value={KontaktArt.MOBIL}>Mobil</option>
               <option value={KontaktArt.FESTNETZ}>Festnetz</option>
@@ -129,18 +154,18 @@ function KontakteEditor(props: { kontakte: Kontakt[]; aendern: (k: Kontakt[]) =>
                 E-Mail-Tastatur für die Adresse. Dieselbe Regel wie bei den
                 Kontaktstellen der Einheit — das hier ist die Nummer, über die
                 die Gegenstelle zurückfragt. */}
-            <input
-              type={k.art === KontaktArt.EMAIL ? "email" : "tel"}
-              inputMode={k.art === KontaktArt.EMAIL ? "email" : "tel"}
-              {...FREMDE_DATEN}
-              value={k.wert ?? ""}
-              onChange={(e) =>
-                set(i, {
-                  emailTemplate: undefined,
-                  wert: k.art === KontaktArt.EMAIL ? e.target.value : e.target.value.replace(/\D/g, ""),
-                })
-              }
-            />
+            {k.art === KontaktArt.EMAIL ? (
+              <input
+                type="email"
+                inputMode="email"
+                {...FREMDE_DATEN}
+                value={k.wert ?? ""}
+                onChange={(e) => set(i, { emailTemplate: undefined, wert: e.target.value })}
+              />
+            ) : (
+              // Führendes „+" bleibt, entfernte Zeichen und eine zweite Nummer werden genannt (R11-E3).
+              <TelefonFeld wert={k.wert} setzen={(wert) => set(i, { emailTemplate: undefined, wert })} />
+            )}
           </Feld>
           <label className="inline">
             <input type="checkbox" checked={k.dienstlich} onChange={(e) => set(i, { dienstlich: e.target.checked })} />
@@ -1652,6 +1677,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
                       </strong>
                     )}
                     {verdacht && <span className="uebung-badge">kein Name?</span>}
+                    {!verdacht && n.unsicher && <span className="uebung-badge">Reihenfolge prüfen</span>}
                     {dabei && vorschauDoppelt[w] && <span className="uebung-badge">doppelt</span>}
                   </li>
                 );
@@ -1664,6 +1690,12 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             {namenAlle.filter(namenVerdaechtig).length === 1 ? "Eine Zeile sieht" : `${namenAlle.filter(namenVerdaechtig).length} Zeilen sehen`} nicht
             nach einem Namen aus (Ziffern, Klammern) und {namenAlle.filter(namenVerdaechtig).length === 1 ? "wird" : "werden"} nicht übernommen. Wer sie
             doch braucht, hakt sie an.
+          </p>
+        )}
+        {namenAlle.some((n) => n.unsicher && !namenVerdaechtig(n)) && (
+          <p className="warnung" role="status">
+            Bei „Reihenfolge prüfen" stehen vor dem Komma mehrere Wörter — gelesen wird „Nachname, Vorname". Meint die Zeile
+            „Vorname Nachname, Funktion", sie als „Nachname, Vorname, Funktion" schreiben.
           </p>
         )}
         {anzahlDoppelt > 0 && (

@@ -10,6 +10,8 @@ import type { VokabularEintrag } from "@bos/vokabulare/thw";
 import { vokabSortiert, type Pruefpunkt } from "../hilfen";
 import { funktionVergeben } from "../haeufige-funktionen";
 import { HOECHST_PERSONEN, zahlLesen, type ZahlRegeln } from "../zahl-eingabe";
+import { naechstesFeld } from "../tastatur";
+import { beginntMit, falte, passtZurSuche } from "../schreibweise";
 
 export type SchrittProps = {
   bogen: Erfassungsbogen;
@@ -134,20 +136,15 @@ function VokabCombobox(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wert.code, wert.freitext]);
 
-  const suche = eingabe.trim().toLowerCase();
+  const suche = eingabe.trim();
   // Bewusst ohne Obergrenze: die Liste ist ein Ersatz für das Native-Select und
   // muss ohne Tippen jeden Eintrag zeigen — sie scrollt (max-height in der
   // CSS). Gekappt auf acht Zeilen las sich „B (ASH) … FGr I" am Handy als
   // vollständige Auswahl, und wer seine Einheit nicht sah, hielt sie für
   // nicht vorgesehen, statt zu tippen.
-  const treffer = suche
-    ? sortiert.filter(
-        (t) =>
-          t.kurz.toLowerCase().includes(suche) ||
-          t.name.toLowerCase().includes(suche) ||
-          label(t).toLowerCase().includes(suche),
-      )
-    : sortiert;
+  // Wortweise und ohne Umlaut-Unterschiede (R11-H2): „FGr Wasserschaden/Pumpen", das Beispiel im Feld,
+  // findet „FGr WP – Fachgruppe Wasserschaden/Pumpen", obwohl Kürzel und Name getrennt stehen.
+  const treffer = suche ? sortiert.filter((t) => passtZurSuche(label(t), suche)) : sortiert;
 
   const freitext = wert.code == null ? (wert.freitext ?? "").trim() : "";
   return (
@@ -182,10 +179,10 @@ function VokabCombobox(props: {
         // Direkt eingetipptes Kürzel, Label oder ausgeschriebener Name beim
         // Verlassen zum Code auflösen — ohne Groß-/Kleinschreibung und ohne
         // Leerzeichen am Rand, aber nur bei genau einem Treffer (R4-H1).
-        const klein = v.trim().toLowerCase();
-        const gleich = sortiert.filter((x) => x.name.toLowerCase() === klein || label(x).toLowerCase() === klein);
+        const klein = falte(v);
+        const gleich = sortiert.filter((x) => falte(x.name) === klein || falte(label(x)) === klein);
         const t =
-          sortiert.find((x) => label(x) === v || x.kurz.toLowerCase() === klein) ?? (gleich.length === 1 ? gleich[0] : undefined);
+          sortiert.find((x) => label(x) === v || falte(x.kurz) === klein) ?? (gleich.length === 1 ? gleich[0] : undefined);
         if (t) {
           setEingabe(label(t));
           aendern({ code: t.code });
@@ -314,8 +311,13 @@ export function VorschlagFeld<T>(props: {
   picker?: boolean;
   /** true: Kennung (Kürzel) — Großbuchstaben, ohne Autokorrektur ({@link KENNUNG_EINGABE}). */
   kennung?: boolean;
+  /**
+   * Satz unter dem Feld, solange das Feld Fokus hat, etwas getippt ist und die Liste nichts findet — statt
+   * stumm Freitext zu übernehmen (R11-H1).
+   */
+  keineTreffer?: ReactNode;
 }) {
-  const { id: feldId, wert, platzhalter, beschriftung, treffer, schluessel, zeile, tippen, waehlen, bestaetigen, verlassen, imFluss, picker, kennung } = props;
+  const { id: feldId, wert, platzhalter, beschriftung, treffer, schluessel, zeile, tippen, waehlen, bestaetigen, verlassen, imFluss, picker, kennung, keineTreffer } = props;
   const ausFeld = useContext(FeldTitel);
   const [offen, setOffen] = useState(false);
   const [aktiv, setAktiv] = useState(0);
@@ -363,6 +365,7 @@ export function VorschlagFeld<T>(props: {
         aria-autocomplete="list"
         // Sonst legt sich die Autovervollständigung des Browsers über unsere.
         autoComplete="off"
+        enterKeyHint={imFluss ? "enter" : "next"}
         {...(kennung ? KENNUNG_EINGABE : {})}
         value={wert}
         placeholder={platzhalter}
@@ -387,6 +390,13 @@ export function VorschlagFeld<T>(props: {
             const v = sichtbar[aktiv];
             if (v !== undefined) nehmen(v);
             else bestaetigen?.(wert);
+            // „Weiter" der Tastatur (R11-G1): wie in Schritt 3 und 5 zum nächsten Feld, im letzten schließt
+            // sie die Tastatur. Chip-Felder (imFluss) bleiben stehen, dort folgt oft ein weiterer Eintrag.
+            if (!imFluss && eingabeRef.current) {
+              const weiter = naechstesFeld(eingabeRef.current);
+              if (weiter) weiter.focus();
+              else eingabeRef.current.blur();
+            }
             return;
           }
           if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
@@ -437,6 +447,11 @@ export function VorschlagFeld<T>(props: {
       <span className="nur-vorlesen" role="status">
         {aufgeklappt ? `${sichtbar.length} ${sichtbar.length === 1 ? "Vorschlag" : "Vorschläge"}` : ""}
       </span>
+      {keineTreffer && offen && treffer.length === 0 && wert.trim().length >= 3 && (
+        <span className="hinweis kein-treffer" style={{ display: "block" }}>
+          {keineTreffer}
+        </span>
+      )}
     </span>
   );
 }
@@ -480,7 +495,7 @@ export function VokabListe(props: {
   const { werte, aendern, tabelle, hinzufuegenText, freitextVorschlaege, suchhinweis, haeufige } = props;
   const [eingabe, setEingabe] = useState("");
 
-  const suche = eingabe.trim().toLowerCase();
+  const suche = eingabe.trim();
   const treffer: Kandidat[] = [];
   if (!suche) {
     for (const w of haeufige ?? []) {
@@ -493,7 +508,8 @@ export function VokabListe(props: {
     // vokabSortiert: gleiche Reihenfolge wie in den Auswahllisten der App,
     // damit Gleichartiges beieinander steht („GrFü B", „GrFü BrB", „GrFü E").
     for (const t of vokabSortiert(tabelle)) {
-      if (t.kurz.toLowerCase().includes(suche) || t.name.toLowerCase().includes(suche)) {
+      // Wortweise, ohne Umlaut-Unterschiede: „Gruppenfuehrer" und „GrFu" finden „GrFü …" (R11-H2).
+      if (passtZurSuche(`${t.kurz} ${t.name}`, suche)) {
         treffer.push({ text: t.kurz, zusatz: t.name, wert: { code: t.code } });
       }
     }
@@ -501,13 +517,13 @@ export function VokabListe(props: {
       const { text, zusatz } = typeof v === "string" ? { text: v, zusatz: undefined } : v;
       // Der Zusatz zählt bei der Suche mit: „Tauchen" soll alle Tauchscheine
       // holen, obwohl das Wort in keiner der Bezeichnungen steht.
-      if (text.toLowerCase().includes(suche) || (zusatz?.toLowerCase().includes(suche) ?? false))
+      if (passtZurSuche(`${text} ${zusatz ?? ""}`, suche))
         treffer.push({ text, zusatz, wert: { freitext: text } });
     }
     // Was mit der Eingabe beginnt, ist meist das Gemeinte — nach vorn. Zählt für
     // beide Schreibweisen: die eine tippt „GrFü B", die andere „Gruppenführer".
     const beginnt = (k: Kandidat) =>
-      Number(k.text.toLowerCase().startsWith(suche) || (k.zusatz?.toLowerCase().startsWith(suche) ?? false));
+      Number(beginntMit(k.text, suche) || (k.zusatz != null && beginntMit(k.zusatz, suche)));
     treffer.sort((a, b) => beginnt(b) - beginnt(a));
   }
 

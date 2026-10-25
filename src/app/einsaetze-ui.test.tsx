@@ -247,6 +247,7 @@ describe("Einheit mit Folgemeldung entfernen (R2-D1)", () => {
     const quittung = screen.getByRole("status");
     // Handlung vorn, Name danach — die Leiste kürzt am Ende (R3-G2).
     expect(quittung.textContent).toMatch(/^Entfernt \(2 Fassungen\): Meldung Nr\. \d+ „.*Ulm"/);
+    expect(quittung.className).toContain("quittung-mehrzeilig"); // R11-D2: Umnummerierung nicht abgeschnitten
 
     await nutzer.click(within(quittung).getByRole("button", { name: "Rückgängig" }));
     neuLaden();
@@ -1784,6 +1785,8 @@ describe("Aufteilen mit Quittung und Rückweg (R2-D6)", () => {
     expect(document.querySelectorAll(".einheit-zeile")).toHaveLength(2);
     const quittung = screen.getByRole("status");
     expect(quittung.className).toContain("quittung-daumen");
+    // R11-D2: Der Rest des Satzes („abgeteilt", Weg über „Zusammenführen…") wird nicht nach zwei Zeilen abgeschnitten.
+    expect(quittung.className).toContain("quittung-mehrzeilig");
     expect(quittung.textContent).toMatch(/„Fachberater" von „.*Wardenburg" abgeteilt\. Später zurück über „Mehr…" › „Zusammenführen…"\./);
 
     await nutzer.click(within(quittung).getByRole("button", { name: "Rückgängig" }));

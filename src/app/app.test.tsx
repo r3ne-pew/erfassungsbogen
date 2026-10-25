@@ -1148,6 +1148,25 @@ describe("Assistenten-Durchlauf", () => {
     expect(screen.getByRole("button", { name: "Neuen Bogen erstellen" })).toBeDefined();
   });
 
+  // Audit Runde 11, R11-E8: Nach dem Neuladen trägt der Verlauf die Schritte der Zeit davor weiter;
+  // Zurück von der Startseite zeigte zweimal dieselbe Startseite. Einträge fremder Kennung werden übersprungen.
+  it("überspringt beim Zurück den Verlaufsrest vor dem Neuladen (R11-E8)", async () => {
+    const alt = (schritt: number) => ({ eeb: { schritt, zeigeStart: false, einsatz: null, scanner: false, lauf: "alter-aufruf" } });
+    history.replaceState(alt(1), "");
+    history.pushState(alt(2), "");
+    render(<App />);
+    expect(screen.getByRole("button", { name: "Neuen Bogen erstellen" })).toBeDefined();
+    const zurueck = vi.spyOn(history, "back");
+    try {
+      act(() => { history.back(); });
+      // Das eigene Zurück (1) trifft den fremden Eintrag; die App löst ein weiteres aus (2).
+      await waitFor(() => expect(zurueck.mock.calls.length).toBeGreaterThanOrEqual(2));
+      expect(screen.getByRole("button", { name: "Neuen Bogen erstellen" })).toBeDefined();
+    } finally {
+      zurueck.mockRestore();
+    }
+  });
+
   // Audit Runde 4, R4-S1: Zurück bei offener Rückfrage wechselte die Ansicht
   // dahinter, die Rückfrage blieb über der Startseite stehen und wirkte von
   // dort. Jetzt ist Zurück ihr „Abbrechen", die Ansicht bleibt.

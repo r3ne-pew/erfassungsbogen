@@ -169,11 +169,16 @@ function ablageLaden(schluessel: string): Ablage {
   return ablage;
 }
 
-function ablageSpeichern(ablage: Ablage | ZielAblage, schluessel: string): void {
+/** `false`, wenn der Speicher voll oder gesperrt ist (R11-O4: „Zur Kenntnis genommen" meldet das). */
+function ablageSpeichern(ablage: Ablage | ZielAblage, schluessel: string): boolean {
   try {
-    speicher()?.setItem(schluessel, JSON.stringify(ablage));
+    const s = speicher();
+    if (!s) return false;
+    s.setItem(schluessel, JSON.stringify(ablage));
+    return true;
   } catch {
     /* voller oder gesperrter Speicher — der Stand ist Komfort, kein Fachdatum */
+    return false;
   }
 }
 
@@ -735,6 +740,16 @@ export function kenntnisVermerken(
   /** true: jemand hat „Zur Kenntnis genommen" getippt (R4-K7). */
   bestaetigt = false,
 ): ExportStand {
+  return kenntnisVermerkenGeprueft(einsatz, behalten, jetzt, bestaetigt).stand;
+}
+
+/** Wie {@link kenntnisVermerken}, sagt aber, ob der Stand wirklich im Speicher steht (R11-O4). */
+export function kenntnisVermerkenGeprueft(
+  einsatz: Einsatzsammlung,
+  behalten?: Iterable<string>,
+  jetzt = Date.now(),
+  bestaetigt = false,
+): { stand: ExportStand; gespeichert: boolean } {
   const stand: ExportStand = { zeitpunkt: jetzt, eintragIds: einsatz.eintraege.map((e) => e.id), ...(bestaetigt ? { bestaetigt: true } : {}) };
   const alt = ablageLaden(KENNTNIS_SCHLUESSEL);
   const neu: Ablage = {};
@@ -744,6 +759,22 @@ export function kenntnisVermerken(
     Object.assign(neu, alt);
   }
   neu[einsatz.id] = stand;
-  ablageSpeichern(neu, KENNTNIS_SCHLUESSEL);
-  return stand;
+  return { stand, gespeichert: ablageSpeichern(neu, KENNTNIS_SCHLUESSEL) };
+}
+
+/**
+ * Den Stand vor „Zur Kenntnis genommen" zurückschreiben (Rückgängig, R11-D1); `null` entfernt den Eintrag. Liefert
+ * `false`, wenn der Speicher voll oder gesperrt ist.
+ */
+export function kenntnisWiederherstellen(einsatzId: string, stand: ExportStand | null, behalten?: Iterable<string>): boolean {
+  const alt = ablageLaden(KENNTNIS_SCHLUESSEL);
+  const neu: Ablage = {};
+  if (behalten) {
+    for (const id of behalten) if (alt[id]) neu[id] = alt[id];
+  } else {
+    Object.assign(neu, alt);
+  }
+  if (stand) neu[einsatzId] = stand;
+  else delete neu[einsatzId];
+  return ablageSpeichern(neu, KENNTNIS_SCHLUESSEL);
 }

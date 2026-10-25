@@ -66,6 +66,7 @@ import {
   zeitpunktDeutsch,
 } from "./hilfen";
 import { csvDatei, csvZeile, jaNein } from "./csv";
+import { telefonAlsTabellenText } from "./telefon-eingabe";
 import { HERKUNFT_TEXT, eintreffzeit, zeitLang } from "./eintrag-zeiten";
 import { meldungsNummern } from "./einheiten-tabelle";
 import { MeldeStatus, type Einsatzsammlung, type MeldeEintrag, type MeldeQuelle } from "@bos/meldekopf/einsaetze";
@@ -269,7 +270,8 @@ function einheitSatz(b: Erfassungsbogen, k: Kontext): Satz {
     Einheitstyp: vokabText(b.einheit.einheitsTyp, vokabularFuer(b.einheit.organisation, "einheitstyp"), "name"),
     Standort: einheitOrt(b.einheit),
     "Zugehörigkeit": zugehoerigkeitText(b),
-    "Telefon Einheit": ebene0?.telefon ?? "",
+    // Als Text („Tel. 0441…"): Eine reine Ziffernfolge macht Excel zur Zahl und streicht die Null (R11-E7).
+    "Telefon Einheit": telefonAlsTabellenText(ebene0?.telefon),
     "E-Mail Einheit": ebene0?.email ?? "",
     "Ort/Auftrag (Bogen)": b.einsatz.ortAuftrag,
     "Zeitraum von": datumText(b.einsatz.zeitraumVon),
