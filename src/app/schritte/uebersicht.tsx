@@ -59,7 +59,7 @@ import { geraeteKurzform, geraeteSchluesselNurSitzung, geraeteOeffentlichHex } f
 import { istNativ, linkTeilen, nahbereichDienst, pdfEinbettbar, shareSheetVerfuegbar, textTeilen } from "../nativ";
 import { fehlerText, istNachladeFehler } from "../nachladen";
 import { frageJaNein, frageText, frageWahl, zeigeHinweis } from "../dialoge";
-import { mindestzeigeDauer, ortSperren } from "../tipp-schutz";
+import { mindestzeigeDauer, ortSperren, SCHRITTWECHSEL_SPERRE_MS } from "../tipp-schutz";
 import { arbeiten, useArbeitet } from "../arbeitet";
 import { SpeicherVollFehler, istSpeicherVoll } from "../eintrag-zeiten";
 import { uebergabeText, type UebergabeStand, type UebergabeWeg } from "../uebergabe-stand";
@@ -1256,7 +1256,9 @@ export function QrVollbild(props: {
   }, [index, phase, sofortGezeigt]);
   /** Teilwechsel: Die Fingerstelle bleibt kurz gesperrt, der Nachtipp überspringt keinen Teil (R5-S1, R5-G1). */
   const wechseln = (i: number) => {
-    ortSperren();
+    // 0,9 s wie beim Schrittwechsel (R11-S1): Bei 1,5 s verwarf die Sperre bei ruhigem Tippen im Abstand von
+    // 0,8 bis 1,3 s jeden zweiten „Weiter zu Teil n"; der Doppeltipp (bis ~700 ms) bleibt gesperrt.
+    ortSperren(SCHRITTWECHSEL_SPERRE_MS);
     props.onTeil(i);
   };
   /**

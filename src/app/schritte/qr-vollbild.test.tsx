@@ -230,7 +230,36 @@ describe("QR-Vollbild: ein Teil zählt erst nach der Mindestzeit (R5-S1)", () =>
     expect(screen.getByText("Hat die Gegenstelle den Code gescannt?")).toBeDefined();
   });
 
-  it("ein Nachtipp an derselben Stelle (150 bis 1 400 ms) überspringt keinen Teil, ab 1,6 s darf er weiter", async () => {
+  it("R11-S1: Tipps im Abstand von 1,0 und 1,3 s nehmen jeden Teil weiter, 200 ms nur einen Schritt", async () => {
+    const { tippSchutzZuruecksetzen } = await import("../tipp-schutz");
+    const teilNr = () => /Teil (\d) von 7/.exec(screen.getByRole("dialog").querySelector(".qr-vollbild-teil")!.textContent!)![1];
+    const tipp = () => {
+      const knopf = screen.getByRole("button", { name: /Nächster Teil/ });
+      act(() => {
+        knopf.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: 300, clientY: 500, detail: 1 }));
+      });
+    };
+    for (const abstand of [1000, 1300]) {
+      cleanup();
+      tippSchutzZuruecksetzen();
+      render(<Rahmen n={7} onSchliessen={() => {}} />);
+      tipp();
+      for (let i = 0; i < 4; i++) {
+        act(() => { vi.advanceTimersByTime(abstand); });
+        tipp();
+      }
+      expect(teilNr()).toBe("6");
+    }
+    cleanup();
+    tippSchutzZuruecksetzen();
+    render(<Rahmen n={7} onSchliessen={() => {}} />);
+    tipp();
+    act(() => { vi.advanceTimersByTime(200); });
+    tipp();
+    expect(teilNr()).toBe("2");
+  });
+
+  it("ein Nachtipp an derselben Stelle (150 bis 800 ms) überspringt keinen Teil, ab 1,0 s darf er weiter", async () => {
     const { tippSchutzZuruecksetzen } = await import("../tipp-schutz");
     tippSchutzZuruecksetzen();
     render(<Rahmen n={7} onSchliessen={() => {}} />);
@@ -241,7 +270,7 @@ describe("QR-Vollbild: ein Teil zählt erst nach der Mindestzeit (R5-S1)", () =>
         knopf.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: 300, clientY: 500, detail: 1 }));
       });
     };
-    for (const abstand of [150, 600, 1200, 1400]) {
+    for (const abstand of [150, 600, 800]) {
       tippSchutzZuruecksetzen();
       cleanup();
       render(<Rahmen n={7} onSchliessen={() => {}} />);
@@ -257,7 +286,7 @@ describe("QR-Vollbild: ein Teil zählt erst nach der Mindestzeit (R5-S1)", () =>
     tippSchutzZuruecksetzen();
     render(<Rahmen n={7} onSchliessen={() => {}} />);
     tipp();
-    act(() => { vi.advanceTimersByTime(1600); });
+    act(() => { vi.advanceTimersByTime(1000); });
     tipp();
     expect(teilNr()).toBe("3");
   });
