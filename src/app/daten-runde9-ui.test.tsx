@@ -146,13 +146,13 @@ describe("Rückwege im Assistenten überleben Schrittwechsel und Neuladen (R9-D3
     await nutzer.click(screen.getByRole("button", { name: "Ebene RB Tübingen entfernen" }));
     const frage = document.querySelector<HTMLDialogElement>("dialog[open]")!;
     await nutzer.click(within(frage).getByRole("button", { name: "Ebene entfernen" }));
-    expect(screen.getAllByLabelText(/^Name/)).toHaveLength(1);
+    expect(screen.getAllByLabelText(/^(Name|Ort der Einheit)/)).toHaveLength(1);
     await nutzer.click(screen.getByRole("button", { name: "wechsel" }));
     await nutzer.click(screen.getByRole("button", { name: "wechsel" }));
     const leiste = document.querySelector<HTMLElement>(".quittung-daumen")!;
     expect(leiste.textContent).toMatch(/Entfernt: RB Tübingen/);
     await nutzer.click(within(leiste).getByRole("button", { name: "Rückgängig" }));
-    expect(screen.getAllByLabelText(/^Name/)).toHaveLength(2);
+    expect(screen.getAllByLabelText(/^(Name|Ort der Einheit)/)).toHaveLength(2);
     expect(screen.getByDisplayValue("07071123")).toBeTruthy();
   });
 

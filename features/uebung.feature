@@ -8,7 +8,7 @@ Funktionalität: Übungs-Kennzeichnung des Bogens
   Grundlage:
     Angenommen ich öffne die App
     Wenn ich auf "Neuen Bogen erstellen" klicke
-    Und ich das Feld "Name (Pflicht)" mit "Musterhausen" fülle
+    Und ich das Feld "Ort der Einheit (Pflicht)" mit "Musterhausen" fülle
     Und ich zum Schritt "2. Einsatz" wechsle
     Und ich "Dies ist eine Übung" ankreuze
     Dann sehe ich den Hinweis "Dieser Bogen ist als Übung gekennzeichnet"

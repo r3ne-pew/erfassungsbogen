@@ -98,7 +98,7 @@ Funktionalität: Einheitenliste durchsuchen, filtern und sortieren
     Wenn ich auf "Einheit manuell erfassen…" klicke
     Dann sehe ich den Schritt "1. Einheit"
     Wenn ich das Feld "Organisation" auf "Feuerwehr" stelle
-    Und ich das Feld "Name (Pflicht)" mit "Hude" fülle
+    Und ich das Feld "Ort der Einheit (Pflicht)" mit "Hude" fülle
     Und ich zum Schritt "3. Personal" wechsle
     Und ich auf "+ Person hinzufügen" klicke
     Und ich das Feld "Nachname" mit "Tabken" fülle

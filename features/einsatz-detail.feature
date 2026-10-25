@@ -137,7 +137,7 @@ Funktionalität: Einsatz-Sammlung führen (Meldekopf)
   Szenario: Ein Bogen-Link nennt vor dem Ersetzen des eigenen angefangenen Bogens die Folge und fragt einmal
     Wenn ich auf "‹ Startseite" klicke
     Und ich auf "Neuen Bogen erstellen" klicke
-    Und ich das Feld "Name (Pflicht)" mit "Eigenstadt" fülle
+    Und ich das Feld "Ort der Einheit (Pflicht)" mit "Eigenstadt" fülle
     Und ich denselben Bogen-Link erneut öffne
     Dann sehe ich den Hinweis "Ersetzt deinen angefangenen Bogen"
     Und sehe ich den Hinweis "Eigenstadt"
@@ -149,7 +149,7 @@ Funktionalität: Einsatz-Sammlung führen (Meldekopf)
     Wenn ich auf "Einheit manuell erfassen…" klicke
     Dann sehe ich den Schritt "1. Einheit"
     Wenn ich das Feld "Organisation" auf "Feuerwehr" stelle
-    Und ich das Feld "Name (Pflicht)" mit "Wardenburg" fülle
+    Und ich das Feld "Ort der Einheit (Pflicht)" mit "Wardenburg" fülle
     Und ich zum Schritt "6. Übersicht" wechsle
     Dann sehe ich die Schaltfläche "In Einsatz übernehmen"
     Wenn ich auf "In Einsatz übernehmen" klicke
@@ -164,7 +164,7 @@ Funktionalität: Einsatz-Sammlung führen (Meldekopf)
   Szenario: Ohne Stärke führt die Rückfrage zu den Zählern
     Wenn ich auf "Einheit manuell erfassen…" klicke
     Und ich das Feld "Organisation" auf "Feuerwehr" stelle
-    Und ich das Feld "Name (Pflicht)" mit "Wardenburg" fülle
+    Und ich das Feld "Ort der Einheit (Pflicht)" mit "Wardenburg" fülle
     Und ich zum Schritt "6. Übersicht" wechsle
     Und ich auf "In Einsatz übernehmen" klicke
     Dann sehe ich den Dialog "Stärke fehlt"

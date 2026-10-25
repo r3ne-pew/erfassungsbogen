@@ -2312,6 +2312,12 @@
        rechts davon eine Stärkeangabe. Vier gleiche Haarlinien lasen die fünf
        Zahlen als eine Reihe gleicher Dinge. */
     .staerke-leiste > div:nth-child(2) { border-left-color: var(--linie); }
+    /* Rückmeldung aus der Erprobung: „Einheiten" las sich als erster Summand der
+       Stärke. Die Anzahl sitzt darum auf eigener Fläche, mit kräftiger Trennlinie
+       zur Stärke (Führer / Unterführer / Mannschaft / Gesamt) und leiser Zahl. */
+    .staerke-leiste > div.anzahl { background: var(--flaeche-2); }
+    .staerke-leiste > div.anzahl strong { color: var(--text-2); }
+    .staerke-leiste > div.anzahl + div { border-left: 3px solid var(--linie-stark); }
     /* Auf dem Telefon passen fünf Zahlenfelder nicht nebeneinander — im
        Feld-Modus sprengten sie die Karte. Zwei feste Spalten, und die
        Trennlinien laufen dann auch zwischen den Zeilen; „Gesamt" schließt als
@@ -2324,6 +2330,8 @@
       }
       .staerke-leiste > div:nth-child(odd) { border-left: none; }
       .staerke-leiste > div:nth-child(-n + 2) { border-top: none; }
+      .staerke-leiste > div.anzahl + div { border-left: var(--strich) solid var(--linie-fein); }
+      .staerke-leiste > div.anzahl { border-right: 3px solid var(--linie-stark); }
       .staerke-leiste > div.gesamt {
         grid-column: 1 / -1; border-left: none; border-top-color: var(--linie);
       }
@@ -5287,7 +5295,7 @@
     html.schrift-gross dialog > .kopfzeile:first-child > button { font-size: min(var(--t-m), 18px); padding-inline: min(1.1rem, 16px); }
     dialog > .kopfzeile:first-child > button { flex: 0 0 auto; min-height: calc(44px + var(--ziel)); }
     dialog button.link { min-height: calc(44px + var(--ziel)); }
-    .beispiel-liste li > button.link { display: flex; align-items: center; width: 100%; text-align: left; }
+    .beispiel-liste li > button.link { display: flex; align-items: center; justify-content: flex-start; width: 100%; text-align: left; }
     details.beispiele-erklaerung { margin: var(--r-2) 0; }
     details.beispiele-erklaerung > summary { cursor: pointer; min-height: calc(44px + var(--ziel)); display: flex; align-items: center; color: var(--akzent); font-weight: 600; }
     /* R8-M7: Die Kurz-Liste der Personen am Telefon trug die Feldnamen nur im aria-label; sobald ein Wert drinsteht, erkannte man

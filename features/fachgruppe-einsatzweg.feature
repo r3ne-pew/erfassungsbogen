@@ -9,7 +9,7 @@ Funktionalität: Einsatzweg einer Fachgruppe — Vorbereitung, Fahrt, Meldekopf
     Angenommen ich öffne die App
     Wenn ich auf "Neuen Bogen erstellen" klicke
     Und ich das Feld "Organisation" auf "THW" stelle
-    Und ich das Feld "Name (Pflicht)" mit "Oldenburg" fülle
+    Und ich das Feld "Ort der Einheit (Pflicht)" mit "Oldenburg" fülle
     Und ich in der Vorschlagsliste "Oldenburg (NI)" wähle
     Und ich das Feld "Einheitstyp" auf "FGr WP (B) – Fachgruppe Wasserschaden/Pumpen (B)" stelle
 

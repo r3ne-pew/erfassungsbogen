@@ -30,6 +30,21 @@ describe("Schritt Sofortbedarf", () => {
     expect(screen.getByText(/Verpflegung ist aus der Stärke vorbelegt und zieht mit ihr mit/)).toBeDefined();
   });
 
+  // Rückmeldung aus der Erprobung: ein geleertes Zahlenfeld sprang auf „0" zurück, neu tippen ergab „07".
+  it("lässt ein Zahlenfeld leer, solange man es leert und neu tippt", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittSofortbedarf} />);
+    await nutzer.click(screen.getByLabelText("Sofortbedarf erfassen"));
+    const diesel = screen.getByLabelText("Diesel (l)") as HTMLInputElement;
+    await nutzer.clear(diesel);
+    await nutzer.type(diesel, "70");
+    expect(diesel.value).toBe("70");
+    await nutzer.clear(diesel);
+    expect(diesel.value).toBe("");
+    await nutzer.tab();
+    expect(diesel.value).toBe("0");
+  });
+
   // Audit Runde 9, R9-E1: Komma und Minus verschwinden nicht mehr still.
   it("lehnt ein Minus ab und sagt es, der Wert davor bleibt (R9-E1)", async () => {
     const nutzer = userEvent.setup();

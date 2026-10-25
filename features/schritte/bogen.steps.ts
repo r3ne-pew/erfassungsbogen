@@ -244,7 +244,7 @@ When(
     await this.page
       .locator("main")
       .locator("label")
-      .filter({ hasText: /^Name \(Pflicht\)/ })
+      .filter({ hasText: /^Ort der Einheit \(Pflicht\)/ })
       .locator("input")
       .first()
       .fill(name);
