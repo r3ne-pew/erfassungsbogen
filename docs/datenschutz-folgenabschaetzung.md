@@ -11,6 +11,23 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-25 — Audit Runde 9:** Zwei weitere Rückwege liegen im
+> `sessionStorage` des Tabs (15 Minuten, nicht in der Datensicherung, weg mit
+> dem Tab und mit „Alle Daten löschen"): `eeb.fahrzeug.rueckweg` (Fahrzeugangaben)
+> und `eeb.ebene.rueckweg` (Ebene mit Kürzel, Telefon, E-Mail) (5.4, 5.7).
+> `eeb.unlesbar.v1` nimmt zusätzlich eine beschädigte Absenderkarte auf (Name,
+> Anschrift der erfassenden Stelle) und wird mit „Beiseitegelegtes
+> entfernen…" aufgeräumt. Der Entwurf trägt Eintreffzeit, Nr. und Zug der
+> manuellen Aufnahme (`fremd.zettel`, keine Personendaten). Bei vollem
+> Speicher werden beschädigte Daten nicht überschrieben, solange sie nicht
+> beiseite liegen (Verfügbarkeit, 5.7). „Sicherung einspielen…" und „Alle Daten
+> löschen" nennen den beiseitegelegten Bestand ausdrücklich. Excel-, CSV-
+> und PDF-Exporte kennzeichnen die Sollstärke als nicht gemeldet und tragen
+> kyrillische und griechische Namen in Umschrift (Richtigkeit, Art. 5 Abs. 1
+> lit. d DSGVO); der Browser-Druck der Ansichten ist gestaltet (5.1, 5.5). Die
+> Löschfristen verlängern sich nirgends. Keine neuen Empfänger, keine
+> Netzverbindung (5.8 unverändert).
+>
 > **Nachgezogen 2026-10-24 — Audit Runde 8:** `eeb.unlesbar.v1` nimmt jetzt
 > auch ganze Gesamttexte auf (`texte`), die sich nicht als Liste lesen
 > lassen: Sammlungen und Vorlagen, die durch einen vollen Speicher oder einen
