@@ -206,6 +206,20 @@ export function zeigeHinweis(a: {
   return stellen({ art: "hinweis", titel: a.titel, text: a.text, kopiertext: a.kopiertext, ok: a.ok ?? "Alles klar" });
 }
 
+/**
+ * Ein Feld im rollenden Rumpf eines Dialogs so weit ins Bild rollen, dass es nicht unter der festen Knopfzeile
+ * liegt (R10-L1). `nearest`: Passt es schon, bleibt alles stehen; die Frage steht nur dann nicht mehr ganz oben,
+ * wenn das Feld sonst verdeckt wäre.
+ */
+function feldInsBild(el: Element | null | undefined): void {
+  if (!el) return;
+  // Mit Beschriftung, solange beides in den Rumpf passt; sonst das Feld selbst.
+  const label = el.closest("label");
+  const rumpf = el.closest(".abfrage-rumpf");
+  const ziel = label && rumpf && label.getBoundingClientRect().height <= rumpf.clientHeight ? label : el;
+  ziel.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+}
+
 /** So viele benannte Wege stehen im festen Fuß der Rückfrage; mehr rollen im Rumpf. */
 const WEGE_IM_FUSS = 3;
 
@@ -314,6 +328,8 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
     // Die Frage steht beim Öffnen zuerst im Bild, auch bei großer Schrift.
     rumpf.current?.scrollTo?.(0, 0);
     if (dialog.current) dialog.current.scrollTop = 0;
+    // Eingabefeld ins Bild rollen: Bei Zoom 200 % lag das Feld unter der festen Knopfzeile (R10-L1).
+    feldInsBild(erstes.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- nur beim Öffnen; jede Abfrage hat ein eigenes Fenster
   }, []);
 
@@ -414,6 +430,7 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
                     aria-label={f.label}
                     value={werte[f.name] ?? ""}
                     onChange={(e) => setWerte({ ...werte, [f.name]: e.target.value })}
+                    onFocus={(e) => feldInsBild(e.currentTarget)}
                   >
                     {f.auswahl.map((o) => (
                       <option key={o.wert} value={o.wert}>
@@ -428,6 +445,7 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
                     value={werte[f.name] ?? ""}
                     placeholder={f.platzhalter}
                     onChange={(e) => setWerte({ ...werte, [f.name]: e.target.value })}
+                    onFocus={(e) => feldInsBild(e.currentTarget)}
                   />
                 ) : (
                   <input
@@ -438,6 +456,7 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
                     value={werte[f.name] ?? ""}
                     placeholder={f.platzhalter}
                     onChange={(e) => setWerte({ ...werte, [f.name]: e.target.value })}
+                    onFocus={(e) => feldInsBild(e.currentTarget)}
                   />
                 )}
               </label>

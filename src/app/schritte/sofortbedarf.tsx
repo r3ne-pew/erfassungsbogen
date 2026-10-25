@@ -6,6 +6,7 @@
 import { PersonalErfassung, staerke, verpflegung, type Sofortbedarf } from "@bos/eeb-format/model";
 import { pruefpunkte } from "../hilfen";
 import { frageJaNein } from "../dialoge";
+import { HOECHST_LITER, HOECHST_PERSONEN } from "../zahl-eingabe";
 import { Feld, Hinweise, useZahlEingabe, ZahlMeldung, type SchrittProps } from "./bausteine";
 
 /** Was beim Ausschalten verloren ginge: leer, wenn nichts Eigenes dahintersteht. */
@@ -21,8 +22,13 @@ export function sofortbedarfAngaben(s: Sofortbedarf, vorbelegung: number): strin
 }
 
 /** Ein Zahlenfeld des Sofortbedarfs: Liter und Personen, ganze Zahlen, Satz bei Rundung oder Minus (R9-E1). */
-function BedarfZahl(props: { wert: number; setzen: (n: number) => void; einheit: string }) {
-  const { eingabe, meldung } = useZahlEingabe(props.wert, (n) => props.setzen(n ?? 0), { min: 0, einheit: props.einheit });
+function BedarfZahl(props: { wert: number; setzen: (n: number) => void; einheit: string; leerMeldung?: string }) {
+  const { eingabe, meldung } = useZahlEingabe(props.wert, (n) => props.setzen(n ?? 0), {
+    min: 0,
+    max: props.einheit === "Liter" ? HOECHST_LITER : HOECHST_PERSONEN,
+    einheit: props.einheit,
+    leerMeldung: props.leerMeldung,
+  });
   return (
     <>
       <input {...eingabe} />
@@ -78,7 +84,12 @@ export function SchrittSofortbedarf({ bogen, aendern }: SchrittProps) {
         <>
           <div className="zeile">
             <Feld titel="Verpflegung (Personen)" schmal>
-              <BedarfZahl wert={s.verpflegungPersonen} einheit="Personen" setzen={(n) => aendern({ sofortbedarf: { ...s, verpflegungPersonen: n } })} />
+              <BedarfZahl
+                wert={s.verpflegungPersonen}
+                einheit="Personen"
+                leerMeldung={`Leer gilt als 0 — keine Verpflegung angefordert. Wie die Stärke wären ${gesamt}.`}
+                setzen={(n) => aendern({ sofortbedarf: { ...s, verpflegungPersonen: n } })}
+              />
             </Feld>
             {nurStaerke ? (
               <>

@@ -9,6 +9,7 @@ import {
   ORTSSPERRE_MS,
   ORTSSPERRE_RADIUS_PX,
   QUITTUNG_SPERRE_MS,
+  SCHRITTWECHSEL_SPERRE_MS,
   SEITENWECHSEL_SPERRE_MS,
   ortSperren,
   tippSchutzZuruecksetzen,
@@ -363,5 +364,30 @@ describe("Sperre nach einem Wechsel der Ansicht (R9-H5)", () => {
       knopf.remove();
       tippSchutzZuruecksetzen();
     }
+  });
+});
+
+describe("Sperre nach einem Schrittwechsel (R10-S2)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("dauert 0,9 s: Doppeltipp (bis 700 ms) gesperrt, gleichmäßiges Weitertippen ab 1 s angenommen", () => {
+    expect(SCHRITTWECHSEL_SPERRE_MS).toBe(900);
+    expect(SCHRITTWECHSEL_SPERRE_MS).toBeLessThan(ORTSSPERRE_MS);
+    tippSchutzZuruecksetzen();
+    const knopf = document.createElement("button");
+    const getroffen = vi.fn();
+    knopf.addEventListener("click", getroffen);
+    document.body.appendChild(knopf);
+    const echt = Date.now();
+    const uhr = vi.spyOn(Date, "now").mockReturnValue(echt);
+    tipp(knopf, 200, 580);
+    ortSperren(SCHRITTWECHSEL_SPERRE_MS);
+    uhr.mockReturnValue(echt + 700);
+    tipp(knopf, 200, 580); // Doppeltipp: gesperrt
+    expect(getroffen).toHaveBeenCalledTimes(1);
+    uhr.mockReturnValue(echt + 1000);
+    tipp(knopf, 200, 580); // im Takt von einer Sekunde: kommt an
+    expect(getroffen).toHaveBeenCalledTimes(2);
+    knopf.remove();
   });
 });

@@ -15,7 +15,11 @@ import { useRef } from "react";
 import { heuteDatum, pruefpunkte } from "../hilfen";
 import { Feld, Hinweise, type SchrittProps } from "./bausteine";
 
-export function SchrittEinsatz({ bogen, aendern }: SchrittProps) {
+/**
+ * `meldekopf`: Aufnahme einer fremden Einheit am Meldekopf („Einheit manuell erfassen…"). Dort spricht der
+ * Schritt den Meldekopf an, nicht die Einheit, und sagt, dass „Eingetroffen um" in Schritt 1 steht (R10-W2).
+ */
+export function SchrittEinsatz({ bogen, aendern, meldekopf = false }: SchrittProps & { meldekopf?: boolean }) {
   const ez = bogen.einsatz;
   const setEz = (p: Partial<Einsatz>) => aendern({ einsatz: { ...ez, ...p } });
   const jetztLokal = () => {
@@ -56,12 +60,20 @@ export function SchrittEinsatz({ bogen, aendern }: SchrittProps) {
           deshalb mit dem Tag des Beginns vorbelegt. Vorher hieß es hier, das
           Feld dürfe offen bleiben — und stand doch mit dem heutigen Datum da. Und der Rat „später
           nachtragen“ stand im Widerspruch zur Marke „Zeitraum vorbei“ am Folgetag (R5-N2). */}
-      <p className="hinweis">
-        Wofür deine Einheit gemeldet wird — Einsatz oder Übung. „Zeitraum bis" ist mit dem Tag des
-        Beginns vorbelegt; steht das Ende noch nicht fest, den Vorschlag stehen lassen. Läuft der Einsatz
-        länger, das Ende nachtragen — sonst steht die Einheit am Folgetag beim Meldekopf als „Zeitraum
-        vorbei“.
-      </p>
+      {meldekopf ? (
+        <p className="hinweis">
+          Aufnahme am Meldekopf: Hier steht, wofür die Einheit laut Zettel gemeldet ist — Einsatz oder Übung. Die
+          Eintreffzeit der Einheit gehört in Schritt 1 („Eingetroffen um“) und steht nur dort. „Zeitraum bis“ ist mit
+          dem Tag des Beginns vorbelegt; steht das Ende nicht auf dem Zettel, den Vorschlag stehen lassen.
+        </p>
+      ) : (
+        <p className="hinweis">
+          Wofür deine Einheit gemeldet wird — Einsatz oder Übung. „Zeitraum bis" ist mit dem Tag des
+          Beginns vorbelegt; steht das Ende noch nicht fest, den Vorschlag stehen lassen. Läuft der Einsatz
+          länger, das Ende nachtragen — sonst steht die Einheit am Folgetag beim Meldekopf als „Zeitraum
+          vorbei“.
+        </p>
+      )}
       {/* Klasse „datum" statt „schmal": In 112 px stand vom Datum nur Tag und
           Monat, das Jahr war abgeschnitten — ein Vorjahresbogen fiel nicht auf.
           Auf dem Telefon stehen die Datumsfelder in voller Breite untereinander
@@ -120,11 +132,18 @@ export function SchrittEinsatz({ bogen, aendern }: SchrittProps) {
           Meldekopfs bleiben aber in seiner Sammlung und kommen nie in diesen
           Bogen zurück — wer dem Hinweis folgte, hatte im eigenen PDF keine
           Einsatzzeiten (Audit Runde 2, R2-W4). */}
-      <p className="hinweis">
-        Setzt die aktuelle Uhrzeit, danach änderbar. Für den eigenen Bogen (Nachweis, Freistellung,
-        Abrechnung) hier eintragen — der Meldekopf führt seine Eintreff- und Abrückzeiten getrennt,
-        sie kommen nicht in diesen Bogen zurück.
-      </p>
+      {meldekopf ? (
+        <p className="hinweis">
+          Nur ausfüllen, wenn der Zettel Beginn oder Ende des Einsatzes der Einheit nennt. Das ersetzt nicht
+          „Eingetroffen um“ aus Schritt 1: Die Eintreff- und Abrückzeiten führt die Sammlung getrennt.
+        </p>
+      ) : (
+        <p className="hinweis">
+          Setzt die aktuelle Uhrzeit, danach änderbar. Für den eigenen Bogen (Nachweis, Freistellung,
+          Abrechnung) hier eintragen — der Meldekopf führt seine Eintreff- und Abrückzeiten getrennt,
+          sie kommen nicht in diesen Bogen zurück.
+        </p>
+      )}
       {/* Schritt-Index 1 = Einsatz (siehe SCHRITTE in app.tsx): „bis vor von"
           und „Ende vor Beginn" erschienen vorher auf Schritt 1, 3 und in der
           Übersicht — überall, nur nicht dort, wo der Fehler gemacht wird. */}
@@ -145,6 +164,9 @@ export function SchrittEinsatz({ bogen, aendern }: SchrittProps) {
       </div>
       {bogen.uebung ? (
         <>
+          {meldekopf && (
+            <p className="warnung">Als Übung zählt die Einheit in keiner Lage mit — nur anhaken, wenn der Zettel „Übung“ sagt.</p>
+          )}
           <p className="hinweis">
             Der Bogen wird überall als Übung gekennzeichnet: Störer in der App (auch nach dem
             Scannen auf anderen Geräten), Wasserzeichen „ÜBUNG" im PDF und Markierung in der

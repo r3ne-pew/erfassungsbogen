@@ -589,7 +589,7 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
           Meldekopf manchmal doch mit, gesperrt ist nichts. */}
       {bogen.personalErfassung === PersonalErfassung.NUR_STAERKE && (
         <p className="hinweis">
-          Schnellerfassung: Es reichen der Name der Einheit hier und die Stärke in Schritt 3 —
+          Schnellerfassung: Es reichen der Ort der Einheit hier und die Stärke in Schritt 3 —
           Einsatzdaten, Fahrzeuge und Sofortbedarf können offen bleiben.
         </p>
       )}
@@ -699,7 +699,7 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
       <p className="hinweis">
         Die erste Ebene ist die eigene Einheit, jede weitere Zeile die nächsthöhere Stelle
         {ebenen.length > 0 && <> ({ebenen.map((v) => v.name).join(" → ")})</>}.
-        Aus Name, Organisation und Einheitstyp bildet sich die Bezeichnung auf dem Bogen: <b>{einheitAnzeigename(e)}</b>
+        Aus Ort der Einheit, Organisation und Einheitstyp bildet sich die Bezeichnung auf dem Bogen: <b>{einheitAnzeigename(e)}</b>
       </p>
       {e.hierarchie.map((h, i) => (
         <div className="zeile ebenen-zeile" key={i}>

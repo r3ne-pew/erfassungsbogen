@@ -9,7 +9,7 @@ import { Erfassungsbogen, VokabularWert } from "@bos/eeb-format/model";
 import type { VokabularEintrag } from "@bos/vokabulare/thw";
 import { vokabSortiert, type Pruefpunkt } from "../hilfen";
 import { funktionVergeben } from "../haeufige-funktionen";
-import { zahlLesen, type ZahlRegeln } from "../zahl-eingabe";
+import { HOECHST_PERSONEN, zahlLesen, type ZahlRegeln } from "../zahl-eingabe";
 
 export type SchrittProps = {
   bogen: Erfassungsbogen;
@@ -697,8 +697,8 @@ export function staerkeVorlesen(s: { fuehrer: number; unterfuehrer: number; mann
  */
 export function Stepper(props: { titel: string; wert: number; setzen: (n: number) => void; min?: number }) {
   const min = props.min ?? 0;
-  const setze = (n: number) => props.setzen(Math.max(min, n));
-  const { eingabe, meldung } = useZahlEingabe(props.wert, (n) => setze(n ?? 0), { min, einheit: "Zahlen" });
+  const setze = (n: number) => props.setzen(Math.min(HOECHST_PERSONEN, Math.max(min, n)));
+  const { eingabe, meldung } = useZahlEingabe(props.wert, (n) => setze(n ?? 0), { min, max: HOECHST_PERSONEN, einheit: "Zahlen" });
   return (
     <div className="stepper-feld">
       <span className="stepper-titel">{props.titel}</span>

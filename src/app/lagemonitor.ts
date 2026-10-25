@@ -14,7 +14,7 @@ import { aggregiere, aktuelleMeldungen, type EinsatzSummen } from "./auswertung"
 import { eintreffzeit } from "./eintrag-zeiten";
 import { sollstaerkeAnteil } from "./einheiten-tabelle";
 import { geltendeJeEinheit } from "./fassung-vorrang";
-import { einheitAnzeigename, funkrufText, natoZeitstempel, orgLabel, vokabText, vokabularFuer } from "./hilfen";
+import { einheitAnzeigename, funkrufText, nurSollstaerke, natoZeitstempel, orgLabel, vokabText, vokabularFuer } from "./hilfen";
 
 /** Datum-Zeit-Gruppe in ihren Teilen: „17" „1806" „feb" „24" (Tag, Uhrzeit, Monat, Jahr). */
 export function dtgTeile(d: Date): { tag: string; zeit: string; monat: string; jahr: string } {
@@ -23,6 +23,27 @@ export function dtgTeile(d: Date): { tag: string; zeit: string; monat: string; j
 }
 
 const zwei = (n: number) => String(n).padStart(2, "0");
+
+const MONATE_KURZ = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."];
+
+/** Uhrzeit und Datum lesbar getrennt: „10:28" und „25. Okt. 2026" (R10-H3; statt der Funk-Gruppe „25 1028 okt 26"). */
+export function uhrTeile(d: Date): { zeit: string; datum: string } {
+  return { zeit: `${zwei(d.getHours())}:${zwei(d.getMinutes())}`, datum: `${d.getDate()}. ${MONATE_KURZ[d.getMonth()]} ${d.getFullYear()}` };
+}
+
+/**
+ * Sofortbedarf als eine Zeile für den Monitor, nur mit dem, was da ist:
+ * „Bedarf: Diesel 120 l · Unterbringung 24 · Ruhezeit 3×" (R10-K5). Wie in der Kopfzeile der
+ * Einsatzansicht (`sum.kraftstoff.dieselLiter`, `unterbringungAngefordert.personen`, `ruhezeitErforderlich`);
+ * Benzin und Gemisch stehen dort nur im Aufklappteil und hier gar nicht.
+ */
+export function bedarfText(s: EinsatzSummen): string | null {
+  const teile: string[] = [];
+  if (s.kraftstoff.dieselLiter > 0) teile.push(`Diesel ${s.kraftstoff.dieselLiter} l`);
+  if (s.unterbringungBenoetigt > 0) teile.push(`Unterbringung ${s.unterbringungAngefordert.personen}`);
+  if (s.ruhezeitErforderlich > 0) teile.push(`Ruhezeit ${s.ruhezeitErforderlich}×`);
+  return teile.length > 0 ? `Bedarf: ${teile.join(" · ")}` : null;
+}
 
 /**
  * Einsatzdauer ausgeschrieben: „1 Tag, 6 Stunden, 6 Minuten". Tage fehlen unter
@@ -54,6 +75,8 @@ export interface EinheitZeile {
   fuehrer: number;
   unterfuehrer: number;
   mannschaft: number;
+  /** Niemand hat gezählt: die Zahlen sind nur die Sollstärke der Vorbelegung (in der Tabelle mit „S" markiert, R10-K4). */
+  soll: boolean;
 }
 
 /** Was sich zuletzt in der Lage bewegt hat — der Fernseher soll nicht nur Zahlen ändern, sondern sagen, warum (Audit Runde 6, R6-K1). */
@@ -147,6 +170,7 @@ export function lagebild(einsatz: Einsatzsammlung, jetzt: number = Date.now()): 
         fuehrer: st.fuehrer,
         unterfuehrer: st.unterfuehrer,
         mannschaft: st.mannschaft,
+        soll: nurSollstaerke(m.bogen),
       };
     });
   return {

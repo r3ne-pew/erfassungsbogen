@@ -210,7 +210,7 @@ describe("Schritt Fahrzeuge", () => {
     // brach „eigener Standort" in einer schmalen Spalte um (R3-N6).
     const kaestchen = screen.getByLabelText("eigener Standort");
     expect(kaestchen.closest("label")!.textContent).toBe("eigener Standort");
-    expect(kaestchen.closest("label")!.nextElementSibling!.textContent).toMatch(/Ort im Funkrufnamen = Standort der Einheit/);
+    expect(kaestchen.closest("label")!.nextElementSibling!.textContent).toMatch(/Ort im Funkrufnamen = Ort der Einheit/);
   });
 
   it("lädt die StAN-Vorbelegung des Einheitstyps", async () => {

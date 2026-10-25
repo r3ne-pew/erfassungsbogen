@@ -205,6 +205,10 @@ describe("Assistenten-Durchlauf", () => {
       vi.setSystemTime(Date.now() + 700);
       tipp(screen.getByRole("button", { name: "Weiter →" })); // Doppeltipp mit 700 ms
       expect(screen.getByRole("heading", { level: 2, name: "2. Einsatz" })).toBeDefined();
+      // R10-S2: gleichmäßiges Weitertippen im Abstand von 1 s kommt an (die Sperre dauert 0,9 s).
+      vi.setSystemTime(Date.now() + 1000);
+      tipp(screen.getByRole("button", { name: "Weiter →" }));
+      expect(screen.getByRole("heading", { level: 2, name: "3. Personal" })).toBeDefined();
     } finally {
       vi.useRealTimers();
       tippSchutzZuruecksetzen();

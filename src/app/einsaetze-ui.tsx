@@ -60,7 +60,7 @@ import { UnlesbarHinweis } from "./unlesbar-hinweis";
 import { unlesbarBestand } from "./unlesbar";
 import { koepfeJe, revisionenJe } from "./einheiten-index";
 import { aehnlicherOrt, andererEinheitstyp } from "./nacherfassung";
-import { vorhandeneZuege } from "./zug-name";
+import { vorhandeneZuege, zugNormalisiert } from "./zug-name";
 import { einheitOrt } from "@bos/meldekopf/darstellung";
 import { RolleMarke } from "./rolle-marke";
 import { useArbeitet } from "./arbeitet";
@@ -132,6 +132,7 @@ import {
   zeilenSortieren,
   type EinheitenAnsicht,
   type Sortierrichtung,
+  type SpaltenDefinition,
   type TabellenSpalte,
   type TabellenZeile,
 } from "./einheiten-tabelle";
@@ -942,6 +943,14 @@ export function EinsatzDetail(props: {
   const [filterOffen, setFilterOffen] = useState(false);
   const bedarfsFilterText =
     bedarfsFilter === "ruhezeit" ? "„nur mit Ruhezeit“" : bedarfsFilter === "unterbringung" ? "„nur mit Unterbringung“" : "„nur dringender Bedarf“";
+  // „n ohne Auftrag" / „n ohne Zug": Filter setzen, das Filterfeld zu lassen und die Liste in den Blick rollen (R10-K2).
+  const aufLueckeFiltern = (f: LueckenFilter) => {
+    setLueckenFilter(f);
+    setTimeout(
+      () => document.querySelector(".luecken-zaehler")?.scrollIntoView?.({ block: "start" }),
+      0,
+    );
+  };
   const aufBedarfFiltern = (f: BedarfsFilter) => {
     setBedarfsFilter(f);
     setFilterOffen(true);
@@ -1233,6 +1242,8 @@ export function EinsatzDetail(props: {
   const gefiltert = kopf.length !== alleEinheiten.length;
   /** Irgendeine Einschränkung wirkt: dann bleibt die Suchleiste auch am Telefon offen (R4-K5). */
   const filterAktiv = suche.trim() !== "" || quali !== "" || nurBedarf || lueckenFilter != null;
+  // Der Lückenfilter („n ohne Auftrag") klappt das Feld nicht auf: Er steht in der Zeile darüber, samt „Filter aufheben" (R10-K2).
+  const filterAktivOhneLuecke = suche.trim() !== "" || quali !== "" || nurBedarf;
   // Meldeköpfe melden oft nur die Stärke — dort steht keine Person und damit
   // keine Qualifikation. Ohne diesen Hinweis sähe der Filter wie ein Fehler aus.
   const ohnePersonen = alleEinheiten.filter(
@@ -1822,13 +1833,13 @@ export function EinsatzDetail(props: {
         {alleEinheiten.length > 0 && (ohneAuftragAnzahl > 0 || ohneZugAnzahl > 0) && (
           <p className="hinweis luecken-zaehler">
             {ohneAuftragAnzahl > 0 && (
-              <button type="button" className="link" onClick={() => { setLueckenFilter("ohne-auftrag"); setFilterOffen(true); }}>
+              <button type="button" className="link" onClick={() => aufLueckeFiltern("ohne-auftrag")}>
                 {ohneAuftragAnzahl} ohne Auftrag
               </button>
             )}
             {ohneAuftragAnzahl > 0 && ohneZugAnzahl > 0 ? " · " : ""}
             {ohneZugAnzahl > 0 && (
-              <button type="button" className="link" onClick={() => { setLueckenFilter("ohne-zug"); setFilterOffen(true); }}>
+              <button type="button" className="link" onClick={() => aufLueckeFiltern("ohne-zug")}>
                 {ohneZugAnzahl} ohne Zug
               </button>
             )}
@@ -1844,10 +1855,13 @@ export function EinsatzDetail(props: {
           filterEingeklappt ? (
             <details
               className="einheiten-filter-wahl"
-              open={filterOffen || filterAktiv}
+              open={filterOffen || filterAktivOhneLuecke}
               onToggle={(e) => setFilterOffen(e.currentTarget.open)}
             >
-              <summary>Suchen, sortieren, filtern{filterAktiv ? " · Filter aktiv" : ""}</summary>
+              <summary>
+                Suchen, sortieren, filtern
+                {filterAktiv ? ` · Filter aktiv${lueckenFilter ? `: ${lueckenFilter === "ohne-auftrag" ? "ohne Auftrag" : "ohne Zug"}` : ""}` : ""}
+              </summary>
               {filterZeile}
             </details>
           ) : (
@@ -1911,7 +1925,7 @@ export function EinsatzDetail(props: {
           <p className="hinweis staerke-legende">Stärke auf den Karten: Führer / Unterführer / Mannschaft / Gesamt.</p>
         )}
         {ansicht === "tabelle" && kopf.length > 0 && (
-          <EinheitenTabelle meldungen={kopf} art={einsatz.art} eingang={eingang} nummern={nummern} neueFassungen={neueFassungen} />
+          <EinheitenTabelle meldungen={kopf} art={einsatz.art} eingang={eingang} nummern={nummern} neueFassungen={neueFassungen} kompakt={kompakt} />
         )}
         {/* Eine Liste: das Vorleseprogramm nennt die Zahl der Einheiten und
             erlaubt den Sprung von Eintrag zu Eintrag (R2-M4). */}
@@ -2262,12 +2276,29 @@ export function EinsatzDetail(props: {
  * Einheit meldet den größten Verpflegungsbedarf?"). Zahlen starten dabei
  * absteigend — gefragt ist der größte Wert, nicht die Null.
  */
-function EinheitenTabelle({ meldungen, art, eingang, nummern, neueFassungen }: { meldungen: MeldeEintrag[]; art: EinsatzArt; eingang?: Eingang | null; nummern?: Map<string, number>; neueFassungen?: Set<string> }) {
+/**
+ * Spalten der Einheitentabelle (R10-K3): Die Spalte „Zug" steht nur, wenn mindestens eine Einheit einen Zug trägt (sonst
+ * 45 px leer vor den Zahlen). Am Telefon steht „Ges." gleich hinter dem Namen, F/U/M als Aufteilung dahinter, „Zug" danach:
+ * Einheit, Gesamtstärke und Aufteilung liegen so ohne Wischen im Bild (360 und 320 px).
+ */
+export function tabellenSpaltenFuer(zugVorhanden: boolean, kompakt: boolean): SpaltenDefinition[] {
+  const spalten = TABELLEN_SPALTEN.filter((s) => zugVorhanden || s.schluessel !== "zugEtikett");
+  if (!kompakt) return spalten;
+  const nimm = (k: TabellenSpalte) => spalten.find((s) => s.schluessel === k);
+  const vorn = ["einheit", "gesamt", "fuehrer", "unterfuehrer", "mannschaft", "zugEtikett"] as const;
+  return [
+    ...vorn.map(nimm).filter((s): s is SpaltenDefinition => s != null),
+    ...spalten.filter((s) => !(vorn as readonly string[]).includes(s.schluessel)),
+  ];
+}
+
+function EinheitenTabelle({ meldungen, art, eingang, nummern, neueFassungen, kompakt = false }: { meldungen: MeldeEintrag[]; art: EinsatzArt; eingang?: Eingang | null; nummern?: Map<string, number>; neueFassungen?: Set<string>; kompakt?: boolean }) {
   // null = Reihenfolge der Liste (Sortierauswahl der Leiste) unverändert
   // übernehmen. Erst ein Klick auf einen Spaltenkopf ordnet hier um.
   const [spalte, setSpalte] = useState<TabellenSpalte | null>(null);
   const [richtung, setRichtung] = useState<Sortierrichtung>("auf");
   const zeilen = tabellenZeilen(meldungen, art);
+  const spalten = tabellenSpaltenFuer(zeilen.some((z) => z.zugEtikett !== ""), kompakt);
   const sortiert = spalte ? zeilenSortieren(zeilen, spalte, richtung) : zeilen;
   const summe = tabellenSumme(zeilen);
   const zaehlung = tabellenZaehlung(zeilen);
@@ -2316,7 +2347,7 @@ function EinheitenTabelle({ meldungen, art, eingang, nummern, neueFassungen }: {
           </caption>
           <thead>
             <tr>
-              {TABELLEN_SPALTEN.map((s) => (
+              {spalten.map((s) => (
                 <th
                   key={s.schluessel}
                   scope="col"
@@ -2352,6 +2383,7 @@ function EinheitenTabelle({ meldungen, art, eingang, nummern, neueFassungen }: {
               <TabellenZeileZelle
                 key={z.eintrag.einheitSchluessel}
                 zeile={z}
+                spalten={spalten}
                 eingang={eingang}
                 nummer={nummern?.get(z.eintrag.einheitSchluessel)}
                 neueFassung={neueFassungen?.has(z.eintrag.einheitSchluessel)}
@@ -2363,7 +2395,7 @@ function EinheitenTabelle({ meldungen, art, eingang, nummern, neueFassungen }: {
               Stärkeleiste oben. */}
           <tfoot>
             <tr>
-              {TABELLEN_SPALTEN.map((s) => (
+              {spalten.map((s) => (
                 <td key={s.schluessel} className={s.zahl ? "zahl" : undefined}>
                   {summenWert[s.schluessel]}
                 </td>
@@ -2404,7 +2436,7 @@ function AltBadge() {
 }
 
 /** Eine Datenzeile — abgerückte Meldungen bleiben sichtbar, aber durchgestrichen. */
-function TabellenZeileZelle({ zeile: z, eingang, nummer, neueFassung }: { zeile: TabellenZeile; eingang?: Eingang | null; nummer?: number; neueFassung?: boolean }) {
+function TabellenZeileZelle({ zeile: z, spalten, eingang, nummer, neueFassung }: { zeile: TabellenZeile; spalten: SpaltenDefinition[]; eingang?: Eingang | null; nummer?: number; neueFassung?: boolean }) {
   const zeile = useEingangsquittung<HTMLTableRowElement>(marke(eingang, z.eintrag.einheitSchluessel), { rollen: false });
   return (
     <tr ref={zeile} data-einheit={z.eintrag.einheitSchluessel} className={z.anwesend ? undefined : "gestrichen"}>
@@ -2427,7 +2459,7 @@ function TabellenZeileZelle({ zeile: z, eingang, nummer, neueFassung }: { zeile:
       </th>
       {/* Die Zellen folgen TABELLEN_SPALTEN, damit Kopf, Zeile und Summe nie
           auseinanderlaufen, wenn die Spaltenfolge sich ändert (R2-K5). */}
-      {TABELLEN_SPALTEN.filter((s) => s.schluessel !== "einheit").map((s) => (
+      {spalten.filter((s) => s.schluessel !== "einheit").map((s) => (
         <TabellenZelle key={s.schluessel} spalte={s.schluessel} zeile={z} />
       ))}
     </tr>
@@ -3024,7 +3056,9 @@ function EinheitKarte(props: {
 
   function aufteilenAusfuehren(wahl: AufteilungsWahl, opt: AufteilungOptionen) {
     const vorher = new Set(alle.map((e) => e.id));
-    const r = meldungAufteilen(einsatzId, kopf.id, wahl, opt);
+    // Der Zug des abgeteilten Teils in der Schreibweise der vorhandenen Züge (R10-S1).
+    const zugEtikett = opt.zugEtikett ? zugNormalisiert(opt.zugEtikett, alle.map((e) => e.zugEtikett)) : opt.zugEtikett;
+    const r = meldungAufteilen(einsatzId, kopf.id, wahl, { ...opt, zugEtikett });
     setAufteilen(false);
     // Nach dem Aufteilen stand die neue Karte wortlos in der Liste; dass es
     // über „Zusammenführen…" zurückgeht, sagte die App nicht (R2-D6).
@@ -3276,23 +3310,21 @@ function EinheitKarte(props: {
       titel: "Meldung entfernen?",
       text: (
         <>
-          {/* Die Folge für die Nummern steht zuerst: Bei großer Schrift sah man neben dem roten Knopf nur
-              ein Drittel des Textes, und dort fehlte genau dieser Satz (R9-D5). */}
+          {/* Der Name steht im ersten Satz, die Folge für die Nummern gleich danach: Bei großer Schrift oder Zoom
+              sah man neben dem roten Knopf nur den Anfang (R9-D5, R10-D1). Kurz gehalten, rund 40 Wörter (R10-S3). */}
+          <p>
+            <strong>„{einheitAnzeigename(kopf.bogen.einheit)}" (Stand {standText(kopf.bogen)}) entfernen</strong> — samt Historie.
+          </p>
           {verschoben && (
             <p>
-              <strong>Nummern ändern sich:</strong> {verschoben}. Am Funk genannte Nummern und ein gedrucktes Lageblatt
-              passen dann nicht mehr.
+              <strong>Nummern ändern sich:</strong> {verschoben}.
             </p>
           )}
           <p>
-            „{einheitAnzeigename(kopf.bogen.einheit)}" (Stand {standText(kopf.bogen)}) wird samt Historie aus diesem Einsatz entfernt.
-          </p>
-          <p>
-            „Rückgängig" gibt es nur, solange die App geöffnet bleibt{verschoben ? " und stellt die alten Nummern wieder her" : ""}; danach ist die
-            Meldung endgültig weg. Mehrere nacheinander entfernte holst du mit mehrmals „Rückgängig" zurück, die zuletzt entfernte zuerst.{" "}
+            „Rückgängig" gibt es nur, solange die App geöffnet bleibt; danach ist die Meldung endgültig weg.{" "}
             {kopie != null
-              ? `Eine Kopie steht im Export oder der Weitergabe vom ${exportZeitKurz(kopie)}.`
-              : "Von dieser Meldung gibt es in dieser Sammlung noch keinen Export und keine Weitergabe."}
+              ? `Kopie: Export oder Weitergabe vom ${exportZeitKurz(kopie)}.`
+              : "Noch kein Export und keine Weitergabe davon."}
           </p>
         </>
       ),

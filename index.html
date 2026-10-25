@@ -4878,6 +4878,9 @@
       --md-deaktiviert-flaeche:  rgba(217, 205, 182, 0.12);
       --md-deaktiviert-text:     rgba(217, 205, 182, 0.38);
     }
+    /* R10-L5: Zusatzzeile des Sammlungsknopfs („Letzte Meldung …") in Nacht unter iOS/Android voll deckend und mindestens 14 px:
+       mit Deckkraft 0,9 lag sie auf der iOS-Füllung bei 4,32:1, unter Android bei 12 px. */
+    .nacht-modus:is(.platform-ios, .platform-android) button.sammlung-oeffnen .knopf-zusatz { opacity: 1; font-size: max(var(--t-xs), 0.875rem); }
 
     /* ---------------------------------------------------------------
        Audit Runde 2, P3 (Themen, Formularfelder, Dialoge). Gesammelt an

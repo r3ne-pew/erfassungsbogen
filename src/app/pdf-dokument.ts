@@ -200,6 +200,9 @@ const winAnsiKennt = (z: string): boolean => {
 const WINANSI_ERSATZ: Record<string, string> = {
   "→": "->", "⇒": "=>", "←": "<-", "↔": "<->", "≠": "!=", "≥": ">=", "≤": "<=", "≈": "ca.", "−": "-", "‐": "-", "‑": "-", "‒": "-",
   "✓": "x", "✔": "x", "✗": "x", "✘": "x", "☎": "Tel.", "⚠": "!", "ł": "l", "Ł": "L", "đ": "d", "Đ": "D", "ı": "i",
+  // Weitere lateinische Buchstaben ohne Platz in WinAnsi und ohne Akzent-Zerlegung (R10-W1); ß, ø, æ, þ, ð kennt WinAnsi selbst.
+  "ẞ": "SS", "ŧ": "t", "Ŧ": "T", "ħ": "h", "Ħ": "H", "ŀ": "l", "Ŀ": "L", "ĸ": "k", "ŋ": "ng", "Ŋ": "Ng", "ĳ": "ij", "Ĳ": "IJ",
+  "ſ": "s", "ə": "e", "Ə": "E", "ǝ": "e", "ʼ": "'", "ʻ": "'", "ˈ": "'", "ǃ": "!",
   "\u202F": " ", "\u2009": " ", "\u2002": " ", "\u2003": " ", "\uFEFF": "", "\u00AD": "",
 };
 
@@ -266,7 +269,7 @@ export function umschrift(text: string): string {
  */
 export function ansprechpersonPapier(name: string): string {
   const weg = (t: string) => winAnsiText(t).includes("?") && !t.includes("?");
-  if (!weg(name)) return name;
+  if (!weg(name)) return zeichenVereinfacht(name) ? `${name} (vereinfacht)` : name;
   const u = umschrift(name);
   if (!weg(u)) return `${u} (Umschrift)`;
   return `${winAnsiText(u)} (Name nicht darstellbar – siehe digitale Meldung)`;
@@ -276,6 +279,14 @@ export function ansprechpersonPapier(name: string): string {
 const papierWeg = (t: string): boolean => winAnsiText(t).includes("?") && !t.includes("?");
 
 /**
+ * Enthält der Text Buchstaben, die die PDF-Schrift nicht kennt und die still durch einen ähnlichen ersetzt
+ * werden („Łukasz" → „Lukasz", „Dvořák" → „Dvorak")? Dann steht der Name auf Papier anders als im QR-Code,
+ * und das gehört dazu und in die Quittung (R10-W1). Nur Buchstaben: Leerraum und Bindestriche zählen nicht.
+ */
+export const zeichenVereinfacht = (t: string): boolean =>
+  !papierWeg(t) && [...t].some((z) => !winAnsiKennt(z) && /[\p{L}\p{M}]/u.test(z));
+
+/**
  * Ein Personenname für die Listen auf dem Bogen: darstellbar unverändert; kyrillisch/griechisch in
  * Umschrift mit dem Vermerk dazu — dieselbe Schreibweise wie im Feld „Ansprechpartner/in", damit der
  * Mensch an beiden Stellen gleich lesbar ist (R9-W3). Was auch so nicht druckbar ist, bleibt, wie es ist
@@ -283,7 +294,7 @@ const papierWeg = (t: string): boolean => winAnsiText(t).includes("?") && !t.inc
  */
 export function namePapier(nachname: string, vorname: string, trenner = ", "): string {
   const roh = `${nachname}${nachname && vorname ? trenner : ""}${vorname}`;
-  if (!papierWeg(roh)) return roh;
+  if (!papierWeg(roh)) return zeichenVereinfacht(roh) ? `${roh} (vereinfacht)` : roh;
   const u = umschrift(roh);
   return papierWeg(u) ? roh : `${u} (Umschrift)`;
 }
@@ -324,6 +335,19 @@ export function umschriftBetroffene(b: Erfassungsbogen): string[] {
     const name = `${p.vorname} ${p.nachname}`;
     if (papierWeg(name) && !papierWeg(umschrift(name))) {
       wer.push(`${[p.vorname, p.nachname].filter(Boolean).join(" ")} → ${umschrift(name).trim()}${i === 0 ? " (Ansprechperson)" : ""}`);
+    }
+  });
+  return wer;
+}
+
+/** Personen, deren Name mit einzelnen vereinfachten Buchstaben gedruckt wird („Łukasz" → „Lukasz") — für die Quittung (R10-W1). */
+export function vereinfachtBetroffene(b: Erfassungsbogen): string[] {
+  const wer: string[] = [];
+  b.personal.forEach((p, i) => {
+    const name = `${p.vorname} ${p.nachname}`;
+    if (zeichenVereinfacht(name)) {
+      const voll = [p.vorname, p.nachname].filter(Boolean).join(" ");
+      wer.push(`${voll} → ${winAnsiText(voll)}${i === 0 ? " (Ansprechperson)" : ""}`);
     }
   });
   return wer;

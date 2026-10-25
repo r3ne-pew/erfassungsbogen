@@ -20,7 +20,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import { PersonalErfassung, type Erfassungsbogen } from "@bos/eeb-format/model";
 import { Dialogschicht } from "./dialoge";
-import { EinsatzDetail, PRELLSCHUTZ_MS, letzteMeldungText } from "./einsaetze-ui";
+import { EinsatzDetail, PRELLSCHUTZ_MS, letzteMeldungText, tabellenSpaltenFuer } from "./einsaetze-ui";
 import { ORTSSPERRE_MS } from "./tipp-schutz";
 import {
   EinsatzArt,
@@ -279,9 +279,11 @@ describe("Einheit mit Folgemeldung entfernen (R2-D1)", () => {
     let dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Meldung entfernen?']")!;
     expect(dialog.textContent).toMatch(/„Rückgängig" gibt es nur, solange die App geöffnet bleibt/);
     expect(dialog.textContent).toMatch(/danach ist die Meldung endgültig weg/);
-    // R9-E2: mehrere nacheinander entfernte Meldungen lassen sich der Reihe nach zurückholen — die Rückfrage sagt es.
-    expect(dialog.textContent).toMatch(/mehrmals „Rückgängig" zurück, die zuletzt entfernte zuerst/);
-    expect(dialog.textContent).toMatch(/noch keinen Export und keine Weitergabe/);
+    // R10-D1: der Name steht im ersten Satz, R10-S3: die Rückfrage ist kurz (höchstens rund 45 Wörter).
+    expect(dialog.querySelector("p")!.textContent).toMatch(/^„.*Ulm.*" \(Stand .*\) entfernen/);
+    const woerter = Array.from(dialog.querySelectorAll("p")).map((p) => p.textContent).join(" ").split(/\s+/).filter(Boolean).length;
+    expect(woerter).toBeLessThanOrEqual(50);
+    expect(dialog.textContent).toMatch(/Noch kein Export und keine Weitergabe/);
     await nutzer.click(within(dialog).getByRole("button", { name: "Abbrechen" }));
 
     // Mit Export nennt sie die Kopie.
@@ -289,8 +291,8 @@ describe("Einheit mit Folgemeldung entfernen (R2-D1)", () => {
     lageblattVermerken(s);
     await nutzer.click(within(karte).getByRole("button", { name: "Entfernen" }));
     dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Meldung entfernen?']")!;
-    expect(dialog.textContent).toMatch(/Eine Kopie steht im Export oder der Weitergabe vom \d\d\.\d\d\.\d{4}/);
-    expect(dialog.textContent).not.toMatch(/noch keinen Export/);
+    expect(dialog.textContent).toMatch(/Kopie: Export oder Weitergabe vom \d\d\.\d\d\.\d{4}/);
+    expect(dialog.textContent).not.toMatch(/Noch kein Export/);
   });
 
   it("hält den Rückweg über das Verlassen der Ansicht hinweg (R3-D4)", async () => {
@@ -552,15 +554,16 @@ describe("Einheiten als Tabelle", () => {
     const koepfe = within(tabelle).getAllByRole("columnheader").map((k) => k.textContent ?? "");
     // F/U/M und Kfz stehen bei der Gesamtstärke — am Laptop lagen sie sonst
     // außerhalb des Rahmens (R3-K7).
-    expect(koepfe.slice(0, 10).map((k) => k.replace(/^(\S+?)[A-ZÄÖÜ].*$/, "$1"))).toEqual([
-      "Einheit", "Zug", "F", "U", "M", "Ges.", "Kfz", "Auftrag", "Eingetr.", "Bedarf",
+    // Ohne vergebenen Zug entfällt die Spalte „Zug" (R10-K3: 45 px leer vor den Zahlen).
+    expect(koepfe.slice(0, 9).map((k) => k.replace(/^(\S+?)[A-ZÄÖÜ].*$/, "$1"))).toEqual([
+      "Einheit", "F", "U", "M", "Ges.", "Kfz", "Auftrag", "Eingetr.", "Bedarf",
     ]);
     const zeile = within(tabelle).getAllByRole("row")[1]!;
     const zellen = [...zeile.children].map((z) => z.textContent ?? "");
     expect(zellen[0]).toContain("Wardenburg");
     expect(zellen[koepfe.findIndex((k) => k.startsWith("Auftrag"))]).toBe("Deich Nord");
     // Die Aufschlüsselung folgt dahinter, der Absender-Stand steht zuletzt.
-    expect(koepfe.findIndex((k) => k.startsWith("Unt. M"))).toBeGreaterThan(9);
+    expect(koepfe.findIndex((k) => k.startsWith("Unt. M"))).toBeGreaterThan(8);
     expect(koepfe[koepfe.length - 1]).toMatch(/^Stand/);
   });
 });
@@ -2309,5 +2312,20 @@ describe("Doppelte Karte erkennen (R7-N1)", () => {
     ansicht(angelegt.id);
     expect(screen.getAllByText(/ähnelt „THW /)).toHaveLength(2);
     expect(screen.getAllByText(/zählt getrennt/).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("Spalten der Einheitentabelle (R10-K3)", () => {
+  const namen = (zug: boolean, kompakt: boolean) => tabellenSpaltenFuer(zug, kompakt).map((x) => x.schluessel);
+
+  it("blendet die Spalte Zug aus, solange keine Einheit einen Zug trägt", () => {
+    expect(namen(false, false)).not.toContain("zugEtikett");
+    expect(namen(true, false).slice(0, 3)).toEqual(["einheit", "zugEtikett", "fuehrer"]);
+  });
+
+  it("stellt am Telefon die Gesamtstärke gleich hinter den Namen, Zug hinter die Aufteilung", () => {
+    expect(namen(false, true).slice(0, 5)).toEqual(["einheit", "gesamt", "fuehrer", "unterfuehrer", "mannschaft"]);
+    expect(namen(true, true).slice(0, 6)).toEqual(["einheit", "gesamt", "fuehrer", "unterfuehrer", "mannschaft", "zugEtikett"]);
+    expect(namen(true, true)).toHaveLength(namen(true, false).length);
   });
 });

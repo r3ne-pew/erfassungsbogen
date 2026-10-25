@@ -56,8 +56,29 @@ export function rueckwegHolen<T>(schluessel: string, aktuell: string, jetzt = Da
   }
 }
 
+/** Präfix der Merker für ausgeschaltete Funkrufnamen je Fahrzeugkarte (R10-D2). */
+export const FUNKRUF_MERKER_PRAEFIX = "eeb.funkruf.merker.";
+
+/** Ausgeschalteten Funkrufnamen der Karte `index` merken (`null` = vergessen); `fp` benennt die Karte (Fahrzeugtyp). */
+export function funkrufMerken<T>(index: number, wert: T | null, fp: string, jetzt = Date.now()): void {
+  rueckwegMerken(FUNKRUF_MERKER_PRAEFIX + index, wert, fp, jetzt);
+}
+
+/** Der gemerkte Funkrufname der Karte `index`, solange er jung ist und die Karte noch dasselbe Fahrzeug zeigt. */
+export function funkrufHolen<T>(index: number, fp: string, jetzt = Date.now()): T | null {
+  return rueckwegHolen<T>(FUNKRUF_MERKER_PRAEFIX + index, fp, jetzt);
+}
+
 /** Wenn der Bogen weg ist (verworfen, geschlossen, übergeben), bleibt nichts im Tab zurück. */
 export function rueckwegeVergessen(): void {
+  try {
+    const s = sitzung();
+    if (s) {
+      for (const k of Object.keys(s)) if (k.startsWith(FUNKRUF_MERKER_PRAEFIX)) s.removeItem(k);
+    }
+  } catch {
+    /* nichts zu tun */
+  }
   for (const k of [FAHRZEUG_WEG_SCHLUESSEL, EBENE_WEG_SCHLUESSEL]) {
     try {
       sitzung()?.removeItem(k);

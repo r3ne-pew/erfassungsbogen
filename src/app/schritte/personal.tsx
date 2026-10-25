@@ -16,6 +16,7 @@ import {
   KontaktArt,
   OrganisationsTyp,
   Einheit,
+  type Erfassungsbogen,
   Person,
   PersonalErfassung,
   StaerkeRolle,
@@ -575,21 +576,34 @@ function PersonalSchnellTabelle(props: {
     if (!personLeer(p)) entfernt(p, i, bezeichnung);
   }
 
+  /**
+   * Eingabetaste in der Kurz-Liste: „Weiter" führt zum nächsten Feld der Zeile (vom Vornamen zum
+   * Nachnamen), im letzten Feld der Zeile zum ersten der nächsten Zeile, in der letzten Zeile zu einer
+   * neuen Person. Vorher sprang sie in der Spalte nach unten, während die Tastaturtaste „Weiter" zum
+   * Nachnamen versprach — der Nachname landete bei der nächsten Person (R10-G1). Das Zielfeld wird
+   * markiert, damit Getipptes nicht an einen vorhandenen Wert angehängt wird.
+   */
   function enterWeiter(e: ReactKeyboardEvent, i: number) {
     if (e.key !== "Enter") return;
     e.preventDefault();
+    const feld = e.target as HTMLInputElement;
+    const zeile = feld.closest("tr");
+    const felder = zeile ? Array.from(zeile.querySelectorAll<HTMLInputElement>("input")) : [];
+    const stelle = felder.indexOf(feld);
+    const fokussieren = (el: HTMLInputElement | null | undefined) => {
+      el?.focus();
+      el?.select?.();
+    };
+    if (stelle >= 0 && stelle < felder.length - 1) {
+      fokussieren(felder[stelle + 1]);
+      return;
+    }
     if (i === personal.length - 1) {
       aufNeueFokus();
       aendern([...personal, neuePerson()]);
       return;
     }
-    // Nicht letzte Zeile: in derselben Spalte eine Zeile nach unten.
-    const zelle = (e.target as HTMLElement).closest("td");
-    const zeile = zelle?.parentElement;
-    if (!zelle || !zeile) return;
-    const spalte = Array.from(zeile.children).indexOf(zelle);
-    const naechste = zeile.nextElementSibling?.children[spalte]?.querySelector<HTMLElement>("input, select");
-    naechste?.focus();
+    fokussieren(zeile?.nextElementSibling?.querySelector<HTMLInputElement>("input"));
   }
 
   return (
@@ -816,6 +830,12 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
   }, [rueckweg]);
   // Quittung des Zurückholens (ohne weiteren Rückweg, wie in der Einsatzansicht).
   const [zurueckgeholt, setZurueckgeholt] = useState<{ text: string; nonce: number } | null>(null);
+  // Rückweg nach „Personal vollständig erfassen", wenn dabei eingetragene Zahlen der Schnellerfassung verworfen wurden (R10-E1).
+  const [zahlenWeg, setZahlenWeg] = useState<{
+    vorher: Pick<Erfassungsbogen, "personalErfassung" | "staerkeManuell" | "unterbringungManuell" | "verpflegungManuell">;
+    text: string;
+    nonce: number;
+  } | null>(null);
   // Jede Änderung hier kann die Stärke verschieben — der Verpflegungs-Bedarf
   // in Schritt 5 zieht mit, solange er der Stärke entsprach (verpflegungMitziehen).
   const aendern = (patch: Partial<typeof bogen>) => {
@@ -1126,12 +1146,21 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
    */
   async function aufNurStaerke() {
     const erfasst = bogen.personal.filter((p) => !personLeer(p)).length;
+    // „Erfasst" sind Personen mit Namen oder Erreichbarkeit; vorbelegte Sollplätze (StAN) sind Plätze,
+    // keine erfassten Personen — „2 erfasste Personen" neben Stärke 9 las sich als Widerspruch (R10-N1, R10-H4).
+    const benannt = bogen.personal.filter((p) => !personUnbenannt(p)).length;
+    const plaetze = bogen.personal.length - benannt;
     const abgeleitet = staerke({ personal: bogen.personal });
+    const startet = `${abgeleitet.fuehrer} / ${abgeleitet.unterfuehrer} / ${abgeleitet.mannschaft} / ${abgeleitet.gesamt}`;
+    const frage =
+      benannt === 0
+        ? `Keine Person mit Namen, nur ${plaetze === 1 ? "1 vorbelegter Platz" : `${plaetze} vorbelegte Plätze`} nach Einheitstyp. Die Stärke wird von Hand geführt und startet mit diesen Sollzahlen ${startet}; die Plätze zählen nicht mehr mit.`
+        : `${benannt === 1 ? "1 erfasste Person zählt" : `${benannt} erfasste Personen zählen`}${plaetze > 0 ? ` (dazu ${plaetze === 1 ? "1 vorbelegter Platz" : `${plaetze} vorbelegte Plätze`})` : ""} dann nicht mehr einzeln — die Stärke wird von Hand geführt und startet mit ${startet}. Die Namen bleiben als Erreichbarkeiten erhalten.`;
     if (
       erfasst > 0 &&
       !(await frageJaNein({
         titel: "Nur die Stärke melden?",
-        text: `${erfasst === 1 ? "1 erfasste Person zählt" : `${erfasst} erfasste Personen zählen`} dann nicht mehr einzeln — die Stärke wird von Hand geführt und startet mit ${abgeleitet.fuehrer} / ${abgeleitet.unterfuehrer} / ${abgeleitet.mannschaft} / ${abgeleitet.gesamt}. Die Namen bleiben als Erreichbarkeiten erhalten.`,
+        text: frage,
         ok: "Nur Stärke melden",
         // R8-H2: wie die anderen Rückfragen — der Fokus liegt auf der Wahl, die nichts verändert.
         fokus: "abbruch",
@@ -1152,6 +1181,53 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
     });
   }
 
+  /**
+   * Zurück auf „Personal vollständig erfassen". Die manuellen Zahlen gehören zur Schnellerfassung — in
+   * der Vollerfassung zählen wieder die Karten, auch bei der Verpflegung (sonst überdeckte die manuelle
+   * Aufteilung die Ernährungsangaben der Personen). Stehen eigene Zahlen da, die nicht der Ableitung aus
+   * den Karten entsprechen, fragt der Wechsel vorher (wie in der Gegenrichtung) und bietet danach
+   * „Rückgängig" (R10-E1).
+   */
+  async function aufVollstaendig() {
+    const vorher = {
+      personalErfassung: bogen.personalErfassung,
+      staerkeManuell: bogen.staerkeManuell,
+      unterbringungManuell: bogen.unterbringungManuell,
+      verpflegungManuell: bogen.verpflegungManuell,
+    };
+    const karten = staerke({ personal: bogen.personal });
+    const m = bogen.staerkeManuell;
+    const eigeneStaerke = !!m && (m.fuehrer !== karten.fuehrer || m.unterfuehrer !== karten.unterfuehrer || m.mannschaft !== karten.mannschaft);
+    const mwdKarten = unterbringungMWD({ personal: bogen.personal });
+    const u = bogen.unterbringungManuell;
+    const eigeneMwd = !!u && (u.m !== mwdKarten.m || u.w !== mwdKarten.w || u.d !== mwdKarten.d);
+    const vpKarten = verpflegung({ personal: bogen.personal });
+    const v = bogen.verpflegungManuell;
+    const eigeneVp = !!v && (v.vegetarisch !== vpKarten.vegetarisch || v.vegan !== vpKarten.vegan);
+    const verloren = [
+      eigeneStaerke ? `Stärke ${m!.fuehrer} / ${m!.unterfuehrer} / ${m!.mannschaft} / ${m!.gesamt}` : "",
+      eigeneMwd ? `Geschlecht ${u!.m} m / ${u!.w} w / ${u!.d} d` : "",
+      eigeneVp ? `Verpflegung ${v!.vegetarisch} vegetarisch / ${v!.vegan} vegan` : "",
+    ].filter(Boolean);
+    if (verloren.length > 0) {
+      const ja = await frageJaNein({
+        titel: "Eingetragene Zahlen verwerfen?",
+        text: `Diese Zahlen gehen verloren: ${verloren.join("; ")}. Es zählen wieder die Personenkarten: ${karten.fuehrer} / ${karten.unterfuehrer} / ${karten.mannschaft} / ${karten.gesamt}. Gleich danach holt „Rückgängig“ die Zahlen zurück.`,
+        ok: "Zahlen verwerfen",
+        abbruch: "Zahlen behalten",
+        fokus: "abbruch",
+      });
+      if (!ja) return;
+    }
+    aendern({
+      personalErfassung: PersonalErfassung.VOLLSTAENDIG,
+      staerkeManuell: undefined,
+      unterbringungManuell: undefined,
+      verpflegungManuell: undefined,
+    });
+    if (verloren.length > 0) setZahlenWeg({ vorher, text: verloren.join("; "), nonce: Date.now() });
+  }
+
   return (
     <section className="karte">
       <h2>3. Personal</h2>
@@ -1164,18 +1240,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             type="radio"
             name="perfassung"
             checked={!nurStaerke}
-            onChange={() =>
-              // Die manuellen Zahlen gehören zur Schnellerfassung — zurück in
-              // der Vollerfassung zählen wieder die Karten, auch bei der
-              // Verpflegung (sonst überdeckte die manuelle Aufteilung die
-              // Ernährungsangaben der Personen).
-              aendern({
-                personalErfassung: PersonalErfassung.VOLLSTAENDIG,
-                staerkeManuell: undefined,
-                unterbringungManuell: undefined,
-                verpflegungManuell: undefined,
-              })
-            }
+            onChange={() => void aufVollstaendig()}
           />
           Personal vollständig erfassen
         </label>
@@ -1275,7 +1340,9 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
               „Stärke 4" über vier Karten als bestätigt. */}
           {bogen.personal.length > 0 && (
             <p className="hinweis">
-              {bogen.personal.length === 1 ? "Diese Person zählt" : `Diese ${bogen.personal.length} Personen zählen`} nicht in die
+              {bogen.personal.every(personUnbenannt)
+                ? bogen.personal.length === 1 ? "Dieser vorbelegte Platz zählt" : `Diese ${bogen.personal.length} vorbelegten Plätze zählen`
+                : bogen.personal.length === 1 ? "Diese Person zählt" : `Diese ${bogen.personal.length} Personen zählen`} nicht in die
               Stärke mit. Die Stärke ist nur die Zahl, die du oben einträgst; die Angaben hier sind Telefon oder E-Mail für Rückfragen.
               Gehört die Person zur Einheit, zähle sie oben selbst mit.
             </p>
@@ -1406,7 +1473,19 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
           <strong>Entfernt:</strong> {entferntText(rueckweg.entfernte)}
         </DaumenQuittung>
       )}
-      {zurueckgeholt && !rueckweg && (
+      {zahlenWeg && (
+        <DaumenQuittung
+          key={`zahlen:${zahlenWeg.nonce}`}
+          onRueckgaengig={() => {
+            aendern(zahlenWeg.vorher);
+            setZahlenWeg(null);
+          }}
+          onSchliessen={() => setZahlenWeg(null)}
+        >
+          <strong>Zahlen verworfen:</strong> {zahlenWeg.text}
+        </DaumenQuittung>
+      )}
+      {zurueckgeholt && !rueckweg && !zahlenWeg && (
         <DaumenQuittung key={`zurueck:${zurueckgeholt.nonce}`} onSchliessen={() => setZurueckgeholt(null)}>
           {zurueckgeholt.text}
         </DaumenQuittung>
@@ -1508,7 +1587,19 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             Die Liste bleibt stehen, auch wenn Sie das Fenster schließen — bis Sie sie übernehmen oder leeren.{" "}
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
+                // Ab einer Handvoll Zeilen fragen: eine aus einer Nachricht kopierte Liste ist sonst mit einem Tipp weg (R10-D3).
+                if (namenAlle.length >= 4) {
+                  const ja = await frageJaNein({
+                    titel: `${namenAlle.length} Zeilen verwerfen?`,
+                    text: "Die eingefügte Liste wird geleert. Sie ist danach nicht wiederherzustellen — nur neu einzufügen.",
+                    ok: "Liste leeren",
+                    abbruch: "Liste behalten",
+                    gefahr: true,
+                    fokus: "abbruch",
+                  });
+                  if (!ja) return;
+                }
                 setNamenText("");
                 setVerdachtAngehakt(new Set());
               }}
