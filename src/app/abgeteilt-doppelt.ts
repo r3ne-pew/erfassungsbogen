@@ -15,6 +15,7 @@
 import { PersonalErfassung, type Erfassungsbogen } from "@bos/eeb-format/model";
 import { MeldeStatus, stammSchluessel, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit } from "./fassung-vorrang";
+import { einheitAnzeigename } from "./hilfen";
 
 /** Ein anwesender abgeteilter Trupp, dessen Personen oder Fahrzeuge auch in der neuen Meldung stehen. */
 export interface AbgeteilterTeil {
@@ -118,4 +119,26 @@ export function abgeteiltDoppeltText(d: AbgeteiltDoppelt): string {
     .join(", ");
   const was = [...d.personen, ...d.fahrzeuge.map((k) => `Fahrzeug ${k}`)].join("; ");
   return `${teile} ${d.teile.length === 1 ? "ist" : "sind"} abgeteilt; ${was} ${d.personen.length + d.fahrzeuge.length === 1 ? "steht" : "stehen"} auch in der neuen Meldung.`;
+}
+
+/**
+ * Stapelweg („Bögen einlesen…", Bilder): Dort fragt niemand je Bogen; nach dem Ablegen nennt dieser Satz je Folgemeldung
+ * einer aufgeteilten Einheit die doppelt stehenden Personen (R14-D2). `vorher` ist der Stand vor dem Stapel.
+ */
+export function abgeteiltDoppeltImStapel(
+  vorher: readonly MeldeEintrag[],
+  nachher: readonly MeldeEintrag[],
+  neueIds: readonly string[],
+): string[] {
+  const zeilen: string[] = [];
+  for (const id of neueIds) {
+    const e = nachher.find((x) => x.id === id);
+    if (!e || !vorher.some((v) => v.einheitSchluessel === e.einheitSchluessel)) continue;
+    const d = abgeteiltDoppelt(vorher, e.einheitSchluessel, e.bogen);
+    if (!d) continue;
+    zeilen.push(
+      `„${einheitAnzeigename(e.bogen.einheit)}": ⚠ ${abgeteiltDoppeltText(d)} Sie zählen jetzt doppelt — Trupp entfernen oder „Zusammenführen…".`,
+    );
+  }
+  return zeilen;
 }

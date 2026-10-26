@@ -7,7 +7,8 @@
  * Bildschirm im Fahrzeug sieht jeder, der vorbeikommt.
  */
 
-import { staerke } from "@bos/eeb-format/model";
+import { staerke, type EebZeitpunkt } from "@bos/eeb-format/model";
+import { angabenAlterWort, angabenZeit } from "./angaben-alter";
 import { einheitOrt } from "@bos/meldekopf/darstellung";
 import { EinsatzArt, MeldeStatus, revisionen, type Einsatzsammlung } from "@bos/meldekopf/einsaetze";
 import { aggregiere, aktuelleMeldungen, type EinsatzSummen } from "./auswertung";
@@ -49,7 +50,15 @@ export function bedarfText(s: EinsatzSummen): string | null {
   if (s.unterbringungBenoetigt > 0) teile.push(`Unterbringung ${personenText(s.unterbringungAngefordert.personen)}`);
   teile.push(...kraftstoffTeile(s.kraftstoff));
   if (s.ruhezeitErforderlich > 0) teile.push(`Ruhezeit ${s.ruhezeitErforderlich} ${s.ruhezeitErforderlich === 1 ? "Einheit" : "Einheiten"}`);
+  // Schnell erfasste Einheiten haben keinen Bedarf angegeben: Das ist keine Aussage „nichts nötig" (R14-W1).
+  const ohne = s.bedarfOhneAngabe ?? 0;
+  if (ohne > 0) teile.push(bedarfOhneAngabeText(ohne));
   return teile.length > 0 ? `Bedarf: ${teile.join(" · ")}` : null;
+}
+
+/** „bei 1 Einheit nicht erfasst" / „bei 3 Einheiten nicht erfasst" — für Monitor, Einsatzansicht und Lageblatt (R14-W1). */
+export function bedarfOhneAngabeText(n: number): string {
+  return `bei ${n} ${n === 1 ? "Einheit" : "Einheiten"} nicht erfasst`;
 }
 
 /**
@@ -98,6 +107,29 @@ export interface EinheitZeile {
   soll: boolean;
   /** Alter der Meldung in Minuten, nur ab {@link VERALTET_ALTER_MIN} (knappe Altersmarke je Zeile, R11-K1). */
   alterMin?: number;
+  /** Der Stand im Bogen liegt weit vor dem Eingang: die Altersmarke meint den Stand, nicht das Eintreffen (R14-K1). */
+  standAlt?: boolean;
+  /** Zug der Einheit (R14-K3). */
+  zug?: string;
+  /** Auftrag/Notiz des Meldekopfs, auf eine Zeile gekürzt (R14-K3). */
+  auftrag?: string;
+}
+
+/** Satz unter dem Bedarf der Einsatzansicht (R14-W1). */
+export function bedarfOhneAngabeHinweis(n: number): string {
+  return `Der Bedarf ist ${bedarfOhneAngabeText(n)} — „keine" bei Unterbringung, Ruhezeit und Betriebsstoff heißt dort nicht „nichts nötig".`;
+}
+
+/** Alter einer Zeile mit Minuten: „6 Std 40 Min", ab einem Tag „2 T" (R14-K3: abgerundete Stunden verwischten 1:30 und 1:59). */
+export function alterKurz(min: number): string {
+  if (min >= 1440) return `${Math.floor(min / 1440)} T`;
+  return `${Math.floor(min / 60)} Std ${min % 60} Min`;
+}
+
+/** Auftrag für die Monitorzeile: eine Zeile, höchstens 48 Zeichen. */
+export function auftragKurz(t: string): string {
+  const eine = t.replace(/\s+/g, " ").trim();
+  return eine.length > 48 ? `${eine.slice(0, 47).trimEnd()}…` : eine;
 }
 
 /** Ab diesem Alter einer Meldung warnen Kopfzeile, Kachel und Monitor (R10-K1, R11-K1). */
@@ -117,13 +149,15 @@ export interface AnwesendenAlter {
  * eine frische abgerückte Einheit die jüngste war und die anwesenden Stunden alt waren (R11-K1).
  * `null` ohne anwesende Einheit.
  */
-export function anwesendenAlter(anwesende: readonly { empfangenAm: number }[], jetzt: number): AnwesendenAlter | null {
+export function anwesendenAlter(anwesende: readonly { empfangenAm: number; bogen?: { stand: EebZeitpunkt } }[], jetzt: number): AnwesendenAlter | null {
   if (anwesende.length === 0) return null;
   const grenze = VERALTET_ALTER_MIN * 60_000;
+  // Alter der Angaben (Stand), nicht des Eintreffens (R14-K1); ohne Bogen gilt der Eingang.
+  const zeit = (e: { empfangenAm: number; bogen?: { stand: EebZeitpunkt } }) => (e.bogen ? angabenZeit({ empfangenAm: e.empfangenAm, bogen: e.bogen }) : e.empfangenAm);
   return {
-    aeltesteMs: Math.min(...anwesende.map((e) => e.empfangenAm)),
+    aeltesteMs: Math.min(...anwesende.map(zeit)),
     anwesend: anwesende.length,
-    aelter: anwesende.filter((e) => jetzt - e.empfangenAm >= grenze).length,
+    aelter: anwesende.filter((e) => jetzt - zeit(e) >= grenze).length,
   };
 }
 
@@ -149,9 +183,9 @@ export function lageblattAlterText(empfangenAm: readonly number[], jetzt: number
  * Zeile des Lageblatts, deren Meldung zum Druckzeitpunkt eine Stunde alt oder älter ist: „⚠ Meldung vor 6 Std 41 Min".
  * Der Kopf nennt „4 von 7 älter als 1 Std"; die Zeile sagt, welche (R13-K2). `null` darunter oder ohne Eingang.
  */
-export function lageblattZeilenAlter(empfangenAm: number | undefined, jetzt: number): string | null {
+export function lageblattZeilenAlter(empfangenAm: number | undefined, jetzt: number, wort: "Meldung" | "Stand" = "Meldung"): string | null {
   if (empfangenAm == null || jetzt - empfangenAm < VERALTET_ALTER_MIN * 60_000) return null;
-  return `⚠ Meldung ${alterText(empfangenAm, jetzt)}`;
+  return `⚠ ${wort} ${alterText(empfangenAm, jetzt)}`;
 }
 
 /**
@@ -263,7 +297,10 @@ export function lagebild(einsatz: Einsatzsammlung, jetzt: number = Date.now()): 
         unterfuehrer: st.unterfuehrer,
         mannschaft: st.mannschaft,
         soll: nurSollstaerke(m.bogen),
-        ...(jetzt - m.empfangenAm >= VERALTET_ALTER_MIN * 60_000 ? { alterMin: Math.floor((jetzt - m.empfangenAm) / 60_000) } : {}),
+        ...(jetzt - angabenZeit(m) >= VERALTET_ALTER_MIN * 60_000 ? { alterMin: Math.floor((jetzt - angabenZeit(m)) / 60_000) } : {}),
+        ...(m.zugEtikett ? { zug: m.zugEtikett } : {}),
+        ...(m.notiz?.trim() ? { auftrag: auftragKurz(m.notiz) } : {}),
+        ...(angabenAlterWort(m) === "Stand" ? { standAlt: true } : {}),
       };
     });
   return {

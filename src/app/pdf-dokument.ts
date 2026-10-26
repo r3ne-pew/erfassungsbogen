@@ -44,9 +44,10 @@ import {
   type QrSatz,
   zeitpunktDeutsch,
 } from "./hilfen";
-import { mwdText, summiereBoegen, unterbringungAngefordertText, verpflegungText, type EinsatzSummen } from "./auswertung";
+import { bedarfNichtErfasst, mwdText, summiereBoegen, unterbringungAngefordertText, verpflegungText, type EinsatzSummen } from "./auswertung";
 import { zeitLang } from "./eintrag-zeiten";
-import { lageblattAlterText, lageblattZeilenAlter, staerkeSummenText, zugAlterText } from "./lagemonitor";
+import { angabenAlterWort, angabenZeit } from "./angaben-alter";
+import { bedarfOhneAngabeText, kraftstoffTeile, lageblattAlterText, lageblattZeilenAlter, staerkeSummenText, zugAlterText } from "./lagemonitor";
 import { ANONYM_BEMERKUNG_VERMERK, ANONYM_PAPIER_VERMERK, ANONYM_PERSONAL_SATZ, codeGueltigBisText } from "./anonym-hinweis";
 import { bedarfMarken, datumVonMs, lueckenAlle, rueckkehrText } from "./einheiten-tabelle";
 import { FELD_GESAMTSTAERKE, bogenDiff, diffZeilen, type BogenDiff } from "@bos/meldekopf/meldung-diff";
@@ -502,6 +503,10 @@ export interface UebersichtEintrag {
    * (R5-A1): Das Blatt kennzeichnet sie, statt eine Uhrzeit wie eine Angabe zu drucken.
    */
   zeitUnbestaetigt?: boolean;
+  /** Die Eintreffzeit ist die Zeit des Einlesens am Gerät, nicht vom Meldeblock oder von Hand bestätigt (R14-A1). */
+  zeitEingelesen?: boolean;
+  /** Der Stand des Bogens liegt nach dem Eingang am Gerät: Geräteuhr oder Absenderuhr falsch (R13-A3, R14-A2). */
+  standNachEintreffen?: boolean;
   /** Ort/Auftrag, den der Bogen nennt, obwohl er nicht zur Lage zu passen scheint (R5-K5). */
   fremderOrt?: string;
   /** Name und Rufnummer des Absenders aus der mitsignierten Absenderkarte (R11-W2): „Hans Beispiel · 0170 5551234". */
@@ -561,8 +566,11 @@ export function aenderungFuerPapier(zeile: string): string {
 }
 
 /** Zeitpunkt auf dem Blatt — immer mit Datum: gelesen wird es auch morgen noch. */
-function alterMarke(empfangenAm: number | undefined, erstellt: number): Content[] {
-  const t = lageblattZeilenAlter(empfangenAm, erstellt);
+function alterMarke(e: { empfangenAm?: number; bogen: Erfassungsbogen }, erstellt: number): Content[] {
+  if (e.empfangenAm == null) return [];
+  // Alter der Angaben (Stand), nicht des Eintreffens; „Stand vor …", wenn der Bogen schon vor dem Eingang alt war (R14-K1).
+  const m = { empfangenAm: e.empfangenAm, bogen: e.bogen };
+  const t = lageblattZeilenAlter(angabenZeit(m), erstellt, angabenAlterWort(m));
   return t ? [{ text: t, bold: true, fontSize: 7 }] : [];
 }
 
@@ -610,10 +618,13 @@ export function erreichbarkeitZeilen(b: Erfassungsbogen, absender?: string): str
   if (absender) zeilen.push(`Absender: ${absender}`);
   // Knapp, damit die Zeile in die Spalte passt: „5556968346 (S. Lang)".
   const p = ansprechpartner(b.personal);
-  const tel = p?.kontakte.find((k) => k.art !== KontaktArt.EMAIL && k.wert);
+  // Dienstliche Nummer vor privater; die Art steht hinter der Nummer wie auf dem Bogen (R14-A3).
+  const nummern = p?.kontakte.filter((k) => k.art !== KontaktArt.EMAIL && k.wert) ?? [];
+  const tel = nummern.find((k) => k.dienstlich) ?? nummern[0];
   if (p && tel) {
     const name = [p.vorname ? `${p.vorname.charAt(0)}.` : "", p.nachname].filter(Boolean).join(" ");
-    zeilen.push(name ? `${tel.wert} (${name})` : `${tel.wert}`);
+    const art = tel.dienstlich ? "(D)" : "(P)";
+    zeilen.push(name ? `${tel.wert} ${art} ${name}` : `${tel.wert} ${art}`);
   } else if (b.einheit.hierarchie[0]?.telefon) {
     zeilen.push(`${b.einheit.hierarchie[0].telefon} (${soll ? "OV, Vorbelegung" : "OV"})`);
   }
@@ -692,7 +703,8 @@ export function lageblattAenderungen(d: BogenDiff): string[] {
  */
 function bedarfZelle(b: Erfassungsbogen): TableCell {
   const marken = bedarfMarken(b);
-  if (marken.length === 0) return { text: "" };
+  // Schnellerfassung: leer hieße „nichts nötig" — das Blatt sagt, dass niemand gefragt hat (R14-W1).
+  if (marken.length === 0) return bedarfNichtErfasst(b) ? { text: "Bedarf nicht erfasst", italics: true, bold: true } : { text: "" };
   return {
     text: marken.flatMap((m, i) => [
       ...(i > 0 ? [{ text: " · " }] : []),
@@ -700,6 +712,10 @@ function bedarfZelle(b: Erfassungsbogen): TableCell {
     ]),
   };
 }
+
+/** Marke hinter einer Eintreffzeit, die nur die Zeit des Einlesens ist (R14-A1); die Fußnote erklärt sie. */
+export const EINGELESEN_STERN = " *";
+export const EINGELESEN_FUSSNOTE = "* Eintreffzeit = Zeit des Einlesens am Gerät, nicht vom Absender oder Meldeblock bestätigt.";
 
 /** So viele Zeichen der Bemerkung stehen auf dem Lageblatt, der Rest in der Sammel-PDF. */
 const BEMERKUNG_LAGEBLATT = 70;
@@ -753,7 +769,7 @@ function uebersichtsTabelle(
       kopf("Veränderung seit der letzten Meldung"),
     ],
   ];
-  const zeile = (e: UebersichtEintrag): TableCell[] => {
+  const zeile = (e: UebersichtEintrag, blockKopf?: string): TableCell[] => {
     const { bogen: b, vorher, teil } = e;
     const s = staerke(b);
     let aenderung: Content;
@@ -782,6 +798,9 @@ function uebersichtsTabelle(
     // Laufende Nummer vorn, wie an der Karte: „Meldung 3" über Funk statt
     // des vollen Einheitsnamens (Audit Runde 2, R2-A6).
     const namensZeilen: Content[] = [
+      // Kopf des Blocks „Abgerückt (n)" in der ersten Zeile selbst: als eigene Tabellenzeile stand er am Seitenende
+      // allein, die Einheit darunter erst auf der nächsten Seite (R14-K2). Zeilen brechen nicht (dontBreakRows).
+      ...(blockKopf ? [{ text: blockKopf, bold: true, background: GRAU, margin: [0, 0, 0, 2] as [number, number, number, number] }] : []),
       e.nummer != null
         ? { text: [{ text: `Nr. ${e.nummer}  `, bold: true }, { text: einheitAnzeigename(b.einheit) }] }
         : { text: einheitAnzeigename(b.einheit) },
@@ -823,11 +842,12 @@ function uebersichtsTabelle(
       ...(zumWeiterfuehren ? [{ stack: erreichbarkeitZeilen(b, e.absender).map((text) => ({ text: weichUmbrechen(text) })) }] : []),
       {
         stack: [
-          { text: blattZeit(e.eingetroffenAm) },
+          { text: `${blattZeit(e.eingetroffenAm)}${e.zeitEingelesen && zumWeiterfuehren ? EINGELESEN_STERN : ""}` },
           ...(e.zeitUnbestaetigt ? [{ text: "Zeit nicht bestätigt (vom Papier)", italics: true, fontSize: 7 }] : []),
+          ...(e.standNachEintreffen && zumWeiterfuehren ? [{ text: "⚠ Stand nach dem Eintreffen: Uhr prüfen", bold: true, fontSize: 7 }] : []),
           ...(e.abgerueckAm != null ? [{ text: `ab ${blattZeit(e.abgerueckAm)}`, bold: true }] : []),
           // Welche der „n von m älter als 1 Std" gemeint sind, steht an der Zeile (R13-K2); nur zählende Anwesende.
-          ...(erstellt != null && !nachtrag && zaehlend(e) ? alterMarke(e.empfangenAm, erstellt) : []),
+          ...(erstellt != null && !nachtrag && zaehlend(e) ? alterMarke(e, erstellt) : []),
           // Ohne Abrückzeit steht auf dem Wandblatt eine leere Stelle: Sie soll nicht wie „nie bekannt" wirken (R7-A2).
           ...(e.abgerueckt && e.abgerueckAm == null
             ? [{ text: e.zeitUnbestaetigt ? "Abrückzeit nicht bestätigt (vom Papier)" : "Abrückzeit nicht festgehalten", italics: true, fontSize: 7 }]
@@ -848,10 +868,7 @@ function uebersichtsTabelle(
   if (abgerueckt.length > 0) {
     // Ein Zwischenkopf statt einer Fußnote: „war da und ist wieder weg" muss
     // auf dem Papier so sichtbar sein wie in der Datei.
-    const trenner: TableCell[] = [{ text: `Abgerückt (${abgerueckt.length})`, bold: true, fillColor: GRAU, colSpan: SPALTEN }];
-    for (let i = 1; i < SPALTEN; i++) trenner.push({});
-    body.push(trenner);
-    for (const e of abgerueckt) body.push(zeile(e));
+    abgerueckt.forEach((e, i) => body.push(zeile(e, i === 0 ? `Abgerückt (${abgerueckt.length})` : undefined)));
   }
   const summe = summiereBoegen(zaehlendeBoegen(eintraege));
   const uebungen = anwesend.filter((e) => e.zaehlt === false).length;
@@ -917,11 +934,12 @@ function uebersichtsTabelle(
   };
 }
 
-/** „Diesel 120 l · Benzin 30 l" — Gemisch nur, wenn gemeldet (wie in der Oberfläche). */
+/**
+ * „Diesel 120 l · Benzin 30 l" — nur gemeldete Sorten, wie Einsatzansicht und Monitor (R14-K4); ohne Kraftstoff leer
+ * (vorher „Diesel 0 l · Benzin 0 l", aber ohne Gemisch).
+ */
 function kraftstoffText(k: EinsatzSummen["kraftstoff"]): string {
-  const teile = [`Diesel ${k.dieselLiter} l`, `Benzin ${k.benzinLiter} l`];
-  if (k.gemischLiter > 0) teile.push(`Gemisch ${k.gemischLiter} l`);
-  return teile.join(" · ");
+  return kraftstoffTeile(k).join(" · ");
 }
 
 /** „Diesel 320 l · Gemisch 10 l" — nur gemeldete Sorten; „—" ohne Kraftstoff. */
@@ -980,7 +998,7 @@ function bedarfsTabelle(eintraege: UebersichtEintrag[], leer = false, nachtrag?:
       { text: "WC/Dusche (alle Anwesenden):", bold: true },
       { text: mwdText({ ...s.unterbringung, ohneAngabe: s.unterbringungOhneAngabe }) },
     ],
-    [{ text: "Betriebsstoff:", bold: true }, { text: kraftstoffText(s.kraftstoff) }],
+    [{ text: "Betriebsstoff:", bold: true }, { text: kraftstoffText(s.kraftstoff) || "—" }],
     [
       { text: "Fahrzeuge / Ruhezeit:", bold: true },
       { text: `${s.fahrzeuge} Fahrzeuge · Ruhezeit erforderlich bei ${s.ruhezeitErforderlich} Einheit(en)` },
@@ -1006,7 +1024,10 @@ function zugSummenTabelle(eintraege: UebersichtEintrag[], nachtrag?: string, ers
   for (const e of eintraege.filter(zaehlend)) {
     const k = e.zugEtikett ?? "";
     (nach.get(k) ?? nach.set(k, []).get(k)!).push(e.bogen);
-    if (e.empfangenAm != null) aeltester.set(k, Math.min(aeltester.get(k) ?? e.empfangenAm, e.empfangenAm));
+    if (e.empfangenAm != null) {
+      const z = angabenZeit({ empfangenAm: e.empfangenAm, bogen: e.bogen });
+      aeltester.set(k, Math.min(aeltester.get(k) ?? z, z));
+    }
   }
   if (nach.size < 2) return undefined;
   const kopf = (text: string): TableCell => ({ text, bold: true, fillColor: GRAU });
@@ -1083,29 +1104,41 @@ function lageKopfleiste(eintraege: UebersichtEintrag[], leer = false, nachtrag?:
     { text: ` · ${s.fahrzeuge} Fahrzeuge` },
   ];
   const angefordert = unterbringungAngefordertText(s);
+  // Schnell erfasste Einheiten haben keinen Bedarf angegeben: „keine" wäre dort eine falsche Aussage (R14-W1).
+  const ohne = s.bedarfOhneAngabe;
+  const ohneText = ohne > 0 ? ` (${bedarfOhneAngabeText(ohne)})` : "";
+  const kraftstoff = kraftstoffText(s.kraftstoff);
   const bedarfZeile = [
     { text: nachtrag ? "Bedarf (nur Nachtrag): " : "Bedarf: ", bold: true },
     { text: `${verpflegungText(s)} · ` },
-    angefordert ? { text: `Unterbringung angefordert: ${angefordert}`, bold: true } : { text: "keine Unterbringung angefordert" },
+    angefordert
+      ? { text: `Unterbringung angefordert: ${angefordert}${ohneText}`, bold: true }
+      : { text: `keine Unterbringung angefordert${ohneText}`, ...(ohne > 0 ? { bold: true } : {}) },
     { text: " · " },
     s.ruhezeitErforderlich > 0
-      ? { text: `Ruhezeit: ${s.ruhezeitErforderlich} ${s.ruhezeitErforderlich === 1 ? "Einheit" : "Einheiten"}`, bold: true }
-      : { text: "keine Ruhezeit" },
-    { text: ` · ${kraftstoffText(s.kraftstoff)}` },
+      ? { text: `Ruhezeit: ${s.ruhezeitErforderlich} ${s.ruhezeitErforderlich === 1 ? "Einheit" : "Einheiten"}${ohneText}`, bold: true }
+      : { text: `keine Ruhezeit${ohneText}`, ...(ohne > 0 ? { bold: true } : {}) },
+    ...(kraftstoff || ohne > 0 ? [{ text: ` · ${kraftstoff || "kein Betriebsstoff"}${ohneText}` }] : []),
   ];
   // Wie alt sind die Meldungen hinter den Zahlen? Bildschirm und Monitor sagen es; die Wand sollte es auch sagen (R12-K3).
   // Gerechnet zum Zeitpunkt des Ausdrucks, nicht zum Zeitpunkt des Lesens.
   const alterZeile =
     erstellt != null && !nachtrag
       ? lageblattAlterText(
-          eintraege.filter(zaehlend).flatMap((e) => (e.empfangenAm != null ? [e.empfangenAm] : [])),
+          eintraege.filter(zaehlend).flatMap((e) => (e.empfangenAm != null ? [angabenZeit({ empfangenAm: e.empfangenAm, bogen: e.bogen })] : [])),
           erstellt,
         )
+      : null;
+  // Eine falsche Geräteuhr versetzt alle Zeiten des Blatts; der Bildschirm warnt, die Wand muss es auch sagen (R14-A2).
+  const uhrN = eintraege.filter((e) => zaehlend(e) && e.standNachEintreffen).length;
+  const uhrZeile =
+    uhrN > 0 && !nachtrag
+      ? `⚠ Geräteuhr geht vermutlich nach: ${uhrN} ${uhrN === 1 ? "Stand liegt" : "Stände liegen"} nach dem Eintreffen — alle Zeiten dieses Blatts prüfen.`
       : null;
   return {
     table: {
       widths: ["*"],
-      body: [[{ stack: [{ text: staerkeZeile }, { text: bedarfZeile }, ...(alterZeile ? [{ text: alterZeile, bold: true }] : [])] }]],
+      body: [[{ stack: [{ text: staerkeZeile }, { text: bedarfZeile }, ...(alterZeile ? [{ text: alterZeile, bold: true }] : []), ...(uhrZeile ? [{ text: uhrZeile, bold: true }] : [])] }]],
     },
     fontSize: 9,
     margin: [0, 0, 0, 5],
@@ -1311,7 +1344,7 @@ export function meldekopfVermerk(e: UebersichtEintrag, name: string, erstellt: n
     ...(e.nummer != null ? [`Nr. ${e.nummer}`] : []),
     // Die Marke der Übersicht gehört auch in den Kasten: Sonst gilt die Einlesezeit beim
     // Wiederanlauf vom Papier als bestätigt (R6-A1).
-    `Eingetroffen ${e.eingetroffenAm == null ? "(nicht festgehalten)" : `${zeitLang(e.eingetroffenAm)}${e.zeitUnbestaetigt ? " (nicht bestätigt, vom Papier)" : ""}`}`,
+    `Eingetroffen ${e.eingetroffenAm == null ? "(nicht festgehalten)" : `${zeitLang(e.eingetroffenAm)}${e.zeitUnbestaetigt ? " (nicht bestätigt, vom Papier)" : e.zeitEingelesen ? " (Zeit des Einlesens, nicht geprüft)" : ""}`}`,
   ];
   if (e.abgerueckt) {
     teile.push(
@@ -1644,6 +1677,8 @@ export function einsatzLageblattDokument(
       eintraege.length === 0
         ? "Noch keine Einheit gemeldet."
         : "Summen und Bedarf zählen nur die anwesenden Einheiten dieser Lage; abgerückte stehen im eigenen Block. Nach Nr. geordnet. Alle Änderungen im Einzelnen: Sammel-PDF." +
+          (eintraege.some((e) => e.zeitEingelesen) ? ` ${EINGELESEN_FUSSNOTE}` : "") +
+          " Rückrufnummer: (D) dienstlich, (P) privat." +
           (rueckseite ? " Nachträge von Hand: Seite 2." : ""),
       LAGEBLATT_MAX_ZEILEN,
       true,

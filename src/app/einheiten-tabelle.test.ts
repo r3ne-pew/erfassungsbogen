@@ -366,7 +366,7 @@ describe("Lücken mit Inhalt statt Zahl (Audit Runde 3, R3-K7)", () => {
   it("fasst mehrere Punkte als ersten Punkt plus Anzahl zusammen", () => {
     expect(lueckenText([])).toBe("");
     expect(lueckenText(["Stärke ist 0."])).toBe("Stärke 0");
-    expect(lueckenText(["Stärke ist 0.", "Ort/Auftrag ist noch leer.", "x"])).toBe("Stärke 0 + 2 weitere");
+    expect(lueckenText(["Stärke ist 0.", "Ort/Auftrag ist noch leer.", "x"])).toBe("3 Punkte, u. a. Stärke 0"); // Gesamtzahl vorn (R14-N2)
   });
 
   it("gibt den häufigen Prüfpunkten Stichworte statt eines abgeschnittenen Satzanfangs (R4-K3)", () => {

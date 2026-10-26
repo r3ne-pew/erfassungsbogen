@@ -189,7 +189,7 @@ describe("R13-G1 Doppeltipp während der Erzeugung", () => {
     expect(ausgabeFreiBeiTipp("weitergeben", zweiter, tippWaehrendLauf, 10)).toBe(false);
     // Ein bewusster neuer Tipp nach dem Lauf geht durch.
     ausgabeSperreZuruecksetzen();
-    expect(ausgabeFreiBeiTipp("weitergeben", { timeStamp: performance.now() + 5 }, tippWaehrendLauf, 10)).toBe(true);
+    expect(ausgabeFreiBeiTipp("weitergeben", { timeStamp: performance.now() + 5000 }, tippWaehrendLauf, 10)).toBe(true);
   });
 
   it("ohne Sperrzeit (Prüfstand) ändert sich nichts", () => {

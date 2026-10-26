@@ -28,6 +28,7 @@ import {
 } from "@bos/eeb-format/model";
 import { namenEinsetzen, parseNamen } from "../personal-schnell";
 import { beispielPersonen } from "../beispielnamen";
+import { beispielMerken } from "../beispiel-herkunft";
 import { stanPersonalVorbelegung } from "@bos/vokabulare/thw-stan-personal";
 import { haeufigeFunktionen } from "../haeufige-funktionen";
 import {
@@ -1108,7 +1109,9 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
   function beispielnamenUebernehmen() {
     const anzahl = Math.max(1, Math.min(99, beispielAnzahl));
     const bestand = benannte(bogen.personal);
-    aendern({ personal: [...bestand, ...beispielPersonen(anzahl, bestand)] });
+    const erzeugt = beispielPersonen(anzahl, bestand);
+    beispielMerken({ personal: erzeugt }); // erfundene Namen: Rückfrage beim Abwählen von „Übung" (R14-E6)
+    aendern({ personal: [...bestand, ...erzeugt] });
     setSchnell(true);
     namenDialog.current?.close();
   }

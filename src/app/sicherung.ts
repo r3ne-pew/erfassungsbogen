@@ -29,6 +29,13 @@ const VERSION = 1;
 const PRAEFIX = "eeb.";
 /** Merkzettel der Geräteuhr (datenschutz-uhr.ts) — bleibt beim Einspielen beim Gerät. */
 const UHR_SCHLUESSEL = "eeb.uhr.v1";
+/**
+ * Vorratsstand der Beispielbögen und Themenseiten (offline-bereit.ts, `ZUSATZ_STAND_SCHLUESSEL`) — beschreibt, was auf
+ * DIESEM Gerät im Cache liegt, nicht auf dem Herkunftsgerät der Sicherung; bleibt beim Einspielen beim Gerät (R14-O2).
+ */
+export const ZUSATZ_STAND_SCHLUESSEL = "eeb.offline-zusatz.v1";
+/** Schlüssel, die zum Gerät gehören und beim Einspielen weder gelöscht noch aus der Datei übernommen werden. */
+const BEIM_GERAET: ReadonlySet<string> = new Set([UHR_SCHLUESSEL, ZUSATZ_STAND_SCHLUESSEL]);
 
 export interface Sicherung {
   format: typeof FORMAT;
@@ -452,7 +459,7 @@ export function sicherungEinspielen(text: string): number {
   // zurückgeschrieben, statt ein leeres Gerät und einen englischen Browser-Text zu hinterlassen.
   const vorher: Record<string, string> = {};
   for (const k of alleEebSchluessel(s)) {
-    if (k === UHR_SCHLUESSEL) continue;
+    if (BEIM_GERAET.has(k)) continue;
     const v = s.getItem(k);
     if (v != null) vorher[k] = v;
   }
@@ -463,7 +470,7 @@ export function sicherungEinspielen(text: string): number {
       // Der Uhrstand gehört zu diesem Gerät, nicht zur Datei: Der Stand aus einer
       // 100 Tage alten Sicherung löste beim nächsten Start „Geräteuhr prüfen"
       // aus, obwohl die Uhr stimmte (Audit Runde 5, R5-D4).
-      if (k === UHR_SCHLUESSEL) continue;
+      if (BEIM_GERAET.has(k)) continue;
       s.setItem(k, v);
       anzahl++;
     }
@@ -471,7 +478,7 @@ export function sicherungEinspielen(text: string): number {
     // Rückfall: halb geschriebene Schlüssel der Datei entfernen, dann den alten Stand zurückschreiben.
     let wiederhergestellt = true;
     try {
-      for (const k of Object.keys(eintraege)) if (k !== UHR_SCHLUESSEL) s.removeItem(k);
+      for (const k of Object.keys(eintraege)) if (!BEIM_GERAET.has(k)) s.removeItem(k);
       for (const [k, v] of Object.entries(vorher)) s.setItem(k, v);
     } catch {
       wiederhergestellt = false;

@@ -14,6 +14,7 @@ import {
   absenderHinweis,
   absenderkarteGefuellt,
   absenderkarteSpeichern,
+  telefonProblem,
   type Absenderkarte,
 } from "./absenderkarte";
 import { frageJaNein } from "./dialoge";
@@ -70,7 +71,22 @@ export function AbsenderkarteFeld(props: {
       });
       if (!trotzdem) return;
     }
-    props.onGespeichert(absenderkarteSpeichern(entwurf));
+    // R14-E5: Dieselbe Prüfung und dieselbe Rückfrage für die Rückrufnummer wie im Assistenten — sie reist ebenfalls
+    // mit Siegel in jedem übergebenen Bogen. Übernommen wird die bereinigte Nummer (nur Ziffern, ein „+" vorn).
+    let zuSpeichern = entwurf;
+    const telefon = telefonProblem(entwurf.telefon);
+    if (telefon) {
+      const trotzdem = await frageJaNein({
+        titel: "Telefonnummer übernehmen?",
+        text: `${telefon.text} Gespeichert würde: ${telefon.wert ? `„${telefon.wert}"` : "keine Nummer"}. Sie reist in jedem Bogen mit.`,
+        ok: "Trotzdem übernehmen",
+        abbruch: "Nummer prüfen",
+        fokus: "abbruch",
+      });
+      if (!trotzdem) return;
+      zuSpeichern = { ...entwurf, telefon: telefon.wert };
+    }
+    props.onGespeichert(absenderkarteSpeichern(zuSpeichern));
     setOffen(false);
   }
 

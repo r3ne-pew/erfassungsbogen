@@ -5814,6 +5814,66 @@
     /* R13-G3: Anruf- und Mail-Verknüpfungen in „Details" stehen mit mindestens 8 px Abstand (4 px je Verknüpfung). */
     dl.paare dd a.kontakt-link { margin-block: 4px; margin-inline: 0 4px; }
     /* ===== Ende Runde 13 (Layout) ===== */
+    /* ===== Runde 14 (Layout) ===== */
+    /* R14-M1: Der Rollbereich der Einheitentabelle trägt kein Seitenpolster mehr. Mit 16 px Polster klebte die Namensspalte 16 px
+       vom Rand, und schon ein kleiner Wisch schob „Ges." unter sie („ES."), dazu stand links ein heller Streifen. Jetzt beginnt die
+       Tabelle am Kartenrand (wie bei 320 px), die Namensspalte trägt ihren Abstand selbst, und kurze Wischer rasten zurück auf 0. */
+    @media (min-width: 18rem) and (max-width: 40rem) {
+      .karte > .tabellen-scroll:has(> table.einheiten-tabelle) {
+        padding-inline: 0; scroll-snap-type: x proximity; scroll-padding-inline-start: min(7.5rem, 38vw);
+      }
+      table.einheiten-tabelle { scroll-snap-align: start; }
+      /* Namensspalte feste Breite: dieselbe Zahl als Rastkante, damit ein Wisch eine Spalte nie halb unter ihr liegen lässt. */
+      table.einheiten-tabelle > * > tr > :first-child {
+        box-sizing: border-box; width: min(7.5rem, 38vw); min-width: min(7.5rem, 38vw); max-width: min(7.5rem, 38vw); padding-inline-start: 8px;
+      }
+      table.einheiten-tabelle thead > tr > :nth-child(n+2) { scroll-snap-align: start; }
+    }
+    /* R14-M3: Assistent-Kopf bei 320 px: das Logo (nur Schmuck) entfällt, „Ansicht" steht neben „‹ Startseite" in einer Zeile. */
+    @media (max-width: 21rem) {
+      .seiten-kopf.assistent-kopf .titelzeile:not(:has(.modus-marke)) { display: none; }
+    }
+    /* R14-M4: Aufklapper „Hinweise zum Handscanner" mit derselben Marke wie die übrigen Aufklapper. */
+    .handscanner-hinweise > summary { list-style: none; }
+    .handscanner-hinweise > summary::-webkit-details-marker { display: none; }
+    .handscanner-hinweise > summary::before { content: "▸"; margin-right: var(--r-2); flex: none; }
+    .handscanner-hinweise[open] > summary::before { content: "▾"; }
+    /* R14-G3: Die Ansicht-Kacheln in der Fußzeile stehen mit 8 px Abstand, jede mit eigenem Rahmen. */
+    .fuss-gruppe .anzeige-schalter { gap: 8px; border: none; overflow: visible; }
+    .fuss-gruppe .anzeige-schalter button { border: var(--strich) solid var(--linie-stark); border-radius: var(--radius); }
+    /* R14-K5: Telefon im Hochformat (niedriges Bild): „Bogen scannen…" in voller Breite, „manuell" und „einlesen" nebeneinander
+       ohne Unterzeile; so steht der Bedarf im ersten Bild. Das Menü von „einlesen" öffnet nach links. */
+    @media (max-width: 30rem) and (max-height: 720px) {
+      main.einsatz-detail .einsatz-seite > .aktionen { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: var(--r-3); }
+      main.einsatz-detail .einsatz-seite > .aktionen > .primaer { grid-column: 1 / -1; }
+      main.einsatz-detail .einsatz-seite > .aktionen > :not(.primaer) .knopf-zusatz { display: none; }
+      main.einsatz-detail .einsatz-seite > .aktionen > .einlese { display: flex; }
+      main.einsatz-detail .einsatz-seite > .aktionen .einlese-menue { left: auto; right: 0; }
+      /* Die Marke „▸ Bedarf:" steht an der ersten Zeile der (mehrzeiligen) Werte, nicht in deren Mitte unter dem Bildrand. */
+      details.bedarf-block > summary { align-items: flex-start; padding-top: 10px; }
+      main.einsatz-detail .einsatz-seite > .aktionen > button, main.einsatz-detail .einsatz-seite > .aktionen > .einlese > button { padding-inline: 0.5rem; }
+    }
+    /* ===== Ende Runde 14 (Layout) ===== */
+    /* ===== Runde 14 (Zustand) ===== */
+    /* R14-E2: Fremdtext einer Webadresse im Handscanner-Fenster bricht um, statt Fenster und Überschrift nach rechts zu schieben. */
+    .scanner-handscanner, .scanner-text { min-width: 0; max-width: 100%; box-sizing: border-box; }
+    .scanner-handscanner p, .scanner-text p { overflow-wrap: anywhere; }
+    /* R14-S4: Kontaktzeilen der Zugehörigkeit in den Details — je Angabe eine Zeile, Adressen brechen nur an Umbruchstellen. */
+    .bogen-details .paare dd .kontakt-zeile { display: block; }
+    .bogen-details .paare dd .kontakt-zeile .kontakt-link { overflow-wrap: normal; word-break: normal; }
+    /* ===== Ende Runde 14 (Zustand) ===== */
+    /* ===== Runde 14 (Inhalte) ===== */
+    /* R14-K3: Zug und Auftrag je Einheit am Lagemonitor; am Telefon entfällt die Typ-Spalte, der Zug steht dann unter der Orga. */
+    .lm-einheiten .lm-zug-tel { display: none; }
+    .lm-einheiten .lm-auftrag { display: block; opacity: 0.85; font-size: 0.85em; }
+    @media (max-width: 640px) {
+      .lm-einheiten .lm-zug-tel { display: block; opacity: 0.85; font-size: 0.85em; }
+      .lm-einheiten .lm-alt { display: block; }
+    }
+    /* R14-W1: Bedarf nicht erfasst (Schnellerfassung) ist keine Aussage „nichts nötig“. */
+    .bedarf-marke.bedarf-nicht-erfasst { font-style: italic; }
+    .bedarf-ohne-angabe { margin: var(--r-2) 0 0; }
+    /* ===== Ende Runde 14 (Inhalte) ===== */
   </style>
 </head>
 <body>

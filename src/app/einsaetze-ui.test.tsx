@@ -281,7 +281,8 @@ describe("Einheit mit Folgemeldung entfernen (R2-D1)", () => {
     expect(dialog.textContent).toMatch(/„Rückgängig" gibt es nur, solange die App geöffnet bleibt/);
     expect(dialog.textContent).toMatch(/danach ist die Meldung endgültig weg/);
     // R10-D1: der Name steht im ersten Satz, R10-S3: die Rückfrage ist kurz (höchstens rund 45 Wörter).
-    expect(dialog.querySelector("p")!.textContent).toMatch(/^„.*Ulm.*" \(Stand .*\) entfernen/);
+    // R14-D1: dazu Nummer und Stärke (bei einem abgeteilten Trupp auch der Teil), damit gleich benannte Karten verschieden lauten.
+    expect(dialog.querySelector("p")!.textContent).toMatch(/^(Nr\. \d+ )?„.*Ulm.*" \(\d+ Personen?, Stand .*\) entfernen/);
     const woerter = dialog.querySelector("p")!.textContent!.split(/\s+/).filter(Boolean).length;
     expect(woerter).toBeLessThanOrEqual(50);
     expect(dialog.textContent).toMatch(/Noch kein Export und keine Weitergabe/);
@@ -999,7 +1000,7 @@ describe("Zeiten, Auftrag und Bedarf auf der Karte", () => {
     // Ein leerer Bogen: Stärke 0, kein Auftrag — die Prüfliste hat etwas zu sagen.
     buehne(["Wardenburg"]);
     // Der Inhalt statt „n Lücken" (R3-K7).
-    const marke = screen.getByRole("button", { name: /^Hinweise: .* \+ \d+ weitere$/ });
+    const marke = screen.getByRole("button", { name: /^Hinweise: \d+ Punkte, u\. a\. .*$/ });
     expect(marke.getAttribute("aria-expanded")).toBe("false");
     await nutzer.click(marke);
     expect(document.querySelector(".luecken-liste")!.textContent).toContain("Stärke ist 0");

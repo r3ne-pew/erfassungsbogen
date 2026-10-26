@@ -28,7 +28,7 @@ import { zeitLang } from "./eintrag-zeiten";
 import { FELDER, STAND_FELDER, standGleichheit, vermerkFeld, vermerkKennung, type Feld, type StandFeld } from "./einsatz-abgleich";
 import { MeldeStatus } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit } from "./fassung-vorrang";
-import { abweichenderOrt } from "./einheiten-tabelle";
+import { ORT_REGEL, abweichenderOrt } from "./einheiten-tabelle";
 
 /**
  * Stände des Exports je Einsatz UND Format (R4-W2). Bis Runde 4 gab es einen
@@ -547,7 +547,7 @@ export function ortHinweise(s: Einsatzsammlung, ganz: readonly MeldeEintrag[] = 
 
 /** Der Hinweis in Worten, für Zellen und Zeilen der Ausgaben. */
 export function ortHinweisText(ort: string): string {
-  return `Anderer Einsatz? Bogen nennt: „${ort}“ – passt das zu dieser Lage? Zählt trotzdem mit.`;
+  return `Anderer Einsatz? Bogen nennt: „${ort}“ – passt das zu dieser Lage? ${ORT_REGEL} Zählt trotzdem mit.`;
 }
 
 /**

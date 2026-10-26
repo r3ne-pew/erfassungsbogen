@@ -29,6 +29,7 @@ import { OrganisationsTyp, alleFahrerlaubnisse, type Person } from "@bos/eeb-for
 import { MeldeStatus, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { FE_EINGESCHLOSSEN, FE_TEXT, vokabText, einheitAnzeigename, funkrufText, kennzeichenText, orgLabel, vokabularFuer } from "./hilfen";
 import { eintreffzeit } from "./eintrag-zeiten";
+import { angabenZeit } from "./angaben-alter";
 import { falte } from "./schreibweise";
 
 export type EinheitenSortierung = "nummer" | "name" | "zuletzt" | "aelteste" | "eintreffzeit" | "zug" | "organisation";
@@ -301,7 +302,7 @@ const VERALTET_MS = 60 * 60_000;
  * Meldung ist eine Stunde alt oder älter („von wem habe ich seit Stunden nichts gehört?", R12-K2).
  */
 export function passtZuStatusfilter(e: MeldeEintrag, f: StatusFilter, jetzt: number = Date.now()): boolean {
-  if (f === "veraltet") return e.status === MeldeStatus.ANWESEND && jetzt - e.empfangenAm >= VERALTET_MS;
+  if (f === "veraltet") return e.status === MeldeStatus.ANWESEND && jetzt - angabenZeit(e) >= VERALTET_MS;
   return f === "anwesend" ? e.status === MeldeStatus.ANWESEND : e.status !== MeldeStatus.ANWESEND;
 }
 

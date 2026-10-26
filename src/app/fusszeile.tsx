@@ -477,6 +477,15 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
   const [dauerhaftAbgelehnt, setDauerhaftAbgelehnt] = useState(false);
   // Quittung der letzten Sicherung (Dateiname, Ablage) und Datenstand (R12-O4).
   const [sicherungQuittung, setSicherungQuittung] = useState("");
+  const sicherungQuittungRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (!sicherungQuittung) return;
+    try {
+      sicherungQuittungRef.current?.scrollIntoView?.({ block: "nearest" });
+    } catch {
+      /* Testumgebung ohne Layout */
+    }
+  }, [sicherungQuittung]);
   const loeschen = useRef<HTMLDialogElement>(null);
   // Stand beim Öffnen des Löschen-Dialogs — die Rückfrage nennt Zahlen, damit
   // niemand „alles löschen" blind bestätigt.
@@ -603,6 +612,7 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
 
   /** Alle lokalen App-Daten als Datei anbieten — App: Share-Sheet, Browser: Download. */
   async function sicherungExportieren() {
+    setSicherungFehler(""); // eine frühere Fehlerzeile gilt nicht mehr (R14-H4)
     const inhalt = sicherungErstellen();
     setZuletztGesichert(letzteSicherung());
     setErinnerung(null);
@@ -621,6 +631,7 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
     e.target.value = "";
     if (!datei) return;
     setSicherungFehler("");
+    setSicherungQuittung(""); // die Quittung einer früheren Sicherung steht nicht neben dem Ergebnis dieser Datei (R14-H4)
     // Erst prüfen, dann fragen: Eine kaputte oder falsche Datei soll nicht
     // zuerst „alles ersetzen?" auslösen und danach Parser-Text zeigen
     // (Audit Runde 2, R2-E5).
@@ -662,6 +673,7 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
       });
       window.location.reload();
     } catch (err) {
+      setSicherungQuittung("");
       setSicherungFehler(err instanceof Error ? err.message : String(err));
     }
   }
@@ -901,6 +913,13 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
             <input type="file" accept=".json,application/json" className="nur-sr" onChange={(e) => void sicherungImportieren(e)} />
           </label>
         </div>
+        {/* Das Ergebnis des letzten Tipps steht direkt unter den Knöpfen und ist die einzige Meldung: eine frühere
+            Fehlerzeile oder Quittung wird mit dem nächsten Vorgang entfernt (R14-H4). */}
+        {sicherungQuittung && (
+          <p className="hinweis sicherung-quittung" role="status" ref={sicherungQuittungRef}>
+            {sicherungQuittung}
+          </p>
+        )}
         {sicherungFehler && <p className="fehler" role="alert">{sicherungFehler}</p>}
         <p className="hinweis">
           Einspielen ersetzt die vorhandenen App-Daten auf diesem Gerät vollständig.
@@ -912,11 +931,6 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
             ? `Letzte Sicherung auf diesem Gerät erstellt: ${new Date(zuletztGesichert).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })} Uhr. ${sicherungStandText()}`.trim()
             : "Auf diesem Gerät wurde noch keine Sicherung erstellt."}
         </p>
-        {sicherungQuittung && (
-          <p className="hinweis" role="status">
-            {sicherungQuittung}
-          </p>
-        )}
         {dauerhaft === true && (
           <p className="hinweis">
             Der Browser hält den Speicher dieser App dauerhaft vor und räumt ihn nicht von sich aus.

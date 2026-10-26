@@ -537,7 +537,9 @@ describe("einsatzPdfDokument()", () => {
     // Quartier und WC/Dusche getrennt beschriftet (R3-K4).
     expect(t).toContain("Unterbringung angefordert:\n2 Einheiten, 4 Personen (2 männl. / 2 weibl. / 0 div.)");
     expect(t).toContain("WC/Dusche (alle Anwesenden):\n2 männl. / 2 weibl. / 0 div.");
-    expect(t).toContain("Diesel 400 l · Benzin 0 l");
+    // Nur gemeldete Sorten, wie Einsatzansicht und Monitor (R14-K4).
+    expect(t).toContain("Diesel 400 l");
+    expect(t).not.toContain("Benzin 0 l");
     expect(t).toContain("2 Fahrzeuge · Ruhezeit erforderlich bei 0 Einheit(en)");
   });
 
@@ -721,7 +723,8 @@ describe("einsatzLageblattDokument()", () => {
     const t = texte(dd.content).join("\n").replace(/\u200B/g, "");
     expect(t).toContain("Funkrufname /\nRückruf");
     expect(t).toContain("Oldenburg - Ni 18/13");
-    expect(t).toContain("01701234501 (J. Rudolph)");
+    // Die Art der Nummer steht hinter der Nummer wie auf dem Bogen (R14-A3).
+    expect(t).toContain("01701234501 (P) J. Rudolph");
     expect(t).toContain("Nachtrag von Hand");
     // Mindestens fünf Nachtragszeilen (R3-A5); den Rest der Seite füllt
     // einsatzLageblattSeiteFuellen (gemessen in pdf-seiten.test.ts).

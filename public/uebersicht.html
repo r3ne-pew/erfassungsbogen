@@ -51,7 +51,7 @@
     a { color: var(--blau-hell); }
     ol, ul { padding-left: 1.2rem; }
     li { margin-bottom: 0.4rem; }
-    .start { display: inline-block; margin: 0.5rem 0 0.5rem; padding: 0.6rem 1.1rem; background: var(--blau); color: var(--auf-blau); border-radius: 0; text-decoration: none; font-weight: 600; }
+    .start { display: inline-block; box-sizing: border-box; min-height: 2.75rem; margin: 0.5rem 0 0.5rem; padding: 0.6rem 1.1rem; background: var(--blau); color: var(--auf-blau); border-radius: 0; text-decoration: none; font-weight: 600; }
     footer { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--rand); font-size: 0.875rem; color: var(--text-2); }
     /* Kachelliste: je Eintrag ein Link mit erklärender Zeile darunter. Bewusst
        eine <ul> und kein Raster aus <div>, damit die Seite ohne CSS immer noch
@@ -63,9 +63,9 @@
     .themenliste span { display: block; font-size: 0.875rem; color: var(--text-2); margin-top: 0.15rem; }
     /* Die Länderliste ist eine reine Namensliste — dort wäre je Eintrag eine
        Erklärzeile nur Rauschen, darum enger gesetzt. */
-    .laenderliste { list-style: none; padding: 0; margin: 0.8rem 0 0; display: flex; flex-wrap: wrap; gap: 0.4rem 0.5rem; }
+    .laenderliste { list-style: none; padding: 0; margin: 0.8rem 0 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
     .laenderliste li { margin: 0; }
-    .laenderliste a { display: inline-block; background: var(--flaeche); border: 1px solid var(--rand); border-radius: 0; padding: 0.3rem 0.7rem; font-size: 0.875rem; text-decoration: none; }
+    .laenderliste a { display: inline-flex; align-items: center; box-sizing: border-box; min-height: 2.75rem; background: var(--flaeche); border: 1px solid var(--rand); border-radius: 0; padding: 0.3rem 0.7rem; font-size: 0.875rem; text-decoration: none; }
     .laenderliste a:hover { text-decoration: underline; }
 /* KARTE:CSS:START */
     /* Dieselben Ziele wie der Text daneben, nur räumlich — darum ist das SVG

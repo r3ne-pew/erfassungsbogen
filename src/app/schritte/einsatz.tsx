@@ -11,6 +11,8 @@ import {
 } from "@bos/eeb-format/model";
 import { DATENSCHUTZFRIST_TAGE } from "@bos/eeb-format/datenschutzfrist";
 import { useRef } from "react";
+import { beispielRestText } from "../beispiel-herkunft";
+import { frageJaNein } from "../dialoge";
 import { heuteDatum, pruefpunkte } from "../hilfen";
 import { zeitraumNachEingabe } from "../zeitraum-eingabe";
 import { Feld, Hinweise, type SchrittProps } from "./bausteine";
@@ -154,7 +156,21 @@ export function SchrittEinsatz({ bogen, aendern, meldekopf = false }: SchrittPro
           <input
             type="checkbox"
             checked={bogen.uebung === true}
-            onChange={(e) => aendern({ uebung: e.target.checked || undefined })}
+            onChange={async (e) => {
+              const an = e.target.checked;
+              // R14-E6: Stammen Personal und Nummern noch aus einem Beispiel, fragt die App vor dem Abwählen.
+              const rest = !an && bogen.uebung ? beispielRestText(bogen) : "";
+              if (rest) {
+                const behalten = await frageJaNein({
+                  titel: "Beispieldaten im Bogen",
+                  text: `${rest} Als Einsatzbogen gingen sie mit Link, QR-Code und PDF an die Gegenstelle. Zuerst Personal und Nummern ersetzen und die Übung beibehalten?`,
+                  ok: "Übung beibehalten",
+                  abbruch: "Trotzdem als Einsatz",
+                });
+                if (behalten) return;
+              }
+              aendern({ uebung: an || undefined });
+            }}
           />
           Dies ist eine Übung
         </label>

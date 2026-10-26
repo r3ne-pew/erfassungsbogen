@@ -364,6 +364,14 @@ export function QrScannerWeb(props: {
         puffer = "";
         setScannerZeichen(0);
         propsRef.current.onErgebnis(text);
+      } else if (e.key === "Enter" && puffer.length > 0) {
+        // Ein zu kurzer Code (Etikett, EAN-Rest) bleibt nicht bei „n Zeichen …" stehen: Jeder abgeschlossene Scan
+        // endet mit einem Ergebnis, hier mit dem Satz für fremde Codes (R14-E3).
+        e.preventDefault();
+        const text = puffer;
+        puffer = "";
+        setScannerZeichen(0);
+        propsRef.current.onErgebnis(text);
       }
     }
     window.addEventListener("keydown", beiTaste, true);
