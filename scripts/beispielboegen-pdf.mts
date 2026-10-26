@@ -242,16 +242,16 @@ const ZUSATZ: Record<number, { pflicht: number[]; pool: number[] }> = {
 
 /** Externe/Berufs-Qualifikationen (Freitext) — gelegentlich gestreut. */
 const QUALI_POOL = [
-  "Elektrofachkraft (Beruf)",
-  "Berufskraftfahrer (Beruf)",
+  "Beruf: Elektrofachkraft",
+  "Beruf: Berufskraftfahrer",
   "Rettungssanitäter (extern)",
-  "Zimmerer (Beruf)",
+  "Beruf: Zimmerer",
   "Landwirt — Erfahrung Großgeräte",
   "Motorsägenschein AS Baum I (extern)",
   "Funkamateur (extern)",
-  "Gesundheits- und Krankenpfleger (Beruf)",
+  "Beruf: Gesundheits- und Krankenpfleger",
   "Feuerwehr-Doppelmitglied (AGT)",
-  "Tischler (Beruf)",
+  "Beruf: Tischler",
 ] as const;
 
 /** Einsatz-Szenario (ortAuftrag) je Einheitstyp; {ort} = Standort-Ort des OV. */

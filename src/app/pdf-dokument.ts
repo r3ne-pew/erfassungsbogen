@@ -53,6 +53,7 @@ import { bedarfMarken, datumVonMs, lueckenAlle, rueckkehrText } from "./einheite
 import { FELD_GESAMTSTAERKE, bogenDiff, diffZeilen, type BogenDiff } from "@bos/meldekopf/meldung-diff";
 import { fahrzeugSymbolSvg } from "./taktische-zeichen-bogen";
 import { orgFarbe } from "./org-farben";
+import { BERUF_PRAEFIX, berufText, qualifikationenUndBerufe } from "./beruf";
 import { UEBUNG_BREITE, UEBUNG_HOEHE, UEBUNG_PFAD } from "./uebung-wasserzeichen";
 
 // Grau der Kopfzeilen/Hinweiszeile exakt aus der THWin-Papiervorlage
@@ -2241,10 +2242,13 @@ export function pdfDokument(
   }
   for (const p of blanko ? [] : b.personal) {
     if (p.zusatzqualifikationen.length > 0) {
-      qualiZeilen.push([
-        { text: namePapier(p.nachname, p.vorname) },
-        { text: weichUmbrechen(p.zusatzqualifikationen.map((q) => q.freitext ?? `#${q.code}`).join(", ")) },
-      ]);
+      // Qualifikationen und Berufe stehen beide in dieser Tabelle — die Berufe
+      // als ein „Beruf: …"-Block hinter den Qualifikationen, damit der Leser
+      // sieht, was Lehrgang ist und was Brotberuf (beruf.ts).
+      const { qualifikationen, berufe } = qualifikationenUndBerufe(p);
+      const teile = qualifikationen.map((q) => q.freitext ?? `#${q.code}`);
+      if (berufe.length > 0) teile.push(BERUF_PRAEFIX + berufe.map(berufText).join(", "));
+      qualiZeilen.push([{ text: namePapier(p.nachname, p.vorname) }, { text: weichUmbrechen(teile.join(", ")) }]);
     }
   }
   if (qualiZeilen.length === 1) qualiZeilen.push([{ text: " " }, { text: " " }]);

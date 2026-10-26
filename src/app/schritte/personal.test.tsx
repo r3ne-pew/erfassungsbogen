@@ -760,16 +760,72 @@ describe("Vorschlagsfelder für Funktion und Qualifikation", () => {
     expect(screen.getByRole("button", { name: "Zugführer entfernen" })).toBeDefined();
   });
 
-  it("schlägt für Qualifikationen Berufsbezeichnungen vor und trägt sie als Freitext ein", async () => {
+  /**
+   * Rückmeldung aus einem THW-Ortsverband: Unter „Weitere Qualifikationen"
+   * gehören nur Qualifikationen (THW: die aus THWin), die Berufe brauchen ein
+   * eigenes Feld darunter. Der Chip zeigt den Beruf ohne Markierung; im Bogen
+   * steht er mit dem Präfix „Beruf: " im selben Feld wie die Qualifikationen
+   * (beruf.ts), damit das Transportformat unverändert bleibt.
+   */
+  it("schlägt im Berufsfeld Berufsbezeichnungen vor und trägt sie als Freitext ein", async () => {
     const nutzer = userEvent.setup();
     await mitPerson(nutzer);
 
-    await nutzer.type(screen.getByLabelText("Qualifikation hinzufügen"), "Elektrotechnik");
+    await nutzer.type(screen.getByLabelText("Beruf hinzufügen"), "Elektrotechnik");
 
     // Das Berufs-Vokabular wird nachgeladen — daher findBy statt getBy.
     await nutzer.click(await screen.findByText("Elektrotechnik"));
 
     expect(screen.getByRole("button", { name: "Elektrotechnik entfernen" })).toBeDefined();
+  });
+
+  it("hält die Berufe aus den Vorschlägen für Qualifikationen heraus", async () => {
+    const nutzer = userEvent.setup();
+    await mitPerson(nutzer);
+
+    // Erst im Berufsfeld treffen: das beweist, dass die Berufsliste geladen ist.
+    await nutzer.type(screen.getByLabelText("Beruf hinzufügen"), "Elektrotechnik");
+    await screen.findByText("Elektrotechnik");
+
+    await nutzer.type(screen.getByLabelText("Qualifikation hinzufügen"), "Elektrotechnik");
+    const feld = screen.getByLabelText("Qualifikation hinzufügen");
+    expect(within(feld.closest<HTMLElement>(".chips")!).queryByRole("listbox")).toBeNull();
+  });
+
+  it("speichert Beruf und Qualifikation getrennt kenntlich im selben Bogenfeld", async () => {
+    const nutzer = userEvent.setup();
+    const gesehen: Erfassungsbogen[] = [];
+    render(<SchrittBuehne komponente={SchrittPersonal} beobachten={(b) => gesehen.push(b)} />);
+    await nutzer.click(screen.getByRole("button", { name: "+ Person hinzufügen" }));
+
+    await nutzer.type(screen.getByLabelText("Qualifikation hinzufügen"), "Sprechfunk digital{Enter}");
+    await nutzer.type(screen.getByLabelText("Beruf hinzufügen"), "Dachdecker/in{Enter}");
+
+    // Beide Chips — der Beruf ohne Präfix.
+    expect(screen.getByRole("button", { name: "Sprechfunk digital entfernen" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Dachdecker/in entfernen" })).toBeDefined();
+    expect(gesehen[gesehen.length - 1]!.personal[0]!.zusatzqualifikationen).toEqual([
+      { freitext: "Sprechfunk digital" },
+      { freitext: "Beruf: Dachdecker/in" },
+    ]);
+
+    // Den Beruf entfernen lässt die Qualifikation stehen — und umgekehrt.
+    await nutzer.click(screen.getByRole("button", { name: "Dachdecker/in entfernen" }));
+    expect(gesehen[gesehen.length - 1]!.personal[0]!.zusatzqualifikationen).toEqual([{ freitext: "Sprechfunk digital" }]);
+  });
+
+  it("zeigt einen gespeicherten Beruf im Berufsfeld, nicht bei den Qualifikationen", () => {
+    const b = neuerBogen();
+    b.personal = [
+      { ...neuePerson(), vorname: "Erika", nachname: "Muster", zusatzqualifikationen: [{ freitext: "Beruf: Zimmerer/in" }, { freitext: "Motorsägenschein" }] },
+    ];
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={b} />);
+
+    const beruf = screen.getByLabelText("Beruf hinzufügen").closest<HTMLElement>(".chips")!;
+    const quali = screen.getByLabelText("Qualifikation hinzufügen").closest<HTMLElement>(".chips")!;
+    expect(within(beruf).getByRole("button", { name: "Zimmerer/in entfernen" })).toBeDefined();
+    expect(within(quali).getByRole("button", { name: "Motorsägenschein entfernen" })).toBeDefined();
+    expect(within(quali).queryByRole("button", { name: /Zimmerer/ })).toBeNull();
   });
 
   /**
@@ -807,14 +863,12 @@ describe("Vorschlagsfelder für Funktion und Qualifikation", () => {
     const nutzer = userEvent.setup();
     await mitPerson(nutzer); // frischer Bogen = THW
 
-    const feld = screen.getByLabelText("Qualifikation hinzufügen");
-    // Erst einen Beruf treffen: das beweist, dass die Vorschläge geladen sind —
-    // sonst prüft der Test nur, dass noch gar nichts da ist.
-    await nutzer.type(feld, "Elektrotechnik");
+    // Erst im Berufsfeld treffen: das beweist, dass nachgeladene Vorschläge
+    // ankommen — sonst prüft der Test nur, dass noch gar nichts da ist.
+    await nutzer.type(screen.getByLabelText("Beruf hinzufügen"), "Elektrotechnik");
     await screen.findByText("Elektrotechnik");
 
-    await nutzer.clear(feld);
-    await nutzer.type(feld, "Wasserretter");
+    await nutzer.type(screen.getByLabelText("Qualifikation hinzufügen"), "Wasserretter");
 
     expect(screen.queryByText(/^411 /)).toBeNull();
   });

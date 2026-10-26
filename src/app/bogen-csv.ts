@@ -66,6 +66,7 @@ import {
   zeitpunktDeutsch,
 } from "./hilfen";
 import { csvDatei, csvZeile, jaNein } from "./csv";
+import { berufText, qualifikationenUndBerufe } from "./beruf";
 import { telefonAlsTabellenText } from "./telefon-eingabe";
 import { EINTREFF_HINWEIS, HERKUNFT_TEXT, eintreffzeit, eintreffzeitUnbestaetigt, zeitLang } from "./eintrag-zeiten";
 import { meldungsNummern } from "./einheiten-tabelle";
@@ -148,6 +149,7 @@ const SPALTEN = [
   "Ernährung",
   "Kontakte",
   "Zusatzqualifikationen",
+  "Berufe",
   // Satzart „Fahrzeug"
   "Fahrzeugtyp",
   "Kennzeichen",
@@ -312,6 +314,7 @@ function einheitSatz(b: Erfassungsbogen, k: Kontext): Satz {
 
 function personSatz(b: Erfassungsbogen, k: Kontext, p: Person, nr: number): Satz {
   const funktionen = vokabularFuer(b.einheit.organisation, "funktion");
+  const { qualifikationen, berufe } = qualifikationenUndBerufe(p);
   return {
     ...kontextFelder(b, k, SATZART_PERSON, nr),
     Nachname: p.nachname,
@@ -326,7 +329,11 @@ function personSatz(b: Erfassungsbogen, k: Kontext, p: Person, nr: number): Satz
     Geschlecht: GESCHLECHT_TEXT[p.geschlecht],
     "Ernährung": ERNAEHRUNG_TEXT[p.ernaehrung],
     Kontakte: p.kontakte.map(kontaktText).join(" / "),
-    Zusatzqualifikationen: p.zusatzqualifikationen.map((q) => vokabText(q, funktionen)).filter(Boolean).join(", "),
+    // Berufe liegen im selben Bogenfeld wie die Qualifikationen, markiert mit
+    // „Beruf: " (beruf.ts) — in der Tabelle bekommen sie eine eigene Spalte,
+    // damit ein Filter auf „Elektroniker/in" nicht am Präfix hängt.
+    Zusatzqualifikationen: qualifikationen.map((q) => vokabText(q, funktionen)).filter(Boolean).join(", "),
+    Berufe: berufe.map(berufText).filter(Boolean).join(", "),
   };
 }
 

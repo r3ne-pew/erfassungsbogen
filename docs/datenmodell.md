@@ -215,7 +215,7 @@ ausgeschriebene Hierarchie der Normalfall.
 | geschlecht | Enum | M/W/D (2 Bit) |
 | ernaehrung | Enum | Fleisch/Vegetarisch/Vegan (2 Bit) — Verpflegung wird **abgeleitet** |
 | kontakte | `Kontakt[]` | Art (Mobil/Festnetz/eMail), D/P-Flag, BCD bzw. Template |
-| zusatzqualifikationen | `VokabularWert[]` | „weitere interne/externe Qualifikationen" |
+| zusatzqualifikationen | `VokabularWert[]` | „weitere interne/externe Qualifikationen". Berufe stehen im selben Feld als Freitext mit dem Präfix `Beruf: ` (App-Konvention, `src/app/beruf.ts`): die App zeigt sie in einem eigenen Eingabefeld, das Format kennt sie nicht gesondert — so bleibt der Bogen für ältere Stände lesbar |
 
 ### Fahrzeug
 

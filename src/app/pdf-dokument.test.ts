@@ -259,6 +259,26 @@ describe("pdfDokument()", () => {
     expect(t).toContain("Bootsführer");
   });
 
+  /**
+   * Rückmeldung aus einem THW-Ortsverband: Beruf UND Qualifikation gehören in
+   * die Tabelle „weitere interne / externe Qualifikationen". Die Berufe stehen
+   * als ein „Beruf: …"-Block hinter den Qualifikationen, egal in welcher
+   * Reihenfolge der Bogen sie führt.
+   */
+  it("schreibt Berufe als eigenen Block hinter die Qualifikationen derselben Person", () => {
+    const b = basisBogen();
+    b.personal[0]!.zusatzqualifikationen = [
+      { freitext: "Beruf: Elektroniker/in" },
+      { freitext: "Bootsführer" },
+      { freitext: "Beruf: Dachdecker/in" },
+    ];
+    b.personal[1]!.zusatzqualifikationen = [{ freitext: "Beruf: Zimmerer/in" }];
+    const t = texte(pdfDokument(b, QR).content).join("\n");
+    expect(t).toContain("Bootsführer, Beruf: Elektroniker/in, Dachdecker/in");
+    expect(t).toContain("Weber, Anna");
+    expect(t).toContain("Beruf: Zimmerer/in");
+  });
+
   it("nennt eine abweichende Dienststelle als „OV:“-Zeile in der Kontaktspalte, die der Einheit nicht", () => {
     const b = basisBogen();
     b.personal[1]!.dienststelle = "Bremen - Nord";

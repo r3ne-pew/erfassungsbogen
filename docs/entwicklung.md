@@ -759,8 +759,17 @@ vom Aufrufer, weil jede Liste nach eigenen Feldern sucht. Genutzt von:
 - **Ortsverband** (Schritt 1): Auswahl füllt Kürzel, Telefon, eMail sowie
   Regionalstelle und Landesverband mit.
 - **Funktionen** (Schritt 3): trägt einen **Code** ein — kompakt im QR.
-- **Weitere Qualifikationen** (Schritt 3): trägt **Freitext** ein; Berufsliste
-  und DLRG-Ausbildungskennzahlen sind reine Tipphilfe.
+- **Weitere Qualifikationen** (Schritt 3): trägt **Freitext** ein (THW: die
+  Qualifikationen aus THWin); die DLRG-Ausbildungskennzahlen sind reine
+  Tipphilfe. Berufe gehören hier nicht hinein.
+- **Berufe** (Schritt 3, unter den Qualifikationen): trägt **Freitext** mit
+  dem Präfix `Beruf: ` in dasselbe Bogenfeld `zusatzqualifikationen` ein
+  (`src/app/beruf.ts`); die Berufsliste ist Tipphilfe. Ein eigenes Feld im
+  Bogen hieße Schema-Sprung im Transportformat — das Präfix trennt die beiden
+  Eingabefelder, und jeder andere Leser (alter App-Stand, Meldekopf-Filter)
+  sieht den Klartext „Beruf: Elektroniker/in". PDF-Tabelle „weitere interne /
+  externe Qualifikationen" führt beides (Berufe als Block hinter den
+  Qualifikationen), die CSV bekommt eine eigene Spalte „Berufe" ohne Präfix.
 
 Eigene Eingaben bleiben überall möglich: Enter ohne markierten Vorschlag
 übernimmt sie, der Knopf „+ eigener Text" auch dann, wenn die Liste Treffer
@@ -806,8 +815,9 @@ unbekannte Gruppe bricht den Lauf ab. Die Quelldatei entsteht aus
 (Header `X-API-Key: infosysbub-berufenet`, 20 Treffer je Seite) und ist
 eingecheckt — der Generator geht nicht ins Netz.
 
-Berufe tragen **keine Codes**: ein Beruf wandert als Freitext in den Bogen,
-damit das QR-Format unberührt bleibt. Die Liste hängt als eigener Chunk
+Berufe tragen **keine Codes**: ein Beruf wandert als Freitext mit dem Präfix
+`Beruf: ` in den Bogen (Feld `zusatzqualifikationen`, s. o.), damit das
+QR-Format unberührt bleibt. Die Liste hängt als eigener Chunk
 (~137 KB, gzip ~30 KB) am Personal-Schritt, nicht am Start-Bundle.
 
 **THW-Funktionen** ergänzen die Handredaktion in `thw.ts` (Codes 1–102, geläufige
@@ -820,8 +830,8 @@ fügt beides zusammen — das nutzt die App.
 
 **DLRG-Ausbildungskennzahlen**
 ([vendor/bos-vokabulare/src/dlrg-qualifikationen.ts](../vendor/bos-vokabulare/src/dlrg-qualifikationen.ts))
-stehen bei „Weitere Qualifikationen" vor den Berufen, sobald die Einheit als
-DLRG geführt wird — 56 Einträge aus sechs Fachbereichen, aus der Legende einer
+stehen bei „Weitere Qualifikationen" als einzige Tipphilfe, sobald die Einheit
+als DLRG geführt wird — 56 Einträge aus sechs Fachbereichen, aus der Legende einer
 DLRG-Übersicht abgeschrieben (es gibt keinen maschinenlesbaren Datensatz). Wie
 die Berufe tragen sie **keine Codes**: die Qualifikation wandert als Freitext in
 den Bogen, das QR-Format bleibt unberührt.

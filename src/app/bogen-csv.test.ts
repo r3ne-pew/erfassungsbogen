@@ -169,6 +169,15 @@ describe("bogenCsvInhalt()", () => {
     expect(spalte(csv, 2, "Fahrerlaubnis")).toBe("B, A");
   });
 
+  it("trennt Berufe von den Zusatzqualifikationen in eine eigene Spalte, ohne Präfix", () => {
+    const b = bogen();
+    b.personal[0]!.zusatzqualifikationen = [{ freitext: "Beruf: Elektroniker/in" }, { freitext: "Motorsägenschein" }, { freitext: "Beruf: Zimmerer/in" }];
+    const csv = bogenCsvInhalt(b);
+    expect(spalte(csv, 2, "Zusatzqualifikationen")).toBe("Motorsägenschein");
+    expect(spalte(csv, 2, "Berufe")).toBe("Elektroniker/in, Zimmerer/in");
+    expect(spalte(csv, 3, "Berufe")).toBe("");
+  });
+
   it("schreibt Kontakte einer Person in ein Feld", () => {
     const csv = bogenCsvInhalt(
       bogen("Oldenburg", {

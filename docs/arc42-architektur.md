@@ -1730,11 +1730,19 @@ erreichbar (zuvor gleichlautend mit dem der Vorlagen, R5-D5).
 
 ### 8.4 Kompatibilitätskonzept (Schema-Evolution)
 
-- **Schema-Version aktuell 9** (`vendor/eeb-format/src/model.ts`); Historie: v1
+- **Schema-Version aktuell 10** (`vendor/eeb-format/src/model.ts`); Historie: v1
   (THW-spezifisch) → v2 (organisationsübergreifend) → v3 (Ernährungsform je
   Person) → v4 (ein Kennzeichen-Feld) → v5 (Einheitsname in der Hierarchie) → v6
   (Übungs-Kennzeichnung) → v7 (stand minutengenau) → v8 (mehrere
-  Fahrerlaubnisklassen je Person) → v9 (abweichende Sitzplatzzahl je Fahrzeug).
+  Fahrerlaubnisklassen je Person) → v9 (abweichende Sitzplatzzahl je Fahrzeug)
+  → v10 (abweichende Dienststelle je Person).
+- **Freitext-Konventionen statt Schema-Sprung:** Wo eine Angabe nur Text ist und
+  jeder Leser sie auch ohne Vokabular verstehen soll, bleibt das Format
+  unberührt — die DLRG-Ausbildungskennzahl steht als Freitext
+  „411 Wasserretter …", ein Beruf als „Beruf: Elektroniker/in" im Feld
+  `zusatzqualifikationen` (`src/app/beruf.ts`). Nur die App trennt daran ihre
+  Eingabefelder; ein älterer App-Stand und der Meldekopf-Filter zeigen den
+  Klartext.
 - **Abwärtskompatibilität ist Pflicht:** `decodeBinaer` und
   `bogenLaden`/`migriereBogen` akzeptieren jede Version `2..SCHEMA_VERSION`,
   füllen fehlende Felder mit Defaults, überführen entfallene Felder (Beispiel: v2

@@ -27,6 +27,7 @@ import {
   verpflegung,
 } from "@bos/eeb-format/model";
 import { namenEinsetzen, namenVerdachtGruende, parseNamen } from "../personal-schnell";
+import { berufText, qualifikationenUndBerufe, zusatzqualifikationenAus } from "../beruf";
 import { SOLL_NICHT_GEMELDET } from "../soll-text";
 import { beispielPersonen } from "../beispielnamen";
 import { beispielMerken } from "../beispiel-herkunft";
@@ -84,22 +85,16 @@ let berufeCache: readonly FreitextVorschlag[] | null = null;
 let dlrgQualiCache: readonly FreitextVorschlag[] | null = null;
 
 /**
- * Tipphilfe für die Zusatzqualifikationen: für alle die Berufsbezeichnungen,
- * bei der DLRG davor deren Ausbildungskennzahlen (401, 715, 1011 …) — die
- * Fachliste steht vorn, weil sie bei gleichwertigem Treffer die gemeinte ist
- * und mit 56 Einträgen gegen 700 Berufe sonst untergeht.
+ * Tipphilfe für die weiteren Qualifikationen: bei der DLRG deren
+ * Ausbildungskennzahlen (401, 715, 1011 …), sonst nichts — beim THW gehören
+ * hier nur Qualifikationen aus THWin hinein, die als Freitext kommen. Die
+ * Berufe standen früher mit in dieser Liste; sie haben jetzt ein eigenes Feld
+ * (useBerufVorschlaege), weil ein Meldekopf „Elektroniker/in" nicht neben
+ * „Sprechfunk" lesen will (Rückmeldung aus einem THW-Ortsverband).
  */
 function useQualiVorschlaege(aktiv: boolean, org: OrganisationsTyp): readonly FreitextVorschlag[] {
   const dlrg = org === OrganisationsTyp.DLRG;
-  const [berufe, setBerufe] = useState(berufeCache);
   const [dlrgQuali, setDlrgQuali] = useState(dlrgQualiCache);
-  useEffect(() => {
-    if (!aktiv || berufe) return;
-    void import("@bos/vokabulare/berufe").then((m) => {
-      berufeCache = m.BERUFE;
-      setBerufe(berufeCache);
-    });
-  }, [aktiv, berufe]);
   useEffect(() => {
     if (!aktiv || !dlrg || dlrgQuali) return;
     void import("@bos/vokabulare/dlrg-qualifikationen").then((m) => {
@@ -107,10 +102,20 @@ function useQualiVorschlaege(aktiv: boolean, org: OrganisationsTyp): readonly Fr
       setDlrgQuali(dlrgQualiCache);
     });
   }, [aktiv, dlrg, dlrgQuali]);
-  return useMemo(
-    () => [...(dlrg ? (dlrgQuali ?? []) : []), ...(berufe ?? [])],
-    [dlrg, dlrgQuali, berufe],
-  );
+  return useMemo(() => (dlrg ? (dlrgQuali ?? []) : []), [dlrg, dlrgQuali]);
+}
+
+/** Tipphilfe für das Berufsfeld: die Berufsbezeichnungen aus KldB und BERUFENET, für alle Organisationen. */
+function useBerufVorschlaege(aktiv: boolean): readonly FreitextVorschlag[] {
+  const [berufe, setBerufe] = useState(berufeCache);
+  useEffect(() => {
+    if (!aktiv || berufe) return;
+    void import("@bos/vokabulare/berufe").then((m) => {
+      berufeCache = m.BERUFE;
+      setBerufe(berufeCache);
+    });
+  }, [aktiv, berufe]);
+  return berufe ?? [];
 }
 
 /**
@@ -447,7 +452,10 @@ function SortierKnoepfe(props: {
 function PersonKarte(props: {
   person: Person;
   org: OrganisationsTyp;
+  /** Tipphilfe für „Weitere Qualifikationen" (DLRG-Kennzahlen; sonst leer). */
   vorschlaege: readonly FreitextVorschlag[];
+  /** Tipphilfe für das Berufsfeld (Berufsbezeichnungen). */
+  berufVorschlaege: readonly FreitextVorschlag[];
   /** Häufigste Funktionen der Einheit — das leere Funktionsfeld bietet sie zum Antippen an (R2-G5). */
   haeufigeFunktionen: readonly VokabularWert[];
   /** Gerade hinzugefügt: die Karte stempelt sich einmal ein. */
@@ -472,7 +480,7 @@ function PersonKarte(props: {
   entfernen: (ort?: { x: number; y: number }) => void;
   verschieben: (von: number, nach: number, gruppe: "karte" | "zeile", art: "hoch" | "runter") => void;
 }) {
-  const { person: p, org, vorschlaege, haeufigeFunktionen, frisch, neueVorgabe, index, anzahl, ansprech, nichtGezaehlt, aendern, entfernen, verschieben } = props;
+  const { person: p, org, vorschlaege, berufVorschlaege, haeufigeFunktionen, frisch, neueVorgabe, index, anzahl, ansprech, nichtGezaehlt, aendern, entfernen, verschieben } = props;
   const karte = useRef<HTMLDivElement>(null);
   useEinzugsstempel(karte, frisch);
   // Eine neue Person ist ungefragt „M" und „Fleisch": Die Vorgabe sah wie eine
@@ -484,6 +492,7 @@ function PersonKarte(props: {
   const bezeichnung = personBezeichnung(p, index);
   const set = (patch: Partial<Person>) => aendern({ ...p, ...patch });
   const funktionen = vokabularFuer(org, "funktion");
+  const { qualifikationen, berufe } = qualifikationenUndBerufe(p);
   return (
     <div className="karte eintrag" ref={karte} data-person-index={index}>
       {/* Kopf des Eintrags: wer die Person ist und welche Stärkerolle sie vor
@@ -634,17 +643,28 @@ function PersonKarte(props: {
               haeufige={haeufigeFunktionen}
             />
           </Feld>
-          {/* Zusatzqualifikationen kennen kein Code-Vokabular: Beruf, Lehrgang oder
-              externe Berechtigung wandern als Freitext in den Bogen. Die
-              Berufsbezeichnungen aus KldB und BERUFENET und die
-              DLRG-Ausbildungskennzahlen dienen nur als Tipphilfe. */}
+          {/* Zusatzqualifikationen kennen kein Code-Vokabular: Lehrgang oder
+              externe Berechtigung wandern als Freitext in den Bogen (THW: die
+              Qualifikationen aus THWin); die DLRG-Ausbildungskennzahlen dienen
+              als Tipphilfe. Berufe stehen darunter in einem eigenen Feld und
+              landen mit dem Präfix „Beruf: " im selben Bogenfeld (beruf.ts) —
+              so bleibt das Transportformat unverändert. */}
           <Feld titel="Weitere Qualifikationen">
             <VokabListe
-              werte={p.zusatzqualifikationen}
-              aendern={(w) => set({ zusatzqualifikationen: w })}
+              werte={qualifikationen}
+              aendern={(w) => set({ zusatzqualifikationen: zusatzqualifikationenAus(w, berufe) })}
               tabelle={[]}
               freitextVorschlaege={vorschlaege}
               hinzufuegenText="Qualifikation"
+            />
+          </Feld>
+          <Feld titel="Berufe">
+            <VokabListe
+              werte={berufe.map((b) => ({ freitext: berufText(b) }))}
+              aendern={(w) => set({ zusatzqualifikationen: zusatzqualifikationenAus(qualifikationen, w) })}
+              tabelle={[]}
+              freitextVorschlaege={berufVorschlaege}
+              hinzufuegenText="Beruf"
             />
           </Feld>
           {/* Die Überschrift trägt erst, wenn etwas darunter steht: bei zwölf
@@ -1152,6 +1172,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
   }, [zurNeuen]);
   // Nur die Detail-Karten zeigen Qualifikationen; die Schnelltabelle nicht.
   const vorschlaege = useQualiVorschlaege(!nurStaerke && !schnell, bogen.einheit.organisation);
+  const berufVorschlaege = useBerufVorschlaege(!nurStaerke && !schnell);
   // OV-Verzeichnis für die Dienststelle je Person (THW): dieselben Vorschläge wie in Schritt 1.
   const ovDaten = useOvDaten(bogen.einheit.organisation === OrganisationsTyp.THW);
   const ovVerzeichnis = ovDaten?.THW_ORTSVERBAENDE ?? [];
@@ -1635,6 +1656,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             person={p}
             org={bogen.einheit.organisation}
             vorschlaege={vorschlaege}
+            berufVorschlaege={berufVorschlaege}
             haeufigeFunktionen={funktionsauswahl}
             frisch={p === frischeKarte}
             neueVorgabe={p === vorgabeKarte}

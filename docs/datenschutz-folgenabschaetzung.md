@@ -633,7 +633,7 @@ definieren.
 | Kategorie | Felder | Pflicht/optional | Fundstelle |
 | --- | --- | --- | --- |
 | Identität | Vorname, Nachname | Pflicht je Personaleintrag | `Person` (`model.ts`) |
-| Funktion/Qualifikation | Funktionen, Zusatzqualifikationen, Fahrerlaubnis(se), Stärke-Rolle | Teils Pflicht, teils optional | `Person` |
+| Funktion/Qualifikation | Funktionen, Zusatzqualifikationen (inkl. Beruf — als Freitext mit Präfix „Beruf: " im selben Feld, eigenes Eingabefeld in der App), Fahrerlaubnis(se), Stärke-Rolle | Teils Pflicht, teils optional | `Person`, `src/app/beruf.ts` |
 | Unterbringungs-/verpflegungsrelevante Angaben | Geschlecht (M/W/D), Ernährungsform (inkl. vegetarisch/vegan) | Pflicht je Personaleintrag | `Person` — kein Gesundheitsdatum im Sinne Art. 9 DSGVO, dient der Logistikplanung |
 | Kontaktdaten | Telefon, E-Mail | Optional, laut Code-Kommentar „i. d. R. nur Führungskräfte" | `Kontakt` |
 | Fahrzeugbezogen (potenziell personenbeziehbar) | Kennzeichen, Funkrufname | Optional | `Fahrzeug` |
@@ -728,7 +728,7 @@ Kapitel 6 der [Arc42-Dokumentation](arc42-architektur.md).
 
 - **Datenschutzfrist (technisch erzwungen):** 90 Tage nach der letzten Änderung
   eines Bogens (`stand`) entfernt die App die personenbezogenen Angaben
-  dauerhaft. Das sind Namen, Funktionen, Zusatzqualifikationen,
+  dauerhaft. Das sind Namen, Funktionen, Zusatzqualifikationen (samt Berufen),
   Fahrerlaubnisse, Kontakte der Personen, Telefon/E-Mail der
   Hierarchie-Ebenen und der Freitext „Sonstiges". Stärke, Unterbringung und
   Verpflegung bleiben als Summen erhalten.
