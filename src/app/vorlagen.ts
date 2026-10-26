@@ -96,6 +96,13 @@ export function vorlageInstanziieren(
   return b;
 }
 
+/** „4 Personen, 1 Fahrzeug" — was eine Vorlage bzw. ein Bogen an Mannschaft und Technik trägt (R12-D1). */
+export function vorlageZahlenText(b: Pick<Erfassungsbogen, "personal" | "fahrzeuge">): string {
+  const p = b.personal.length;
+  const f = b.fahrzeuge.length;
+  return `${p} ${p === 1 ? "Person" : "Personen"}, ${f} ${f === 1 ? "Fahrzeug" : "Fahrzeuge"}`;
+}
+
 // ------------------------------------------------- Serialisierung (rein)
 
 /**

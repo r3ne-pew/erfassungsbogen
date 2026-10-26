@@ -548,6 +548,11 @@ export function LagemonitorBlock({ einsatzId, alleIds }: { einsatzId: string; al
           />
         </label>
       </div>
+      {/* R12-N5: Zweck und Wirkung von Feld und Knöpfen stehen vor ihnen. */}
+      <p className="hinweis lm-beginn-erklaerung">
+        Der Fernseher zeigt die Dauer seit dem Einsatzbeginn („seit Beginn: 0 Stunden, 0 Minuten“). „Jetzt“ setzt den
+        Beginn auf die aktuelle Uhrzeit, „Beginn entfernen“ nimmt ihn zurück — der Einsatz selbst bleibt unverändert.
+      </p>
       <div className="vorlage-aktionen">
         <label>
           Einsatzbeginn{" "}
@@ -558,7 +563,7 @@ export function LagemonitorBlock({ einsatzId, alleIds }: { einsatzId: string; al
           />
         </label>{" "}
         <button type="button" onClick={() => void setzeJetzt()}>Jetzt</button>{" "}
-        {beginn != null && <button type="button" onClick={() => setze(null)}>Löschen</button>}{" "}
+        {beginn != null && <button type="button" onClick={() => setze(null)}>Beginn entfernen</button>}{" "}
         <button type="button" className="primaer" onClick={() => lagemonitorOeffnen(einsatzId)}>
           Lagemonitor öffnen
         </button>

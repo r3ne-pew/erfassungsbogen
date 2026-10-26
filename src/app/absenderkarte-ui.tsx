@@ -17,6 +17,7 @@ import {
   type Absenderkarte,
 } from "./absenderkarte";
 import { frageJaNein } from "./dialoge";
+import { emailProblem } from "./email-pruefung";
 
 /** Beschriftetes Eingabefeld — gleiche Auszeichnung wie in schritte.tsx. */
 function Feld(props: { titel: string; children: ReactNode }) {
@@ -51,7 +52,18 @@ export function AbsenderkarteFeld(props: {
     setOffen(true);
   }
 
-  function speichern() {
+  async function speichern() {
+    // R12-E2: Eine Adresse, die die App selbst „unvollständig" nennt, reist mitsigniert in jedem QR-Code mit.
+    if (emailProblem(entwurf.email)) {
+      const trotzdem = await frageJaNein({
+        titel: "E-Mail-Adresse übernehmen?",
+        text: `Die Adresse „${(entwurf.email ?? "").trim()}" sieht unvollständig aus. Sie reist in jedem übergebenen Bogen mit; die Gegenstelle erreicht dich darüber vielleicht nicht.`,
+        ok: "Trotzdem übernehmen",
+        abbruch: "Adresse prüfen",
+        fokus: "abbruch",
+      });
+      if (!trotzdem) return;
+    }
     props.onGespeichert(absenderkarteSpeichern(entwurf));
     setOffen(false);
   }

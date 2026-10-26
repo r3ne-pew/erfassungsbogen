@@ -178,6 +178,7 @@ function uebersichtEintrag(
     zugEtikett: m.zugEtikett,
     teil: m.teilEtikett,
     eingetroffenAm: eintreffzeit(m),
+    empfangenAm: m.empfangenAm,
     abgerueckAm: m.abgerueckAm,
     abgerueckt: m.status !== MeldeStatus.ANWESEND,
     zaehlt: m.status === MeldeStatus.ANWESEND && zaehltInLage(einsatz.art, m.bogen),

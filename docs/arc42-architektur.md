@@ -12,6 +12,25 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-26 (Runde 12):** Audit Runde 12 (38 Befunde ohne
+> Doppelungen, drei Pakete) — Kap. 5, 8.2, 8.4, 8.6, 9: neuer localStorage-Schlüssel
+> `eeb.sicherung.stand.v1` (`{ einsaetze, meldungen }`, bei „Sicherung erstellen"
+> geschrieben, trägt die Anzeige „seit der Sicherung k neue"); im Sitzungsspeicher
+> bekommt `eeb.vorbelegung.rueckweg` das optionale Feld `ziel`. Telefon- und
+> E-Mail-Felder: `telefonTippen` fängt eine zweite Nummer auch beim Tippen ab,
+> `email-pruefung.ts` prüft in Schritt 1, Schritt 3 und der Absenderkarte gleich.
+> Ausgaben der Einsatzansicht (CSV, Excel, PDF, Lageblatt) sperren zwei Sekunden
+> gegen Doppeltipp (`ausgabe-sperre.ts`); ein leerer Einsatz erzeugt keine
+> Weitergabe-Datei. Telefonnummer und E-Mail des Absenders sind antippbar
+> (`kontakt-link.tsx`, `tel:`/`mailto:` aus engem Zeichensatz). Anonymisierte Bögen
+> tragen auf Lageblatt und Übergabe den Vermerk „ANONYMISIERT". Einsatzansicht:
+> Sortierung „Älteste Meldung zuerst", Status-Filter „nur ältere als 1 Std", Spalte
+> „Meldung vor", Alter je Zug und im Lageblatt. `hilfen.ts` rechnet die
+> Datenschutzfrist selbst nach statt `eeb-format/datenschutzfrist` zu importieren
+> (der Import verschob das Ortsverbandsverzeichnis, rund 600 KB, ins Startbündel;
+> ADR-003 Aufnahmeregel 5, Test `runde12-hilfen-frist.test.ts`). Bundle-Budget neu
+> gesetzt. Kein neuer Host, Transportformat und Schema unverändert.
+>
 > **Nachgezogen 2026-10-26 (Runde 11):** Audit Runde 11 (51 Befunde ohne
 > Doppelungen, drei Pakete) — Kap. 5, 8.2, 8.4, 8.5, 8.6: neuer localStorage-Schlüssel
 > `eeb.widersprueche.v1` (`widerspruch-merker.ts`, Widersprüche des Imports je

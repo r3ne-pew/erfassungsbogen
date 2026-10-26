@@ -11,6 +11,15 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-26 — Audit Runde 12:** Speicherort neu: `eeb.sicherung.stand.v1`
+> im `localStorage` (nur Zahlen: Einsätze und Meldungen zum Zeitpunkt der letzten
+> Sicherung; 5.4, 5.7; Teil der Datensicherung, fällt mit „Alle Daten löschen"
+> weg). Anonymisierte Bögen sind auf Lageblatt und Übergabe gekennzeichnet; das
+> Gerät zeigt und druckt für sie keine Rufnummern und Fahrerlaubnisse mehr, die
+> Hinweise „keine Rufnummer" entfallen (5.5, Art. 5 Abs. 1 lit. e und d DSGVO). Rufnummer
+> und E-Mail des Absenders sind antippbare Verknüpfungen, es entsteht keine
+> Übermittlung (5.8 unverändert).
+>
 > **Nachgezogen 2026-10-26 — Audit Runde 11:** Speicherort neu: `eeb.widersprueche.v1`
 > im `localStorage` (Einheitsnamen und Feldwerte aus Import-Widersprüchen, keine
 > Personennamen; Teil der Datensicherung, fällt mit „Alle Daten löschen" weg;

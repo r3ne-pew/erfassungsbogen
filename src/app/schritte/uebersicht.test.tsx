@@ -163,7 +163,7 @@ describe("Übersicht — Übergabe-Dialog", () => {
       <Uebersicht
         bogen={{
           ...bogen,
-          einheit: { ...bogen.einheit, hierarchie: [{ bezeichnung: { code: 1 }, name: "Oldenburg", telefon: "4419876" }] },
+          einheit: { ...bogen.einheit, einheitsTyp: { code: 1 }, hierarchie: [{ bezeichnung: { code: 1 }, name: "Oldenburg", telefon: "4419876" }] },
           einsatz: { ...bogen.einsatz, ortAuftrag: "Deichsicherung" },
           personal: [
             { ...person("Anna", "Ahrens", StaerkeRolle.FUEHRER), kontakte: [{ art: 0, dienstlich: true, wert: "441987654" }] },

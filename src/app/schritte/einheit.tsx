@@ -36,7 +36,7 @@ import { EBENE_WEG_SCHLUESSEL, rueckwegHolen, rueckwegMerken } from "../rueckweg
 import { vorbelegungWegLesen, vorbelegungWegSichern, zustandsAbdruck, type VorbelegungWeg } from "../vorbelegung-rueckweg";
 import { Auswahl, Feld, FREMDE_DATEN, Hinweise, KENNUNG_EINGABE, VokabAuswahl, VorschlagFeld, type SchrittProps } from "./bausteine";
 import { TelefonFeld } from "./telefon-feld";
-import { falte } from "../schreibweise";
+import { falte, ortAnzeige } from "../schreibweise";
 
 // Die beiden großen Datenpakete laden erst mit Schritt 1, nicht mit dem
 // Start-Bundle: das THW-OV-Verzeichnis (~190 KB Quelldaten) und die
@@ -200,7 +200,7 @@ function OvVorschlagFeld(props: {
         <>
           {o.name}
           <small>
-            {o.kurz} · {o.plz} {o.ort}
+            {o.kurz} · {o.plz} {ortAnzeige(o.ort)}
           </small>
         </>
       )}
@@ -320,7 +320,13 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh, ortFokus = false }:
     });
   };
   /** `aendern` mit Rückweg, wenn dabei unbenannte Sollplätze weggehen (oder schon eine Leiste steht). */
-  function aendernMitVorbelegungWeg(patch: Partial<typeof bogen>, titel: string, immer = false) {
+  function aendernMitVorbelegungWeg(
+    patch: Partial<typeof bogen>,
+    titel: string,
+    immer = false,
+    /** Mit Angabe ersetzt der neue Schritt Titel und Ziel einer schon stehenden Leiste; der Rückweg bleibt der erste Stand. */
+    aktualisieren?: (alt: VorbelegungWeg) => string | undefined,
+  ) {
     if (immer || vorbelegtePersonen > 0 || vorbelegteFahrzeuge > 0) {
       const teile = [
         vorbelegtePersonen > 0 ? anzahlText(vorbelegtePersonen, "Person", "Personen") : "",
@@ -346,7 +352,9 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh, ortFokus = false }:
         nonce: Date.now(),
         danach: zustandsAbdruck(patch.personal ?? bogen.personal, patch.fahrzeuge ?? bogen.fahrzeuge),
       };
-      setVorbelegungWeg((alt) => alt ?? neu);
+      setVorbelegungWeg((alt) =>
+        alt && aktualisieren ? { ...alt, kopf: neu.kopf, ziel: aktualisieren(alt), nonce: neu.nonce, danach: neu.danach } : (alt ?? neu),
+      );
     }
     aendernRoh(verpflegungMitziehen(bogen, patch));
   }
@@ -494,6 +502,9 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh, ortFokus = false }:
       },
       `Organisation auf „${orgLabel(organisation)}" gewechselt (Einheitstyp und Zugehörigkeit zurückgesetzt)`,
       true,
+      // R12-N2: Die Zeile nennt die letzte Wahl und, wohin „Rückgängig“ führt (der Stand vor dem ersten Wechsel).
+      (alt) =>
+        alt.einheit.organisation === organisation ? undefined : `Rückgängig stellt „${orgLabel(alt.einheit.organisation)}" wieder her.`,
     );
   }
   // Welches Namensfeld der Zugehörigkeit gerade den Fokus hat (Hinweis „nicht im Verzeichnis" erst danach).
@@ -931,7 +942,7 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh, ortFokus = false }:
               });
             }}
           >
-            OV/RB/LV-Vorlage
+            Regionalbereich und Landesverband anlegen
           </button>
         )}
       </p>
@@ -950,7 +961,9 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh, ortFokus = false }:
       )}
       {vorbelegungWeg && (
         <DaumenQuittung key={`vorbelegung:${vorbelegungWeg.nonce}`} onRueckgaengig={vorbelegungZurueck} onSchliessen={() => setVorbelegungWeg(null)}>
-          {vorbelegungWeg.kopf} — Stärke {vorbelegungWeg.vor} → {staerke(bogen).gesamt}.
+          {vorbelegungWeg.kopf}
+          {vorbelegungWeg.vor !== staerke(bogen).gesamt && ` — Stärke ${vorbelegungWeg.vor} → ${staerke(bogen).gesamt}`}.
+          {vorbelegungWeg.ziel && ` ${vorbelegungWeg.ziel}`}
         </DaumenQuittung>
       )}
     </section>

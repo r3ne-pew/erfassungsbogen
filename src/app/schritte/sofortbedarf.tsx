@@ -126,7 +126,11 @@ export function SchrittSofortbedarf({ bogen, aendern }: SchrittProps) {
               </>
             ) : (
               <Feld titel="Ernährung (aus Personal)" schmal>
-                <output className="abgeleitet nur-anzeige">{vp.vegetarisch} vegetarisch · {vp.vegan} vegan</output>
+                <output className="abgeleitet nur-anzeige">
+                  {s.verpflegungPersonen > 0
+                    ? `${vp.vegetarisch} vegetarisch · ${vp.vegan} vegan`
+                    : `Verpflegung nicht angefordert (Personal: ${vp.vegetarisch} vegetarisch · ${vp.vegan} vegan)`}
+                </output>
               </Feld>
             )}
             <Feld titel="Diesel (l)" schmal>

@@ -31,7 +31,7 @@ import { FE_EINGESCHLOSSEN, FE_TEXT, vokabText, einheitAnzeigename, funkrufText,
 import { eintreffzeit } from "./eintrag-zeiten";
 import { falte } from "./schreibweise";
 
-export type EinheitenSortierung = "nummer" | "name" | "zuletzt" | "eintreffzeit" | "zug" | "organisation";
+export type EinheitenSortierung = "nummer" | "name" | "zuletzt" | "aelteste" | "eintreffzeit" | "zug" | "organisation";
 
 export const SORTIERUNGEN: { wert: EinheitenSortierung; label: string }[] = [
   // Die Nummer, die am Funk genannt wird und das Lageblatt ordnet (R7-K9).
@@ -42,6 +42,8 @@ export const SORTIERUNGEN: { wert: EinheitenSortierung; label: string }[] = [
   // (R2-K1); eine frische Fassung mit drei Helfern weniger stand darin auf
   // dem letzten Platz (Audit Runde 3, R3-K1).
   { wert: "zuletzt", label: "Zuletzt gemeldet (neueste zuerst)" },
+  // Wem fehlt eine frische Meldung? Die älteste oben (R12-K2).
+  { wert: "aelteste", label: "Älteste Meldung zuerst" },
   { wert: "eintreffzeit", label: "Eintreffzeit vor Ort (neueste zuerst)" },
   { wert: "zug", label: "Zug" },
   { wert: "organisation", label: "Organisation" },
@@ -235,6 +237,14 @@ export function einheitenSortieren(
     case "zuletzt":
       // Eingang der aktuellen Fassung (Geräteuhr), nicht das Eintreffen.
       return liste.sort((a, b) => b.empfangenAm - a.empfangenAm || nameVergleich(a, b));
+    case "aelteste":
+      // Anwesende vor Abgerückten: Für eine abgerückte Einheit ist „lange nichts gehört" kein Mangel (R12-K2).
+      return liste.sort(
+        (a, b) =>
+          Number(a.status !== MeldeStatus.ANWESEND) - Number(b.status !== MeldeStatus.ANWESEND) ||
+          a.empfangenAm - b.empfangenAm ||
+          nameVergleich(a, b),
+      );
     case "eintreffzeit":
       // Die korrigierte Eintreffzeit, nicht der Empfangsmoment: wer einen
       // Papierstapel nachträgt, hat alle Bögen in derselben Minute erfasst —
@@ -280,10 +290,18 @@ export function einheitenAnsicht(
 }
 
 /** Einschränkung nach Status: nur Anwesende oder nur Abgerückte (R11-K2). */
-export type StatusFilter = "anwesend" | "abgerueckt";
+export type StatusFilter = "anwesend" | "abgerueckt" | "veraltet";
 
-/** Anwesend heißt nicht abgerückt und nicht zusammengeführt: das ist, was in der Lage zählt. */
-export function passtZuStatusfilter(e: MeldeEintrag, f: StatusFilter): boolean {
+/** Ab diesem Alter gilt die Meldung einer anwesenden Einheit als veraltet (wie `VERALTET_ALTER_MIN` in lagemonitor.ts; hier
+ *  doppelt, weil lagemonitor.ts über einheiten-tabelle.ts diese Datei lädt). */
+const VERALTET_MS = 60 * 60_000;
+
+/**
+ * Anwesend heißt nicht abgerückt und nicht zusammengeführt: das ist, was in der Lage zählt. „veraltet": anwesend und die
+ * Meldung ist eine Stunde alt oder älter („von wem habe ich seit Stunden nichts gehört?", R12-K2).
+ */
+export function passtZuStatusfilter(e: MeldeEintrag, f: StatusFilter, jetzt: number = Date.now()): boolean {
+  if (f === "veraltet") return e.status === MeldeStatus.ANWESEND && jetzt - e.empfangenAm >= VERALTET_MS;
   return f === "anwesend" ? e.status === MeldeStatus.ANWESEND : e.status !== MeldeStatus.ANWESEND;
 }
 

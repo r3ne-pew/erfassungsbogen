@@ -21,6 +21,8 @@ import {
   geraetBestand,
   letzteSicherung,
   sicherungErstellen,
+  sicherungQuittungText,
+  sicherungStandText,
   sicherungFaellig,
   sicherungErstelltAm,
   sicherungEinspielen,
@@ -29,6 +31,7 @@ import {
   type DatenUmfang,
 } from "./sicherung";
 import { dateiFehlerMeldung } from "./datei-fehler";
+import { schluesselFrage } from "./schluessel-frage";
 import { geraeteKurzform, geraeteSchluesselLoeschen, geraeteSchluesselPrivat, geraeteSchluesselSicherstellen, kurzformAusPrivatHex } from "./geraete-schluessel";
 import { speicherBelegung, speicherText } from "./eintrag-zeiten";
 import { groessteText, istVoll } from "./speicher-warnung";
@@ -470,6 +473,9 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
   const [zuletztGesichert, setZuletztGesichert] = useState(() => letzteSicherung());
   const [erinnerung, setErinnerung] = useState(() => sicherungFaellig());
   const [dauerhaft, setDauerhaft] = useState<boolean | null>(null);
+  const [dauerhaftAbgelehnt, setDauerhaftAbgelehnt] = useState(false);
+  // Quittung der letzten Sicherung (Dateiname, Ablage) und Datenstand (R12-O4).
+  const [sicherungQuittung, setSicherungQuittung] = useState("");
   const loeschen = useRef<HTMLDialogElement>(null);
   // Stand beim Öffnen des Löschen-Dialogs — die Rückfrage nennt Zahlen, damit
   // niemand „alles löschen" blind bestätigt.
@@ -602,9 +608,11 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
     const name = `eeb-sicherung-${new Date().toISOString().slice(0, 10)}.json`;
     if (istNativ()) {
       await textTeilen(name, inhalt);
+      setSicherungQuittung(sicherungQuittungText(name, true));
       return;
     }
     blobAlsDownload(name, new Blob([inhalt], { type: "application/json" }));
+    setSicherungQuittung(sicherungQuittungText(name, false));
   }
 
   async function sicherungImportieren(e: ChangeEvent<HTMLInputElement>) {
@@ -665,7 +673,10 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
   }
 
   async function dauerhaftAnfragen() {
-    setDauerhaft(await dauerhaftenSpeicherAnfragen());
+    const antwort = await dauerhaftenSpeicherAnfragen();
+    setDauerhaft(antwort);
+    // Der Tipp muss eine sichtbare Folge haben, auch wenn der Browser ablehnt (R12-O3).
+    setDauerhaftAbgelehnt(antwort === false);
   }
 
   /** Löschen-Dialog öffnen: Stand frisch erheben, Bestätigung zurücksetzen. */
@@ -708,24 +719,20 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
     // Ohne vorhandenen Schlüssel wird nichts gelöscht — der Text sagt, was wirklich geschieht (R7-D6).
     const hatSchluessel = geraeteSchluesselPrivat() != null;
     let sicher = false;
+    // Ohne Schlüssel: nur der erste Satz und ein neutraler Knopf, keine Warnung vor einem alten Schlüssel (R12-D3).
+    const frage = schluesselFrage(hatSchluessel);
     for (let runde = 0; runde < 5 && !sicher; runde++) {
       const wahl = await frageWahl({
-        titel: "Geräteschlüssel neu erzeugen?",
+        titel: frage.titel,
         text: (
           <>
-            <p>
-              {hatSchluessel
-                ? "Der bisherige Signaturschlüssel dieses Geräts wird gelöscht und durch ein neues Schlüsselpaar ersetzt."
-                : "Auf diesem Gerät liegt noch kein Signaturschlüssel; es wird ein neues Schlüsselpaar erzeugt, gelöscht wird nichts."}{" "}
-              Sinnvoll ist das bei Verdacht, dass der private Schlüssel in fremde Hände geraten ist —
-              etwa nach Verlust oder Weitergabe des Geräts.
-            </p>
-            <p>
-              <strong>Empfänger müssen die Kurzform danach neu abgleichen:</strong> Bögen von
-              diesem Gerät tragen ab sofort eine andere Kurzform. Bereits verschickte Bögen
-              bleiben gültig und prüfbar — aber nur gegen den alten öffentlichen Schlüssel,
-              und der lässt sich danach nur aus einer früheren Sicherungsdatei wiederherstellen.
-            </p>
+            <p>{frage.erster}</p>
+            {frage.folgen && (
+              <p>
+                <strong>{frage.folgen.fett}</strong>
+                {frage.folgen.rest}
+              </p>
+            )}
           </>
         ),
         wege: [
@@ -738,7 +745,7 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
                 },
               ]
             : []),
-          { wert: "neu", label: "Neu erzeugen", gefahr: true },
+          { wert: "neu", label: frage.neuLabel, gefahr: frage.gefahr },
         ],
       });
       if (wahl === "sichern") {
@@ -804,7 +811,7 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
           {erinnerung && (
             <p className="hinweis sicherung-erinnerung">
               {erinnerung.seit
-                ? `Letzte Sicherung vor ${Math.floor((Date.now() - erinnerung.seit) / 86_400_000)} Tagen.`
+                ? `Letzte Sicherung vor ${Math.floor((Date.now() - erinnerung.seit) / 86_400_000)} Tagen. ${sicherungStandText()}`.trim()
                 : "Noch keine Datensicherung erstellt."}{" "}
               Alles liegt nur auf diesem Gerät.{" "}
               <button type="button" className="link" onClick={sicherungOeffnen}>Jetzt sichern…</button>
@@ -901,9 +908,14 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
             (Audit Runde 2, R2-O6) */}
         <p className="hinweis" role="status">
           {zuletztGesichert
-            ? `Letzte Sicherung auf diesem Gerät erstellt: ${new Date(zuletztGesichert).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })} Uhr.`
+            ? `Letzte Sicherung auf diesem Gerät erstellt: ${new Date(zuletztGesichert).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })} Uhr. ${sicherungStandText()}`.trim()
             : "Auf diesem Gerät wurde noch keine Sicherung erstellt."}
         </p>
+        {sicherungQuittung && (
+          <p className="hinweis" role="status">
+            {sicherungQuittung}
+          </p>
+        )}
         {dauerhaft === true && (
           <p className="hinweis">
             Der Browser hält den Speicher dieser App dauerhaft vor und räumt ihn nicht von sich aus.
@@ -917,6 +929,12 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
             <button type="button" className="link" onClick={() => void dauerhaftAnfragen()}>
               Dauerhaften Speicher anfragen
             </button>
+          </p>
+        )}
+        {dauerhaft === false && dauerhaftAbgelehnt && (
+          <p className="hinweis" role="status">
+            Der Browser hat den dauerhaften Speicher abgelehnt — regelmäßig sichern; auf iPhone und iPad die App
+            über „Zum Home-Bildschirm“ ablegen.
           </p>
         )}
         {/* Der Speicherstand gehört dorthin, wo aufgeräumt wird: Ein voller

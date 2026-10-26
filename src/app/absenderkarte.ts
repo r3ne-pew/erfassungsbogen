@@ -14,6 +14,7 @@
  */
 
 import type { Absenderkarte } from "@bos/eeb-format/signatur";
+import { emailProblem } from "./email-pruefung";
 
 export type { Absenderkarte };
 
@@ -109,7 +110,7 @@ export function absenderkarteLoeschen(): void {
  * erreichbar" mehr als RFC-Konformität.
  */
 export function absenderHinweis(karte: Absenderkarte): string {
-  if (karte.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(karte.email)) {
+  if (emailProblem(karte.email)) {
     return "Die E-Mail-Adresse sieht unvollständig aus.";
   }
   if (karte.telefon && !/\d{3}/.test(karte.telefon)) {

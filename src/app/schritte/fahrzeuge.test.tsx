@@ -191,7 +191,7 @@ describe("Schritt Fahrzeuge", () => {
     // Der Richtwert des Typs steht als Platzhalter drin, nicht als Wert — sonst
     // wäre nicht mehr zu erkennen, was die Einheit selbst geprüft hat.
     expect(feld.value).toBe("");
-    expect(feld.placeholder).toBe("3 (Richtwert)");
+    expect(feld.placeholder).toBe("3 (Richtw.)");
     expect(screen.getByText(/Sitzplätze:/).textContent).toMatch(/3 für 2 Personen/);
 
     await nutzer.type(feld, "1");

@@ -13,11 +13,13 @@ import {
   fahrzeugUnbenannt,
   neuesFahrzeug,
   transportBilanz,
+  vokabText,
   vokabularFuer,
   vorbelegungGeladen,
 } from "../hilfen";
 import { fahrzeugSymbolSvg, svgDataUrl } from "../taktische-zeichen-bogen";
 import { frageJaNein } from "../dialoge";
+import { kennzeichenSchreibweise } from "../schreibweise";
 import { einheitOrt } from "@bos/meldekopf/darstellung";
 import { mitAbgang, useEinzugsstempel } from "../eintrag-bewegung";
 import { DaumenQuittung } from "../daumen-quittung";
@@ -51,6 +53,7 @@ function FahrzeugKarte(props: {
   const { fahrzeug: f, org, standort, ovKennzahl, frisch, index, anzahl, aendern, entfernen } = props;
   const bezeichnung = fahrzeugBezeichnung(f, index, org);
   const richtwert = sitzplaetzeRichtwert(f, vokabularFuer(org, "fahrzeug"));
+  const typLang = f.typ.code != null ? vokabText(f.typ, vokabularFuer(org, "fahrzeug"), "name") : "";
   const karte = useRef<HTMLDivElement>(null);
   // Sitzplätze: Komma gerundet, Minus abgelehnt, Obergrenze genannt — nie still eine andere Zahl (R9-E1).
   const sitz = useZahlEingabe(f.sitzplaetze, (n) => aendern({ ...f, sitzplaetze: n }), { min: 0, max: 99, leer: true, einheit: "Plätze" });
@@ -75,6 +78,12 @@ function FahrzeugKarte(props: {
         <img className="fahrzeug-symbol" src={svgDataUrl(fahrzeugSymbolSvg(f, org))} alt="" aria-hidden="true" />
         <Feld titel="Fahrzeugtyp">
           <VokabAuswahl wert={f.typ} aendern={(v) => set({ typ: v })} tabelle={vokabularFuer(org, "fahrzeug")} platzhalter="z. B. MzKW, LF 20" suchbar />
+          {/* R12-N3: Das Feld kürzt lange Typen am Ende („…Lastkraftwagen I“); die Langform steht darunter ungekürzt. */}
+          {typLang && (
+            <small className="hinweis typ-langform" data-testid="typ-langform">
+              {typLang}
+            </small>
+          )}
         </Feld>
         <Feld titel="Kennzeichen">
           <input
@@ -82,6 +91,12 @@ function FahrzeugKarte(props: {
             id={`feld-kennzeichen-${index}`}
             value={f.kennzeichen ?? ""}
             onChange={(e) => set({ kennzeichen: e.target.value })}
+            // R12-N7: Beim Verlassen Großschreibung und Trennstrich („thw 80101“ → „THW-80101“).
+            onBlur={(e) => {
+              const roh = e.target.value;
+              const schoen = kennzeichenSchreibweise(roh);
+              if (roh !== "" && schoen !== roh) set({ kennzeichen: schoen });
+            }}
             // Beispiel der eigenen Organisation, mit „z. B." — das feste
             // „OL-FW 2041 / THW-84397" sah wie ein eingetragener Wert aus und
             // wurde ausgelassen (Audit Runde 2, R2-N9).
@@ -98,7 +113,8 @@ function FahrzeugKarte(props: {
           <input
             {...sitz.eingabe}
             id={`feld-sitzplaetze-${index}`}
-            placeholder={richtwert != null ? `${richtwert} (Richtwert)` : "unbekannt"}
+            // „Richtw.“ statt „Richtwert“: im 112 px schmalen Feld stand sonst „3 (Richtwert,“ abgeschnitten (R12-N3).
+            placeholder={richtwert != null ? `${richtwert} (Richtw.)` : "unbekannt"}
             title="Sitzplätze inkl. Fahrer/in. Leer lassen = Richtwert des Fahrzeugtyps."
             aria-describedby={grenzeText ? `grenze-sitzplaetze-${index}` : undefined}
           />

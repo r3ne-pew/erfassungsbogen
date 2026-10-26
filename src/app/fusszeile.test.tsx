@@ -350,10 +350,14 @@ describe("Geräteschlüssel neu erzeugen", () => {
     buehne();
 
     await nutzer.click(screen.getByRole("button", { name: "Geräteschlüssel neu erzeugen" }));
-    const dialog = await screen.findByRole("dialog", { name: "Geräteschlüssel neu erzeugen?" });
+    // Ohne Schlüssel (R12-D3): neutraler Titel und Knopf, keine Warnung vor einem „alten" Schlüssel, kein Gefahrenknopf.
+    const dialog = await screen.findByRole("dialog", { name: "Geräteschlüssel erzeugen?" });
     expect(dialog.textContent).toContain("noch kein Signaturschlüssel");
     expect(dialog.textContent).not.toContain("wird gelöscht");
+    expect(dialog.textContent).not.toContain("alten öffentlichen Schlüssel");
+    expect(dialog.textContent).not.toContain("Kurzform");
     expect(within(dialog).queryByRole("button", { name: "Vorher Sicherung erstellen…" })).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Schlüssel jetzt erzeugen" }).className).not.toMatch(/gefahr/);
     await nutzer.click(within(dialog).getByRole("button", { name: "Abbrechen" }));
   });
 

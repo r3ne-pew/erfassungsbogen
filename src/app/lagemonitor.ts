@@ -31,6 +31,11 @@ export function uhrTeile(d: Date): { zeit: string; datum: string } {
   return { zeit: `${zwei(d.getHours())}:${zwei(d.getMinutes())}`, datum: `${d.getDate()}. ${MONATE_KURZ[d.getMonth()]} ${d.getFullYear()}` };
 }
 
+/** „27 Personen" / „1 Person": Zahl und Wort mit Leerzeichen (R12-K4/R12-H1). */
+export function personenText(n: number): string {
+  return `${n} ${n === 1 ? "Person" : "Personen"}`;
+}
+
 /**
  * Sofortbedarf als eine Zeile für den Monitor, nur mit dem, was da ist:
  * „Bedarf: Diesel 120 l · Unterbringung 24 · Ruhezeit 3×" (R10-K5). Wie in der Kopfzeile der
@@ -39,8 +44,10 @@ export function uhrTeile(d: Date): { zeit: string; datum: string } {
  */
 export function bedarfText(s: EinsatzSummen): string | null {
   const teile: string[] = [];
+  // Reihenfolge wie die Kopfzeile der Einsatzansicht; Verpflegung und „Personen" wie dort (R12-K4).
+  if ((s.verpflegungAngefordert ?? 0) > 0) teile.push(`Verpflegung ${s.verpflegungAngefordert}`);
+  if (s.unterbringungBenoetigt > 0) teile.push(`Unterbringung ${personenText(s.unterbringungAngefordert.personen)}`);
   if (s.kraftstoff.dieselLiter > 0) teile.push(`Diesel ${s.kraftstoff.dieselLiter} l`);
-  if (s.unterbringungBenoetigt > 0) teile.push(`Unterbringung ${s.unterbringungAngefordert.personen}`);
   if (s.ruhezeitErforderlich > 0) teile.push(`Ruhezeit ${s.ruhezeitErforderlich} ${s.ruhezeitErforderlich === 1 ? "Einheit" : "Einheiten"}`);
   return teile.length > 0 ? `Bedarf: ${teile.join(" · ")}` : null;
 }
@@ -115,6 +122,21 @@ export function anwesendenAlter(anwesende: readonly { empfangenAm: number }[], j
 export function anwesendenAlterText(a: AnwesendenAlter | null, jetzt: number): string | null {
   if (!a || a.aelter === 0) return null;
   return `älteste Meldung ${alterText(a.aeltesteMs, jetzt)}, ${a.aelter} von ${a.anwesend} älter als 1 Std`;
+}
+
+/**
+ * Altersaussage für Papier: „⚠ älteste Meldung vor 5 Std 0 Min, 4 von 6 älter als 1 Std", gerechnet zum Druckzeitpunkt
+ * `jetzt`; `null`, wenn keine anwesende Meldung eine Stunde alt ist (R12-K3).
+ */
+export function lageblattAlterText(empfangenAm: readonly number[], jetzt: number): string | null {
+  const t = anwesendenAlterText(anwesendenAlter(empfangenAm.map((z) => ({ empfangenAm: z })), jetzt), jetzt);
+  return t ? `⚠ ${t}` : null;
+}
+
+/** Zwischensumme je Zug: „älteste Meldung vor 5 Std 0 Min" — nur ab einer Stunde, sonst `null` (R12-K3). */
+export function zugAlterText(aeltesteMeldungAm: number | undefined, jetzt: number): string | null {
+  if (aeltesteMeldungAm == null || jetzt - aeltesteMeldungAm < VERALTET_ALTER_MIN * 60_000) return null;
+  return `⚠ älteste Meldung ${alterText(aeltesteMeldungAm, jetzt)}`;
 }
 
 /** Was sich zuletzt in der Lage bewegt hat — der Fernseher soll nicht nur Zahlen ändern, sondern sagen, warum (Audit Runde 6, R6-K1). */

@@ -343,6 +343,16 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > und `vendor/` unverändert. Der Entwurf trägt zusätzlich die Marke „über die
 > Startseite verlassen" (`fremd.startseite`, R5-N3, 3.3 D1) — keine Daten.
 
+> **Nachgezogen 2026-10-26 (Runde 12):** Audit Runde 12. Speicher (3.3, 5.5): neuer
+> Schlüssel `eeb.sicherung.stand.v1` (Zählstand der letzten Sicherung, über die
+> Präfixregel `eeb.` in Sicherung und Löschweg enthalten). Bedienung (5.3): Sperre
+> von zwei Sekunden gegen Doppeltipp bei Ausgaben, Rückfragen beim Ersetzen einer
+> Vorlage mit Gegenüberstellung, einheitliche E-Mail-Prüfung. Exporte (5.4): kein
+> Weitergabe-Datei-Vermerk „Empfang nicht bestätigt" ohne Bestätigung, leere
+> Einsätze erzeugen keine Weitergabe. Lieferkette (6.4): `hilfen.ts` importiert
+> nichts mehr aus `eeb-format/datenschutzfrist` (Startbündel). Keine neuen Hosts,
+> CSP und Transportformat unverändert.
+
 > **Nachgezogen 2026-10-26 (Runde 11):** Audit Runde 11. Speicher (3.3, 5.5): neuer
 > Schlüssel `eeb.widersprueche.v1` (Import-Widersprüche je Einsatz, über die
 > Präfixregel `eeb.` in Sicherung und Löschweg enthalten). Bedienung (5.3):

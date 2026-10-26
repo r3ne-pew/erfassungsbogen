@@ -1099,7 +1099,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
       `${namenVorschau.length} ${namenVorschau.length === 1 ? "Name" : "Namen"} übernommen` +
         (eingesetzt > 0 ? ` — ${eingesetzt} davon in freie Sollplätze.` : "."),
     );
-    setSchnell(true); // die frisch eingefügten Namen direkt als Tabelle zeigen
+    // Die gewählte Ansicht bleibt (R12-N6): Wer Karten wählt, bekommt nach „Übernehmen“ keine Tabelle.
     setNamenText("");
     setVerdachtAngehakt(new Set());
     namenDialog.current?.close();

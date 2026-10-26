@@ -27,6 +27,8 @@ export interface VorbelegungWeg {
    */
   danach?: string;
   kopf: string;
+  /** Wohin „Rückgängig“ führt, wenn das nicht der Schritt davor ist (R12-N2), z. B. „Rückgängig stellt „THW“ wieder her.“ */
+  ziel?: string;
   vor: number;
   personal: Person[];
   fahrzeuge: Fahrzeug[];

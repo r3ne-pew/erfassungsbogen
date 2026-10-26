@@ -5733,6 +5733,59 @@
     .stapel-eingang .kenntnis-aktionen { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     .stapel-eingang .kenntnis-aktionen button.link { min-height: 44px; display: inline-flex; align-items: center; padding-block: 0; }
     /* ===== Ende Runde 11 (Zustand) ===== */
+    /* ===== Runde 12 (Layout) ===== */
+    /* R12-M1: „Suchen, sortieren, filtern" trägt die Aufklappmarke (▸/▾) wie „Bedarf:" und steht als umrandeter Knopf in Ruhe-Form,
+       nicht als graue Zwischenüberschrift. */
+    details.einheiten-filter-wahl > summary {
+      padding-inline: var(--r-3); border: var(--strich) solid var(--linie-stark); border-radius: var(--radius); color: var(--text);
+    }
+    details.einheiten-filter-wahl > summary::before { content: "▸"; margin-right: var(--r-2); color: var(--text-2); flex: none; }
+    details.einheiten-filter-wahl[open] > summary::before { content: "▾"; }
+    /* R12-M2: Die Kachelbeschriftungen bleiben auch quer bei 12 px; die Ziffer ist schon kleiner, die Kacheln rücken enger. */
+    @media (orientation: landscape) and (max-height: 31.25rem) and (width > 30rem) {
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div { padding-inline: var(--r-1); }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) span { font-size: max(var(--t-xs), 12px); letter-spacing: 0.02em; }
+    }
+    /* R12-M3: Am Telefon belegt die klebende Namensspalte der Tabelle höchstens ein Drittel des Rahmens (vorher bis zur Hälfte);
+       das längste Wort hält sie weiter ganz (R8-M6), Silbentrennung statt Bruch mitten im Wort, damit mehr Zahlenspalten im ersten Bild stehen. */
+    @container (min-width: 12.5rem) and (max-width: 30rem) {
+      table.einheiten-tabelle > * > tr > :first-child {
+        min-width: 0; width: 34cqw; max-width: 34cqw; overflow-wrap: break-word; hyphens: auto; -webkit-hyphens: auto;
+      }
+    }
+    /* R12-G3: Die Knopfreihen einer aufgeklappten Karte wandern beim Abrücken nicht: Die Karte trägt von Anfang an den
+       (durchsichtigen) Rand, den „abgerückt" gestrichelt füllt; der Statusknopf behält seine Breite ("Abrücken", "✓ Abgerückt",
+       "Wieder anwesend"). */
+    .einheit-zeile:not(.gestrichen):not(.kompakt) { border-left: 3px solid transparent; padding-left: var(--r-2); }
+    .einheit-zeile button.wechsel-knopf { min-width: 9rem; }
+    /* ===== Ende Runde 12 (Layout) ===== */
+    /* ===== Runde 12 (Inhalte) ===== */
+    /* R12-K1/R12-L1: Warnzeilen im dunklen Kopf der Einsatzansicht tragen die Schriftfarbe des Kopfes (hell, fett, mit ⚠)
+       statt der Warnfarbe für helle Karten (braun auf Dunkelblau: 1,73:1). In allen vier Ansichten mindestens 4,5:1. */
+    .seiten-kopf .hinweis .warnung-text { color: var(--kopf-auf); font-weight: 700; }
+    /* R12-W1: Rückrufnummer und Adresse sind Verknüpfungen (tel:/mailto:) mit 44 px Zielhöhe. */
+    a.kontakt-link {
+      display: inline-flex; align-items: center; min-height: 44px; padding-inline: 4px;
+      color: var(--akzent); font-weight: 600; text-decoration: underline;
+    }
+    /* R12-H2: Laufende Summe im Dialog „Stärke ändern…". */
+    dialog.abfrage p.dialog-zeile { margin: var(--r-2) 0 0; font-size: var(--t-m, 1rem); }
+    /* ===== Ende Runde 12 (Inhalte) ===== */
+    /* ===== Runde 12 (Zustand) ===== */
+    /* R12-D2: Die Aktionen der Historie („Diese Fassung gilt…", „Änderungen", „Fassung verwerfen…") sind 44-px-Ziele
+       mit 8 px Abstand; „Fassung verwerfen…" steht abgesetzt in der Alarmfarbe. */
+    .historie li button.link.historie-aktion {
+      display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; margin: 4px 8px 4px 0;
+    }
+    .historie li button.link.historie-verwerfen { color: var(--alarm); margin-top: 8px; }
+    /* R12-G1: Quittung „… entfernt · Rückgängig" in Chip-Feldern; eigene Zeile, 44-px-Ziel. */
+    .chips .chip-rueckgaengig { display: flex; flex-basis: 100%; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 400; }
+    .chips .chip-rueckgaengig button { min-height: 44px; padding-inline: 12px; }
+    /* R12-O2: „Erledigt", „Rückgängig" und „Schließen" am Widerspruch sind 44-px-Ziele mit Abstand. */
+    button.link.widerspruch-aktion {
+      display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; margin: 4px 8px 0 0;
+    }
+    /* ===== Ende Runde 12 (Zustand) ===== */
   </style>
 </head>
 <body>

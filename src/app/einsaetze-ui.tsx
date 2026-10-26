@@ -12,6 +12,7 @@ import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type Foc
 import { DaumenQuittung } from "./daumen-quittung";
 import { ORTSSPERRE_MS, PRELLSCHUTZ_MS, ortSperren } from "./tipp-schutz";
 import {
+  MINUTEN_JE_TAG,
   PersonalErfassung,
   datumZuIso,
   jetztZeitpunkt,
@@ -28,7 +29,6 @@ import {
   funkrufText,
   funktionsText,
   kennzeichenText,
-  kontaktText,
   orgLabel,
   nurSollstaerke,
   vokabText,
@@ -64,13 +64,18 @@ import { vorhandeneZuege, zugNormalisiert } from "./zug-name";
 import { einheitOrt } from "@bos/meldekopf/darstellung";
 import { RolleMarke } from "./rolle-marke";
 import { useArbeitet } from "./arbeitet";
+import { AUSGABE_SPERRE_MS, ausgabeFrei } from "./ausgabe-sperre";
+import { verloreneEingabeText } from "./eingabe-verloren";
+import { loeschenErfassungSatz } from "./einsatz-geloescht";
 import { LagemonitorBlock } from "./lagemonitor-ui";
-import { alterText, anwesendenAlter, anwesendenAlterText } from "./lagemonitor";
+import { alterText, anwesendenAlter, anwesendenAlterText, personenText, zugAlterText } from "./lagemonitor";
 import { AufteilenPanel } from "./aufteilen-ui";
 import { ZusammenfuehrenPanel } from "./zusammenfuehren-ui";
 import type { AufteilungsWahl } from "@bos/meldekopf/aufteilen";
-import { absenderLabel } from "@bos/eeb-format/signatur";
+import { absenderLabel, type Absenderkarte } from "@bos/eeb-format/signatur";
+import { AbsenderKontakt, KontaktLink, PersonKontakt } from "./kontakt-link";
 import { ANONYM_ERKLAERUNG } from "./anonym-hinweis";
+import { staerkeSummeZeile } from "./staerke-summe";
 import { aggregiere, aggregiereNachZug, aktuelleMeldungen, mwdText, uebungenAusserhalbDerLage, verpflegungText, type EinsatzSummen } from "./auswertung";
 import {
   SORTIERUNGEN,
@@ -103,6 +108,7 @@ import {
   zeitKurz,
   zeitLang,
   zeitUnstimmigkeit,
+  zeitpunktZuMs,
   zusammenfuehrungZurueck,
   type ZusammenfuehrungVorher,
 } from "./eintrag-zeiten";
@@ -148,7 +154,7 @@ import { mitAbgang, useEingangsquittung } from "./eintrag-bewegung";
 import { AbgangKnopf, Kartenstapel } from "./kartenstapel";
 import { istBilddatei } from "./qr-stapel";
 import { fehlerText } from "./nachladen";
-import { widerspruchLaden, widerspruchVergessen } from "./widerspruch-merker";
+import { widerspruchLaden, widerspruchMerken, widerspruchVergessen } from "./widerspruch-merker";
 import { entfernteMerken, entfernteVergessen } from "./entfernte-meldungen";
 import {
   EXPORT_ZIELE,
@@ -330,7 +336,7 @@ function ausgabeStandText(s: Einsatzsammlung): string {
 
 /** „Weitergegeben … (seitdem 1 neue Meldung und 1 Änderung (Abrücken))" — Änderungen an bekannten Einheiten zählen mit (R3-W2). */
 function weitergabeTeil(s: Einsatzsammlung, stand: ExportStand): string {
-  return `Weitergegeben ${exportZeitKurz(stand.zeitpunkt)} (${seitdemText(neueEintraege(s.eintraege, stand).length, aenderungenSeit(s.eintraege, stand))})`;
+  return `Weitergabe-Datei erzeugt ${exportZeitKurz(stand.zeitpunkt)}, Empfang nicht bestätigt (${seitdemText(neueEintraege(s.eintraege, stand).length, aenderungenSeit(s.eintraege, stand))})`;
 }
 
 /** Ab diesem Alter der letzten Meldung warnt die App wie der Lagemonitor („Lage ist alt", R10-K1). */
@@ -923,6 +929,8 @@ export function EinsatzDetail(props: {
   /** Leerer Bogen zum Ausfüllen mit der Hand — die Papier-Reserve (R3-A7). */
   onBlanko?: () => void;
   onGeloescht: () => void;
+  /** Name der für DIESEN Einsatz angefangenen Erfassung einer fremden Einheit, falls es eine gibt (R12-S1). */
+  angefangeneErfassung?: string;
   /** Die gerade eingegangene Meldung — sie quittiert in der Liste. */
   eingang?: Eingang | null;
   /**
@@ -954,6 +962,29 @@ export function EinsatzDetail(props: {
   const { einsatz, onZurueck, onGeaendert, onScannen, onManuell, onDateiImport, onBilderImport, onExport, onCsvExport, onCsvDetailExport, onOldenburgExport, onSammelPdf, onWeitergeben, onLageblatt, onBlanko, onGeloescht, eingang, ausgabeQuittung } = props;
   // Läuft eine PDF-Erzeugung (arbeitet.ts), sperrt sie alle PDF-Knöpfe und beschriftet den eigenen (R5-O3).
   const arbeitet = useArbeitet();
+  // Tipp-Sperre und sofortige Rückmeldung aller Ausgaben (R12-G2): ein Doppeltipp erzeugt keine zweite Datei,
+  // und auch eine Ausgabe, die sofort fertig ist (CSV, Excel), sagt am Knopf, dass sie läuft.
+  const [sofort, setSofort] = useState<string | null>(null);
+  const sofortUhr = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(sofortUhr.current), []);
+  const ausgabeTipp = (schluessel: string, name: string | null, los: () => void) => {
+    if (!ausgabeFrei(schluessel)) return;
+    if (name && einsatz.eintraege.length > 0) {
+      setSofort(`${name} wird erzeugt — bitte nicht noch einmal tippen.`);
+      clearTimeout(sofortUhr.current);
+      sofortUhr.current = setTimeout(() => setSofort(null), Math.max(AUSGABE_SPERRE_MS, 1500));
+    }
+    los();
+  };
+  // Eingaben, die mit einer in einem anderen Fenster entfernten Einheit verschwanden (R12-O1). Gemeldet wird nur,
+  // wenn die Einheit wirklich aus dem Einsatz verschwunden ist (nicht bei Filter oder Sortierung).
+  const [verloreneEingaben, setVerloreneEingaben] = useState<string[]>([]);
+  const eintraegeRef = useRef(einsatz.eintraege);
+  eintraegeRef.current = einsatz.eintraege;
+  const eingabeVerloren = (schluessel: string, text: string) => {
+    if (eintraegeRef.current.some((x) => x.einheitSchluessel === schluessel)) return;
+    setVerloreneEingaben((v) => [...v, text]);
+  };
   const exportStaende = props.exportStaende ?? {};
   const [eigenerUmfang, setEigenerUmfang] = useState<ExportUmfang>("alle");
   const exportUmfang = props.exportUmfang ?? eigenerUmfang;
@@ -1263,6 +1294,9 @@ export function EinsatzDetail(props: {
   useEffect(() => {
     setWidersprueche(widerspruchLaden(einsatz.id));
   }, [einsatz.id, einsatz.geaendert]);
+  // Zuletzt mit „Erledigt" weggeräumte Widersprüche — solange sie hier stehen, gibt es „Rückgängig" (R12-O2).
+  const [widerspruchErledigt, setWiderspruchErledigt] = useState<string[] | null>(null);
+  useEffect(() => setWiderspruchErledigt(null), [einsatz.id]);
   const [kenntnisGenommen, setKenntnisGenommen] = useState<{ vorher: ExportStand; anzahl: number; nonce: number } | null>(null);
   // Die Quittung gehört zu diesem Einsatz und weicht jeder jüngeren Quittung (eine Leiste zur Zeit).
   useEffect(() => {
@@ -1348,6 +1382,7 @@ export function EinsatzDetail(props: {
   const kopf = statusFilter ? kopfNachLuecke.filter((e) => passtZuStatusfilter(e, statusFilter)) : kopfNachLuecke;
   const anwesendAnzahl = alleEinheiten.filter((e) => passtZuStatusfilter(e, "anwesend")).length;
   const abgerueckteAnzahl = alleEinheiten.length - anwesendAnzahl;
+  const veraltetAnzahl = alleEinheiten.filter((e) => passtZuStatusfilter(e, "veraltet")).length;
   // „Wer hat noch keinen Auftrag, noch keinen Zug?" — gezählt über alle anwesenden Einheiten (R7-K6).
   const ohneAuftragAnzahl = alleEinheiten.filter((e) => passtZuLueckenfilter(e, "ohne-auftrag")).length;
   const ohneZugAnzahl = alleEinheiten.filter((e) => passtZuLueckenfilter(e, "ohne-zug")).length;
@@ -1378,7 +1413,7 @@ export function EinsatzDetail(props: {
     const anzahl = geltendeJeEinheit(einsatz.eintraege).length;
     const sicher = await frageJaNein({
       titel: "Einsatz löschen?",
-      text: `„${einsatz.name}" mit ${anzahl} gemeldeten Einheit${anzahl === 1 ? "" : "en"} wandert in den Papierkorb und lässt sich dort 30 Tage lang zurückholen.`,
+      text: `„${einsatz.name}" mit ${anzahl} gemeldeten Einheit${anzahl === 1 ? "" : "en"} wandert in den Papierkorb und lässt sich dort 30 Tage lang zurückholen.${loeschenErfassungSatz(props.angefangeneErfassung)}`,
       ok: "In den Papierkorb",
       gefahr: true,
     });
@@ -1478,6 +1513,7 @@ export function EinsatzDetail(props: {
           <option value="">alle</option>
           <option value="anwesend">nur Anwesende ({anwesendAnzahl})</option>
           <option value="abgerueckt">nur Abgerückte ({abgerueckteAnzahl})</option>
+          <option value="veraltet">nur ⚠ ältere als 1 Std ({veraltetAnzahl})</option>
         </Auswahl>
       </label>
     </div>
@@ -1518,10 +1554,11 @@ export function EinsatzDetail(props: {
           wurde — und ob seitdem etwas nur hier dazukam (R2-W5). */}
       {weitergabeStand && (
         <p className={`hinweis weitergabe-vermerk${weitergabeOffen ? " seitdem-neu" : ""}`}>
-          <strong>Weitergegeben {exportZeitKurz(weitergabeStand.zeitpunkt)}</strong>
+          <strong>Weitergabe-Datei erzeugt {exportZeitKurz(weitergabeStand.zeitpunkt)}</strong>
+          {" — Empfang nicht bestätigt"}
           {!weitergabeOffen
-            ? " — seitdem hier nichts Neues."
-            : ` — seitdem hier ${[
+            ? ", seitdem hier nichts Neues."
+            : `, seitdem hier ${[
                 ...(seitWeitergabe > 0 ? [seitWeitergabe === 1 ? "1 neue Meldung" : `${seitWeitergabe} neue Meldungen`] : []),
                 ...(aenderungenSeitWeitergabe.anzahl > 0
                   ? [`${aenderungenSeitWeitergabe.anzahl === 1 ? "1 Änderung" : `${aenderungenSeitWeitergabe.anzahl} Änderungen`} (${aenderungenSeitWeitergabe.arten.join(", ")})`]
@@ -1629,10 +1666,38 @@ export function EinsatzDetail(props: {
           <ul>{widersprueche.map((z) => <li key={z}>{z}</li>)}</ul>
           <button
             type="button"
-            className="link"
-            onClick={() => { widerspruchVergessen(einsatz.id); setWidersprueche([]); }}
+            className="link widerspruch-aktion"
+            onClick={() => {
+              // „Erledigt" nimmt den Wert der Gegenseite aus der App: ein Tipp mit Rückweg (R12-O2).
+              const zeilen = widersprueche;
+              widerspruchVergessen(einsatz.id);
+              setWidersprueche([]);
+              setWiderspruchErledigt(zeilen);
+            }}
           >
             Erledigt
+          </button>
+        </div>
+      )}
+      {widerspruchErledigt && widersprueche.length === 0 && (
+        <div className="meldung widerspruch-erledigt" role="status">
+          <p>
+            {widerspruchErledigt.length === 1 ? "1 Widerspruch" : `${widerspruchErledigt.length} Widersprüche`} als erledigt
+            weggeräumt — der Wert der anderen Seite steht danach nirgends mehr in der App.
+          </p>
+          <button
+            type="button"
+            className="link widerspruch-aktion"
+            onClick={() => {
+              widerspruchMerken(einsatz.id, widerspruchErledigt);
+              setWidersprueche(widerspruchLaden(einsatz.id));
+              setWiderspruchErledigt(null);
+            }}
+          >
+            Rückgängig
+          </button>{" "}
+          <button type="button" className="link widerspruch-aktion" onClick={() => setWiderspruchErledigt(null)}>
+            ✕ Schließen
           </button>
         </div>
       )}
@@ -1738,7 +1803,7 @@ export function EinsatzDetail(props: {
                 sonst als schrumpfender Flex-Teil im Wort („Bed / arf:"; R7-M1, R7-G9). */}
             <span className="bedarf-werte">
               {verpflegungText(sum)}
-              {sum.unterbringungBenoetigt > 0 ? ` · Unterbringung ${sum.unterbringungAngefordert.personen}${sum.unterbringungAngefordert.personen === 1 ? "Person" : "Personen"}` : ""}
+              {sum.unterbringungBenoetigt > 0 ? ` · Unterbringung ${personenText(sum.unterbringungAngefordert.personen)}` : ""}
               {` · Diesel ${sum.kraftstoff.dieselLiter} l`}
               {sum.ruhezeitErforderlich > 0 ? ` · Ruhezeit ${sum.ruhezeitErforderlich} ${sum.ruhezeitErforderlich === 1 ? "Einheit" : "Einheiten"}` : ""}
             </span>
@@ -1885,6 +1950,9 @@ export function EinsatzDetail(props: {
               <p>
                 <strong>{g.zugEtikett ?? "Ohne Zug"}</strong>
                 {" · "}{g.summen.einheiten} Einheit(en){" · "}Stärke {summenStaerkeText(g.summen)}
+                {zugAlterText(g.aeltesteMeldungAm, Date.now()) && (
+                  <span className="warnung-text zug-alter"> · {zugAlterText(g.aeltesteMeldungAm, Date.now())}</span>
+                )}
               </p>
               <p className="hinweis">
                 Verpflegung {g.summen.verpflegung.gesamt}
@@ -1948,6 +2016,14 @@ export function EinsatzDetail(props: {
 
       <section className="karte einsatz-liste">
         <UnlesbarHinweis sammlungId={einsatz.id} />
+        {verloreneEingaben.map((text, i) => (
+          <p className="warnung verlorene-eingabe" role="alert" key={`${i}-${text}`}>
+            {text}{" "}
+            <button type="button" onClick={() => setVerloreneEingaben((v) => v.filter((_, j) => j !== i))}>
+              Verstanden
+            </button>
+          </p>
+        ))}
         <div className="kopfzeile">
           {/* Zwei beschriftete Zahlen statt drei unbeschrifteter: „gemeldet"
               ist die Länge der Liste, „zählend" die Zahl der Stärkeleiste —
@@ -2051,7 +2127,7 @@ export function EinsatzDetail(props: {
         {alleEinheiten.length > 0 && kopf.length === 0 && (
           <p className="hinweis">
             Keine Einheit passt zu{" "}
-            {[suche.trim() && `„${suche.trim()}“`, gewaehlteQuali && `„${gewaehlteQuali.label}“`, nurBedarf && bedarfsFilterText, lueckenFilter && (lueckenFilter === "ohne-auftrag" ? "„ohne Auftrag“" : "„ohne Zug“"), statusFilter && (statusFilter === "anwesend" ? "„nur Anwesende“" : "„nur Abgerückte“")]
+            {[suche.trim() && `„${suche.trim()}“`, gewaehlteQuali && `„${gewaehlteQuali.label}“`, nurBedarf && bedarfsFilterText, lueckenFilter && (lueckenFilter === "ohne-auftrag" ? "„ohne Auftrag“" : "„ohne Zug“"), statusFilter && (statusFilter === "anwesend" ? "„nur Anwesende“" : statusFilter === "veraltet" ? "„nur ältere als 1 Std“" : "„nur Abgerückte“")]
               .filter(Boolean)
               .join(" und ")}
             .{" "}
@@ -2112,6 +2188,7 @@ export function EinsatzDetail(props: {
                 ungesehen={ungeseheneIds.has(e.id)}
                 frisch={frischUnquittiert(e)}
                 fremderOrt={fremdeOrte.get(e.einheitSchluessel)}
+                onEingabeVerloren={eingabeVerloren}
               />
             ))}
           </ul>
@@ -2141,7 +2218,7 @@ export function EinsatzDetail(props: {
               className={`primaer${arbeitet === "weitergeben" ? " arbeitet" : ""}`}
               aria-busy={arbeitet === "weitergeben" || undefined}
               disabled={arbeitet !== null}
-              onClick={onWeitergeben}
+              onClick={() => ausgabeTipp("weitergeben", null, onWeitergeben)}
               title="Die ganze Sammlung als Datei — auf dem nächsten Gerät über „Einsatz importieren…“ einlesbar."
             >
               {arbeitet === "weitergeben" ? "Einsatz wird erzeugt…" : "Einsatz weitergeben / sichern"}
@@ -2153,7 +2230,7 @@ export function EinsatzDetail(props: {
               className={arbeitet === "lageblatt" ? "arbeitet" : ""}
               aria-busy={arbeitet === "lageblatt" || undefined}
               disabled={arbeitet !== null}
-              onClick={onLageblatt}
+              onClick={() => ausgabeTipp("lageblatt", null, onLageblatt)}
               title="Nur die Übersicht: Einheiten mit Zug, Eintreff- und Abrückzeit, Bedarf und Zwischensummen — A4 quer, ohne Bögen; Stärke und Bedarf stehen oben auf Seite 1; bis etwa sechs Einheiten eine Seite, darüber folgen weitere Seiten."
             >
               {/* Ehrlich beschriftet: bei großen Lagen wird es mehr als eine
@@ -2169,7 +2246,7 @@ export function EinsatzDetail(props: {
               className={arbeitet === "blanko" ? "arbeitet" : ""}
               aria-busy={arbeitet === "blanko" || undefined}
               disabled={arbeitet !== null}
-              onClick={onBlanko}
+              onClick={() => ausgabeTipp("blanko", null, onBlanko)}
               title="Leerer Erfassungsbogen (2 Seiten A4) zum Ausfüllen mit der Hand — für Einheiten ohne Gerät oder bei Geräteausfall."
             >
               {arbeitet === "blanko" ? "Blanko-Vordruck wird erzeugt…" : "Blanko-Vordruck (Papier-Reserve)"}
@@ -2281,7 +2358,7 @@ export function EinsatzDetail(props: {
           <>
             <button
               type="button"
-              onClick={() => onSammelPdf(exportUmfang)}
+              onClick={() => ausgabeTipp("sammel-pdf", null, () => onSammelPdf(exportUmfang))}
               disabled={gesperrt("pdf")}
               title={nurNeue
                 ? "Nur die seit dem letzten Export neuen Bögen als eine PDF — mit eingebetteten Daten dieser Bögen. Auf dem Zielgerät über „Einsatz importieren…“ einlesbar."
@@ -2296,16 +2373,16 @@ export function EinsatzDetail(props: {
             Übersicht beantwortet „wie stark ist die Lage?" (eine Zeile je
             Einheit, mit Summenzeile), der Detail-Export „wer und was genau ist
             da?" (jede Person, jedes Fahrzeug einzeln). */}
-        <button type="button" onClick={() => onCsvExport(exportUmfang)} disabled={gesperrt("csv")} title="Eine Zeile je anwesender Einheit mit Stärke, Verpflegung, Unterbringung und Kraftstoff — plus Summenzeile. Für die Lagekarte.">
+        <button type="button" onClick={() => ausgabeTipp("csv", "Die Übersicht als CSV", () => onCsvExport(exportUmfang))} disabled={gesperrt("csv")} title="Eine Zeile je anwesender Einheit mit Stärke, Verpflegung, Unterbringung und Kraftstoff — plus Summenzeile. Für die Lagekarte.">
           Übersicht als CSV
         </button>{" "}
-        <button type="button" onClick={() => onCsvDetailExport(exportUmfang)} disabled={gesperrt("csv-detail")} title="Alle Daten aller gemeldeten Einheiten: je Einheit eine Zeile, dazu eine Zeile pro Person und pro Fahrzeug. Für Auswertung in Excel.">
+        <button type="button" onClick={() => ausgabeTipp("csv-detail", "Die CSV mit allen Daten", () => onCsvDetailExport(exportUmfang))} disabled={gesperrt("csv-detail")} title="Alle Daten aller gemeldeten Einheiten: je Einheit eine Zeile, dazu eine Zeile pro Person und pro Fahrzeug. Für Auswertung in Excel.">
           Alle Daten als CSV
         </button>{" "}
         {/* Drittes Format, weil es keinem der beiden CSVs entspricht: eine
             fremde Excel-Vorlage mit fester Spaltenfolge, in die die
             Führungsstelle die Zeilen direkt einfügt. */}
-        <button type="button" onClick={() => onOldenburgExport(exportUmfang)} disabled={gesperrt("xlsx")} title="Einheitenliste im Format der Führungsstelle Oldenburg: je gemeldeter Einheit eine Zeile, Spalten und Formatierung wie in deren Excel-Vorlage.">
+        <button type="button" onClick={() => ausgabeTipp("xlsx", "Die Excel-Liste", () => onOldenburgExport(exportUmfang))} disabled={gesperrt("xlsx")} title="Einheitenliste im Format der Führungsstelle Oldenburg: je gemeldeter Einheit eine Zeile, Spalten und Formatierung wie in deren Excel-Vorlage.">
           Excel-Liste (Format „Oldenburg“)
         </button>{" "}
         {/* Roh-JSON nur im Debug-Modus: fürs Publikum trägt die Sammel-PDF die
@@ -2314,6 +2391,11 @@ export function EinsatzDetail(props: {
           <button type="button" onClick={onExport}>Als Datei exportieren (Debug)</button>
         )}
       </div>
+      {sofort && arbeitet === null && (
+        <p className="hinweis arbeitet-zeile ausgabe-quittung" role="status">
+          {sofort}
+        </p>
+      )}
       </div>
 
       {/* Hinter den Export-Knöpfen, nicht mitten in deren Erklärung (Audit Runde 6, R6-K5). */}
@@ -2509,6 +2591,7 @@ function EinheitenTabelle({ meldungen, art, eingang, nummern, neueFassungen, kom
     fahrzeuge: summe.fahrzeuge,
     bedarf: "",
     eingetroffen: "",
+    meldung: "",
     abgerueckt: "",
     stand: "",
     auftrag: "",
@@ -2666,6 +2749,13 @@ function TabellenZelle({ spalte, zeile: z }: { spalte: TabellenSpalte; zeile: Ta
       );
     case "auftrag":
       return <td className="auftrag-zelle">{z.auftrag}</td>;
+    case "meldung": {
+      // Abgerückte: Das Alter der Meldung sagt nichts mehr über die Lage.
+      if (!z.anwesend) return <td>—</td>;
+      const jetzt = Date.now();
+      const alt = jetzt - z.empfangenAm >= 60 * 60_000;
+      return <td className={alt ? "warnung-text" : undefined}>{alt ? "⚠ " : ""}{alterText(z.empfangenAm, jetzt).replace(/^vor /, "")}</td>;
+    }
     case "stand":
       return (
         <td>
@@ -2698,7 +2788,7 @@ function Zaehlwert({ wert }: { wert: number }) {
  * Personal, Fahrzeuge, Sofortbedarf) — spiegelt die Erfassungs-Übersicht bzw.
  * das PDF, aber ohne Bearbeiten-Aktionen: fremde Bögen werden hier nur gelesen.
  */
-export function BogenDetails({ bogen, absender }: { bogen: Erfassungsbogen; absender?: string }) {
+export function BogenDetails({ bogen, absender, absenderKarte }: { bogen: Erfassungsbogen; absender?: string; absenderKarte?: Absenderkarte }) {
   const org = bogen.einheit.organisation;
   const s = staerke(bogen);
   const mwd = unterbringungMWD(bogen);
@@ -2711,7 +2801,7 @@ export function BogenDetails({ bogen, absender }: { bogen: Erfassungsbogen; abse
       {absender ? (
         <>
           <h4>Absender (Rückfrage)</h4>
-          <p className="absender-details">{absender}</p>
+          <p className="absender-details">{absenderKarte ? <AbsenderKontakt karte={absenderKarte} /> : absender}</p>
         </>
       ) : null}
       <h4>Zugehörigkeit</h4>
@@ -2726,7 +2816,11 @@ export function BogenDetails({ bogen, absender }: { bogen: Erfassungsbogen; abse
         {bogen.einheit.hierarchie.map((h, i) => (
           <div key={i} style={{ display: "contents" }}>
             <dt>{vokabText(h.bezeichnung, vokabularFuer(org, "ebene")) || "Ebene"}</dt>
-            <dd>{h.name}{h.kurz ? ` (${h.kurz})` : ""}{h.telefon ? ` · ${h.telefon}` : ""}{h.email ? ` · ${h.email}` : ""}</dd>
+            <dd>
+              {h.name}{h.kurz ? ` (${h.kurz})` : ""}
+              {h.telefon ? <>{" · "}<KontaktLink art="tel" wert={h.telefon} /></> : null}
+              {h.email ? <>{" · "}<KontaktLink art="mail" wert={h.email} /></> : null}
+            </dd>
           </div>
         ))}
       </dl>
@@ -2764,7 +2858,13 @@ export function BogenDetails({ bogen, absender }: { bogen: Erfassungsbogen; abse
                   <td><RolleMarke rolle={p.staerkeRolle} /></td>
                   <td>{funktionsText(p, org) || "—"}</td>
                   <td>{p.nachname}{p.nachname && p.vorname ? ", " : ""}{p.vorname}</td>
-                  <td>{p.kontakte.map(kontaktText).join(" · ") || "—"}</td>
+                  <td>
+                    {p.kontakte.length > 0
+                      ? p.kontakte.map((k, ki) => (
+                          <span key={ki}>{ki > 0 && " · "}<PersonKontakt kontakt={k} /></span>
+                        ))
+                      : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -2947,13 +3047,13 @@ function HistorieZeile({ eintrag, vorheriger, aktuell, verdraengt = false, onVer
       {onGilt && (
         <>
           {" "}
-          <button type="button" className="link" onClick={onGilt}>Diese Fassung gilt…</button>
+          <button type="button" className="link historie-aktion" onClick={onGilt}>Diese Fassung gilt…</button>
         </>
       )}
       {vorheriger && (
         <>
           {" "}
-          <button type="button" className="link" onClick={() => setOffen(!offen)}>
+          <button type="button" className="link historie-aktion" onClick={() => setOffen(!offen)}>
             {offen ? "Änderungen ausblenden" : "Änderungen"}
           </button>
         </>
@@ -2961,7 +3061,7 @@ function HistorieZeile({ eintrag, vorheriger, aktuell, verdraengt = false, onVer
       {onVerwerfen && (
         <>
           {" "}
-          <button type="button" className="link" onClick={onVerwerfen}>Fassung verwerfen…</button>
+          <button type="button" className="link historie-aktion historie-verwerfen" onClick={onVerwerfen}>Fassung verwerfen…</button>
         </>
       )}
       {offen && vorheriger && <Aenderungen vorher={vorheriger.bogen} nachher={eintrag.bogen} />}
@@ -3003,6 +3103,8 @@ function EinheitKarte(props: {
   frisch?: boolean;
   /** Ort/Auftrag des Bogens passt nicht zu dieser Lage: sein Text (R4-K6). */
   fremderOrt?: string;
+  /** Die Karte verschwand mit nicht gespeicherter Eingabe: Schlüssel der Einheit und Satz dazu (R12-O1). */
+  onEingabeVerloren?: (einheitSchluessel: string, text: string) => void;
 }) {
   const { einsatzId, kopf, alle, onGeaendert, onEntfernt, qualifikation = "", qualifikationKurz = "", eingang, onStatusWechsel, kompakt = false } = props;
   // Auf dem Telefon zugeklappt, bis die Einheit angetippt wird (R2-K7).
@@ -3224,6 +3326,20 @@ function EinheitKarte(props: {
    */
   const entwuerfeRef = useRef({ zug: zugEntwurf, notiz: notizEntwurf });
   entwuerfeRef.current = { zug: zugEntwurf, notiz: notizEntwurf };
+  // Verschwindet die Karte mit offener Eingabe, sagt die Ansicht, was nicht gespeichert wurde (R12-O1).
+  const verlorenRef = useRef(props.onEingabeVerloren);
+  verlorenRef.current = props.onEingabeVerloren;
+  const schluesselRef = useRef(kopf.einheitSchluessel);
+  schluesselRef.current = kopf.einheitSchluessel;
+  const nameRef = useRef("");
+  nameRef.current = einheitAnzeigename(kopf.bogen.einheit);
+  useEffect(
+    () => () => {
+      const text = verloreneEingabeText(nameRef.current, entwuerfeRef.current);
+      if (text) verlorenRef.current?.(schluesselRef.current, text);
+    },
+    [],
+  );
   const speichernRef = useRef({ zug: zugSpeichern, notiz: notizSpeichern });
   speichernRef.current = { zug: zugSpeichern, notiz: notizSpeichern };
   useEffect(() => {
@@ -3256,6 +3372,13 @@ function EinheitKarte(props: {
       zeitEntwurf.feld === "eintreffen"
         ? { eintreffen: ms, abgerueckt: abgerueckt ? kopf.abgerueckAm : null }
         : { eintreffen: eintreffzeit(kopf), abgerueckt: ms },
+      Date.now(),
+      zeitEntwurf.feld === "eintreffen"
+        ? {
+            aufnahme: kopf.empfangenAm,
+            zeitraumVon: zeitpunktZuMs(kopf.bogen.einsatz.zeitraumVon * MINUTEN_JE_TAG),
+          }
+        : undefined,
     );
     if (
       unstimmig &&
@@ -3387,6 +3510,7 @@ function EinheitKarte(props: {
           feld("mannschaft", "Mannschaft", eingabe.mannschaft),
         ],
         ok: "Stärke übernehmen",
+        zeile: (werte) => staerkeSummeZeile(werte, alt.gesamt),
       });
       if (!w) return;
       eingabe = { fuehrer: w.fuehrer ?? "", unterfuehrer: w.unterfuehrer ?? "", mannschaft: w.mannschaft ?? "" };
@@ -3773,7 +3897,7 @@ function EinheitKarte(props: {
             <span className="muster-sub alter-zeile warnung-text">⚠ Meldung {alterText(kopf.empfangenAm, Date.now())}</span>
           )}
           {absenderLabel(kopf.signatur?.absender) && (
-            <span className="muster-sub absender-zeile">Absender: {absenderLabel(kopf.signatur?.absender)}</span>
+            <span className="muster-sub absender-zeile">Absender: <AbsenderKontakt karte={kopf.signatur?.absender} /></span>
           )}
           {/* Die Zeiten der Führungsstelle zuerst, der Absender-Stand nur als
               Zusatz: „eingetroffen 09:40" ist die Zeile fürs Einsatztagebuch,
@@ -4026,19 +4150,19 @@ function EinheitKarte(props: {
         {getauscht != null ? (
           <>
             {/* Ein Knopf, kein Text: So bleibt die Knopfreihe stehen. */}
-            <button type="button" ref={wechselKnopf} aria-describedby={nameId} disabled className="wechsel-quittiert">
+            <button type="button" ref={wechselKnopf} aria-describedby={nameId} disabled className="wechsel-knopf wechsel-quittiert">
               {getauscht === MeldeStatus.ABGERUECKT ? "✓ Abgerückt" : "✓ Anwesend"}
             </button>{" "}
           </>
         ) : zaehlt ? (
           <>
-            <button type="button" ref={wechselKnopf} aria-describedby={nameId} disabled={prellt} onClick={() => void statusSetzen(MeldeStatus.ABGERUECKT)}>
+            <button type="button" ref={wechselKnopf} className="wechsel-knopf" aria-describedby={nameId} disabled={prellt} onClick={() => void statusSetzen(MeldeStatus.ABGERUECKT)}>
               Abrücken
             </button>{" "}
           </>
         ) : (
           <>
-            <button type="button" ref={wechselKnopf} aria-describedby={nameId} disabled={prellt} onClick={() => void statusSetzen(MeldeStatus.ANWESEND)}>
+            <button type="button" ref={wechselKnopf} className="wechsel-knopf" aria-describedby={nameId} disabled={prellt} onClick={() => void statusSetzen(MeldeStatus.ANWESEND)}>
               Wieder anwesend
             </button>{" "}
           </>
@@ -4049,11 +4173,6 @@ function EinheitKarte(props: {
         <button type="button" aria-describedby={nameId} onClick={() => setNotizEntwurf(kopf.notiz ?? "")}>
           {kopf.notiz ? "Auftrag ändern" : "Auftrag/Notiz"}
         </button>{" "}
-        {(revs.length > 1 || vermerke.length > 0) && (
-          <button type="button" aria-describedby={nameId} onClick={() => setHistorie(!historie)}>
-            {historie ? "Historie schließen" : revs.length > 1 ? `Historie (${revs.length})` : "Historie"}
-          </button>
-        )}{" "}
         {/* Die seltenen, folgenschweren Aktionen hinter „Mehr…": neun Knöpfe
             je Karte machten sie rund 450 px hoch, und beim Scrollen lag
             „Entfernen" überall unter dem Daumen (Audit Runde 2, R2-H9). Ein
@@ -4073,6 +4192,16 @@ function EinheitKarte(props: {
         >
           {mehrOffen ? "Weniger" : "Mehr…"}
         </button>
+        {/* „Historie" steht hinter „Mehr…" (R12-G3): Sie erscheint erst, wenn die Karte einen Vermerk trägt (nach „Abrücken"),
+            und schob als Nachbar „Mehr…" um eine Knopfbreite nach rechts. */}
+        {(revs.length > 1 || vermerke.length > 0) && (
+          <>
+            {" "}
+            <button type="button" aria-describedby={nameId} onClick={() => setHistorie(!historie)}>
+              {historie ? "Historie schließen" : revs.length > 1 ? `Historie (${revs.length})` : "Historie"}
+            </button>
+          </>
+        )}
       </div>
       {mehrOffen && (
         <div className="vorlage-aktionen karte-mehr">
@@ -4108,7 +4237,7 @@ function EinheitKarte(props: {
         </ul>
       )}
       {aenderungen && vorige && <Aenderungen vorher={vorige.bogen} nachher={kopf.bogen} />}
-      {details && <BogenDetails bogen={kopf.bogen} absender={absenderLabel(kopf.signatur?.absender)} />}
+      {details && <BogenDetails bogen={kopf.bogen} absender={absenderLabel(kopf.signatur?.absender)} absenderKarte={kopf.signatur?.absender} />}
       {zusammenfuehren && geschwister.length > 0 && (
         <ZusammenfuehrenPanel
           ziel={kopf}

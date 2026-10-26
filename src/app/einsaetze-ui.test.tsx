@@ -736,6 +736,27 @@ describe("Abrücken mit Zeit, Quittung und Rückweg", () => {
     expect(document.querySelector(".zeiten-zeile")!.textContent).toMatch(/abgerückt \d\d\.\d\d\.\d{4}, \d\d:\d\d/);
   });
 
+  it("lässt beim Abrücken alle Knöpfe an ihrer Stelle; „Historie“ kommt hinter „Mehr…“ (R12-G3)", async () => {
+    const nutzer = userEvent.setup();
+    const { neuLaden } = buehne(["Crailsheim"]);
+    const vorher = kartenKnoepfe();
+    const platz = vorher.indexOf("Abrücken");
+    await nutzer.click(screen.getByRole("button", { name: "Abrücken" }));
+    neuLaden();
+    const nachher = kartenKnoepfe();
+    // Jeder Knopf außer dem Statusknopf steht an derselben Stelle, auch „Mehr…“.
+    vorher.forEach((name, i) => {
+      if (i !== platz) expect(nachher[i]).toBe(name);
+    });
+    const mehr = nachher.indexOf("Mehr…");
+    expect(mehr).toBe(vorher.indexOf("Mehr…"));
+    // Die neue Historie steht dahinter, nicht dazwischen.
+    expect(nachher.length).toBeGreaterThanOrEqual(vorher.length);
+    nachher.forEach((name, i) => {
+      if (name.startsWith("Historie")) expect(i).toBeGreaterThan(mehr);
+    });
+  });
+
   it("rollt um den Versatz nach, wenn die Karte beim Abrücken wächst — der Rückweg bleibt unter dem Finger", async () => {
     const nutzer = userEvent.setup();
     const { neuLaden } = buehne(["Crailsheim"]);
@@ -830,10 +851,14 @@ describe("Zeiten, Auftrag und Bedarf auf der Karte", () => {
     const feld = screen.getByLabelText("Eingetroffen am") as HTMLInputElement;
     // Nachtragen vom Papier: die Einheit kam gestern Abend, erfasst wird heute.
     await nutzer.clear(feld);
-    await nutzer.type(feld, "2026-09-26T20:30");
+    // „Gestern Abend" relativ zu jetzt (R12-E4: ältere Zeiten fragen nach).
+    const vorher = new Date(Date.now() - 20 * 3_600_000);
+    const zwei = (n: number) => String(n).padStart(2, "0");
+    const wert = `${vorher.getFullYear()}-${zwei(vorher.getMonth() + 1)}-${zwei(vorher.getDate())}T${zwei(vorher.getHours())}:${zwei(vorher.getMinutes())}`;
+    await nutzer.type(feld, wert);
     await nutzer.click(screen.getByRole("button", { name: "Speichern" }));
 
-    expect(gespeichert(einsatzId, "Wardenburg").eingetroffenAm).toBe(new Date("2026-09-26T20:30").getTime());
+    expect(gespeichert(einsatzId, "Wardenburg").eingetroffenAm).toBe(new Date(wert).getTime());
     expect(geaendert).toHaveBeenCalled();
   });
 
@@ -2101,7 +2126,7 @@ describe("Übergabevermerk nach „Einsatz weitergeben / sichern“ (R2-W5)", ()
     weitergabeVermerken(einsaetzeLaden().find((s) => s.id === angelegt.id)!);
     const { neuLaden } = ansicht(angelegt.id);
     const vermerk = () => document.querySelector<HTMLElement>(".weitergabe-vermerk")!;
-    expect(vermerk().textContent).toMatch(/^Weitergegeben .+ — seitdem hier nichts Neues\.$/);
+    expect(vermerk().textContent).toMatch(/^Weitergabe-Datei erzeugt .+ — Empfang nicht bestätigt, seitdem hier nichts Neues\.$/);
 
     meldungHinzufuegen(angelegt.id, bogenMitName("Kulmbach"));
     neuLaden();

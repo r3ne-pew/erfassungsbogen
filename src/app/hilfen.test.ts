@@ -104,7 +104,7 @@ describe("plausibilitaet()", () => {
   it("meldet keine Hinweise für einen stimmigen Bogen", () => {
     const basis = neuerBogen();
     const b = bogen({
-      einheit: { ...basis.einheit, hierarchie: [{ bezeichnung: { code: 1 }, name: "Oldenburg - Ni" }] },
+      einheit: { ...basis.einheit, einheitsTyp: { code: 1 }, hierarchie: [{ bezeichnung: { code: 1 }, name: "Oldenburg - Ni" }] },
       einsatz: { ...basis.einsatz, ortAuftrag: "Übung Kabelblitz" },
       personal: [
         person({

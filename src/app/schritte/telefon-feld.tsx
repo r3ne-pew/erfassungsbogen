@@ -5,7 +5,7 @@
  */
 
 import { useState, type ComponentProps } from "react";
-import { telefonBereinigen, telefonKurzHinweis } from "../telefon-eingabe";
+import { telefonKurzHinweis, telefonTippen, type TelefonRest } from "../telefon-eingabe";
 import { FREMDE_DATEN, ZahlMeldung } from "./bausteine";
 
 export function TelefonFeld(
@@ -17,6 +17,8 @@ export function TelefonFeld(
   const { wert, setzen, onBlur, onFocus, ...rest } = props;
   const [hinweis, setHinweis] = useState("");
   const [kurz, setKurz] = useState(false);
+  // Text, der hinter einem getippten Trenner folgt (R12-E1); `undefined` = normale Eingabe.
+  const [nachTrenner, setNachTrenner] = useState<TelefonRest>(undefined);
   return (
     <>
       <input
@@ -26,7 +28,8 @@ export function TelefonFeld(
         inputMode="tel"
         value={wert ?? ""}
         onChange={(ev) => {
-          const r = telefonBereinigen(ev.target.value);
+          const r = telefonTippen(wert, ev.target.value, nachTrenner);
+          setNachTrenner(r.rest);
           setHinweis(r.hinweis);
           setKurz(false);
           setzen(r.wert);
@@ -37,6 +40,7 @@ export function TelefonFeld(
         }}
         onBlur={(ev) => {
           setKurz(true);
+          setNachTrenner(undefined);
           onBlur?.(ev);
         }}
       />
