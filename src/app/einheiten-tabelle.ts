@@ -21,8 +21,10 @@ import { EEB_EPOCHE_MS, staerke, type EebDatum, type Erfassungsbogen } from "@bo
 import { einheitAnzeigename, nurSollstaerke, orgLabel, pruefpunkte, vokabText, vokabularFuer, zeitpunktDeutsch, type Pruefpunkt } from "./hilfen";
 import { MeldeStatus, type EinsatzArt, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { FELD_GESAMTSTAERKE, bogenDiff, diffKurzfassung } from "@bos/meldekopf/meldung-diff";
-import { aktuelleMeldungen, summiereBoegen, unterbringungLage, verpflegungLage, zaehltInLage, type EinsatzSummen } from "./auswertung";
+import { aenderungsText } from "./meldungs-vergleich";
+import { aktuelleMeldungen, bedarfNichtErfasst, summiereBoegen, unterbringungLage, verpflegungLage, zaehltInLage, type EinsatzSummen } from "./auswertung";
 import { eintreffzeit, zeitLang, zeitpunktZuMs } from "./eintrag-zeiten";
+import { angabenAlterWort, angabenZeit } from "./angaben-alter";
 import { revisionenJe } from "./einheiten-index";
 import { istVerdraengt } from "./fassung-vorrang";
 
@@ -308,6 +310,9 @@ function ortWoerter(text: string): string[] {
     .filter((w) => w.length >= 3 && !/^\d+$/.test(w) && !LAGE_ALLGEMEIN.test(w) && !ORT_FUELLWOERTER.has(w));
 }
 
+/** Die Regel hinter „Anderer Einsatz?" in einem Satz — die Marke nannte nur den Verdacht, nicht den Grund (R14-W3). */
+export const ORT_REGEL = "Kein Ortsname daraus kommt beim Ort der Sammlung oder bei den übrigen Einheiten vor.";
+
 /** So viele ANDERE Einheiten mit Ort/Auftrag braucht der Vergleich, wenn die Sammlung selbst keinen Ort hat (R5-N1). */
 const VERGLEICH_MIN_EINHEITEN = 3;
 
@@ -334,8 +339,16 @@ export function abweichenderOrt(
   const bezug = new Set<string>(ortWoerter(sammlung.ort ?? ""));
   const haeufigkeit = new Map<string, number>();
   let mitText = 0;
+  // Jede andere Einheit zählt einmal, mit ihrer jüngsten Fassung: Folgemeldungen derselben Einheit (Stapel,
+  // Zusammenführen zweier Geräte) machten sonst aus einem Wort „zwei Einheiten" und die Marke hing von der
+  // Reihenfolge des Einlesens ab (R14-W3).
+  const juengste = new Map<string, MeldeEintrag>();
   for (const x of alle) {
     if (x.einheitSchluessel === e.einheitSchluessel) continue;
+    const bisher = juengste.get(x.einheitSchluessel);
+    if (!bisher || x.empfangenAm >= bisher.empfangenAm) juengste.set(x.einheitSchluessel, x);
+  }
+  for (const x of juengste.values()) {
     const woerter = new Set(ortWoerter(x.bogen.einsatz.ortAuftrag ?? ""));
     if (woerter.size > 0) mitText++;
     for (const w of woerter) haeufigkeit.set(w, (haeufigkeit.get(w) ?? 0) + 1);
@@ -419,7 +432,7 @@ export function lueckeKurz(text: string): string {
   if (/^Stärke \d+ \/ \d+ \/ \d+ \/ \d+: mehr Führer als Mannschaft/.test(text)) return "mehr Führer als Mannschaft";
   if (/^Stärke: \d+ .* — stimmt das\?/.test(text)) return "Stärke auffällig hoch";
   if (/^Es sind \d+ Ansprechpartner erfasst/.test(text)) return "mehr Personen als Stärke";
-  if (/Personenkarten? ohne Angaben/.test(text)) return "leere Personenkarte";
+  if (/Personenkarten? ohne (Angaben|Namen)/.test(text)) return "leere Personenkarte";
   if (/^Zugehörigkeit: Der (Name der eigenen Einheit|Ort der Einheit)/.test(text)) return "Ort der Einheit fehlt";
   if (/Sitzplätze eingetragen|Sitzplätze \(Richtwert/.test(text) || /: \d+ Sitzplätze/.test(text)) return "Sitzplätze prüfen";
   if (/^Sofortbedarf: .* — mehr als .* je Fahrzeug/.test(text)) return "Kraftstoff auffällig hoch";
@@ -441,11 +454,14 @@ export function anWortgrenze(text: string, max: number): string {
   return schnitt.replace(/[\s,;:–—-]+$/, "");
 }
 
-/** „Sitzplätze fehlen: 4" bzw. „Sitzplätze fehlen: 4 + 2 weitere" — leer ohne Lücken. */
+/**
+ * „Sitzplätze fehlen: 4" bzw. „3 Punkte, u. a. Sitzplätze fehlen: 4" — leer ohne Lücken. Die Gesamtzahl steht vorn:
+ * „leere Personenkarte + 9 weitere" las sich wie zehn Personenkarten, es waren zehn verschiedene Hinweise (R14-N2).
+ */
 export function lueckenText(texte: string[]): string {
   if (texte.length === 0) return "";
   const erst = lueckeKurz(texte[0]!);
-  return texte.length === 1 ? erst : `${erst} + ${texte.length - 1} weitere`;
+  return texte.length === 1 ? erst : `${texte.length} Punkte, u. a. ${erst}`;
 }
 
 /**
@@ -516,7 +532,7 @@ export function folgeAenderung(kopf: MeldeEintrag, alle: MeldeEintrag[]): FolgeA
   const nachher = staerke(kopf.bogen).gesamt;
   return {
     gemeldetAm: kopf.empfangenAm,
-    kurz: platzhalterVergleich(vorige, kopf, d) ?? folgeKurztext(d, vorher, nachher),
+    kurz: platzhalterVergleich(vorige, kopf, d) ?? nachSchnellerfassungText(vorige, kopf, d) ?? folgeKurztext(d, vorher, nachher),
     ...(vorher !== nachher ? { staerkeVorher: vorher, staerkeNachher: nachher } : {}),
     verlust: nachher < vorher,
     ...(kopf.rueckkehr ? { rueckkehr: kopf.rueckkehr } : {}),
@@ -538,15 +554,33 @@ function platzhalterVergleich(vorige: MeldeEintrag, kopf: MeldeEintrag, d: Retur
     const diff = nachher - vorher;
     teile.push(`Stärke ${vorher} → ${nachher}${diff !== 0 ? ` (${diff > 0 ? "+" : "−"}${Math.abs(diff)})` : ""}`);
   }
-  const fehlt = d.fahrzeugeAbgang.length > 0 || d.personalAbgang.length > 0 || d.bedarf.length > 0;
-  if (fehlt) teile.push("Fahrzeuge, Personal und Sofortbedarf nicht erfasst");
+  // „Nicht erfasst" gilt nur für das, was der neue Bogen wirklich nicht trägt. „Stärke ändern…" nimmt Fahrzeuge, Namen
+  // und Bedarf aus der Meldung davor mit; dort stand der Satz trotzdem da und widersprach dem Dialog (R14-W4).
+  const fehlend: string[] = [];
+  if (d.fahrzeugeAbgang.length > 0 && kopf.bogen.fahrzeuge.length === 0) fehlend.push("Fahrzeuge");
+  if (d.personalAbgang.length > 0 && kopf.bogen.personal.length === 0) fehlend.push("Personal");
+  if (d.bedarf.length > 0 && bedarfNichtErfasst(kopf.bogen)) fehlend.push("Sofortbedarf");
+  if (fehlend.length > 0) {
+    teile.push(`${fehlend.join(", ").replace(/, ([^,]+)$/, " und $1")} nicht erfasst`);
+  } else if (kopf.bogen.staerkeManuell != null && (kopf.bogen.fahrzeuge.length > 0 || kopf.bogen.personal.length > 0)) {
+    teile.push(`Namen, Fahrzeuge, Bedarf übernommen (Meldung vom ${zeitLang(vorige.empfangenAm)})`);
+  }
   return teile.length > 0 ? teile.join(" · ") : null;
 }
 
 /** Kurztext des Vergleichs zweier Fassungen für die Karte („Stärke 12 → 10 · …"); leer ohne Unterschied. */
 export function vergleichKurztext(vorige: MeldeEintrag, kopf: MeldeEintrag): string {
   const d = bogenDiff(vorige.bogen, kopf.bogen);
-  return platzhalterVergleich(vorige, kopf, d) ?? diffKurzfassung(d);
+  return platzhalterVergleich(vorige, kopf, d) ?? nachSchnellerfassungText(vorige, kopf, d) ?? diffKurzfassung(d);
+}
+
+/**
+ * Kam der volle Bogen nach einer Schnellerfassung, ist fast alles „neu": Dialog „Einheit ist bereits gemeldet" und
+ * Quittung nennen dann dieselbe Aufzählung mit denselben Zahlen, Personal zuerst (R14-W5). Sonst `null`.
+ */
+function nachSchnellerfassungText(vorige: MeldeEintrag, kopf: MeldeEintrag, d: ReturnType<typeof bogenDiff>): string | null {
+  if (!bedarfNichtErfasst(vorige.bogen) || vorige.bogen.personal.length > 0 || bedarfNichtErfasst(kopf.bogen)) return null;
+  return aenderungsText(d) || null;
 }
 
 /** „…“ mit höchstens 60 Zeichen; „—" (geleert) bleibt ohne Anführungszeichen. */
@@ -652,6 +686,10 @@ export interface TabellenZeile {
   eingetroffenAm: number;
   /** Eingang der geltenden Fassung in ms — Grundlage der Spalte „Meldung vor" (R12-K3). */
   empfangenAm: number;
+  /** Seit wann die Angaben gelten: Stand im Bogen, höchstens der Eingang (ms) — Grundlage von „Meldung vor" (R14-K1). */
+  angabenAm: number;
+  /** „Stand", wenn der Bogen schon vor dem Eingang mindestens eine Stunde alt war, sonst „Meldung". */
+  angabenWort: "Stand" | "Meldung";
   /** Abrückzeit als Uhrzeit; leer, solange die Einheit da ist. */
   abgerueckt: string;
   /** Abrückzeit in ms, 0 = nicht abgerückt — Sortierschlüssel. */
@@ -721,7 +759,9 @@ const TRENN_BAUSTEINE = [
  * einen Kleinbuchstaben folgen; der Text bleibt sonst gleich (U+00AD ist unsichtbar, solange nicht umgebrochen wird).
  */
 export function weicheTrennstellen(text: string): string {
-  return text.replace(/\p{L}{11,}/gu, (wort) => {
+  // Nach „/" darf umgebrochen werden (Leerstelle ohne Breite): „Wasserschaden/Pumpen" brach sonst nach „Pump" (R14-M2).
+  const ohneSchraeg = text.replace(/(\p{L})\/(?=\p{L})/gu, `$1/${String.fromCharCode(0x200b)}`);
+  return ohneSchraeg.replace(/\p{L}{11,}/gu, (wort) => {
     let aus = wort;
     for (const b of TRENN_BAUSTEINE) {
       const i = aus.toLowerCase().indexOf(b);
@@ -761,7 +801,7 @@ export const TABELLEN_SPALTEN: SpaltenDefinition[] = [
   { schluessel: "eingetroffen", kopf: "Eingetr.", titel: "Eingetroffen", zahl: false, sortiertNach: "eingetroffenAm" },
   { schluessel: "bedarf", kopf: "Bedarf", titel: "Sofortbedarf", zahl: false },
   // Alter der geltenden Meldung: Ältestes oben statt „Eingetr." (absolut) und „Stand" (vom Absender gesetzt) (R12-K3).
-  { schluessel: "meldung", kopf: "Meldung vor", titel: "Meldung vor (Alter der geltenden Meldung)", zahl: false, sortiertNach: "empfangenAm" },
+  { schluessel: "meldung", kopf: "Meldung vor", titel: "Meldung vor (Alter der Angaben: Stand im Bogen, höchstens der Eingang)", zahl: false, sortiertNach: "angabenAm" },
   { schluessel: "abgerueckt", kopf: "Abger.", titel: "Abgerückt", zahl: false, sortiertNach: "abgerueckAm" },
   { schluessel: "organisation", kopf: "Org.", titel: "Organisation", zahl: false },
   { schluessel: "verpflegung", kopf: "Verpfl.", titel: "Verpflegung gesamt", zahl: true },
@@ -827,6 +867,8 @@ export function tabellenZeilen(eintraege: MeldeEintrag[], art?: EinsatzArt, jetz
       eingetroffen: zeitLang(eintreffzeit(e)),
       eingetroffenAm: eintreffzeit(e),
       empfangenAm: e.empfangenAm,
+      angabenAm: angabenZeit(e),
+      angabenWort: angabenAlterWort(e),
       abgerueckt: e.abgerueckAm != null ? zeitLang(e.abgerueckAm) : "",
       abgerueckAm: e.abgerueckAm ?? 0,
       stand: zeitpunktDeutsch(b.stand),
@@ -902,7 +944,7 @@ export function zeilenSortieren(
 ): TabellenZeile[] {
   const vorzeichen = richtung === "auf" ? 1 : -1;
   const definition = TABELLEN_SPALTEN.find((s) => s.schluessel === spalte);
-  // „meldung" hat keinen eigenen Wert in der Zeile, sortiert wird nach `empfangenAm` (sortiertNach).
+  // „meldung" hat keinen eigenen Wert in der Zeile, sortiert wird nach `angabenAm` (sortiertNach).
   const feld = (definition?.sortiertNach ?? spalte) as keyof TabellenZeile;
   return [...zeilen].sort((a, b) => {
     const wa = a[feld];

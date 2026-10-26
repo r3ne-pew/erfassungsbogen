@@ -343,6 +343,15 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > und `vendor/` unverändert. Der Entwurf trägt zusätzlich die Marke „über die
 > Startseite verlassen" (`fremd.startseite`, R5-N3, 3.3 D1) — keine Daten.
 
+> **Nachgezogen 2026-10-26 (Runde 14):** Audit Runde 14. Speicher (3.3, 5.5): zwei neue
+> Schlüssel, `eeb.beispiel-herkunft.v1` (localStorage, fiktive Beispieldaten,
+> über die Präfixregel `eeb.` in Sicherung und Löschweg enthalten) und
+> `eeb.ansicht-stelle.v1` (sessionStorage, Bildlaufstelle). Sicherung einspielen
+> lässt `eeb.offline-zusatz.v1` beim Gerät. Bedienung (5.3): Rückfragen mit Rückgängig
+> bei Sammelzuordnung des Zugs, Entfernen abgeteilter Trupps und Umkennzeichnen
+> von Übung und Einsatz; Ausgabe-Sperre mit Nachlauf. Lieferkette (6.4): Startbündel
+> 1,19 MB. Keine neuen Hosts, CSP und Transportformat unverändert.
+
 > **Nachgezogen 2026-10-26 (Runde 13):** Audit Runde 13. Speicher (3.3, 5.5): kein
 > neuer Schlüssel. „Sicherung einspielen" stellt bei einem Schreibfehler den
 > vorherigen Bestand wieder her (Verfügbarkeit, 5.5); bei vollem Speicher nennt die

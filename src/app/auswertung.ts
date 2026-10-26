@@ -10,6 +10,7 @@
  */
 
 import {
+  PersonalErfassung,
   staerke,
   unterbringungMWD,
   verpflegung,
@@ -19,6 +20,7 @@ import {
 } from "@bos/eeb-format/model";
 import { EinsatzArt, MeldeStatus, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit } from "./fassung-vorrang";
+import { angabenZeit } from "./angaben-alter";
 
 export interface EinsatzSummen {
   /** Anzahl anwesender Einheiten (nicht Personen). */
@@ -51,6 +53,24 @@ export interface EinsatzSummen {
   /** Einheiten, die Ruhezeit angemeldet haben. */
   ruhezeitErforderlich: number;
   fahrzeuge: number;
+  /**
+   * Einheiten, deren Bedarf (Unterbringung, Ruhezeit, Betriebsstoff, Fahrzeuge) niemand erfasst hat — Schnellerfassung
+   * „nur Stärke". „Keine Unterbringung angefordert" wäre für sie eine falsche Aussage (R14-W1).
+   */
+  bedarfOhneAngabe: number;
+}
+
+/**
+ * Hat bei dieser Meldung niemand den Bedarf erfasst? Schnellerfassung (nur Stärke) ohne Fahrzeuge, Unterbringung,
+ * Ruhezeit und Betriebsstoff: leer heißt dort „nicht gefragt", nicht „nicht nötig" (R14-W1).
+ */
+export function bedarfNichtErfasst(b: Erfassungsbogen): boolean {
+  const sb = b.sofortbedarf;
+  return (
+    b.personalErfassung === PersonalErfassung.NUR_STAERKE &&
+    b.fahrzeuge.length === 0 &&
+    (!sb || (!sb.dieselLiter && !sb.benzinLiter && !sb.gemischLiter && !sb.unterbringung && !sb.ruhezeitErforderlich))
+  );
 }
 
 /**
@@ -101,6 +121,7 @@ function leereSummen(): EinsatzSummen {
     kraftstoff: { dieselLiter: 0, benzinLiter: 0, gemischLiter: 0 },
     ruhezeitErforderlich: 0,
     fahrzeuge: 0,
+    bedarfOhneAngabe: 0,
   };
 }
 
@@ -197,6 +218,7 @@ export function summiereBoegen(boegen: Erfassungsbogen[]): EinsatzSummen {
 
     s.fahrzeuge += b.fahrzeuge.length;
     s.einheiten++;
+    if (bedarfNichtErfasst(b)) s.bedarfOhneAngabe++;
   }
   return s;
 }
@@ -278,6 +300,6 @@ export function aggregiereNachZug(eintraege: MeldeEintrag[], art?: EinsatzArt): 
     .map(([k, ms]) => ({
       zugEtikett: k || undefined,
       summen: summiere(ms),
-      aeltesteMeldungAm: Math.min(...ms.map((m) => m.empfangenAm)),
+      aeltesteMeldungAm: Math.min(...ms.map(angabenZeit)),
     }));
 }

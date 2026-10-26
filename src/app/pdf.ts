@@ -25,6 +25,7 @@ import { MeldeStatus, type Einsatzsammlung, type MeldeEintrag } from "@bos/melde
 import { geltendeJeEinheit, fassungenJeEinheit } from "./fassung-vorrang";
 import { zaehltInLage } from "./auswertung";
 import { eintreffzeit } from "./eintrag-zeiten";
+import { standLiegtNachEintreffen } from "./stand-uhr";
 import { exportStaendeLaden, lageblattVermerken, weitergabeVermerken } from "./export-stand";
 import { abweichenderOrt } from "./einheiten-tabelle";
 import { meldungsNummern } from "./einheiten-tabelle";
@@ -156,6 +157,17 @@ export async function meldungPdfAnzeigen(m: MeldeEintrag, fenster: Window | null
 }
 
 /**
+ * Ist die Eintreffzeit der Meldung nur die Zeit, zu der das Gerät sie angenommen hat? Von Hand gesetzte oder
+ * korrigierte Zeiten (Zettel-Eingabe, „ändern") weichen vom Eingang der ersten Fassung ab; manuell erfasste
+ * Einheiten stammen vom Meldeblock (R14-A1).
+ */
+export function zeitEingelesen(m: MeldeEintrag, fassungenNeuesteZuerst: MeldeEintrag[]): boolean {
+  const erste = fassungenNeuesteZuerst[fassungenNeuesteZuerst.length - 1] ?? m;
+  if (m.quelle === "manuell" || erste.quelle === "manuell") return false;
+  return eintreffzeit(m) === erste.empfangenAm;
+}
+
+/**
  * Was die Übersichtsseite über eine Meldung wissen muss — Zeiten, Status,
  * Auftrag, Vorfassung. Gemeinsam für Sammel-PDF und Lageblatt. `historie`
  * ist die ganze Sammlung: beim Teilexport („nur neue Bögen") steckt die
@@ -186,6 +198,10 @@ function uebersichtEintrag(
     ...(absenderLabel(m.signatur?.absender) ? { absender: absenderLabel(m.signatur?.absender) } : {}),
     ...(m.rueckkehr ? { rueckkehr: m.rueckkehr } : {}),
     ...(m.vomPapier != null ? { zeitUnbestaetigt: true } : {}),
+    // Eintreffzeit = Zeit des Einlesens am Gerät, nie von Hand gesetzt (R14-A1): nicht vom Absender, nicht vom Meldeblock.
+    ...(m.vomPapier == null && zeitEingelesen(m, revs) ? { zeitEingelesen: true } : {}),
+    // Stand nach dem Eingang: falsche Geräteuhr (R13-A3) — gehört auch aufs Papier (R14-A2).
+    ...(standLiegtNachEintreffen(m) ? { standNachEintreffen: true } : {}),
     // Anderer Einsatz? wie an der Karte (R5-K5); beim Nachtrag aus der ganzen Sammlung gerechnet.
     ...(fremderOrt != null ? { fremderOrt } : {}),
     // Beim Nachtrag: warum die Einheit dabei ist, und ob ihre Kräfte zur Summe

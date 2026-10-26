@@ -12,6 +12,25 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-26 (Runde 14):** Audit Runde 14 (42 Befunde ohne
+> Doppelungen, drei Pakete) — Kap. 5, 8.2, 8.4, 8.6, 9: zwei neue Speicherschlüssel.
+> `eeb.beispiel-herkunft.v1` (localStorage, `beispiel-herkunft.ts`: Namen und
+> Ziffernfolgen aus einem Beispiel- oder Übungsbogen, damit das Abwählen von „Übung"
+> daran erinnert; wird gelöscht, sobald kein Bogen offen ist) und
+> `eeb.ansicht-stelle.v1` (sessionStorage, `ansicht-stelle.ts`: Ansicht-Kennung und
+> Bildlaufstelle für das Neuladen, höchstens 12 Stunden). `eeb.offline-zusatz.v1`
+> bleibt beim Einspielen einer Sicherung auf dem Gerät. Altersangaben der
+> Einsatzansicht laufen im Minutentakt (`minuten-takt.ts`) und rechnen ab dem
+> früheren von Stand und Eingang (`angaben-alter.ts`). Lageblatt: eingelesene
+> Eintreffzeiten mit „*", Rückrufnummer mit (D)/(P), Hinweis zur nachgehenden
+> Geräteuhr, „Bedarf nicht erfasst" statt „keine Unterbringung", Kraftstoffe nur
+> mit Menge. Rückfragen und Quittungen mit Rückgängig für „Zug für N Einheiten",
+> „Meldung entfernen" (mit abgeteiltem Trupp), „Verschieben" und „Als Einsatzmeldung
+> zählen"; `abgeteiltDoppeltImStapel` prüft Folgemeldungen im Stapelweg. Ausgabe-Sperre
+> mit Nachlauf von 1,2 s (`arbeitet.ts`). Tabelle der Einsatzansicht ohne Seitenpolster
+> (Kopfzelle „Ges."). Startbündel 1,19 MB (Budget neu gesetzt, ADR-003
+> Aufnahmeregel 5). Kein neuer Host, Transportformat und Schema unverändert.
+>
 > **Nachgezogen 2026-10-26 (Runde 13):** Audit Runde 13 (38 Befunde, drei Pakete)
 > — Kap. 5, 8.2, 8.4, 8.6, 9: kein neuer Speicherschlüssel. `sicherungEinspielen`
 > schreibt bei einem Fehler den vorherigen Bestand zurück und meldet auf Deutsch,

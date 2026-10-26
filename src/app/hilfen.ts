@@ -831,8 +831,14 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
   if (b.personalErfassung === PersonalErfassung.VOLLSTAENDIG) {
     const leere = b.personal.filter(personLeer).length;
     if (leere > 0) {
+      // Dieselbe Zahl wie der Knopf „Vorbelegung entfernen (n Personen ohne Namen)": Der nimmt auch Plätze mit Funktion, aber
+      // ohne Namen mit (R14-N1).
+      const ohneNamen = b.personal.filter(personUnbenannt).length;
       hinweise.push({
-        text: `${leere} Personenkarte${leere === 1 ? " ohne Angaben zählt" : "n ohne Angaben zählen"} in die Stärke — ausfüllen oder entfernen.`,
+        text:
+          ohneNamen > leere
+            ? `${ohneNamen} Personenkarten ohne Namen zählen in die Stärke (${leere} davon ganz leer) — ausfüllen oder entfernen.`
+            : `${leere} Personenkarte${leere === 1 ? " ohne Angaben zählt" : "n ohne Angaben zählen"} in die Stärke — ausfüllen oder entfernen.`,
         schritt: S_PERSONAL,
       });
     }

@@ -25,7 +25,7 @@ import {
 } from "./lagemonitor-beginn";
 import { frageJaNein } from "./dialoge";
 import { sammlungenBeiseitegelegt } from "./unlesbar";
-import { alterText, anwesendenAlterText, ausEingabeWert, bedarfText, dauerText, lagebild, uhrTeile, zuEingabeWert, type EinheitZeile } from "./lagemonitor";
+import { alterKurz, alterText, anwesendenAlterText, ausEingabeWert, bedarfText, dauerText, lagebild, uhrTeile, zuEingabeWert, type EinheitZeile } from "./lagemonitor";
 
 const URL_PARAMETER = "lagemonitor";
 /** Gemerkte Helligkeitsstufe des Monitors („dunkel" oder „gedimmt"; „hell" wird nie gemerkt, R7-L3). */
@@ -230,11 +230,15 @@ function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] })
         <tbody>
           {einheiten.map((e) => (
             <tr key={e.id}>
-              <td className="lm-orga">{e.orga}{e.soll && <abbr className="lm-soll" title="Sollstärke, nicht gemeldet"> S</abbr>}{e.alterMin != null && <abbr className="lm-alt" title="Meldung ist älter als eine Stunde"> ⚠ {e.alterMin >= 1440 ? `${Math.floor(e.alterMin / 1440)} T` : `${Math.floor(e.alterMin / 60)} Std`}</abbr>}</td>
+              <td className="lm-orga">{e.orga}{e.soll && <abbr className="lm-soll" title="Sollstärke, nicht gemeldet"> S</abbr>}{e.alterMin != null && <abbr className="lm-alt" title={e.standAlt ? "Der Stand der Angaben ist älter als eine Stunde" : "Meldung ist älter als eine Stunde"}> ⚠ {e.standAlt ? "Stand " : ""}{alterKurz(e.alterMin)}</abbr>}{e.zug && <span className="lm-zug-tel">{e.zug}</span>}</td>
               <td>{e.ort || "–"}</td>
               {/* Am Telefon entfällt die Ort-Spalte: Der Ort steht im Funkrufnamen oder, wenn nicht, als Zusatz darunter (R9-K5). */}
               <td data-ort={ortImFunkruf(e) ? undefined : e.ort}>{e.funkruf || "–"}</td>
-              <td className="lm-typ">{e.typ || "–"}</td>
+              <td className="lm-typ">
+                {e.typ || (e.zug ? "" : "–")}
+                {e.zug && <span className="lm-zug">{e.typ ? " · " : ""}{e.zug}</span>}
+                {e.auftrag && <span className="lm-auftrag">{e.auftrag}</span>}
+              </td>
               <td className="lm-zahl">{e.fuehrer}</td>
               <td className="lm-zahl">{e.unterfuehrer}</td>
               <td className="lm-zahl">{e.mannschaft}</td>

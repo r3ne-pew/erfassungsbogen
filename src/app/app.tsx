@@ -41,6 +41,7 @@ import {
   einheitAnzeigename,
   einheitOrt,
   neuerBogen,
+  pruefpunkte,
   schrittStatus,
   zeitpunktDeutsch,
 } from "./hilfen";
@@ -101,8 +102,8 @@ import {
 } from "./eintrag-zeiten";
 import { offlineText, useOfflineStand } from "./offline-bereit";
 import { uebergabeBestaetigen, uebergabeNachWeg, uebergabeText, type UebergabeStand } from "./uebergabe-stand";
-import { ART_LABEL, EinsatzDetail, EinsatzListe, letzteMeldungText, type Eingang } from "./einsaetze-ui";
-import { anzahlEinheiten, einheitenAufteilung, letzteMeldung, meldungsNummern, nummernWechsel, nummernWechselText, rueckkehrText } from "./einheiten-tabelle";
+import { ART_LABEL, EinsatzDetail, EinsatzListe, LetzteMeldungZeit, type Eingang } from "./einsaetze-ui";
+import { anzahlEinheiten, einheitenAufteilung, letzteMeldung, lueckeKurz, meldungsNummern, nummernWechsel, nummernWechselText, rueckkehrText } from "./einheiten-tabelle";
 import { exportSammlung, exportStaendeLaden, exportStaendeUebernehmen, exportStandAusWeitergabe, exportVermerken, lieferungsMarke, weitergabeUmImportErgaenzen, type ExportStand, type ExportUmfang, type ExportZiel } from "./export-stand";
 import { NICHTS_UEBERNOMMEN_SATZ, abgleichGliederung, abgleichText, einsatzAbgleichen, importUebernahm, sammlungFuerZiel, widerspruecheZumMerken, type Einzelheit } from "./einsatz-abgleich";
 import { widerspruchMerken } from "./widerspruch-merker";
@@ -130,7 +131,9 @@ import { EinleseQuittung } from "./einlese-quittung";
 import { StapelQuittung } from "./stapel-quittung";
 import { EintreffzeitFeld, abrueckzeitVomZettel, aehnlicherOrt, andererEinheitstyp, eintreffzeitPruefen } from "./nacherfassung";
 import { meldungenVergleichen, steckbriefZeile, type MeldungsVergleich } from "./meldungs-vergleich";
-import { abgeteiltDoppelt, abgeteiltDoppeltText, doppeltHerausnehmbar, ohneAbgeteilte } from "./abgeteilt-doppelt";
+import { beispielMerken, beispielVergessen } from "./beispiel-herkunft";
+import { ansichtSchluessel, stelleLaden, stelleMerken } from "./ansicht-stelle";
+import { abgeteiltDoppelt, abgeteiltDoppeltImStapel, abgeteiltDoppeltText, doppeltHerausnehmbar, ohneAbgeteilte } from "./abgeteilt-doppelt";
 import { DaumenQuittung } from "./daumen-quittung";
 import {
   entwurfAusAnderemFenster,
@@ -166,6 +169,7 @@ import { speicherFehlerDetails, speicherFehlerKurz } from "./speicher-fehler-tex
 import { UhrHinweis, UhrWarnung } from "./uhr-warnung";
 import { Dialogschicht, frageFelder, frageJaNein, frageWahl, zeigeHinweis, type Antwortweg } from "./dialoge";
 import { istNurStaerke, nurStaerkeUebernehmen, wasWegfiele } from "./nur-staerke";
+import { eintreffzeitStapelHinweis } from "./angaben-alter";
 import {
   SchrittEinheit,
   SchrittEinsatz,
@@ -786,6 +790,11 @@ function useAnsichtBeginntOben(ansicht: string) {
 function AppInhalt() {
   const { sofort: START_SOFORT, empfang: START_EMPFANG, entwurf: ENTWURF, fortsetzen: NACH_ABGLEICH } = startLage();
   const [bogen, setBogen] = useState<Erfassungsbogen | null>(START_SOFORT ?? ENTWURF?.bogen ?? null);
+  // Ohne offenen Bogen gibt es keine Beispieldaten mehr, nach denen die Rückfrage beim Abwählen von „Übung" fragt (R14-E6).
+  const keinBogen = bogen === null;
+  useEffect(() => {
+    if (keinBogen) beispielVergessen();
+  }, [keinBogen]);
   /**
    * Kennung der gespeicherten Vorlage, die der offene Bogen gerade bearbeitet
    * („Bearbeiten" auf der Vorlagenkarte). Solange sie gesetzt ist, bietet die
@@ -1093,6 +1102,13 @@ function AppInhalt() {
 
   const vorlagenNeuLaden = () => setVorlagen(vorlagenLaden());
   const einsaetzeNeuLaden = () => setEinsaetze(einsaetzeLaden());
+  // R14-S1: Ein nicht gespeicherter Zug oder Auftrag wird beim Verlassen der Einsatzansicht gesichert (Browser-Zurück,
+  // Startseite) — aber erst NACH dem letzten Laden der Liste. Die Karte zeigte beim nächsten Öffnen den alten Stand
+  // („Text weg"), obwohl er im Speicher stand. Jeder Wechsel der offenen Ansicht liest die Sammlungen darum frisch ein;
+  // die Aufräumfunktionen der Karten laufen vor diesem Effekt.
+  useEffect(() => {
+    setEinsaetze(einsaetzeLaden());
+  }, [offenerEinsatzId]);
 
   // Browser-Verlauf: Jeder Ansichtswechsel (Schritt, Startseite, Einsatz,
   // Scanner) bekommt einen Verlaufseintrag, damit „Zurück" — auf Android der
@@ -1107,6 +1123,57 @@ function AppInhalt() {
   // verließ die App (Audit Runde 2, R2-H5).
   const startSichtbar = zeigeStart || !bogen;
   const musterAktiv = musterVorlage != null;
+  // R14-S2: Bildlaufstelle über ein Neuladen hinweg. Gemerkt wird beim Rollen, Ausblenden und Verlassen der Seite; nach dem
+  // Neuladen rollt die erste passende Ansicht (gleiche Ansicht-Kennung, höchstens 12 Stunden alt) dorthin zurück.
+  const stelleAnsicht = ansichtSchluessel({ schritt, zeigeStart: startSichtbar, einsatz: offenerEinsatzId, scanner: scannerOffen, muster: musterAktiv });
+  const stelleAnsichtRef = useRef(stelleAnsicht);
+  stelleAnsichtRef.current = stelleAnsicht;
+  const stelleErledigt = useRef(false);
+  useEffect(() => {
+    let uhr: ReturnType<typeof setTimeout> | undefined;
+    const merken = () => {
+      if (stelleAnsichtRef.current && stelleErledigt.current) stelleMerken(stelleAnsichtRef.current, window.scrollY);
+    };
+    const beiRollen = () => {
+      clearTimeout(uhr);
+      uhr = setTimeout(merken, 300);
+    };
+    const beiSichtwechsel = () => {
+      if (document.visibilityState === "hidden") merken();
+    };
+    window.addEventListener("scroll", beiRollen, { passive: true });
+    window.addEventListener("pagehide", merken);
+    document.addEventListener("visibilitychange", beiSichtwechsel);
+    return () => {
+      clearTimeout(uhr);
+      window.removeEventListener("scroll", beiRollen);
+      window.removeEventListener("pagehide", merken);
+      document.removeEventListener("visibilitychange", beiSichtwechsel);
+    };
+  }, []);
+  useEffect(() => {
+    if (stelleErledigt.current || !stelleAnsicht) return;
+    // Nur die erste Ansicht nach dem Start: Wer sie verlässt, beginnt anderswo oben (und merkt von da an wieder).
+    const y = stelleLaden(stelleAnsicht);
+    if (y == null) {
+      // Die Startseite wartet noch auf „Fortsetzen"; jede andere Ansicht ohne gemerkte Stelle beendet das Warten.
+      if (stelleAnsicht !== "start") stelleErledigt.current = true;
+      return;
+    }
+    const rollen = () => window.scrollTo(0, y);
+    const rahmen = requestAnimationFrame(() => requestAnimationFrame(() => {
+      rollen();
+      stelleErledigt.current = true;
+    }));
+    // Listen, die erst nach dem ersten Bild ihre Höhe haben, holen den Rest nach.
+    const spaeter = setTimeout(() => {
+      if (Math.abs(window.scrollY - y) > 40) rollen();
+    }, 400);
+    return () => {
+      cancelAnimationFrame(rahmen);
+      clearTimeout(spaeter);
+    };
+  }, [stelleAnsicht]);
   // Ausgangsansicht einer Erfassung oder eines Scans (Startseite, Einsatzansicht) und wie viele Verlaufseinträge
   // seither dazukamen (R11-S2). Endet die Handlung dort, werden sie mit einem Schritt verbraucht.
   const ruecksprungRef = useRef<{ ziel: Ansicht; tiefe: number } | null>(null);
@@ -1455,6 +1522,7 @@ function AppInhalt() {
     }
     if (!(await darfBogenErsetzen({ titel: "Bogen aus Datei öffnen?", was: "den Bogen aus der Datei", ok: "Datei öffnen", ohneFrage: bereitsGefragt }))) return;
     const b = geladen.bogen;
+    if (b.uebung) beispielMerken(b); // Namen und Nummern aus einem Übungs-/Beispielbogen: Rückfrage beim Abwählen von „Übung" (R14-E6)
     setBogen(b);
     setzeEmpfang(null); // Datei-Import: kein signierter Transport
     setSchritt(UEBERSICHT);
@@ -1934,6 +2002,7 @@ function AppInhalt() {
     if (!(await darfBogenErsetzen({ titel: "Beispielbogen öffnen?", was: "den Beispielbogen", ok: "Beispielbogen öffnen" }))) {
       return false;
     }
+    beispielMerken(b); // erfundene Personen und Nummern (R14-E6)
     setBogen(b);
     setzeEmpfang(null); // Beispiel aus der App, kein signierter Transport
     setSchritt(UEBERSICHT);
@@ -2926,6 +2995,7 @@ function AppInhalt() {
       const frei = await sollstaerkeFreigeben(b);
       if (!frei) return;
       b = frei;
+      if (!(await ortFreigeben(b))) return;
     }
     setMeldung(""); // Rückmeldung des Assistenten gehört nicht in die Folgeansicht
     setFehler("");
@@ -2958,6 +3028,34 @@ function AppInhalt() {
     setVorlageInBearbeitung(null);
     setzeEmpfang(null);
     setSchritt(0);
+  }
+
+  /**
+   * Vor dem Ablegen eines selbst erfassten Bogens ohne Ort der Einheit (R14-E7): Ein leerer Bogen stand mit „1 zählend"
+   * als Einheit ohne Namen in der Lage. Die Rückfrage nennt die offenen Punkte, wie „Bogen übergeben…" es tut.
+   * Rückgabe: true = ablegen; false = abgebrochen oder zum Feld gesprungen.
+   */
+  async function ortFreigeben(b: Erfassungsbogen): Promise<boolean> {
+    if (einheitOrt(b.einheit) || b.einheit.standortRef != null) return true;
+    const punkte = pruefpunkte(b, true, heuteDatum()).map((p) => lueckeKurz(p.text));
+    const wahl = await frageWahl({
+      titel: "Ort der Einheit fehlt",
+      text: `Ohne Ort stünde die Einheit namenlos in der Lage. Offene Punkte (${punkte.length}): ${punkte.join(", ")}.`,
+      wege: [
+        { wert: "eintragen", label: "Ort eintragen" },
+        { wert: "trotzdem", label: "Trotzdem ablegen", gefahr: true },
+      ],
+    });
+    if (wahl === "eintragen") {
+      einsatzWahlDialog.current?.close();
+      if (schritt !== 0) geheZuFeld(0, "feld-einheit-name");
+      else {
+        const feld = document.getElementById("feld-einheit-name");
+        feld?.scrollIntoView?.({ block: "center" });
+        feld?.focus({ preventScroll: true });
+      }
+    }
+    return wahl === "trotzdem";
   }
 
   /**
@@ -3637,6 +3735,11 @@ function AppInhalt() {
     setEinlese(d ? { fehler: d.fehler, meldung: d.meldung } : { fehler: "In der Auswahl sind keine Bilddateien.", meldung: "" });
   }
 
+  /** Folgemeldungen aufgeteilter Einheiten im Stapel: die abgeteilten Personen stehen doppelt (R14-D2). */
+  function doppeltImStapel(zielId: string, vorher: MeldeEintrag[], neueIds: string[]): string[] {
+    return abgeteiltDoppeltImStapel(vorher, einsaetzeLaden().find((x) => x.id === zielId)?.eintraege ?? [], neueIds);
+  }
+
   /** Satz zu den eben aufgenommenen Bögen, die wegen der Datenschutzfrist ohne Namen ankamen (R11-A1); sonst leer. */
   function anonymImStapel(zielId: string, neueIds: string[]): string[] {
     if (neueIds.length === 0) return [];
@@ -3708,11 +3811,15 @@ function AppInhalt() {
     const aehnlich = aehnlichImStapel(zielId, vorher, neueIds);
     // Bögen mit Stand über der Datenschutzfrist: ohne Namen angekommen, das Papier trägt sie (R11-A1).
     const anonym = anonymImStapel(zielId, neueIds);
+    // Folgemeldung einer aufgeteilten Einheit: abgeteilte Personen stehen doppelt (R14-D2).
+    const doppelt = doppeltImStapel(zielId, vorher, neueIds);
     const hinweise = [
       ...sammlungenUebernommen,
       ...vorrang,
       ...aehnlich,
       ...anonym,
+      ...doppelt,
+      eintreffzeitStapelHinweis(neu),
       zusatz.sammlungInPdf ? SAMMLUNG_IN_PDF_HINWEIS : zusatz.lage && neu > 0 ? LAGE_NACHTRAGEN_HINWEIS : "",
     ].filter(Boolean);
     return {
@@ -3722,7 +3829,7 @@ function AppInhalt() {
       zeilen: [...fehlerZeilen, ...hinweise],
       fehler: fehlerZeilen.join(" "),
       // Die mögliche Doppelung gehört in die sichtbare Quittung, nicht nur in die Zeilen des Berichts (R7-N1).
-      meldung: [...sammlungenUebernommen, bogenMeldung, ...anonym, ...vorrang, ...(mitBildern ? [] : aehnlich)].filter(Boolean).join(" "),
+      meldung: [...sammlungenUebernommen, bogenMeldung, ...anonym, ...doppelt, eintreffzeitStapelHinweis(neu), ...vorrang, ...(mitBildern ? [] : aehnlich)].filter(Boolean).join(" "),
     };
   }
 
@@ -3907,7 +4014,7 @@ function AppInhalt() {
       }
       einsaetzeNeuLaden();
       const vorrang = await vorrangImStapel(zielId, vorher, neueIds);
-      setStapelBericht([...stapelBerichtZeilen(erg, neu, uebersprungen, daten, neueIds.length > 0), ...anonymImStapel(zielId, neueIds), ...vorrang, ...aehnlichImStapel(zielId, vorher, neueIds)]);
+      setStapelBericht([...stapelBerichtZeilen(erg, neu, uebersprungen, daten, neueIds.length > 0), ...anonymImStapel(zielId, neueIds), ...doppeltImStapel(zielId, vorher, neueIds), ...vorrang, ...aehnlichImStapel(zielId, vorher, neueIds), eintreffzeitStapelHinweis(neu)].filter(Boolean));
       const voll = speicherVollMeldung(speicherVoll);
       if (voll) setEinlese({ fehler: voll, meldung: "" });
     } catch (e) {
@@ -4585,7 +4692,7 @@ function AppInhalt() {
                   „{s.name}" öffnen
                   {/* Einheitenzahl und Ort: zwei gleichnamige Sammlungen sind sonst nur an der Zeit zu unterscheiden (R11-K3). */}
                   <span className="knopf-zusatz sammlung-kenndaten">{einheitenAufteilung(s.eintraege, s.art)}{s.ort ? ` · ${s.ort}` : ""}</span>
-                  <span className="knopf-zusatz">{letzteMeldungText(s)}</span>
+                  <span className="knopf-zusatz"><LetzteMeldungZeit s={s} /></span>
                 </button>
               ))}
               <button type="button" className={laufende.length > 0 ? "" : "primaer"} onClick={neuerEinsatz}>Neue Einsatz-Sammlung…</button>
@@ -4768,10 +4875,12 @@ function AppInhalt() {
           Knöpfe vor und sagt nicht, wo man gerade ist. */}
       <nav className="schritte" aria-label="Schritte">
         {SCHRITTE.map((name, i) => {
-          const st = status[i]; // undefined für die Übersicht (letzter Schritt)
+          // Schnellerfassung: Einsatz (2) und Sofortbedarf (5) werden übersprungen — kein Haken für Unerledigtes (R14-N3).
+          const entfaellt = fremdeErfassung && bogen.personalErfassung === PersonalErfassung.NUR_STAERKE && (i === 1 || i === 4);
+          const st = entfaellt ? undefined : status[i]; // undefined für die Übersicht (letzter Schritt)
           const klassen = [i === schritt ? "aktiv" : "", st ? `status-${st}` : ""].filter(Boolean).join(" ");
           // „begonnen" als Wort statt „•": das Symbol verstand niemand (R2-N3, F6).
-          const glyph = st === "ok" ? "✓" : st === "begonnen" ? "offen" : "";
+          const glyph = entfaellt ? "–" : st === "ok" ? "✓" : st === "begonnen" ? "offen" : "";
           return (
             <button
               key={name}
@@ -4780,7 +4889,7 @@ function AppInhalt() {
               ref={i === schritt ? reiterZeigen : undefined}
               aria-current={i === schritt ? "step" : undefined}
               aria-label={st ? `${i + 1}. ${name} — ${SCHRITT_STATUS_TITEL[st]}` : undefined}
-              title={st ? SCHRITT_STATUS_TITEL[st] : undefined}
+              title={entfaellt ? "Entfällt in der Schnellerfassung" : st ? SCHRITT_STATUS_TITEL[st] : undefined}
               onClick={() => setSchritt(i)}
             >
               {/* Name in eigenem Span: auf dem Telefon steht nur die Nummer im

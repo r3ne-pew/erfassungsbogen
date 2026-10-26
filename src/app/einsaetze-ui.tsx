@@ -64,11 +64,13 @@ import { vorhandeneZuege, zugNormalisiert } from "./zug-name";
 import { einheitOrt } from "@bos/meldekopf/darstellung";
 import { RolleMarke } from "./rolle-marke";
 import { tippWaehrendLauf, useArbeitet } from "./arbeitet";
+import { useMinutenTakt } from "./minuten-takt";
 import { AUSGABE_SPERRE_MS, ausgabeFreiBeiTipp } from "./ausgabe-sperre";
 import { verloreneEingabeText } from "./eingabe-verloren";
 import { loeschenErfassungSatz } from "./einsatz-geloescht";
 import { LagemonitorBlock } from "./lagemonitor-ui";
-import { alterText, anwesendenAlter, anwesendenAlterText, kraftstoffTeile, personenText, zugAlterText } from "./lagemonitor";
+import { angabenAlterWort, angabenZeit } from "./angaben-alter";
+import { alterText, anwesendenAlter, anwesendenAlterText, bedarfOhneAngabeHinweis, bedarfOhneAngabeText, kraftstoffTeile, personenText, zugAlterText } from "./lagemonitor";
 import { AufteilenPanel } from "./aufteilen-ui";
 import { ZusammenfuehrenPanel } from "./zusammenfuehren-ui";
 import type { AufteilungsWahl } from "@bos/meldekopf/aufteilen";
@@ -77,7 +79,7 @@ import { AbsenderKontakt, KontaktLink, PersonKontakt } from "./kontakt-link";
 import { ANONYM_ERKLAERUNG } from "./anonym-hinweis";
 import { STAND_NACH_EINTREFFEN_TEXT, standLiegtNachEintreffen } from "./stand-uhr";
 import { staerkeSummeZeile } from "./staerke-summe";
-import { aggregiere, aggregiereNachZug, aktuelleMeldungen, mwdText, uebungenAusserhalbDerLage, verpflegungBogenText, verpflegungText, type EinsatzSummen } from "./auswertung";
+import { aggregiere, aggregiereNachZug, aktuelleMeldungen, bedarfNichtErfasst, mwdText, uebungenAusserhalbDerLage, verpflegungBogenText, verpflegungText, type EinsatzSummen } from "./auswertung";
 import {
   SORTIERUNGEN,
   passtZuLueckenfilter,
@@ -124,6 +126,7 @@ import {
   einheitenAufteilung,
   bedarfMarken,
   gemerkteAnsicht,
+  ORT_REGEL,
   abweichenderOrt,
   letzteMeldung,
   frischGemeldet,
@@ -389,6 +392,12 @@ export function letzteMeldungText(s: Einsatzsammlung): string {
   return `Letzte Meldung ${meldeZeitMitAlter(letzte).text}${aelteste ? ` · ${aelteste}` : ""}${neu > 0 ? ` · ${neu} neu seit der letzten Kenntnisnahme` : ""}${unlesbarZusatz ? ` · ${unlesbarZusatz}` : ""}`;
 }
 
+/** {@link letzteMeldungText} als Text, der im Minutentakt mitläuft — für den Knopf der Startseite (R14-O1). */
+export function LetzteMeldungZeit({ s }: { s: Einsatzsammlung }) {
+  useMinutenTakt();
+  return <>{letzteMeldungText(s)}</>;
+}
+
 /** Kalendertag der Geräteuhr: „28.09.2026". */
 function tagText(ms: number): string {
   return datumZweistellig(ms);
@@ -421,6 +430,12 @@ function standText(b: Erfassungsbogen): string {
  */
 export type Eingang = { schluessel: string; nonce: number };
 
+/** Eine Einheit, die eben in einen anderen Einsatz verschoben wurde; `zurueck` holt sie wieder her (R14-D4). */
+export type Verschoben = { name: string; nach: string; zurueck: () => Promise<void>; nonce: number };
+
+/** Ein Zug, der eben mehreren Einheiten zugleich zugeordnet wurde — für Quittung und Rückgängig (R14-G2). */
+export type ZugGesetzt = { zug: string; ziele: { id: string; einheitSchluessel: string }[]; nonce: number };
+
 /** Marke für genau diese Zeile — null, wenn sie nicht gemeint ist. */
 function marke(eingang: Eingang | null | undefined, schluessel: string): string | null {
   return eingang && eingang.schluessel === schluessel ? `${eingang.schluessel}#${eingang.nonce}` : null;
@@ -439,6 +454,8 @@ export function ZugSchnellZuordnen(props: {
   /** Alle Zug-Etiketten der Sammlung — Vorschläge. */
   vorhandene: readonly (string | undefined)[];
   onGeaendert: () => void;
+  /** Zug gesetzt — die Ansicht quittiert mit „Rückgängig" (R14-G2/H2/D3). */
+  onZugGesetzt?: (z: ZugGesetzt) => void;
 }) {
   const [wert, setWert] = useState("");
   const listeId = useId();
@@ -452,6 +469,12 @@ export function ZugSchnellZuordnen(props: {
     });
     if (ok) {
       setWert("");
+      // Der Zug in der Schreibweise, in der er gespeichert wurde („1.Zug" = „1. Zug").
+      props.onZugGesetzt?.({
+        zug: zugNormalisiert(zug, props.vorhandene) || zug.trim(),
+        ziele: ziele.map((e) => ({ id: e.id, einheitSchluessel: e.einheitSchluessel })),
+        nonce: Date.now(),
+      });
       props.onGeaendert();
     }
   }
@@ -507,6 +530,7 @@ export function EinsatzListe(props: {
   onGeaendert: () => void;
 }) {
   const { einsaetze, onOeffnen, onGeaendert } = props;
+  useMinutenTakt(); // Altersangaben „vor 4 Min" laufen mit (R14-O1)
   const [zeigePapierkorb, setZeigePapierkorb] = useState(false);
   const papierkorb = einsaetzePapierkorb();
   // Nach dem Laden gelesen: einsaetzePapierkorb() hat die Frist gerade geprüft
@@ -1036,6 +1060,8 @@ export function EinsatzDetail(props: {
   const { einsatz, onZurueck, onGeaendert, onScannen, onManuell, onDateiImport, onBilderImport, onExport, onCsvExport, onCsvDetailExport, onOldenburgExport, onSammelPdf, onWeitergeben, onLageblatt, onBlanko, onGeloescht, eingang, ausgabeQuittung } = props;
   // Läuft eine PDF-Erzeugung (arbeitet.ts), sperrt sie alle PDF-Knöpfe und beschriftet den eigenen (R5-O3).
   const arbeitet = useArbeitet();
+  // Altersangaben („gerade eben", „älter als 1 Std") rechnen im Minutentakt und bei Rückkehr in die App neu (R14-O1).
+  useMinutenTakt();
   // Tipp-Sperre und sofortige Rückmeldung aller Ausgaben (R12-G2): ein Doppeltipp erzeugt keine zweite Datei,
   // und auch eine Ausgabe, die sofort fertig ist (CSV, Excel), sagt am Knopf, dass sie läuft.
   const [sofort, setSofort] = useState<string | null>(null);
@@ -1195,7 +1221,11 @@ export function EinsatzDetail(props: {
       entfernteMerken(einsatz.id, [eintragId]); // kommt beim Import nicht still zurück (R2-D4)
     });
     if (!ok) return;
-    zurueckQuittieren(`Stärke zurückgenommen: „${name}" gilt wieder mit ${vorher}.`);
+    zurueckQuittieren(
+      staerkeGeaendert.kennzeichnung
+        ? `Zurückgenommen: „${name}" ${staerkeGeaendert.kennzeichnung === "einsatz" ? "ist wieder als Übung gekennzeichnet" : "zählt wieder als Einsatzmeldung"}.`
+        : `Stärke zurückgenommen: „${name}" gilt wieder mit ${vorher}.`,
+    );
     setStaerkeGeaendert(null);
     onGeaendert();
   }
@@ -1380,11 +1410,48 @@ export function EinsatzDetail(props: {
   useEffect(() => {
     if (statusWechsel || zuletztEntfernt || aufgeteilt || zusammengefuehrt || staerkeGeaendert) setKenntnisGenommen(null);
   }, [statusWechsel, zuletztEntfernt, aufgeteilt, zusammengefuehrt, staerkeGeaendert]);
+  // Zug für mehrere Einheiten auf einmal gesetzt: Quittung mit „Rückgängig", die zu genau dieser Handlung gehört
+  // (R14-G2/H2/D3). Jede andere Quittung und jede spätere Handlung an einer Karte (Zug, Auftrag, Zeit) ersetzt sie —
+  // ein stehengebliebenes „Rückgängig" nähme sonst etwas anderes zurück als die letzte Handlung.
+  const [zugGesetzt, setZugGesetzt] = useState<ZugGesetzt | null>(null);
+  // Verschieben in einen anderen Einsatz: „Rückgängig" bleibt auch nach „Alles klar" erreichbar (R14-D4).
+  const [verschobenQuittung, setVerschobenQuittung] = useState<Verschoben | null>(null);
+  useEffect(() => {
+    setZugGesetzt(null);
+    setVerschobenQuittung(null);
+  }, [einsatz.id, statusWechsel, zuletztEntfernt, aufgeteilt, zusammengefuehrt, staerkeGeaendert]);
+  /** Eine spätere Handlung an einer Karte: ältere Quittungen ohne Bezug zu ihr weichen. */
+  const andereHandlung = () => {
+    setKenntnisGenommen(null);
+    setZugGesetzt(null);
+    setZurueckQuittung(null);
+    setVerschobenQuittung(null);
+  };
+  const zugGesetztMelden = (z: ZugGesetzt) => {
+    andereHandlung();
+    setZugGesetzt(z);
+  };
+  async function zugZurueck() {
+    if (!zugGesetzt) return;
+    const { zug, ziele } = zugGesetzt;
+    // Nur, was noch diesen Zug trägt (an einer Karte inzwischen anders gesetzt: bleibt).
+    const betroffen = ziele.filter((z) => einsatz.eintraege.some((e) => e.id === z.id && e.zugEtikett === zug));
+    const ok = await gesichert("Rückgängig", () => {
+      for (const z of betroffen) zugSetzen(einsatz.id, z.einheitSchluessel, z.id, "");
+    });
+    setZugGesetzt(null);
+    if (ok) {
+      zurueckQuittieren(`Zug „${zug}“ wieder entfernt: ${betroffen.length === 1 ? "1 Einheit" : `${betroffen.length} Einheiten`}.`);
+      onGeaendert();
+    }
+  }
   function kenntnisNehmen() {
     const vorher = kenntnisStand;
     const anzahl = aufgenommenListe.length;
     const { stand, gespeichert } = kenntnisVermerkenGeprueft(einsatz, alleEinsatzIds(), Date.now(), true);
     setKenntnis({ einsatzId: einsatz.id, stand });
+    setZugGesetzt(null);
+    setVerschobenQuittung(null);
     setKenntnisGenommen({ vorher, anzahl, nonce: Date.now() });
     if (!gespeichert) {
       void zeigeHinweis({
@@ -1724,6 +1791,7 @@ export function EinsatzDetail(props: {
           einheiten={[eingegangen]}
           vorhandene={einsatz.eintraege.map((e) => e.zugEtikett)}
           onGeaendert={onGeaendert}
+          onZugGesetzt={zugGesetztMelden}
         />
       )}
 
@@ -1825,7 +1893,7 @@ export function EinsatzDetail(props: {
                   )}
                   {folge?.rueckkehr && <strong className="rueckkehr-hinweis"> — ⚠ {rueckkehrText(folge.rueckkehr)}, zählt wieder mit</strong>}
                   {fremdeOrte.has(e.einheitSchluessel) && (
-                    <span className="warnung-text"> — ⚠ Bogen nennt: „{fremdeOrte.get(e.einheitSchluessel)}“, passt das zu dieser Lage?</span>
+                    <span className="warnung-text"> — ⚠ Bogen nennt: „{fremdeOrte.get(e.einheitSchluessel)}“, passt das zu dieser Lage? {ORT_REGEL}</span>
                   )}
                 </li>
               );
@@ -1838,6 +1906,7 @@ export function EinsatzDetail(props: {
             einheiten={aufgenommenListe}
             vorhandene={einsatz.eintraege.map((e) => e.zugEtikett)}
             onGeaendert={onGeaendert}
+            onZugGesetzt={zugGesetztMelden}
           />
           {/* Zwei Ziele in Fingergröße (44 px) mit Abstand: Der Sammelschalter „Zur Kenntnis genommen" lag
               mit 30 px und ohne Lücke unter dem Sortierumschalter (R11-D1). */}
@@ -1896,6 +1965,7 @@ export function EinsatzDetail(props: {
               {sum.unterbringungBenoetigt > 0 ? ` · Unterbringung ${personenText(sum.unterbringungAngefordert.personen)}` : ""}
               {kraftstoffTeile(sum.kraftstoff).map((k) => ` · ${k}`).join("")}
               {sum.ruhezeitErforderlich > 0 ? ` · Ruhezeit ${sum.ruhezeitErforderlich} ${sum.ruhezeitErforderlich === 1 ? "Einheit" : "Einheiten"}` : ""}
+              {sum.bedarfOhneAngabe > 0 ? ` · ${bedarfOhneAngabeText(sum.bedarfOhneAngabe)}` : ""}
             </span>
           </summary>
           {/* Vier Bedarfsarten als beschriftete Paare statt als zwei Sätze: nach
@@ -1944,8 +2014,8 @@ export function EinsatzDetail(props: {
           </dd>
           <dt>Kraftstoff</dt>
           <dd>
-            Diesel {sum.kraftstoff.dieselLiter} l · Benzin {sum.kraftstoff.benzinLiter} l
-            {sum.kraftstoff.gemischLiter > 0 ? ` · Gemisch ${sum.kraftstoff.gemischLiter} l` : ""}
+            {/* Nur gemeldete Sorten, wie Kurzzeile, Monitor und Lageblatt (R14-K4). */}
+            {kraftstoffTeile(sum.kraftstoff).join(" · ") || "keiner angefordert"}
           </dd>
           <dt>Fahrzeuge</dt>
           <dd>
@@ -1960,6 +2030,7 @@ export function EinsatzDetail(props: {
             )}
           </dd>
         </dl>
+        {sum.bedarfOhneAngabe > 0 && <p className="hinweis bedarf-ohne-angabe">{bedarfOhneAngabeHinweis(sum.bedarfOhneAngabe)}</p>}
         </details>
       ) : (
       <section className="karte">
@@ -2010,8 +2081,8 @@ export function EinsatzDetail(props: {
           </dd>
           <dt>Kraftstoff</dt>
           <dd>
-            Diesel {sum.kraftstoff.dieselLiter} l · Benzin {sum.kraftstoff.benzinLiter} l
-            {sum.kraftstoff.gemischLiter > 0 ? ` · Gemisch ${sum.kraftstoff.gemischLiter} l` : ""}
+            {/* Nur gemeldete Sorten, wie Kurzzeile, Monitor und Lageblatt (R14-K4). */}
+            {kraftstoffTeile(sum.kraftstoff).join(" · ") || "keiner angefordert"}
           </dd>
           <dt>Fahrzeuge</dt>
           <dd>
@@ -2026,6 +2097,7 @@ export function EinsatzDetail(props: {
             )}
           </dd>
         </dl>
+        {sum.bedarfOhneAngabe > 0 && <p className="hinweis bedarf-ohne-angabe">{bedarfOhneAngabeHinweis(sum.bedarfOhneAngabe)}</p>}
       </section>
       )}
 
@@ -2279,6 +2351,8 @@ export function EinsatzDetail(props: {
                 frisch={frischUnquittiert(e)}
                 fremderOrt={fremdeOrte.get(e.einheitSchluessel)}
                 onEingabeVerloren={eingabeVerloren}
+                onHandlung={andereHandlung}
+                onVerschoben={(v) => { andereHandlung(); setVerschobenQuittung(v); }}
               />
             ))}
           </ul>
@@ -2537,6 +2611,7 @@ export function EinsatzDetail(props: {
                 Entfernt{zuletztEntfernt.eintraege.length > 1 ? ` (${zuletztEntfernt.eintraege.length} Fassungen)` : ""}:
               </strong>{" "}
               Meldung {zuletztEntfernt.nummer != null ? `Nr. ${zuletztEntfernt.nummer} ` : ""}„{einheitAnzeigename(zuletztEntfernt.eintraege[0]!.bogen.einheit)}"
+              {zuletztEntfernt.bezug ? ` (${zuletztEntfernt.bezug})` : ""}
               {zuletztEntfernt.verschoben ? `. ${zuletztEntfernt.verschoben}.` : ""}
               {entferntStapel.length > 1 ? ` · davor noch ${entferntStapel.length - 1} entfernt` : ""}
             </>
@@ -2559,7 +2634,16 @@ export function EinsatzDetail(props: {
           onRueckgaengig={() => void staerkeZurueckNehmen()}
           onSchliessen={() => setStaerkeGeaendert(null)}
         >
-          <strong>Stärke {staerkeGeaendert.vorher} → {staerkeGeaendert.nachher}</strong> geändert: „{staerkeGeaendert.name}"
+          {staerkeGeaendert.kennzeichnung ? (
+            <>
+              <strong>{staerkeGeaendert.kennzeichnung === "einsatz" ? "Zählt jetzt als Einsatzmeldung" : "Jetzt als Übung gekennzeichnet"}:</strong>{" "}
+              „{staerkeGeaendert.name}"
+            </>
+          ) : (
+            <>
+              <strong>Stärke {staerkeGeaendert.vorher} → {staerkeGeaendert.nachher}</strong> geändert: „{staerkeGeaendert.name}"
+            </>
+          )}
         </DaumenQuittung>
       )}
       {zusammengefuehrt && (
@@ -2588,6 +2672,34 @@ export function EinsatzDetail(props: {
             {statusWechsel.status === MeldeStatus.ABGERUECKT ? "Abgerückt" : "Wieder anwesend"} {zeitKurz(statusWechsel.zeit)}:
           </strong>{" "}
           {nummerText(statusWechsel.vorher.einheitSchluessel)}„{einheitAnzeigename(statusWechsel.vorher.bogen.einheit)}"
+        </DaumenQuittung>
+      )}
+      {verschobenQuittung && !statusWechsel && !zuletztEntfernt && !aufgeteilt && !zusammengefuehrt && !staerkeGeaendert && (
+        <DaumenQuittung
+          key={`verschoben:${verschobenQuittung.nonce}`}
+          prellschutz
+          mehrzeilig
+          onRueckgaengig={() => {
+            const v = verschobenQuittung;
+            setVerschobenQuittung(null);
+            void v.zurueck();
+          }}
+          rueckgaengigName={`Verschieben rückgängig machen — zurück nach „${einsatz.name}“`}
+          onSchliessen={() => setVerschobenQuittung(null)}
+        >
+          <strong>Verschoben:</strong> „{verschobenQuittung.name}“ liegt jetzt in „{verschobenQuittung.nach}“.
+        </DaumenQuittung>
+      )}
+      {zugGesetzt && !statusWechsel && !zuletztEntfernt && !aufgeteilt && !zusammengefuehrt && !staerkeGeaendert && !verschobenQuittung && (
+        <DaumenQuittung
+          key={`zug:${zugGesetzt.nonce}`}
+          prellschutz
+          onRueckgaengig={() => void zugZurueck()}
+          rueckgaengigName="Zug-Zuordnung rückgängig machen"
+          onSchliessen={() => setZugGesetzt(null)}
+        >
+          <strong>Zug „{zugGesetzt.zug}“ gesetzt:</strong>{" "}
+          {zugGesetzt.ziele.length === 1 ? "1 Einheit" : `${zugGesetzt.ziele.length} Einheiten`}
         </DaumenQuittung>
       )}
       {kenntnisGenommen && !statusWechsel && !zuletztEntfernt && !aufgeteilt && !zusammengefuehrt && !staerkeGeaendert && (
@@ -2862,8 +2974,14 @@ function TabellenZelle({ spalte, zeile: z }: { spalte: TabellenSpalte; zeile: Ta
       // Abgerückte: Das Alter der Meldung sagt nichts mehr über die Lage.
       if (!z.anwesend) return <td>—</td>;
       const jetzt = Date.now();
-      const alt = jetzt - z.empfangenAm >= 60 * 60_000;
-      return <td className={alt ? "warnung-text" : undefined}>{alt ? "⚠ " : ""}{alterText(z.empfangenAm, jetzt).replace(/^vor /, "")}</td>;
+      const alt = jetzt - z.angabenAm >= 60 * 60_000;
+      return (
+        <td className={alt ? "warnung-text" : undefined}>
+          {alt ? "⚠ " : ""}
+          {z.angabenWort === "Stand" ? "Stand " : ""}
+          {alterText(z.angabenAm, jetzt).replace(/^vor /, "")}
+        </td>
+      );
     }
     case "stand":
       return (
@@ -2897,6 +3015,21 @@ function Zaehlwert({ wert }: { wert: number }) {
  * Personal, Fahrzeuge, Sofortbedarf) — spiegelt die Erfassungs-Übersicht bzw.
  * das PDF, aber ohne Bearbeiten-Aktionen: fremde Bögen werden hier nur gelesen.
  */
+/** E-Mail-Adresse mit Umbruchstellen hinter „@" und „." — der Text selbst bleibt unverändert kopierbar (R14-S4). */
+export function adresseUmbrechbar(wert: string): ReactNode[] {
+  const aus: ReactNode[] = [];
+  let teil = "";
+  for (const z of wert) {
+    teil += z;
+    if (z === "@" || z === ".") {
+      aus.push(teil, <wbr key={aus.length} />);
+      teil = "";
+    }
+  }
+  if (teil) aus.push(teil);
+  return aus;
+}
+
 export function BogenDetails({ bogen, absender, absenderKarte }: { bogen: Erfassungsbogen; absender?: string; absenderKarte?: Absenderkarte }) {
   const org = bogen.einheit.organisation;
   const s = staerke(bogen);
@@ -2927,8 +3060,9 @@ export function BogenDetails({ bogen, absender, absenderKarte }: { bogen: Erfass
             <dt>{vokabText(h.bezeichnung, vokabularFuer(org, "ebene")) || "Ebene"}</dt>
             <dd>
               {h.name}{h.kurz ? ` (${h.kurz})` : ""}
-              {h.telefon ? <>{" · "}<KontaktLink art="tel" wert={h.telefon} /></> : null}
-              {h.email ? <>{" · "}<KontaktLink art="mail" wert={h.email} /></> : null}
+              {/* Telefon und Adresse je Zeile, Adressen nur an „@" und „." umbrechen — kein „·" am Zeilenrand (R14-S4). */}
+              {h.telefon ? <span className="kontakt-zeile"><KontaktLink art="tel" wert={h.telefon} /></span> : null}
+              {h.email ? <span className="kontakt-zeile"><KontaktLink art="mail" wert={h.email} kinder={adresseUmbrechbar(h.email)} /></span> : null}
             </dd>
           </div>
         ))}
@@ -2951,6 +3085,12 @@ export function BogenDetails({ bogen, absender, absenderKarte }: { bogen: Erfass
       {nurStaerke && (
         <p className="hinweis">
           Meldekopf-Modus: nur Stärke gemeldet{bogen.personal.length > 0 ? " — unten die Ansprechpartner:innen" : ""}.
+        </p>
+      )}
+      {/* „Stärke ändern…" lässt die Namen stehen: Überschrift und Liste sagen sonst Verschiedenes (R14-W4). */}
+      {bogen.staerkeManuell != null && bogen.personal.length > 0 && bogen.personal.length !== s.gesamt && (
+        <p className="hinweis stärke-hand-hinweis">
+          Stärke von Hand auf {s.gesamt} geändert; die {bogen.personal.length} Namen stammen aus der Meldung davor.
         </p>
       )}
       {bogen.personal.length > 0 ? (
@@ -3067,6 +3207,15 @@ function DiffPosten({ titel, art, zeilen }: { titel: string; art: "zugang" | "ab
  */
 function Aenderungen({ vorher, nachher }: { vorher: Erfassungsbogen; nachher: Erfassungsbogen }) {
   const d = bogenDiff(vorher, nachher);
+  // Übung ↔ Einsatzmeldung am Meldekopf umgestellt (R14-E1): eine eigene Zeile, kein „inhaltlich unverändert".
+  const kennzeichnung = !!vorher.uebung === !!nachher.uebung ? "" : nachher.uebung ? "Einsatzmeldung → Übung" : "Übung → Einsatzmeldung";
+  if (d.anzahl === 0 && kennzeichnung) {
+    return (
+      <p className="hinweis diff-block">
+        Gegenüber der Meldung vom {standText(vorher)}: Kennzeichnung {kennzeichnung}.
+      </p>
+    );
+  }
   if (d.anzahl === 0) {
     return (
       <p className="hinweis diff-block">
@@ -3077,6 +3226,7 @@ function Aenderungen({ vorher, nachher }: { vorher: Erfassungsbogen; nachher: Er
   return (
     <div className="diff-block">
       <p className="hinweis">Gegenüber der Meldung vom {standText(vorher)}:</p>
+      {kennzeichnung && <p className="hinweis">Kennzeichnung: {kennzeichnung}.</p>}
       <DiffWerte titel="Stärke" eintraege={d.staerke} />
       <DiffPosten titel="Personal neu gemeldet" art="zugang" zeilen={d.personalZugang} />
       <DiffPosten titel="Personal nicht mehr gemeldet" art="abgang" zeilen={d.personalAbgang} />
@@ -3109,6 +3259,8 @@ interface StaerkeGeaendert {
   nachher: number;
   /** Die neue Fassung — „Rückgängig" nimmt sie wieder heraus. */
   eintragId: string;
+  /** Statt der Stärke wurde die Kennzeichnung umgestellt: „Als Einsatzmeldung zählen" / „Als Übung kennzeichnen" (R14-E1). */
+  kennzeichnung?: "einsatz" | "uebung";
 }
 
 /** Eben zusammengeführt — Quittung mit Rückweg und der Stärke vorher → nachher (R4-D5). */
@@ -3131,6 +3283,35 @@ interface Entfernt {
   nummer?: number;
   /** Folge für die Nummern der übrigen Einheiten (R8-D2), leer ohne Verschiebung. */
   verschoben?: string;
+  /** Teil und Stärke, wie die Karte sie trägt („Teil „Trupp 2", 4 Personen") — gleich benannte Karten unterscheiden (R14-D1). */
+  bezug?: string;
+}
+
+/**
+ * Was die Rückfrage „Meldung entfernen?" und ihre Quittung über die Meldung sagen, außer dem Namen (R14-D1): Ein
+ * abgeteilter Trupp trägt denselben Namen wie seine Stammeinheit; ohne Teil und Stärke lautete die Rückfrage für beide
+ * Karten wörtlich gleich. `bezug` = Teil und Stärke dieser Meldung, `folge` = was mit den Personen geschieht.
+ */
+export function entfernenBezug(alle: readonly MeldeEintrag[], kopf: MeldeEintrag): { bezug: string; folge: string } {
+  const personen = (n: number) => `${n} ${n === 1 ? "Person" : "Personen"}`;
+  const eigene = staerke(kopf.bogen).gesamt;
+  const istTeil = stammSchluessel(kopf.einheitSchluessel) !== kopf.einheitSchluessel;
+  const bezug = `${istTeil ? `Teil „${kopf.teilEtikett || "abgeteilt"}", ` : ""}${personen(eigene)}`;
+  if (istTeil) {
+    return {
+      bezug,
+      folge: `Diese ${personen(eigene)} zählen danach nirgends mehr; zurück in die Einheit geht es über „Zusammenführen…“.`,
+    };
+  }
+  const teile = koepfeJe(alle).filter(
+    (e) => e.einheitSchluessel !== kopf.einheitSchluessel && stammSchluessel(e.einheitSchluessel) === kopf.einheitSchluessel,
+  );
+  if (teile.length === 0) return { bezug, folge: "" };
+  const liste = teile.map((e) => `„${e.teilEtikett || "abgeteilt"}" (${personen(staerke(e.bogen).gesamt)})`).join(", ");
+  return {
+    bezug,
+    folge: `Abgeteilt bleibt stehen: ${liste}.`,
+  };
 }
 
 /** Eine Revisionszeile in der Historie, mit Diff zur direkt älteren Fassung. */
@@ -3214,6 +3395,10 @@ function EinheitKarte(props: {
   fremderOrt?: string;
   /** Die Karte verschwand mit nicht gespeicherter Eingabe: Schlüssel der Einheit und Satz dazu (R12-O1). */
   onEingabeVerloren?: (einheitSchluessel: string, text: string) => void;
+  /** Zug, Auftrag/Notiz oder Zeit an dieser Karte gespeichert — ältere Quittungen ohne Bezug weichen (R14-D3). */
+  onHandlung?: () => void;
+  /** Eine Einheit wurde in einen anderen Einsatz verschoben und der Ergebnisdialog ist zu — Quittung mit Rückgängig (R14-D4). */
+  onVerschoben?: (v: Verschoben) => void;
 }) {
   const { einsatzId, kopf, alle, onGeaendert, onEntfernt, qualifikation = "", qualifikationKurz = "", eingang, onStatusWechsel, kompakt = false } = props;
   // Auf dem Telefon zugeklappt, bis die Einheit angetippt wird (R2-K7).
@@ -3391,7 +3576,10 @@ function EinheitKarte(props: {
       zugSetzen(einsatzId, kopf.einheitSchluessel, kopf.id, wert ?? zugEntwurf ?? ""),
     );
     if (!offenLassen) setZugEntwurf(null);
-    if (ok) onGeaendert();
+    if (ok) {
+      if (!offenLassen) props.onHandlung?.();
+      onGeaendert();
+    }
   }
 
   /**
@@ -3424,7 +3612,10 @@ function EinheitKarte(props: {
   async function notizSpeichern(offenLassen = false) {
     const ok = await gesichert("Auftrag/Notiz", () => notizSetzen(einsatzId, kopf.id, notizEntwurf ?? ""));
     if (!offenLassen) setNotizEntwurf(null);
-    if (ok) onGeaendert();
+    if (ok) {
+      if (!offenLassen) props.onHandlung?.();
+      onGeaendert();
+    }
   }
 
   /**
@@ -3518,7 +3709,10 @@ function EinheitKarte(props: {
         : abrueckzeitSetzen(einsatzId, kopf.id, ms),
     );
     setZeitEntwurf(null);
-    if (ok) onGeaendert();
+    if (ok) {
+      props.onHandlung?.();
+      onGeaendert();
+    }
   }
 
   function aufteilenAusfuehren(wahl: AufteilungsWahl, opt: AufteilungOptionen) {
@@ -3700,6 +3894,50 @@ function EinheitKarte(props: {
     onGeaendert();
   }
 
+  /**
+   * Eine fälschlich als „Übung" gemeldete Einheit am Meldekopf auf „Einsatzmeldung" umstellen — und umgekehrt (R14-E1).
+   * Vorher half nur „Entfernen" und Neuerfassen oder eine neue Datei vom Absender; die Einheit fehlte so lange in
+   * Stärke, Verpflegung und Bedarf der Lage. Wie bei „Stärke ändern…" entsteht eine neue Fassung mit allem Übrigen
+   * der bisherigen (Historie, Quittung und „Rückgängig" wie dort); die Rückfrage nennt die Folge für die Summen.
+   */
+  async function uebungUmstellen() {
+    const wirdEinsatz = !!kopf.bogen.uebung;
+    const name = einheitAnzeigename(kopf.bogen.einheit);
+    const personen = staerke(kopf.bogen).gesamt;
+    const personenText = `${personen} ${personen === 1 ? "Person" : "Personen"}`;
+    const sicher = await frageJaNein({
+      titel: wirdEinsatz ? "Als Einsatzmeldung zählen?" : "Als Übung kennzeichnen?",
+      text:
+        `„${name}" zählt danach ${wirdEinsatz ? "in Stärke, Verpflegung und Unterbringung mit" : "dort nicht mehr mit"} (${personenText}). ` +
+        "Neue Fassung in der Historie; „Rückgängig“ nimmt sie zurück.",
+      ok: wirdEinsatz ? "Als Einsatzmeldung zählen" : "Als Übung kennzeichnen",
+      fokus: "abbruch",
+    });
+    if (!sicher) return;
+    const neu: Erfassungsbogen = JSON.parse(JSON.stringify(kopf.bogen));
+    neu.uebung = !wirdEinsatz;
+    neu.stand = Math.max(stempelZeitpunkt(), kopf.bogen.stand);
+    const neueFassung: { fassung: MeldeEintrag | null } = { fassung: null };
+    const ok = await gesichert("Kennzeichnung ändern", () => {
+      const r = meldungAufnehmen(einsatzId, neu, { quelle: "manuell", einheitSchluesselOverride: kopf.einheitSchluessel });
+      if (r?.neu) {
+        neueFassung.fassung = r.eintrag;
+        fassungObenauf(einsatzId, r.eintrag.id);
+      }
+    });
+    if (!ok) return;
+    if (neueFassung.fassung) {
+      props.onStaerkeGeaendert?.({
+        name,
+        vorher: personen,
+        nachher: personen,
+        eintragId: neueFassung.fassung.id,
+        kennzeichnung: wirdEinsatz ? "einsatz" : "uebung",
+      });
+    }
+    onGeaendert();
+  }
+
   async function verschieben() {
     const andere = einsaetzeLaden().filter((s) => s.id !== einsatzId);
     if (andere.length === 0) {
@@ -3748,9 +3986,8 @@ function EinheitKarte(props: {
         ok: `Rückgängig — zurück nach „${hierName}"`,
         abbruch: "Alles klar",
       });
-      if (
-        zurueck &&
-        (await gesichert("Verschieben rückgängig", () => {
+      const zurueckholen = () =>
+        gesichert("Verschieben rückgängig", () => {
           einheitVerschieben(ziel, einsatzId, schl);
           if (zielEigene.length > 0 && zielVorher) {
             // Was das Ziel schon vorher hatte, geht zurück ins Ziel und aus dieser
@@ -3759,9 +3996,19 @@ function EinheitKarte(props: {
             for (const e of zielEigene) if (!hierIds.has(e.id)) meldungEntfernen(einsatzId, e.id);
             einsatzImportieren({ ...zielVorher, eintraege: zielEigene });
           }
-        }))
-      ) {
-        onGeaendert();
+        });
+      if (zurueck) {
+        if (await zurueckholen()) onGeaendert();
+      } else {
+        // „Alles klar" ließ im Ausgangs-Einsatz keine Spur: Die Quittung bleibt mit „Rückgängig", bis etwas Neues kommt (R14-D4).
+        props.onVerschoben?.({
+          name: einheitAnzeigename(kopf.bogen.einheit),
+          nach: name,
+          zurueck: async () => {
+            if (await zurueckholen()) onGeaendert();
+          },
+          nonce: Date.now(),
+        });
       }
     }
   }
@@ -3774,15 +4021,22 @@ function EinheitKarte(props: {
     const ids = alle.filter((e) => e.einheitSchluessel === kopf.einheitSchluessel).map((e) => e.id);
     const kopie = letzterStandMit(einsatzId, ids);
     const verschoben = entfernenNummernText(alle, kopf.einheitSchluessel);
+    const { bezug, folge: personenFolge } = entfernenBezug(alle, kopf);
     const sicher = await frageJaNein({
       titel: "Meldung entfernen?",
       text: (
         <>
           {/* Der Name steht im ersten Satz, die Folge für die Nummern gleich danach: Bei großer Schrift oder Zoom
-              sah man neben dem roten Knopf nur den Anfang (R9-D5, R10-D1). Kurz gehalten, rund 40 Wörter (R10-S3). */}
+              sah man neben dem roten Knopf nur den Anfang (R9-D5, R10-D1). Kurz gehalten, rund 40 Wörter (R10-S3).
+              Nummer, Teil und Stärke unterscheiden einen abgeteilten Trupp von seiner Stammeinheit (R14-D1). */}
           <p>
-            <strong>„{einheitAnzeigename(kopf.bogen.einheit)}" (Stand {standText(kopf.bogen)}) entfernen</strong> — samt Historie.
+            <strong>{props.nummer != null ? `Nr. ${props.nummer} ` : ""}„{einheitAnzeigename(kopf.bogen.einheit)}" ({bezug}, Stand {standText(kopf.bogen)}) entfernen</strong> — samt Historie.
           </p>
+          {personenFolge && (
+            <p>
+              <strong>Personen:</strong> {personenFolge}
+            </p>
+          )}
           {verschoben && (
             <p>
               <strong>Nummern ändern sich:</strong> {verschoben}.
@@ -3814,7 +4068,7 @@ function EinheitKarte(props: {
       // Die Einträge reisen vollständig zurück an die Ansicht: Sie bietet sie
       // zum Zurückholen an, solange niemand weitergeklickt hat. Für Einsätze
       // gibt es einen Papierkorb, für die einzelne Meldung bisher nichts.
-      if (weg.length > 0) onEntfernt?.({ art: "einheit", eintraege: fassungenJeEinheit(weg, kopf.einheitSchluessel), verschoben });
+      if (weg.length > 0) onEntfernt?.({ art: "einheit", eintraege: fassungenJeEinheit(weg, kopf.einheitSchluessel), verschoben, bezug });
       onGeaendert();
     });
   }
@@ -3926,7 +4180,8 @@ function EinheitKarte(props: {
                 eingetroffene Einheit fiel weniger auf als eine Folgemeldung. */}
             {zaehlt && (props.ungesehen || (props.frisch && istNeu(kopf))) && !neueFassung ? (
               <span className="neu-badge" title="Vor weniger als 30 Minuten eingetroffen oder seit der letzten Kenntnisnahme eingegangen — unabhängig vom Export">
-                <span className="neu-lang">kürzlich eingetroffen</span>
+                {/* „neu" bleibt auch aufgeklappt, solange der Kasten oben die Meldung als neu zählt (R14-S3). */}
+                <span className="neu-lang">{props.ungesehen ? "neu · kürzlich eingetroffen" : "kürzlich eingetroffen"}</span>
                 <span className="neu-kurz">neu</span>
               </span>
             ) : null}
@@ -3950,8 +4205,8 @@ function EinheitKarte(props: {
             // Bedarf steht dafür in der Kurzform der Tabelle.
             <span className="muster-sub kompakt-zeile">
               <span>Stärke {staerkeText(kopf.bogen)}</span>
-              {zaehlt && Date.now() - kopf.empfangenAm >= VERALTET_MIN * 60_000 && (
-                <span className="kompakt-merkmal alter-merkmal warnung-text">⚠ {alterText(kopf.empfangenAm, Date.now())}</span>
+              {zaehlt && Date.now() - angabenZeit(kopf) >= VERALTET_MIN * 60_000 && (
+                <span className="kompakt-merkmal alter-merkmal warnung-text">⚠ {angabenAlterWort(kopf) === "Stand" ? "Stand " : ""}{alterText(angabenZeit(kopf), Date.now())}</span>
               )}
               {zaehlt && nurSollstaerke(kopf.bogen) && (
                 <span className="kompakt-merkmal luecken-merkmal" title="Niemand hat gezählt: Die Zahl ist die Sollstärke der Vorbelegung.">
@@ -3972,8 +4227,11 @@ function EinheitKarte(props: {
               {bedarf.map((m) => (
                 <span className={m.dringend && zaehlt ? "bedarf-marke dringend" : "bedarf-marke routine"} key={m.lang} title={m.lang}>{m.kurz}</span>
               ))}
+              {zaehlt && bedarfNichtErfasst(kopf.bogen) && (
+                <span className="bedarf-marke routine bedarf-nicht-erfasst">Bedarf nicht erfasst</span>
+              )}
               {props.fremderOrt && (
-                <span className="kompakt-merkmal luecken-merkmal" title={`Bogen nennt als Ort/Auftrag: „${props.fremderOrt}“ — passt das zu dieser Lage?`}>
+                <span className="kompakt-merkmal luecken-merkmal" title={`Bogen nennt als Ort/Auftrag: „${props.fremderOrt}“ — passt das zu dieser Lage? ${ORT_REGEL}`}>
                   ⚠ Anderer Einsatz?
                 </span>
               )}
@@ -4014,8 +4272,8 @@ function EinheitKarte(props: {
           {datenschutzfristAbgelaufen(kopf.bogen, datenschutzZeitpunkt()) && (
             <span className="muster-sub anonym-zeile">{ANONYM_ERKLAERUNG}</span>
           )}
-          {zaehlt && Date.now() - kopf.empfangenAm >= VERALTET_MIN * 60_000 && (
-            <span className="muster-sub alter-zeile warnung-text">⚠ Meldung {alterText(kopf.empfangenAm, Date.now())}</span>
+          {zaehlt && Date.now() - angabenZeit(kopf) >= VERALTET_MIN * 60_000 && (
+            <span className="muster-sub alter-zeile warnung-text">⚠ {angabenAlterWort(kopf)} {alterText(angabenZeit(kopf), Date.now())}</span>
           )}
           {absenderLabel(kopf.signatur?.absender) && (
             <span className="muster-sub absender-zeile">Absender: <AbsenderKontakt karte={kopf.signatur?.absender} /></span>
@@ -4066,7 +4324,7 @@ function EinheitKarte(props: {
           {/* Ort/Auftrag des Bogens passt nicht zur Lage (R4-K6): nicht sperren, nur zeigen. */}
           {props.fremderOrt && (
             <span className="muster-sub warnung-text fremder-ort" role="note">
-              ⚠ Bogen nennt: „{props.fremderOrt}“ — passt das zu dieser Lage? Zählt trotzdem mit.
+              ⚠ Bogen nennt: „{props.fremderOrt}“ — passt das zu dieser Lage? {ORT_REGEL} Zählt trotzdem mit.
             </span>
           )}
           {/* Nachgereichter Bogen hinter der Schnellerfassung (R4-W1). */}
@@ -4090,6 +4348,11 @@ function EinheitKarte(props: {
                 // Blick (Audit Runde 3, R3-K7).
                 <span className={m.dringend && zaehlt ? "bedarf-marke dringend" : "bedarf-marke routine"} key={m.lang}>{m.lang}</span>
               ))}
+            </span>
+          )}
+          {zaehlt && bedarfNichtErfasst(kopf.bogen) && (
+            <span className="muster-sub bedarf-zeile">
+              <span className="bedarf-marke routine bedarf-nicht-erfasst">Bedarf nicht erfasst</span>
             </span>
           )}
           {/* Nur Sollplätze, niemand gezählt: als solche kennzeichnen, nicht als
@@ -4348,6 +4611,9 @@ function EinheitKarte(props: {
           {zaehlt && (
             <>
               <button type="button" aria-describedby={nameId} onClick={() => void staerkeAendern()}>Stärke ändern…</button>{" "}
+              <button type="button" aria-describedby={nameId} onClick={() => void uebungUmstellen()}>
+                {kopf.bogen.uebung ? "Als Einsatzmeldung zählen…" : "Als Übung kennzeichnen…"}
+              </button>{" "}
             </>
           )}
           <button type="button" aria-describedby={nameId} onClick={() => void verschieben()}>Verschieben…</button>{" "}

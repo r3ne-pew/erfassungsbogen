@@ -84,8 +84,15 @@ let lauf: { von: number; bis: number } | null = null;
  */
 export function tippWaehrendLauf(zeit: number): boolean {
   if (!lauf || !Number.isFinite(zeit)) return false;
-  return zeit >= lauf.von && zeit <= lauf.bis;
+  return zeit >= lauf.von && zeit <= lauf.bis + NACHLAUF_MS;
 }
+
+/**
+ * Ein Tipp kurz NACH dem Ende des Laufs gehört noch zum Doppeltipp (R14-G1): Der Finger tippte auf den gesperrten
+ * Knopf, sah nichts, und tippt nach Sekunden noch einmal — oder ein Prüfer wartet, bis der Knopf wieder frei ist,
+ * und tippt dann sofort. Wer die Datei bewusst ein zweites Mal will, liest erst die Quittung.
+ */
+export const NACHLAUF_MS = 1200;
 
 /** Nur für Tests. */
 export function arbeitetZuruecksetzen(): void {

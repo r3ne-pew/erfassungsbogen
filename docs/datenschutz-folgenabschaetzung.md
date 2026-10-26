@@ -11,6 +11,14 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-26 — Audit Runde 14:** Speicherorte neu: `eeb.beispiel-herkunft.v1`
+> im `localStorage` (Namen und Nummern eines Beispiel- oder Übungsbogens, also
+> fiktive Daten; wird gelöscht, sobald kein Bogen offen ist und mit „Alle Daten
+> löschen"; 5.4, 5.7) und `eeb.ansicht-stelle.v1` im `sessionStorage` (nur Ansicht-Kennung
+> und Bildlaufstelle, keine Personendaten). Das Lageblatt kennzeichnet eingelesene
+> Zeiten und nennt die Rückrufnummer mit (D)/(P) für dienstlich/privat (Richtigkeit,
+> Art. 5 Abs. 1 lit. d DSGVO). Empfänger und Netzverbindungen unverändert (5.8).
+>
 > **Nachgezogen 2026-10-26 — Audit Runde 13:** Keine neuen Speicherorte und Empfänger.
 > Nach der Anonymisierung entfällt auch die „Bemerkung der Einheit" (Freitext), das
 > Lageblatt und die Quittung nennen das (Art. 5 Abs. 1 lit. e DSGVO). Autokorrektur und

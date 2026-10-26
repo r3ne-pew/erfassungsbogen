@@ -388,7 +388,9 @@ export function einsatzAbgleichen(importiert: Einsatzsammlung, jetzt = Date.now(
       const hierWert = wert(feld, hier.kopf).text;
       const dateiWert = wert(feld, datei.kopf).text;
       if (ent.von === "datei") was.push(dateiWert);
-      if (ent.widerspruch) {
+      // Dieselbe Anzeige auf beiden Seiten (nur die Sekunden unterscheiden sich): kein Widerspruch, den jemand prüfen
+      // könnte — „hier 08:39, dort 08:39" lehrte, die Hinweise zu übergehen (R14-W2).
+      if (ent.widerspruch && hierWert !== dateiWert) {
         ergebnis.widersprueche.push({
           einheitSchluessel: schl,
           einheit: kurzname(ziel),

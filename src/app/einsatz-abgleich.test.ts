@@ -208,6 +208,25 @@ describe("einsatzAbgleichen — Widersprüche", () => {
     expect(kopf(id, "Ulm").eingetroffenAm).toBe(1_700_000_000_000);
     expect(r.aktualisiert[0]!.was[0]).toMatch(/^eingetroffen /);
   });
+
+  it("R14-W2: zwei Eintreffzeiten derselben Minute sind kein Widerspruch; verschiedene Minuten sehr wohl", () => {
+    const id = buehne();
+    auf(geraetB);
+    eintreffzeitSetzen(id, kopf(id, "Ulm").id, new Date(2026, 9, 26, 8, 39, 41).getTime());
+    eintreffzeitSetzen(id, kopf(id, "Biberach").id, new Date(2026, 9, 26, 9, 12, 5).getTime());
+    const vonB = weitergeben(id);
+    auf(geraetA);
+    eintreffzeitSetzen(id, kopf(id, "Ulm").id, new Date(2026, 9, 26, 8, 39, 3).getTime());
+    eintreffzeitSetzen(id, kopf(id, "Biberach").id, new Date(2026, 9, 26, 8, 39, 3).getTime());
+    const r = einsatzAbgleichen(vonB);
+    // Ulm: beide zeigen 08:39 — nichts, was jemand prüfen könnte.
+    expect(r.widersprueche.filter((w) => w.einheit === "Ulm")).toEqual([]);
+    expect(abgleichText(r)).not.toMatch(/Ulm Eintreffzeit/);
+    // Biberach: 08:39 gegen 09:12 — der echte Unterschied wird genannt, mit zwei verschiedenen Zeiten.
+    const bib = r.widersprueche.find((w) => w.einheit === "Biberach");
+    expect(bib).toBeDefined();
+    expect(bib!.hier).not.toBe(bib!.datei);
+  });
 });
 
 describe("Weitergabe-Vermerk nach dem Rückimport (R3-W2)", () => {

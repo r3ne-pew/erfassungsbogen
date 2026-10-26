@@ -4,6 +4,7 @@
  */
 
 import { UhrHinweis } from "../uhr-warnung";
+import { beispielRestText } from "../beispiel-herkunft";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Erfassungsbogen,
@@ -232,7 +233,9 @@ export function Uebersicht(props: {
      Übergabe-Dialog. Dort ist es der letzte Moment, in dem die Lücke noch
      auffallen kann — wer bis zum QR-Code durchgetippt hat, hat die Warnung
      oben längst weggescrollt. */
-  const offenePunkte = pruefpunkte(bogen, true, heuteDatum());
+  // Dazu die Reste aus einem Beispiel, solange die Übungsmarke fehlt (R14-E6).
+  const beispielRest = bogen.uebung ? "" : beispielRestText(bogen);
+  const offenePunkte = [...pruefpunkte(bogen, true, heuteDatum()), ...(beispielRest ? [{ text: `${beispielRest} Personal und Nummern ersetzen.`, schritt: 2 }] : [])];
   const zeitraumVorbei = bogen.einsatz.zeitraumBis < heuteDatum();
   const [schluesselKurz, setSchluesselKurz] = useState<string | null>(null);
   // Geräteschlüssel ließ sich nicht speichern: das Siegel gilt nur für diese
@@ -272,7 +275,10 @@ export function Uebersicht(props: {
   const nurStaerke = bogen.personalErfassung === PersonalErfassung.NUR_STAERKE;
   const staerkeText = `${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt}`;
   // R13-S2: Schnellerfassung (nur Stärke) von der Startseite: Ablegen in die Sammlung ist der erste Weg.
-  const schnellAblegen = nurStaerke && !props.sammelAktion && !props.vorlageBearbeitung && props.onInEinsatzAufnehmen != null;
+  // R14-H1: Auch ein empfangener, unveränderter Bogen einer fremden Einheit (Link ohne Sammlung auf diesem Gerät) gehört
+  // in eine Sammlung — nicht in „Mängel beheben und weitergeben".
+  const empfangenFremd = props.signatur != null && props.signatur.zustand !== "unsigniert";
+  const schnellAblegen = (nurStaerke || empfangenFremd) && !props.sammelAktion && !props.vorlageBearbeitung && props.onInEinsatzAufnehmen != null;
   const mwd = unterbringungMWD(bogen);
   const vp = verpflegung(bogen);
   /**
@@ -599,6 +605,7 @@ export function Uebersicht(props: {
           <p className="hinweis schnell-hinweis">
             Meldung einer fremden Einheit: Sie gehört in eine Einsatz-Sammlung. „Bogen übergeben…“ gäbe sie mit dem Siegel
             dieses Geräts weiter.
+            {empfangenFremd && !nurStaerke && " Ändern macht daraus einen eigenen Bogen dieses Geräts."}
           </p>
         )}
         {props.signatur && props.signatur.zustand !== "unsigniert" && (
@@ -677,7 +684,7 @@ export function Uebersicht(props: {
             </>
           );
         })()}
-        <Vollstaendigkeit punkte={offenePunkte} geheZu={geheZu} />
+        <Vollstaendigkeit punkte={offenePunkte} geheZu={geheZu} fremd={empfangenFremd && !nurStaerke && schnellAblegen} schnell={nurStaerke && schnellAblegen} />
       </section>
 
       {/* Einheit und Einsatz beantworten zusammen „wer, wo, wann" und tragen je
@@ -721,7 +728,8 @@ export function Uebersicht(props: {
             {bogen.einsatz.einsatzende != null ? zeitpunktDeutsch(bogen.einsatz.einsatzende) : "—"}
             {/* Die Zeiten des Meldekopfs kommen nicht in diesen Bogen zurück;
                 ohne eigenen Eintrag trägt das PDF keine Einsatzzeiten (R2-W4). */}
-            {(bogen.einsatz.einsatzbeginn == null || bogen.einsatz.einsatzende == null) && (
+            {/* Die Schnellerfassung hat keinen Schritt 2 (R14-N3). */}
+            {(bogen.einsatz.einsatzbeginn == null || bogen.einsatz.einsatzende == null) && !nurStaerke && (
               <span className="hinweis">
                 {" "}— für eigene Nachweise in Schritt 2 eintragen; die Zeiten des Meldekopfs kommen nicht hierher zurück.
               </span>

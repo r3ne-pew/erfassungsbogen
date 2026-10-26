@@ -866,11 +866,31 @@ export function Vollstaendigkeit(props: {
   geheZu: (schritt: number, feld?: string) => void;
   /** Satz unter der Liste — im Übergabe-Dialog sagt er, dass nichts gesperrt ist. */
   nachsatz?: string;
+  /** Empfangene Meldung einer fremden Einheit: Die Punkte sind Hinweise an die Einheit, kein Auftrag an dieses Gerät (R14-H1). */
+  fremd?: boolean;
+  /** Schnellerfassung (nur Stärke): „vollständig" gilt nur für das, was dort erfragt wird (R14-N3). */
+  schnell?: boolean;
 }) {
   const { punkte, geheZu, nachsatz } = props;
   if (punkte.length === 0) {
     return (
-      <p className="vollstaendig-ok" role="status">✓ Alle Angaben vollständig und plausibel.</p>
+      <p className="vollstaendig-ok" role="status">
+        {props.schnell ? "✓ Für die Schnellerfassung vollständig (Typ, Fahrzeuge, Bedarf fehlen bewusst)." : "✓ Alle Angaben vollständig und plausibel."}
+      </p>
+    );
+  }
+  if (props.fremd) {
+    return (
+      <div className="vollstaendigkeit" role="status">
+        <p className="vollstaendigkeit-titel">
+          Hinweise an die Einheit ({punkte.length}) — hier nichts zu beheben:
+        </p>
+        <ul>
+          {punkte.map((p) => (
+            <li key={p.text}>{p.text}</li>
+          ))}
+        </ul>
+      </div>
     );
   }
   return (
