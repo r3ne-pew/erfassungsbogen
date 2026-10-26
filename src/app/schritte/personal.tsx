@@ -108,6 +108,20 @@ function useQualiVorschlaege(aktiv: boolean, org: OrganisationsTyp): readonly Fr
   );
 }
 
+/**
+ * Satz für die Rückfrage beim Entfernen der ERSTEN Person (R11-D3): Sie ist die Ansprechperson, bei ihr fragt der
+ * Meldekopf nach. Nennt, wer danach an ihre Stelle rückt und ob der Bogen dann noch eine Rückrufnummer trägt.
+ */
+export function ansprechWechselSatz(personal: Person[]): string {
+  const kopf = "Sie ist die Ansprechperson (erste Person der Liste) — bei ihr fragt der Meldekopf nach.";
+  const naechste = personal[1];
+  if (!naechste) return `${kopf} Danach gibt es keine Ansprechperson und keine Rückrufnummer auf dem Bogen.`;
+  const hatNummer = naechste.kontakte.some((k) => (k.wert ?? "").trim() !== "");
+  return `${kopf} Danach gilt ${personBezeichnung(naechste, 1)} als Ansprechperson${
+    hatNummer ? " (mit Erreichbarkeit)." : " — OHNE Erreichbarkeit: der Bogen hätte dann keine Rückrufnummer."
+  }`;
+}
+
 function KontakteEditor(props: { kontakte: Kontakt[]; aendern: (k: Kontakt[]) => void }) {
   const { kontakte, aendern } = props;
   const set = (i: number, p: Partial<Kontakt>) => aendern(kontakte.map((k, j) => (j === i ? { ...k, ...p } : k)));
@@ -367,6 +381,8 @@ function PersonKarte(props: {
   ansprech?: boolean;
   /** Meldekopf-Schnellerfassung: die Karte zählt nicht in die Stärke — das steht dran. */
   nichtGezaehlt?: boolean;
+  /** Bei der ersten Person: Satz für die Rückfrage vor dem Entfernen — wer danach Ansprechperson ist (R11-D3). */
+  ansprechSatz?: string;
   aendern: (p: Person) => void;
   /** `ort`: Stelle des Tipps auf „Person entfernen" (Bildschirm), sofern getippt. */
   entfernen: (ort?: { x: number; y: number }) => void;
@@ -451,7 +467,7 @@ function PersonKarte(props: {
                Liste zwölf gleich aussehende Karten führen kann. */
             if (!personLeer(p) && !(await frageJaNein({
               titel: `${bezeichnung} entfernen?`,
-              text: "Die Angaben dieser Person werden entfernt — Name, Funktionen, Qualifikationen und Erreichbarkeiten. „Rückgängig“ in der Leiste unten holt sie zurück.",
+              text: `Die Angaben dieser Person werden entfernt — Name, Funktionen, Qualifikationen und Erreichbarkeiten. „Rückgängig“ in der Leiste unten holt sie zurück.${props.ansprechSatz ? ` ${props.ansprechSatz}` : ""}`,
               ok: "Person entfernen",
               gefahr: true,
             }))) {
@@ -590,7 +606,7 @@ function PersonalSchnellTabelle(props: {
       !personLeer(p) &&
       !(await frageJaNein({
         titel: `${bezeichnung} entfernen?`,
-        text: "Die Angaben dieser Person werden entfernt — Name, Funktionen, Qualifikationen und Erreichbarkeiten. „Rückgängig“ in der Leiste unten holt sie zurück.",
+        text: `Die Angaben dieser Person werden entfernt — Name, Funktionen, Qualifikationen und Erreichbarkeiten. „Rückgängig“ in der Leiste unten holt sie zurück.${i === 0 ? ` ${ansprechWechselSatz(personal)}` : ""}`,
         ok: "Person entfernen",
         gefahr: true,
       }))
@@ -1477,6 +1493,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             index={i}
             anzahl={bogen.personal.length}
             ansprech={!nurStaerke && i === 0}
+            ansprechSatz={!nurStaerke && i === 0 ? ansprechWechselSatz(bogen.personal) : undefined}
             nichtGezaehlt={nurStaerke}
             verschieben={personVerschieben}
             aendern={(np) => aendern({ personal: bogen.personal.map((x, j) => (j === i ? np : x)) })}

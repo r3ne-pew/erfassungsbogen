@@ -609,7 +609,21 @@ export function EinsatzListe(props: {
                   Wiederherstellen entfernt — mit Handschuh eine Verwechslung
                   ohne Rückweg. */}
               <AbgangKnopf
-                onAusfuehren={() => { einsatzWiederherstellen(s.id); setZurueckgeholt(s.id); onGeaendert(); }}
+                onAusfuehren={() => {
+                  const gleichnamig = einsaetze.filter((x) => x.id !== s.id && x.name.trim().toLowerCase() === s.name.trim().toLowerCase());
+                  einsatzWiederherstellen(s.id);
+                  setZurueckgeholt(s.id);
+                  onGeaendert();
+                  // Stilles Duplikat (R11-D5): Es gibt jetzt zwei Sammlungen gleichen Namens — das sagt ein Hinweis
+                  // mit den Merkmalen, an denen man sie unterscheidet.
+                  if (gleichnamig.length > 0) {
+                    const vorhanden = gleichnamig[0]!;
+                    void zeigeHinweis({
+                      titel: "Zwei Sammlungen gleichen Namens",
+                      text: `„${s.name}" ist zurück, aber es gibt schon eine Sammlung „${vorhanden.name}" (${vorhanden.eintraege.length} Meldung(en), angelegt ${zeitLang(vorhanden.angelegt)}). Die zurückgeholte ist von ${zeitLang(s.angelegt)} mit ${s.eintraege.length} Meldung(en). Auf der Startseite unterscheidet beide die Anlagezeit; Einheiten lassen sich über „Verschieben…“ umlegen.`,
+                    });
+                  }
+                }}
               >
                 Wiederherstellen
               </AbgangKnopf>
@@ -1244,6 +1258,13 @@ export function EinsatzDetail(props: {
    * Speichern fehl (voller Speicher), sagt es ein Hinweis, statt still zu scheitern (R11-O4).
    */
   const [kenntnisGenommen, setKenntnisGenommen] = useState<{ vorher: ExportStand; anzahl: number; nonce: number } | null>(null);
+  // Die Quittung gehört zu diesem Einsatz und weicht jeder jüngeren Quittung (eine Leiste zur Zeit).
+  useEffect(() => {
+    setKenntnisGenommen(null);
+  }, [einsatz.id]);
+  useEffect(() => {
+    if (statusWechsel || zuletztEntfernt || aufgeteilt || zusammengefuehrt || staerkeGeaendert) setKenntnisGenommen(null);
+  }, [statusWechsel, zuletztEntfernt, aufgeteilt, zusammengefuehrt, staerkeGeaendert]);
   function kenntnisNehmen() {
     const vorher = kenntnisStand;
     const anzahl = aufgenommenListe.length;
@@ -2368,6 +2389,18 @@ export function EinsatzDetail(props: {
           {nummerText(statusWechsel.vorher.einheitSchluessel)}„{einheitAnzeigename(statusWechsel.vorher.bogen.einheit)}"
         </DaumenQuittung>
       )}
+      {kenntnisGenommen && !statusWechsel && !zuletztEntfernt && !aufgeteilt && !zusammengefuehrt && !staerkeGeaendert && (
+        <DaumenQuittung
+          key={`kenntnis:${kenntnisGenommen.nonce}`}
+          prellschutz
+          onRueckgaengig={kenntnisZurueck}
+          rueckgaengigName="Zur Kenntnis genommen rückgängig machen"
+          onSchliessen={() => setKenntnisGenommen(null)}
+        >
+          <strong>Zur Kenntnis genommen:</strong>{" "}
+          {kenntnisGenommen.anzahl === 1 ? "1 Einheit" : `${kenntnisGenommen.anzahl} Einheiten`}
+        </DaumenQuittung>
+      )}
       {zurueckQuittung && !statusWechsel && !zuletztEntfernt && !aufgeteilt && !zusammengefuehrt && !staerkeGeaendert && (
         <DaumenQuittung key={`zurueck:${zurueckQuittung.nonce}`} onSchliessen={() => setZurueckQuittung(null)}>
           {zurueckQuittung.text}
@@ -3163,6 +3196,33 @@ function EinheitKarte(props: {
     if (!offenLassen) setNotizEntwurf(null);
     if (ok) onGeaendert();
   }
+
+  /**
+   * Eingetipptes, aber nicht gespeichertes Zug-Etikett oder Auftrag beim Ausblenden der Seite und beim Verlassen
+   * (Neuladen, Seitenwechsel, Verwerfen durch das Betriebssystem) sichern (R11-O1): Wer auf dem Telefon einen Auftrag
+   * tippt und kurz in die Funk-App wechselt, findet ihn danach wieder. Gespeichert wird, wie beim Verlassen des Feldes,
+   * nur ein nicht leerer Entwurf; das Feld bleibt offen. Der Handler liest über Refs den jeweils jüngsten Stand.
+   */
+  const entwuerfeRef = useRef({ zug: zugEntwurf, notiz: notizEntwurf });
+  entwuerfeRef.current = { zug: zugEntwurf, notiz: notizEntwurf };
+  const speichernRef = useRef({ zug: zugSpeichern, notiz: notizSpeichern });
+  speichernRef.current = { zug: zugSpeichern, notiz: notizSpeichern };
+  useEffect(() => {
+    const sichern = () => {
+      const { zug, notiz } = entwuerfeRef.current;
+      if (zug != null && zug.trim() !== "") void speichernRef.current.zug(undefined, true);
+      if (notiz != null && notiz.trim() !== "") void speichernRef.current.notiz(true);
+    };
+    const beiSichtwechsel = () => {
+      if (document.visibilityState === "hidden") sichern();
+    };
+    document.addEventListener("visibilitychange", beiSichtwechsel);
+    window.addEventListener("pagehide", sichern);
+    return () => {
+      document.removeEventListener("visibilitychange", beiSichtwechsel);
+      window.removeEventListener("pagehide", sichern);
+    };
+  }, []);
 
   /** Korrigierte Zeit übernehmen; ein leeres oder ungültiges Feld ändert nichts. */
   async function zeitSpeichern() {

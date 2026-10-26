@@ -54,6 +54,7 @@ import {
 } from "@bos/eeb-format/datenschutzfrist";
 import { datenschutzZeitpunkt, stempelZeitpunkt } from "./datenschutz-uhr";
 import { anonymQuittung } from "./anonym-hinweis";
+import { leseausgabeMeldung } from "./pdf-titel";
 import { Kopfnav } from "./kopfnav-ui";
 import { bogenLinksEmpfangen, imWebBrowser, istNativ, qrScannen, textTeilen } from "./nativ";
 import { fehlerText } from "./nachladen";
@@ -1036,6 +1037,30 @@ function AppInhalt() {
     setOffenerEinsatzId(null);
     setZeigeStart(true);
   }, [einsaetze, offenerEinsatzId]);
+
+  // Dasselbe für eine laufende Aufnahme „für Einsatz" (R11-O2): Wird der Einsatz in einem anderen Fenster gelöscht, sprang die
+  // Eingabe ohne Hinweis zum eigenen Bogen — „Aufnahme für" und „In Einsatz übernehmen" waren weg, ohne zu sagen, warum.
+  const zielBekannt = useRef<{ id: string; name: string } | null>(null);
+  useEffect(() => {
+    if (!sammelZielId || !fremdeErfassung) {
+      zielBekannt.current = null;
+      return;
+    }
+    const da = einsaetze.find((s) => s.id === sammelZielId);
+    if (da) {
+      zielBekannt.current = { id: da.id, name: da.name };
+      return;
+    }
+    const bekannt = zielBekannt.current;
+    if (!bekannt || bekannt.id !== sammelZielId) return;
+    zielBekannt.current = null;
+    const imPapierkorb = einsaetzePapierkorb().some((s) => s.id === bekannt.id);
+    setMeldung(
+      imPapierkorb
+        ? `Der Einsatz „${bekannt.name}" wurde in einem anderen Fenster in den Papierkorb gelegt. Die Eingabe ist jetzt ein eigener Bogen und lässt sich hier nicht mehr ablegen — zum Ablegen auf der Startseite unter „Papierkorb Einsätze" den Einsatz zurückholen und die Meldung dort neu aufnehmen.`
+        : `Der Einsatz „${bekannt.name}" gibt es nicht mehr — er wurde in einem anderen Fenster gelöscht. Die Eingabe ist jetzt ein eigener Bogen; zum Ablegen „In Einsatz-Sammlung ablegen…“ in der Übersicht nutzen.`,
+    );
+  }, [einsaetze, sammelZielId, fremdeErfassung]);
 
   const vorlagenNeuLaden = () => setVorlagen(vorlagenLaden());
   const einsaetzeNeuLaden = () => setEinsaetze(einsaetzeLaden());
@@ -3189,7 +3214,10 @@ function AppInhalt() {
     const wege = sortiert.slice(0, 4).map((s) => ({
       wert: s.id,
       label: `Für „${s.name}" erfassen`,
-      hinweis: `${ART_LABEL[s.art]}${s.ort ? ` · ${s.ort}` : ""} · ${aktuelleMeldungen(s.eintraege, s.art).length} Einheit(en) anwesend`,
+      // Zwei Sammlungen gleichen Namens sind sonst nur an der Anlagezeit zu unterscheiden (R11-D5).
+      hinweis: `${ART_LABEL[s.art]}${s.ort ? ` · ${s.ort}` : ""} · ${aktuelleMeldungen(s.eintraege, s.art).length} Einheit(en) anwesend${
+        sammlungen.some((x) => x.id !== s.id && x.name.trim().toLowerCase() === s.name.trim().toLowerCase()) ? ` · angelegt ${zeitLang(s.angelegt)}` : ""
+      }`,
     }));
     wege.push({ wert: "ohne", label: "Ohne Sammlung erfassen", hinweis: "Nur ein Bogen — später über „In Einsatz-Sammlung ablegen…“ zuordnen." });
     const wahl = await frageWahl({ titel: "Einheit schnell erfassen — für welche Sammlung?", text: "Die Einheit wird nach der Erfassung dort abgelegt.", wege });
@@ -3514,6 +3542,12 @@ function AppInhalt() {
     for (const datei of dateien) {
       try {
         const bytes = istPdfDatei(datei) ? new Uint8Array(await datei.arrayBuffer()) : null;
+        // Lageblatt oder Blanko als PDF: kein Bogen darin, sagt es und nennt den Weg über die Sammel-PDF (R11-A3).
+        const nurLesen = bytes ? leseausgabeMeldung(bytes, datei.name) : null;
+        if (nurLesen) {
+          kaputt.push(nurLesen);
+          continue;
+        }
         const art = bytes ? pdfInhaltArt(bytes) : null;
         if (art === "sammlung" && bytes) {
           // Sammel-PDF (z. B. vom Zugführer): als Paket mit Zeiten, Zug und

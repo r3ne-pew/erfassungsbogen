@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PersonalErfassung, type Erfassungsbogen } from "@bos/eeb-format/model";
 import { Dialogschicht } from "./dialoge";
@@ -878,6 +878,33 @@ describe("Zeiten, Auftrag und Bedarf auf der Karte", () => {
     neuLaden();
     expect(document.querySelector(".auftrag-notiz")!.textContent).toContain("Deichabschnitt Nord ab 14:00");
     expect(screen.getByRole("button", { name: "Auftrag ändern" })).not.toBeNull();
+  });
+
+  // R11-O1: Eingetippt, nicht gespeichert, Feld noch im Fokus — Seite ausgeblendet oder verlassen: Der Text ist nicht weg.
+  it("sichert einen getippten Auftrag beim Ausblenden der Seite und ein Zug-Etikett beim Verlassen (R11-O1)", async () => {
+    const nutzer = userEvent.setup();
+    const { einsatzId } = buehne(["Wardenburg"]);
+
+    await nutzer.click(screen.getByRole("button", { name: "Auftrag/Notiz" }));
+    await nutzer.type(screen.getByLabelText("Auftrag/Notiz"), "Deich Nord ab 14:00 sichern");
+    expect(gespeichert(einsatzId, "Wardenburg").notiz).toBeUndefined();
+    const sicht = Object.getOwnPropertyDescriptor(Document.prototype, "visibilityState");
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+    try {
+      await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    } finally {
+      delete (document as unknown as Record<string, unknown>).visibilityState;
+      if (sicht) Object.defineProperty(Document.prototype, "visibilityState", sicht);
+    }
+    await waitFor(() => expect(gespeichert(einsatzId, "Wardenburg").notiz).toBe("Deich Nord ab 14:00 sichern"));
+    // Das Feld bleibt offen und trägt den Text weiter.
+    expect((screen.getByLabelText("Auftrag/Notiz") as HTMLInputElement).value).toBe("Deich Nord ab 14:00 sichern");
+
+    await nutzer.click(screen.getByRole("button", { name: "Zug zuordnen" }));
+    await nutzer.type(screen.getByLabelText("Zug"), "2. Zug");
+    expect(gespeichert(einsatzId, "Wardenburg").zugEtikett).toBeUndefined();
+    await act(async () => { window.dispatchEvent(new Event("pagehide")); });
+    await waitFor(() => expect(gespeichert(einsatzId, "Wardenburg").zugEtikett).toBe("2. Zug"));
   });
 
   it("speichert das Zug-Etikett beim Verlassen des Felds, lässt ein leeres Feld aber unverändert", async () => {

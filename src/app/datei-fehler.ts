@@ -18,6 +18,7 @@ import { SCHEMA_VERSION } from "@bos/eeb-format/model";
 import { bogenBefund } from "./bogen-pruefung";
 import { fehlerText, istNachladeFehler } from "./nachladen";
 import { SpeicherVollFehler, istSpeicherVoll } from "./eintrag-zeiten";
+import { leseausgabeMeldung } from "./pdf-titel";
 
 /** Über welchen Knopf die Datei kam — bestimmt, was „richtig" wäre und wohin eine falsche gehört. */
 export type DateiWeg =
@@ -205,6 +206,16 @@ export async function dateiFehlerMeldung(datei: File, fehler: unknown, weg: Date
   if (istSpeicherVoll(fehler)) return new SpeicherVollFehler(fehler).message;
   const eigen = fehler instanceof Error ? fehler.message : "";
   if (/neueren App-Version|Lokaler Speicher ist nicht verfügbar/.test(eigen)) return eigen;
+  // Lageblatt und Blanko-Vordruck als PDF: eigener Satz mit dem Weg über die Sammel-PDF (R11-A3).
+  try {
+    const bytes = new Uint8Array(await datei.arrayBuffer());
+    if (bytes.length > 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) {
+      const lese = leseausgabeMeldung(bytes, datei.name);
+      if (lese) return lese;
+    }
+  } catch {
+    /* unlesbare Datei: der Weg unten */
+  }
   let text: string;
   try {
     text = await datei.text();

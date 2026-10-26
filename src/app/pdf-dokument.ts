@@ -1117,7 +1117,7 @@ function nachtragsTabelle(zeilen: number, leer: boolean, rueckseite: boolean): C
       kopf("übertragen"),
     ]);
   }
-  const label: TableCell[] = [{ text: "Nachtrag von Hand (Einheit, Zug, Uhrzeit, Stärke …)", italics: true, colSpan: SP - 1 }];
+  const label: TableCell[] = [{ text: "Nachtrag von Hand (Einheit, Zug, Uhrzeit an / ab, Stärke …)", italics: true, colSpan: SP - 1 }];
   for (let i = 1; i < SP - 1; i++) label.push({});
   // Mit Spaltenköpfen steht „übertragen“ dort schon.
   label.push({ text: rueckseite ? "" : "übertragen", italics: true });
@@ -1128,7 +1128,8 @@ function nachtragsTabelle(zeilen: number, leer: boolean, rueckseite: boolean): C
     body.push(
       Array.from({ length: SP }, (_, i): TableCell => ({
         // Hinten das Kästchen mit Platz für das Kürzel dahinter.
-        text: i === SP - 1 ? NACHTRAG_UEBERTRAGEN : " ",
+        // Spalte „Eingetroffen (abgerückt)": Platz für beide Uhrzeiten, auch die Abrückzeit (R11-A2).
+        text: i === SP - 1 ? NACHTRAG_UEBERTRAGEN : i === 3 ? "an ____\nab ____" : " ",
         margin: [0, 5, 0, 5],
         ...(i === 0 && (n === 1 || n === 2) ? { id: `${MESS_NACHTRAG}${n}` } : {}),
       })),
@@ -1868,7 +1869,9 @@ function blankoMeldekopf(): Content {
       body: [[{
         stack: [
           { text: "Meldekopf:   Nr. ______   ·   eingegangen am ____________  um ____:____ Uhr   ·   Zug / Verband: ________________" },
-          { text: `${kasten(false)} ÜBUNG — kein echter Einsatz   ·   ins Gerät übertragen ${kasten(false)}  von (Kürzel) ________  um ____:____ Uhr`, margin: [0, 5, 0, 0] },
+          // „abgerückt am … um …" neben „eingegangen": Rückt die Einheit ab, während das Gerät aus ist, steht die
+          // Uhrzeit auf ihrem Blatt statt nur auf dem Meldeblock (R11-A2).
+          { text: `${kasten(false)} ÜBUNG (kein Einsatz)  ·  abgerückt am __________ um ____:____ Uhr  ·  ins Gerät übertragen ${kasten(false)} von ______ um ____:____ Uhr`, margin: [0, 5, 0, 0] },
           // Beiblatt (R5-A6): Der Vordruck fasst 4 Fahrzeuge und 6 Qualifikationen. Mehr gehört
           // auf einen zweiten Vordruck mit gleicher Einheit und Nr., nicht an den Rand.
           {
