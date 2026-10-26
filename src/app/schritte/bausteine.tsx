@@ -357,6 +357,20 @@ export function VorschlagFeld<T>(props: {
     vv.addEventListener("resize", neu);
     return () => vv.removeEventListener("resize", neu);
   }, [aufgeklappt, sichtbar.length]);
+  // Die markierte Zeile bleibt beim Blättern mit den Pfeiltasten im Bild: Die
+  // Liste rollt in sich (max-height), und ab der sechsten Zeile wanderte die
+  // Markierung unsichtbar unter den Rand (Probelauf: THW-Fahrzeugtypen).
+  useEffect(() => {
+    if (!aufgeklappt) return;
+    const zeile = listeRef.current?.children[aktiv];
+    if (zeile instanceof HTMLElement && typeof zeile.scrollIntoView === "function") {
+      try {
+        zeile.scrollIntoView({ block: "nearest" });
+      } catch {
+        /* Umgebung ohne Layout */
+      }
+    }
+  }, [aktiv, aufgeklappt]);
   const nehmen = (v: T) => {
     waehlen(v);
     setOffen(false);
@@ -440,7 +454,19 @@ export function VorschlagFeld<T>(props: {
         }}
       />
       {aufgeklappt && (
-        <ul className="vorschlaege" ref={listeRef} id={listeId} role="listbox" aria-label={`Vorschläge zu ${beschriftung ?? ausFeld ?? "der Eingabe"}`}>
+        <ul
+          className="vorschlaege"
+          ref={listeRef}
+          id={listeId}
+          role="listbox"
+          aria-label={`Vorschläge zu ${beschriftung ?? ausFeld ?? "der Eingabe"}`}
+          // Ein Mausklick auf die Rollleiste der Liste (oder das Ziehen ihres
+          // Griffs) nahm dem Feld den Fokus — blur schloss die Liste, bevor
+          // sie gerollt war (Probelauf: THW-Fahrzeugtypen mit der Maus nicht
+          // rollbar). Der Fokus bleibt im Feld; die Zeilen wählen weiterhin
+          // über ihr eigenes mousedown.
+          onMouseDown={(ev) => ev.preventDefault()}
+        >
           {sichtbar.map((v, k) => (
             // onMouseDown statt onClick, damit die Auswahl vor dem blur greift
             <li

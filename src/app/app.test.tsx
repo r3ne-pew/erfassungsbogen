@@ -1436,6 +1436,28 @@ describe("Assistenten-Durchlauf", () => {
     expect(window.location.hash).toBe("");
   });
 
+  it("nimmt einen USB-Handscanner auch ohne offenes Scanner-Fenster an (Probelauf Meldekopf)", async () => {
+    // Am Meldekopf lösten Helfer den Scanner aus, ohne „Bogen scannen…" zu
+    // drücken — wie an der Kasse. Ein Scan auf der Seite wirkt jetzt wie ein
+    // angetippter Bogen-Link.
+    render(<App />);
+    expect(screen.getByRole("button", { name: "Neuen Bogen erstellen" })).toBeDefined();
+    // Uhr-Attrappe: der Scanner tippt mit 5 ms Abstand.
+    let t = 1000;
+    const now = vi.spyOn(performance, "now").mockImplementation(() => (t += 5));
+    try {
+      const url = encodePayloadUrl(bogenMitName("Scannerhausen"), browserKompressor);
+      for (const z of url) window.dispatchEvent(new KeyboardEvent("keydown", { key: z, cancelable: true }));
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }));
+    } finally {
+      now.mockRestore();
+    }
+
+    expect(await screen.findByRole("heading", { name: "Gesamtübersicht" })).toBeDefined();
+    const einheit = screen.getByRole("heading", { name: "Einheit" }).closest("section")!;
+    expect(within(einheit).getByText(/Scannerhausen/)).toBeDefined();
+  });
+
   /**
    * Audit Runde 3, R3-S1: Der Listener lief mit dem Zustand des ersten
    * Renders. App ohne Entwurf geöffnet, eigenen Bogen angelegt, dann ein Link
