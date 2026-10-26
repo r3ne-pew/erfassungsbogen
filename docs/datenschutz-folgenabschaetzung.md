@@ -11,6 +11,15 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-26 — Audit Runde 11:** Speicherort neu: `eeb.widersprueche.v1`
+> im `localStorage` (Einheitsnamen und Feldwerte aus Import-Widersprüchen, keine
+> Personennamen; Teil der Datensicherung, fällt mit „Alle Daten löschen" weg;
+> 5.4, 5.7). Exporte (5.1, 5.5): CSV mit Spalte „Verpflegung angefordert" und
+> „Tel. "-Vorsatz bei der Einheitennummer, Lageblatt und Sammel-PDF nennen den
+> Absender (Name, Rückruf) am Meldekopf, das Einzel-PDF vermerkt, bis wann die
+> Namen im Code gültig sind (Speicherbegrenzung, Art. 5 Abs. 1 lit. e DSGVO). Löschfristen,
+> Empfänger und Netzverbindungen unverändert (5.8).
+>
 > **Nachgezogen 2026-10-25 — Audit Runde 10:** Ein weiterer Rückweg liegt im
 > `sessionStorage` des Tabs: der ausgeschaltete Funkrufname eines Fahrzeugs
 > (`eeb.funkruf.merker.<Index>`, Kennwort und Kennzahlen, 15 Minuten, nicht in der

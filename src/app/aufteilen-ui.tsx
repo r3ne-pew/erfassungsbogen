@@ -8,7 +8,7 @@
  * einsaetze.ts.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PersonalErfassung, staerke, type Erfassungsbogen } from "@bos/eeb-format/model";
 import { aufteilungFehler, teileBogen, type AufteilungsWahl, type TeilStaerke } from "@bos/meldekopf/aufteilen";
 import { MeldeStatus, type AufteilungOptionen, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
@@ -59,6 +59,8 @@ export function AufteilenPanel(props: {
   const nurStaerke = bogen.personalErfassung === PersonalErfassung.NUR_STAERKE;
   const ganz = staerke(bogen);
 
+  const kopf = useRef<HTMLHeadingElement>(null);
+  useEffect(() => kopf.current?.focus({ preventScroll: true }), []);
   const [teilEtikett, setTeilEtikett] = useState("");
   const [personal, setPersonal] = useState<number[]>([]);
   const [fahrzeuge, setFahrzeuge] = useState<number[]>([]);
@@ -93,7 +95,8 @@ export function AufteilenPanel(props: {
 
   return (
     <div className="aufteilen-panel">
-      <h4>Aufteilen</h4>
+      {/* Fokus auf die Überschrift statt ins Textfeld: keine Bildschirmtastatur vor der Personenliste (R11-G2). */}
+      <h4 tabIndex={-1} ref={kopf}>Aufteilen</h4>
       <p className="hinweis">
         Wer und was geht weg? Der Rest bleibt als diese Einheit bestehen und bekommt eine neue Meldung;
         der abgeteilte Teil zählt ab sofort getrennt in den Summen.
@@ -105,7 +108,6 @@ export function AufteilenPanel(props: {
           type="text"
           value={teilEtikett}
           placeholder="z. B. Fachberater"
-          autoFocus
           onChange={(e) => setTeilEtikett(e.target.value)}
         />
       </label>

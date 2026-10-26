@@ -12,6 +12,7 @@
  *    korrigiert werden.
  */
 
+import { useState } from "react";
 import { Feld } from "./schritte/bausteine";
 
 /**
@@ -125,8 +126,13 @@ export function EintreffzeitFeld(props: {
   onZug?: (wert: string) => void;
   zuege?: string[];
 }) {
+  const [offenAnfang] = useState(() => !!(props.wert || props.nummer || props.zug));
   return (
     <section className="karte nacherfassung-zeit">
+      {/* Die drei Zettelfelder sind optional (R11-M1): Eingeklappt (solange nichts eingetragen ist) liegt „Ort der
+          Einheit" nicht zwei Bildschirme tiefer; die Zusammenfassung ist ein voller Knopf. */}
+      <details className="zettel-angaben" open={offenAnfang}>
+      <summary>Angaben vom Zettel (optional): Eingetroffen um, Nr., Zug</summary>
       <Feld titel="Eingetroffen um (vom Meldeblock)" schmal>
         <input type="time" value={props.wert} onChange={(e) => props.onAendern(e.target.value)} />
       </Feld>
@@ -149,6 +155,7 @@ export function EintreffzeitFeld(props: {
         Leer lassen, wenn die Einheit gerade eintrifft — dann gilt die Uhrzeit von „In Einsatz übernehmen“.
         Liegen bis dahin mehr als fünf Minuten, fragt die App, ob der Beginn der Erfassung gilt.
       </p>
+      </details>
     </section>
   );
 }

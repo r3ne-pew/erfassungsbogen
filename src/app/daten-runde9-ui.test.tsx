@@ -42,7 +42,7 @@ describe("Kasten für Beiseitegelegtes (R9-A1, R9-N4, R9-H4)", () => {
     expect(text).toContain("Hochwasser Musterstadt");
     expect(text).not.toMatch(/Gesamttext/);
     expect(text).toMatch(/erst „Daten sichern…“ legt eine\s+Datei an/);
-    expect(text).toMatch(/Sammel-PDF und das Lageblatt gelten weiter/);
+    expect(text).toMatch(/Sammel-PDF gilt weiter/);
     expect(text).toMatch(/Bögen einlesen/);
     expect(text).not.toMatch(/stecken in der Datensicherung/);
   });

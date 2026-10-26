@@ -18,7 +18,7 @@ import type { EinsatzArt } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit } from "./fassung-vorrang";
 import { einheitAnzeigename, nurSollstaerke, orgLabel, vokabText, vokabularFuer, zeitpunktDeutsch } from "./hilfen";
 import { meldungsNummern, pruefpunkteEintrag } from "./einheiten-tabelle";
-import { aktuelleMeldungen, unterbringungLage, verpflegungLage, zaehltInLage } from "./auswertung";
+import { aktuelleMeldungen, unterbringungLage, verpflegungAngefordertLage, verpflegungLage, zaehltInLage } from "./auswertung";
 import { csvDatei, csvZeile } from "./csv";
 import { nachtragGrundText, ortHinweisText, ortHinweise } from "./export-stand";
 import { HERKUNFT_TEXT, eintreffzeit, zeitLang } from "./eintrag-zeiten";
@@ -46,6 +46,8 @@ const SPALTEN = [
   "Stärke M",
   "Stärke gesamt",
   "Verpflegung gesamt",
+  // „gesamt" ist die Kopfstärke nach Bogen; angefordert ist nur, was Schritt 5 anhakt (R11-W1).
+  "Verpflegung angefordert",
   "Verpflegung veg.",
   "Verpflegung vegan",
   // Zwei Zahlen, zwei Fragen — wie auf Lageblatt und in der Excel-Liste (R4-W5):
@@ -154,6 +156,7 @@ function datenZeile(art: EinsatzArt, e: MeldeEintrag, nr: number | undefined, gr
     st.mannschaft,
     st.gesamt,
     vp.gesamt,
+    verpflegungAngefordertLage(b),
     vp.vegetarisch,
     vp.vegan,
     ...(sb?.unterbringung ? [u.m, u.w, u.d] : [0, 0, 0]),
@@ -198,7 +201,7 @@ function zaehlt(art: EinsatzArt, e: MeldeEintrag): boolean {
 function summenZeile(meldungen: MeldeEintrag[], titel: string, mitGrund = false): string {
   const acc = {
     f: 0, u: 0, m: 0, gesamt: 0,
-    vGesamt: 0, veg: 0, vegan: 0,
+    vGesamt: 0, vAnf: 0, veg: 0, vegan: 0,
     anM: 0, anW: 0, anD: 0,
     uM: 0, uW: 0, uD: 0,
     diesel: 0, benzin: 0, gemisch: 0,
@@ -214,6 +217,7 @@ function summenZeile(meldungen: MeldeEintrag[], titel: string, mitGrund = false)
     acc.m += st.mannschaft;
     acc.gesamt += st.gesamt;
     acc.vGesamt += vp.gesamt;
+    acc.vAnf += verpflegungAngefordertLage(b);
     acc.veg += vp.vegetarisch;
     acc.vegan += vp.vegan;
     if (b.sofortbedarf?.unterbringung) {
@@ -236,7 +240,7 @@ function summenZeile(meldungen: MeldeEintrag[], titel: string, mitGrund = false)
     "",
     "",
     acc.f, acc.u, acc.m, acc.gesamt,
-    acc.vGesamt, acc.veg, acc.vegan,
+    acc.vGesamt, acc.vAnf, acc.veg, acc.vegan,
     acc.anM, acc.anW, acc.anD,
     acc.uM, acc.uW, acc.uD,
     acc.diesel, acc.benzin, acc.gemisch,

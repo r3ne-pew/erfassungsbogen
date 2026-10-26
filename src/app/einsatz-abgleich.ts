@@ -454,6 +454,19 @@ export interface Einzelheit {
  * beim Empfang je selbst vergeben. Vorher war es ein Absatz von 14 Widersprüchen,
  * in dem „Cottbus abgerückt" unterging.
  */
+/** Eine Zeile zum Widerspruch; auch für die Merkliste an der Einsatzansicht (R11-O3). */
+export function widerspruchZeile(w: AbgleichWiderspruch): string {
+  return (
+    `${w.einheit} ${w.feld} — hier ${w.hier}, in der Datei ${w.datei}; ` +
+    (w.gilt === "datei" ? "der jüngere Stand aus der Datei gilt" : "der Stand dieses Geräts bleibt")
+  );
+}
+
+/** Die Widersprüche, die gemerkt werden: ohne die kleinen Eintreffzeit-Abweichungen. */
+export function widerspruecheZumMerken(r: Pick<AbgleichErgebnis, "widersprueche">): string[] {
+  return r.widersprueche.filter((w) => w.feld !== FELD_NAME.eintreffzeit).map(widerspruchZeile);
+}
+
 export function abgleichGliederung(r: Pick<AbgleichErgebnis, "aktualisiert" | "widersprueche">): { kurz: string[]; einzelheiten: Einzelheit[] } {
   const kurz: string[] = [];
   const einzelheiten: Einzelheit[] = [];
@@ -464,9 +477,7 @@ export function abgleichGliederung(r: Pick<AbgleichErgebnis, "aktualisiert" | "w
     kurz.push(`${n === 1 ? "1 Meldung" : `${n} Meldungen`} aktualisiert: ${r.aktualisiert.slice(0, BIS).map(zeile).join("; ")}${n > BIS ? ` und ${n - BIS} weitere` : ""}.`);
     if (n > BIS) einzelheiten.push({ titel: `Alle ${n} aktualisierten Meldungen`, zeilen: r.aktualisiert.map(zeile) });
   }
-  const wid = (w: AbgleichWiderspruch) =>
-    `${w.einheit} ${w.feld} — hier ${w.hier}, in der Datei ${w.datei}; ` +
-    (w.gilt === "datei" ? "der jüngere Stand aus der Datei gilt" : "der Stand dieses Geräts bleibt");
+  const wid = widerspruchZeile;
   const wichtig = r.widersprueche.filter((w) => w.feld !== FELD_NAME.eintreffzeit);
   const klein = r.widersprueche.filter((w) => w.feld === FELD_NAME.eintreffzeit);
   if (wichtig.length > 0) {

@@ -127,7 +127,8 @@ describe("bogenCsvInhalt()", () => {
     const csv = bogenCsvInhalt(bogen());
     expect(spalte(csv, 1, "Organisation")).toBe("THW");
     expect(spalte(csv, 1, "Standort")).toBe("Oldenburg");
-    expect(spalte(csv, 1, "Telefon Einheit")).toBe("044112345");
+    // R11-E7: als Text, damit Excel die führende Null nicht streicht.
+    expect(spalte(csv, 1, "Telefon Einheit")).toBe("Tel. 044112345");
     expect(spalte(csv, 1, "Ort/Auftrag (Bogen)")).toBe("Deichverteidigung");
     expect(spalte(csv, 1, "Zeitraum von")).toBe("10.04.2020");
     expect(spalte(csv, 1, "Personalerfassung")).toBe("Vollständig");

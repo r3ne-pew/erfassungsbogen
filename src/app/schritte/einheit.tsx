@@ -35,6 +35,8 @@ import { DaumenQuittung } from "../daumen-quittung";
 import { EBENE_WEG_SCHLUESSEL, rueckwegHolen, rueckwegMerken } from "../rueckweg-sitzung";
 import { vorbelegungWegLesen, vorbelegungWegSichern, zustandsAbdruck, type VorbelegungWeg } from "../vorbelegung-rueckweg";
 import { Auswahl, Feld, FREMDE_DATEN, Hinweise, KENNUNG_EINGABE, VokabAuswahl, VorschlagFeld, type SchrittProps } from "./bausteine";
+import { TelefonFeld } from "./telefon-feld";
+import { falte } from "../schreibweise";
 
 // Die beiden großen Datenpakete laden erst mit Schritt 1, nicht mit dem
 // Start-Bundle: das THW-OV-Verzeichnis (~190 KB Quelldaten) und die
@@ -95,6 +97,12 @@ function ebeneNameSetzen(
   const idx = hierarchie.findIndex((h) => h.bezeichnung.code === code);
   if (idx >= 0) return hierarchie.map((h, j) => (j === idx ? { ...h, ...felder } : h));
   return [...hierarchie, { bezeichnung: { code }, ...felder }];
+}
+
+/** Steht im Ortsfeld nicht mehr der Ort, der zuletzt aus dem Verzeichnis ergänzt wurde (R11-E1)? */
+export function ortGeaendert(aktuell: string, ergaenzt: string): boolean {
+  const norm = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
+  return norm(aktuell) !== norm(ergaenzt);
 }
 
 /**
@@ -169,22 +177,24 @@ function OvVorschlagFeld(props: {
 }) {
   const { id, wert, platzhalter, verzeichnis, tippen, uebernehmen, aufgeloest, kennung } = props;
 
-  const suche = wert.trim().toLowerCase();
+  // Beide Seiten gefaltet (R11-H1): „Hassmersheim" und „Muellheim" finden „Haßmersheim" und „Müllheim".
+  const suche = falte(wert);
   const treffer = suche
     ? verzeichnis
-        .filter(
-          (o) => o.name.toLowerCase().includes(suche) || o.kurz.toLowerCase().startsWith(suche) || o.ort.toLowerCase().startsWith(suche),
-        )
-        .sort((a, b) => Number(b.name.toLowerCase().startsWith(suche)) - Number(a.name.toLowerCase().startsWith(suche)))
+        .filter((o) => falte(o.name).includes(suche) || falte(o.kurz).startsWith(suche) || falte(o.ort).startsWith(suche))
+        .sort((a, b) => Number(falte(b.name).startsWith(suche)) - Number(falte(a.name).startsWith(suche)))
         .slice(0, 8)
     : [];
+  // R11-N2: steht das Kürzel schon da und ist der einzige Vorschlag, wiederholt die Liste nur den Eintrag und verdeckt Telefon und E-Mail.
+  const nurEintrag = !!kennung && treffer.length === 1 && treffer[0]!.kurz === wert.trim().toUpperCase();
+  const gezeigt = nurEintrag ? [] : treffer;
 
   return (
     <VorschlagFeld
       id={id}
       wert={wert}
       platzhalter={platzhalter}
-      treffer={treffer}
+      treffer={gezeigt}
       schluessel={(o) => o.name}
       zeile={(o) => (
         <>
@@ -197,6 +207,7 @@ function OvVorschlagFeld(props: {
       tippen={tippen}
       waehlen={uebernehmen}
       kennung={kennung}
+      keineTreffer={kennung ? undefined : "Kein Ort mit diesem Namen in der Liste — Schreibweise prüfen. Ein Ortsverband, den es dort nicht gibt, darf so stehen bleiben."}
       verlassen={(eingabe) => {
         const e = eingabe.trim();
         if (!e) return;
@@ -205,13 +216,13 @@ function OvVorschlagFeld(props: {
         // Kürzel und Telefon von Neustadt (Holstein) ein, obwohl ebenso
         // „Neustadt an der Aisch" oder „… an der Weinstraße" gemeint sein
         // konnte — ohne dass jemand gewählt hatte (Audit Runde 3, R3-S4).
-        const klein = e.toLowerCase();
-        const gleichAnfang = verzeichnis.filter((o) => o.name.toLowerCase().startsWith(klein));
+        const klein = falte(e);
+        const gleichAnfang = verzeichnis.filter((o) => falte(o.name).startsWith(klein));
         // Ohne Groß-/Kleinschreibung: „ulm" gehörte zu „Ulm", blieb aber Freitext
-        // ohne Kürzel und Kontakt (Audit Runde 4, R4-H1).
+        // ohne Kürzel und Kontakt (Audit Runde 4, R4-H1); ohne Umlaut-Unterschiede (R11-H1).
         const ov =
           verzeichnis.find((o) => o.kurz === e.toUpperCase()) ??
-          (gleichAnfang.length === 1 && gleichAnfang[0]!.name.toLowerCase() === klein ? gleichAnfang[0] : undefined);
+          (gleichAnfang.length === 1 && falte(gleichAnfang[0]!.name) === klein ? gleichAnfang[0] : undefined);
         if (ov) (aufgeloest ?? uebernehmen)(ov);
       }}
     />
@@ -269,8 +280,17 @@ const EINHEITSTYP_BEISPIEL: Partial<Record<OrganisationsTyp, string>> = {
   [OrganisationsTyp.DLRG]: "z. B. Wasserrettungszug, Bootstrupp",
 };
 
-export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
+export function SchrittEinheit({ bogen, aendern: aendernRoh, ortFokus = false }: SchrittProps & { ortFokus?: boolean }) {
   const e = bogen.einheit;
+  // Schnell- und manuelle Erfassung für eine Sammlung (R11-M1): Das einzige Pflichtfeld liegt sonst zwei Bildschirme
+  // unter dem Kopf. Beim Öffnen (nur solange der Ort noch leer ist, nicht beim Zurückblättern) steht der Fokus dort.
+  useEffect(() => {
+    if (!ortFokus || (bogen.einheit.hierarchie[0]?.name ?? "").trim() !== "") return;
+    const feld = document.getElementById("feld-einheit-name");
+    feld?.scrollIntoView?.({ block: "center" });
+    feld?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Vorbelegung und Typwechsel verändern die Personalliste — der Verpflegungs-
   // Bedarf in Schritt 5 zieht mit (siehe verpflegungMitziehen).
   // Jede weitere Änderung verwirft den Rückweg der Vorbelegung, damit
@@ -746,11 +766,23 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
           </span>
           {/* Direkt unter dem Namensfeld, das ergänzt hat — dort liegt der Blick. */}
           {ergaenzt && ergaenzt.i === i && e.hierarchie[ergaenzt.i]?.kurz === ergaenzt.ov.kurz && (
-            <p className="hinweis ov-ergaenzt" role="status">
-              Aus dem OV-Verzeichnis ergänzt: {ergaenzt.ov.name} ({ergaenzt.ov.kurz}) mit Telefon und E-Mail
-              {e.hierarchie.length > 1 ? ", dazu die übergeordneten Ebenen" : ""}.{" "}
-              <button type="button" className="link" onClick={ergaenzungZuruecknehmen}>Rückgängig</button>
-            </p>
+            ortGeaendert(h.name, ergaenzt.ov.name) ? (
+              // Der Ort wurde nach der Ergänzung geändert (R11-E1): Kürzel, Telefon, E-Mail, RB und LV
+              // stammen noch vom zuerst gewählten Ortsverband — das sagt die Zeile statt „ergänzt".
+              <p className="hinweis warnung-text ov-ergaenzt ov-ort-geaendert" role="status">
+                Ort geändert — Kürzel, Telefon und E-Mail{e.hierarchie.length > 1 ? " und die übergeordneten Ebenen" : ""} stammen noch
+                von {ergaenzt.ov.name} ({ergaenzt.ov.kurz}).{" "}
+                <button type="button" className="link" onClick={ergaenzungZuruecknehmen}>
+                  Angaben von {ergaenzt.ov.name} entfernen
+                </button>
+              </p>
+            ) : (
+              <p className="hinweis ov-ergaenzt" role="status">
+                Aus dem OV-Verzeichnis ergänzt: {ergaenzt.ov.name} ({ergaenzt.ov.kurz}) mit Telefon und E-Mail
+                {e.hierarchie.length > 1 ? ", dazu die übergeordneten Ebenen" : ""}.{" "}
+                <button type="button" className="link" onClick={ergaenzungZuruecknehmen}>Rückgängig</button>
+              </p>
+            )
           )}
           {/* Ein OV-Name ohne Kürzel ist Freitext: nicht aus dem Verzeichnis, ohne
               Telefon und E-Mail (Audit Runde 4, R4-H1). Erst nach dem Verlassen
@@ -806,15 +838,13 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh }: SchrittProps) {
                 tippt niemand im Regen gern zweimal. Kein type="number":
                 Vorwahl-Trennzeichen und führende Null gehören nicht in ein
                 Rechenfeld. */}
-            <input
-              type="tel"
-              inputMode="tel"
-              // Dienststellenkontakt, nicht der eigene: „tel" bot die private
-              // Handynummer des Helfers an (R2-M6).
-              {...FREMDE_DATEN}
-              value={h.telefon ?? ""}
-              onChange={(ev) =>
-                setE({ hierarchie: e.hierarchie.map((x, j) => (j === i ? { ...x, telefon: ev.target.value.replace(/\D/g, "") || undefined } : x)) })
+            {/* Dienststellenkontakt, nicht der eigene: „tel" bot die private
+                Handynummer des Helfers an (R2-M6). Führendes „+" bleibt, entfernte Zeichen und eine
+                zweite Nummer werden genannt, eine zu kurze Nummer fragt nach (R11-E3). */}
+            <TelefonFeld
+              wert={h.telefon}
+              setzen={(telefon) =>
+                setE({ hierarchie: e.hierarchie.map((x, j) => (j === i ? { ...x, telefon: telefon || undefined } : x)) })
               }
             />
           </Feld>

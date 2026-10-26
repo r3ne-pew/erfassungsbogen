@@ -243,6 +243,12 @@
        Bildschirm abgescannt. */
     html.dunkel-modus figure:not(.scancodes figure) img,
     html.nacht-modus figure:not(.scancodes figure) img { filter: brightness(0.4); }
+    /* R11-L1: Organisationszeichen (THW, Malteser, Bundeswehr) haben durchsichtigen Grund und dunkle Zeichnung. Auf dem
+       dunklen Seitengrund und unter der Abdunklung der Fotos maßen sie 1,0:1 bis 1,1:1 — unsichtbar. In Dunkel und Nacht
+       stehen sie auf einer eigenen hellen, gedimmten Platte (wie der QR-Code), und die Abdunklung der Fotos gilt für sie
+       nicht. Die Platte steht im Kasten des Bildes (box-sizing), die Seite verschiebt sich nicht. */
+    html.dunkel-modus figure.zeichen:not(.scancodes figure) img { filter: brightness(0.8); background: #fff; padding: 0.35rem; box-sizing: border-box; border-radius: 0.4rem; }
+    html.nacht-modus figure.zeichen:not(.scancodes figure) img { filter: brightness(0.5); background: #fff; padding: 0.35rem; box-sizing: border-box; border-radius: 0.4rem; }
     /* THEMA:CSS:END */
     /* UMBRUCH:CSS:START */
     /* Große Systemschrift (Umbruch-Regel, scripts/content-stil.mts; Audit
@@ -366,7 +372,7 @@
       <a class="start papier" href="./downloads/einheiten-erfassungsbogen-blanko.pdf" download>Blanko-PDF herunterladen</a>
       <a class="start" href="./">Digital ausfüllen</a>
     </div>
-    <p class="wege-hinweis">PDF, 2 Seiten A4, rund 11 kB — ohne Anmeldung, ohne Wasserzeichen.</p>
+    <p class="wege-hinweis">PDF, 2 Seiten A4 — ohne Anmeldung, ohne Wasserzeichen.</p>
 
     <h2>Wofür der Bogen gebraucht wird</h2>
     <p>
@@ -440,7 +446,8 @@
       Der <a href="./downloads/einheiten-erfassungsbogen-blanko.pdf" download>leere
       Erfassungsbogen als PDF</a> ist ein Vordruck zum Ausdrucken und Ausfüllen mit
       dem Kugelschreiber: zwei Seiten A4 im gewohnten Papier-Layout, mit Platz für
-      vier Fahrzeuge und 36 Helferinnen und Helfer. Er eignet sich als Reserve in der
+      vier Fahrzeuge und 29 Helferinnen und Helfer (reicht der Platz nicht, nimmst du einen
+      weiteren Vordruck als Beiblatt). Er eignet sich als Reserve in der
       Fahrzeugmappe, als Stapel im Meldekopf und für alle Fälle, in denen kein Gerät
       zur Hand ist.
     </p>

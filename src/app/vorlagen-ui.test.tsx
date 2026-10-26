@@ -43,7 +43,7 @@ describe("Musterung abbrechen (R2-D6)", () => {
     expect(onAbbrechen).toHaveBeenCalledTimes(1);
   });
 
-  it("fragt nach abgewählten Personen nach; „Weiter mustern“ behält die Haken, „Verwerfen“ geht zurück", async () => {
+  it("fragt nach abgewählten Personen nach; „Weiter auswählen“ behält die Haken, „Verwerfen“ geht zurück", async () => {
     const nutzer = userEvent.setup();
     const { onAbbrechen } = buehne();
     await nutzer.click(screen.getByRole("checkbox", { name: /Voss/ }));
@@ -52,7 +52,7 @@ describe("Musterung abbrechen (R2-D6)", () => {
     const dialog = rueckfrage()!;
     expect(dialog.textContent).toContain("2 Personen abgewählt");
     expect(dialog.textContent).toContain("Vorlage selbst bleibt unverändert");
-    await nutzer.click(within(dialog).getByRole("button", { name: "Weiter mustern" }));
+    await nutzer.click(within(dialog).getByRole("button", { name: "Weiter auswählen" }));
     expect(onAbbrechen).not.toHaveBeenCalled();
     expect((screen.getByRole("checkbox", { name: /Voss/ }) as HTMLInputElement).checked).toBe(false);
 

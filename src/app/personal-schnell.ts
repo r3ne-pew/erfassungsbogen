@@ -15,6 +15,32 @@ export interface NamensEintrag {
   funktion?: string;
   /** Aus der Funktion abgeleitete Stärke-Rolle; fehlt = Mannschaft (Vorgabe). */
   rolle?: StaerkeRolle;
+  /**
+   * Die Reihenfolge Vor-/Nachname ist geraten: Vor dem ersten Komma standen mehrere Wörter („Lena Nowak,
+   * Zugführerin, 0171 99") — vermutlich „Vorname Nachname, Funktion" statt „Nachname, Vorname" (R11-E4).
+   * Die Vorschau zeigt „Reihenfolge prüfen".
+   */
+  unsicher?: boolean;
+}
+
+/**
+ * Namensbestandteile, die zum Nachnamen gehören („von der Heide", „van Berg", „de la Cruz"): Sie standen im
+ * Vornamen und ordneten die Person unter dem falschen Buchstaben ein (R11-E4).
+ */
+const NAMENSPRAEFIX = new Set([
+  "von", "vom", "zu", "zum", "zur", "van", "vander", "ver", "de", "der", "den", "des", "di", "da", "dos", "du", "la", "le",
+  "ten", "ter", "op", "af", "al", "el", "bin", "ibn",
+]);
+
+/** Wörter am Ende der Vornamen, die Präfix des Nachnamens sind, an den Nachnamen hängen. */
+function mitPraefix(vornamen: string[], nachname: string): { vorname: string; nachname: string } {
+  let ende = vornamen.length;
+  let name = nachname;
+  while (ende > 1 && NAMENSPRAEFIX.has(vornamen[ende - 1]!.toLowerCase())) {
+    name = `${vornamen[ende - 1]} ${name}`;
+    ende--;
+  }
+  return { vorname: vornamen.slice(0, ende).join(" "), nachname: name };
 }
 
 /**
@@ -69,6 +95,14 @@ export function parseNamen(text: string): NamensEintrag[] {
     .map((zeile) => zeile.trim())
     .filter(Boolean)
     .map((zeile) => {
+      // Aus einer Tabelle kopiert: Spalte 1 ist der Name, die nächste Spalte ohne Ziffern die Funktion, weitere
+      // Spalten bleiben außen vor. Sonst wurde „Hans Müller⇥GrFü" zu Nachname „GrFü" (R11-H4).
+      if (zeile.includes("\t")) {
+        const [name = "", ...spalten] = zeile.split(/\t+/).map((s) => s.trim()).filter(Boolean);
+        const funktion = spalten.find((s) => !/\d/.test(s));
+        const eintrag = zeileLesen(name);
+        return funktion ? { ...eintrag, funktion, rolle: eintrag.rolle ?? rolleAusFunktion(funktion) } : eintrag;
+      }
       // Kürzel VOR dem Namen („GrFü Maier, Klaus", „TrFü Anna Schulz") wurde
       // bisher Teil des Nachnamens (Audit Runde 2, R2-N2). Nur bekannte
       // Führungskürzel zählen — ein Doppelname bleibt ein Name.
@@ -91,18 +125,20 @@ function zeileLesen(zeile: string): NamensEintrag {
     const zweites = rest.indexOf(",");
     const vorname = (zweites >= 0 ? rest.slice(0, zweites) : rest).trim();
     const funktion = zweites >= 0 ? rest.slice(zweites + 1).trim() : "";
+    const nachname = zeile.slice(0, komma).trim();
+    const woerter = nachname.split(/\s+/);
+    // „Lena Nowak, Zugführerin": zwei Wörter vor dem Komma, die nicht zu einem Präfixnamen gehören (R11-E4).
+    const unsicher = woerter.length > 1 && !woerter.slice(0, -1).every((w) => NAMENSPRAEFIX.has(w.toLowerCase()));
     return {
-      nachname: zeile.slice(0, komma).trim(),
+      nachname,
       vorname,
       ...(funktion ? { funktion, rolle: rolleAusFunktion(funktion) } : {}),
+      ...(unsicher ? { unsicher: true } : {}),
     };
   }
   const teile = zeile.split(/\s+/);
   if (teile.length === 1) return { vorname: "", nachname: teile[0]! };
-  return {
-    vorname: teile.slice(0, -1).join(" "),
-    nachname: teile[teile.length - 1]!,
-  };
+  return mitPraefix(teile.slice(0, -1), teile[teile.length - 1]!);
 }
 
 /** Ergebnis von {@link namenEinsetzen}: neue Liste und je eingefügter Person der Platz. */

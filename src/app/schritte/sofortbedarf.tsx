@@ -6,6 +6,7 @@
 import { PersonalErfassung, staerke, verpflegung, type Sofortbedarf } from "@bos/eeb-format/model";
 import { pruefpunkte } from "../hilfen";
 import { frageJaNein } from "../dialoge";
+import { freitextQrHinweis } from "../qr-posten";
 import { HOECHST_LITER, HOECHST_PERSONEN } from "../zahl-eingabe";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Feld, Hinweise, useZahlEingabe, ZahlMeldung, ZahlMeldungsSenke, type SchrittProps } from "./bausteine";
@@ -171,6 +172,12 @@ export function SchrittSofortbedarf({ bogen, aendern }: SchrittProps) {
       <Feld titel="Sonstiges (Freitext)">
         <textarea rows={3} value={bogen.sonstiges ?? ""} onChange={(e) => aendern({ sonstiges: e.target.value || undefined })} />
       </Feld>
+      {/* Ab 500 Zeichen: Der Text kostet QR-Teile (R11-E5). */}
+      {freitextQrHinweis(bogen.sonstiges) && (
+        <p className="hinweis warnung-text freitext-qr-hinweis" role="status">
+          {freitextQrHinweis(bogen.sonstiges)}
+        </p>
+      )}
       {/* Schritt-Index 4 = Sofortbedarf (siehe SCHRITTE in app.tsx): „Diesel
           99 999 l" fiel vorher erst in der Übersicht auf — wenn überhaupt. */}
       <Hinweise punkte={pruefpunkte(bogen, false)} aktuellerSchritt={4} />

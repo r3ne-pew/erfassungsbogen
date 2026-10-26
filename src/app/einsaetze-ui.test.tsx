@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PersonalErfassung, type Erfassungsbogen } from "@bos/eeb-format/model";
 import { Dialogschicht } from "./dialoge";
@@ -247,6 +247,7 @@ describe("Einheit mit Folgemeldung entfernen (R2-D1)", () => {
     const quittung = screen.getByRole("status");
     // Handlung vorn, Name danach — die Leiste kürzt am Ende (R3-G2).
     expect(quittung.textContent).toMatch(/^Entfernt \(2 Fassungen\): Meldung Nr\. \d+ „.*Ulm"/);
+    expect(quittung.className).toContain("quittung-mehrzeilig"); // R11-D2: Umnummerierung nicht abgeschnitten
 
     await nutzer.click(within(quittung).getByRole("button", { name: "Rückgängig" }));
     neuLaden();
@@ -877,6 +878,33 @@ describe("Zeiten, Auftrag und Bedarf auf der Karte", () => {
     neuLaden();
     expect(document.querySelector(".auftrag-notiz")!.textContent).toContain("Deichabschnitt Nord ab 14:00");
     expect(screen.getByRole("button", { name: "Auftrag ändern" })).not.toBeNull();
+  });
+
+  // R11-O1: Eingetippt, nicht gespeichert, Feld noch im Fokus — Seite ausgeblendet oder verlassen: Der Text ist nicht weg.
+  it("sichert einen getippten Auftrag beim Ausblenden der Seite und ein Zug-Etikett beim Verlassen (R11-O1)", async () => {
+    const nutzer = userEvent.setup();
+    const { einsatzId } = buehne(["Wardenburg"]);
+
+    await nutzer.click(screen.getByRole("button", { name: "Auftrag/Notiz" }));
+    await nutzer.type(screen.getByLabelText("Auftrag/Notiz"), "Deich Nord ab 14:00 sichern");
+    expect(gespeichert(einsatzId, "Wardenburg").notiz).toBeUndefined();
+    const sicht = Object.getOwnPropertyDescriptor(Document.prototype, "visibilityState");
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+    try {
+      await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+    } finally {
+      delete (document as unknown as Record<string, unknown>).visibilityState;
+      if (sicht) Object.defineProperty(Document.prototype, "visibilityState", sicht);
+    }
+    await waitFor(() => expect(gespeichert(einsatzId, "Wardenburg").notiz).toBe("Deich Nord ab 14:00 sichern"));
+    // Das Feld bleibt offen und trägt den Text weiter.
+    expect((screen.getByLabelText("Auftrag/Notiz") as HTMLInputElement).value).toBe("Deich Nord ab 14:00 sichern");
+
+    await nutzer.click(screen.getByRole("button", { name: "Zug zuordnen" }));
+    await nutzer.type(screen.getByLabelText("Zug"), "2. Zug");
+    expect(gespeichert(einsatzId, "Wardenburg").zugEtikett).toBeUndefined();
+    await act(async () => { window.dispatchEvent(new Event("pagehide")); });
+    await waitFor(() => expect(gespeichert(einsatzId, "Wardenburg").zugEtikett).toBe("2. Zug"));
   });
 
   it("speichert das Zug-Etikett beim Verlassen des Felds, lässt ein leeres Feld aber unverändert", async () => {
@@ -1540,6 +1568,30 @@ describe("Quittung nennt die zuletzt aufgenommenen Einheiten (R2-S4)", () => {
     expect(document.querySelector(".stapel-eingang")).toBeNull();
   });
 
+  // R11-D1: „Zur Kenntnis genommen" hat eine Quittung mit „Rückgängig", die die Liste zurückbringt; die Ziele liegen
+  // in einer eigenen Reihe (44-px-Regel im Stylesheet). R11-O4: bei vollem Speicher meldet es das.
+  it("quittiert „Zur Kenntnis genommen“ mit „Rückgängig“ und meldet einen vollen Speicher (R11-D1, R11-O4)", async () => {
+    const nutzer = userEvent.setup();
+    const { einsatzId, neuLaden } = buehne(["Zeitz"]);
+    for (const n of ["Weinsberg", "Albstadt"]) meldungHinzufuegen(einsatzId, bogenMitName(n));
+    neuLaden();
+    const quittung = document.querySelector<HTMLElement>(".stapel-eingang")!;
+    expect(quittung.querySelector(".kenntnis-aktionen")).not.toBeNull();
+    await nutzer.click(within(quittung).getByRole("button", { name: "Zur Kenntnis genommen" }));
+    expect(document.querySelector(".stapel-eingang")).toBeNull();
+    const rueck = await screen.findByRole("button", { name: "Zur Kenntnis genommen rückgängig machen" });
+    await waitFor(() => expect((rueck as HTMLButtonElement).disabled).toBe(false));
+    await nutzer.click(rueck);
+    expect(document.querySelector(".stapel-eingang")).not.toBeNull();
+
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("voll", "QuotaExceededError");
+    });
+    await nutzer.click(within(document.querySelector<HTMLElement>(".stapel-eingang")!).getByRole("button", { name: "Zur Kenntnis genommen" }));
+    expect(document.querySelector("dialog.abfrage")?.textContent).toContain("Kenntnisnahme nicht gespeichert");
+    vi.restoreAllMocks();
+  });
+
   /**
    * R4-K7: „neu" und „neue Fassung" hängen an der Kenntnisnahme, nicht an der
    * Uhr — „Zur Kenntnis genommen" nimmt beide Marken weg, und eine eben
@@ -1784,6 +1836,8 @@ describe("Aufteilen mit Quittung und Rückweg (R2-D6)", () => {
     expect(document.querySelectorAll(".einheit-zeile")).toHaveLength(2);
     const quittung = screen.getByRole("status");
     expect(quittung.className).toContain("quittung-daumen");
+    // R11-D2: Der Rest des Satzes („abgeteilt", Weg über „Zusammenführen…") wird nicht nach zwei Zeilen abgeschnitten.
+    expect(quittung.className).toContain("quittung-mehrzeilig");
     expect(quittung.textContent).toMatch(/„Fachberater" von „.*Wardenburg" abgeteilt\. Später zurück über „Mehr…" › „Zusammenführen…"\./);
 
     await nutzer.click(within(quittung).getByRole("button", { name: "Rückgängig" }));

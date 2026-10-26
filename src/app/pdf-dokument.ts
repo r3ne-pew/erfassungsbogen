@@ -43,8 +43,9 @@ import {
   type QrSatz,
   zeitpunktDeutsch,
 } from "./hilfen";
-import { mwdText, summiereBoegen, unterbringungAngefordertText, type EinsatzSummen } from "./auswertung";
+import { mwdText, summiereBoegen, unterbringungAngefordertText, verpflegungText, type EinsatzSummen } from "./auswertung";
 import { zeitLang } from "./eintrag-zeiten";
+import { codeGueltigBisText } from "./anonym-hinweis";
 import { bedarfMarken, datumVonMs, lueckenAlle, rueckkehrText } from "./einheiten-tabelle";
 import { FELD_GESAMTSTAERKE, bogenDiff, diffZeilen, type BogenDiff } from "@bos/meldekopf/meldung-diff";
 import { fahrzeugSymbolSvg } from "./taktische-zeichen-bogen";
@@ -499,6 +500,8 @@ export interface UebersichtEintrag {
   zeitUnbestaetigt?: boolean;
   /** Ort/Auftrag, den der Bogen nennt, obwohl er nicht zur Lage zu passen scheint (R5-K5). */
   fremderOrt?: string;
+  /** Name und Rufnummer des Absenders aus der mitsignierten Absenderkarte (R11-W2): „Hans Beispiel · 0170 5551234". */
+  absender?: string;
 }
 
 /** Ein Bogen der Sammel-PDF samt QR — die Übersichtsangaben plus der Code für die Bogenseiten. */
@@ -582,7 +585,7 @@ export function ohneVorbelegung(b: Erfassungsbogen): Erfassungsbogen {
  * Ortsverbands) — auf dem Einzelbogen stehen sie, auf dem Lageblatt fehlten
  * sie (Audit Runde 2, R2-A3).
  */
-export function erreichbarkeitZeilen(b: Erfassungsbogen): string[] {
+export function erreichbarkeitZeilen(b: Erfassungsbogen, absender?: string): string[] {
   const zeilen: string[] = [];
   // Niemand hat gezählt (Sollstärke): Funkrufname und Rufnummer stammen aus der Vorbelegung des Einheitstyps,
   // nicht von der Einheit — am Wandblatt sähen sie wie ein bestätigter Rückruf aus (R9-A3).
@@ -590,7 +593,12 @@ export function erreichbarkeitZeilen(b: Erfassungsbogen): string[] {
   b = ohneVorbelegung(b);
   const fzg = b.fahrzeuge.find((f) => f.funkrufname);
   const furn = fzg ? funkrufText(fzg, b.einheit) : "";
-  if (furn) zeilen.push(soll ? `${furn} (Vorbelegung)` : furn);
+  // Trägt die Fahrzeugzeile noch keine eigene Angabe (Kennzeichen, Sitzplätze, Sondergerät), stammt der
+  // Funkrufname aus der Vorbelegung des Einheitstyps, auch bei vollständig gemeldetem Bogen (R11-W4).
+  const unberuehrt = fzg != null && !fzg.kennzeichen?.trim() && fzg.sitzplaetze == null && !fzg.aenderungen?.trim();
+  if (furn) zeilen.push(soll || unberuehrt ? `${furn} (Vorbelegung)` : furn);
+  // Rückruf der Einheit selbst: Name und Nummer, die der Absender hinterlegt hat (R11-W2).
+  if (absender) zeilen.push(`Absender: ${absender}`);
   // Knapp, damit die Zeile in die Spalte passt: „5556968346 (S. Lang)".
   const p = ansprechpartner(b.personal);
   const tel = p?.kontakte.find((k) => k.art !== KontaktArt.EMAIL && k.wert);
@@ -797,7 +805,7 @@ function uebersichtsTabelle(
     return [
       namensZeilen.length === 1 ? namensZeilen[0]! : { stack: namensZeilen },
       { text: weichUmbrechen(e.zugEtikett ?? "") },
-      ...(zumWeiterfuehren ? [{ stack: erreichbarkeitZeilen(b).map((text) => ({ text: weichUmbrechen(text) })) }] : []),
+      ...(zumWeiterfuehren ? [{ stack: erreichbarkeitZeilen(b, e.absender).map((text) => ({ text: weichUmbrechen(text) })) }] : []),
       {
         stack: [
           { text: blattZeit(e.eingetroffenAm) },
@@ -939,7 +947,9 @@ function bedarfsTabelle(eintraege: UebersichtEintrag[], leer = false, nachtrag?:
       { text: "Verpflegung:", bold: true },
       {
         text:
-          `${s.verpflegung.gesamt} Portionen ` +
+          (s.verpflegungAngefordert === s.verpflegung.gesamt
+            ? `${s.verpflegung.gesamt} Portionen `
+            : `angefordert ${s.verpflegungAngefordert} Portionen, Stärke ${s.verpflegung.gesamt} `) +
           `(${s.verpflegung.fleisch} Fleisch / ${s.verpflegung.vegetarisch} vegetarisch / ${s.verpflegung.vegan} vegan)`,
       },
     ],
@@ -1054,7 +1064,7 @@ function lageKopfleiste(eintraege: UebersichtEintrag[], leer = false, nachtrag?:
   const angefordert = unterbringungAngefordertText(s);
   const bedarfZeile = [
     { text: nachtrag ? "Bedarf (nur Nachtrag): " : "Bedarf: ", bold: true },
-    { text: `Verpflegung ${s.verpflegung.gesamt} · ` },
+    { text: `${verpflegungText(s)} · ` },
     angefordert ? { text: `Unterbringung angefordert: ${angefordert}`, bold: true } : { text: "keine Unterbringung angefordert" },
     { text: " · " },
     s.ruhezeitErforderlich > 0
@@ -1107,7 +1117,7 @@ function nachtragsTabelle(zeilen: number, leer: boolean, rueckseite: boolean): C
       kopf("übertragen"),
     ]);
   }
-  const label: TableCell[] = [{ text: "Nachtrag von Hand (Einheit, Zug, Uhrzeit, Stärke …)", italics: true, colSpan: SP - 1 }];
+  const label: TableCell[] = [{ text: "Nachtrag von Hand (Einheit, Zug, Uhrzeit an / ab, Stärke …)", italics: true, colSpan: SP - 1 }];
   for (let i = 1; i < SP - 1; i++) label.push({});
   // Mit Spaltenköpfen steht „übertragen“ dort schon.
   label.push({ text: rueckseite ? "" : "übertragen", italics: true });
@@ -1282,6 +1292,7 @@ export function meldekopfVermerk(e: UebersichtEintrag, name: string, erstellt: n
   teile.push(`Zug: ${e.zugEtikett || "–"}`);
   if (e.teil) teile.push(`Teil: ${e.teil}`);
   teile.push(`Auftrag / Notiz: ${e.notiz || "–"}`);
+  if (e.absender) teile.push(`Absender: ${e.absender}`);
   return {
     stand: `Stand am Meldekopf (${name}, erstellt ${zeitLang(erstellt)}): ${teile.join(" · ")}`,
     abgerueckt: !!e.abgerueckt,
@@ -1694,7 +1705,7 @@ export async function einsatzLageblattSeiteFuellen(
  * sondern auf {@link QrSatz.vollUrl} — den kompletten Bogen in einer URL.
  * Segmentierung ist eine Grenze des QR-Bildes, nicht des Links.
  */
-function qrBlock(qr: QrSatz, akzent: string, stand: string, vermerk?: MeldekopfVermerk, einheit = ""): Content {
+function qrBlock(qr: QrSatz, akzent: string, stand: string, vermerk?: MeldekopfVermerk, einheit = "", gueltigBis = ""): Content {
   const kopf = (text: string): Content => ({ text, bold: true, fontSize: 13, color: akzent, alignment: "center" });
   // Jede Codeseite nennt ihre Einheit (R4-A5). Beim Einzelcode steht die Zeile
   // in der freien Spalte neben dem Bild — über dem Bild kostete sie 36 von 443
@@ -1706,7 +1717,9 @@ function qrBlock(qr: QrSatz, akzent: string, stand: string, vermerk?: MeldekopfV
   // Kästchen schauen (R2-A4). Beim Einzelcode steht er in der freien Spalte
   // links NEBEN dem Bild — unter dem Code kostete die Zeile 6 von 101
   // THW-Beispielbögen eine zweite Seite (unbreakable-Block).
-  const stift = (): Content => ({ text: stiftHinweis(stand), bold: true, fontSize: 8 });
+  // Dazu, bis wann der Code Namen liefert: wer sein Papier frisch druckt, ohne den Bogen zu ändern, hält
+  // sonst ein Blatt mit lesbaren Namen, dessen Code sie nach der Datenschutzfrist nicht mehr trägt (R11-A1).
+  const stift = (): Content => ({ text: `${stiftHinweis(stand)}${gueltigBis ? ` ${gueltigBis}.` : ""}`, bold: true, fontSize: 8 });
   // Nur in der Sammel-PDF: was der Code nicht enthält, direkt beim Code
   // (R2-A1). Beim Einzelcode steht der Kasten „Stand am Meldekopf“ schon über
   // dem Formular derselben Seite, der Hinweis rechts neben dem Code. Mehrteilige
@@ -1855,7 +1868,9 @@ function blankoMeldekopf(): Content {
       body: [[{
         stack: [
           { text: "Meldekopf:   Nr. ______   ·   eingegangen am ____________  um ____:____ Uhr   ·   Zug / Verband: ________________" },
-          { text: `${kasten(false)} ÜBUNG — kein echter Einsatz   ·   ins Gerät übertragen ${kasten(false)}  von (Kürzel) ________  um ____:____ Uhr`, margin: [0, 5, 0, 0] },
+          // „abgerückt am … um …" neben „eingegangen": Rückt die Einheit ab, während das Gerät aus ist, steht die
+          // Uhrzeit auf ihrem Blatt statt nur auf dem Meldeblock (R11-A2).
+          { text: `${kasten(false)} ÜBUNG (kein Einsatz)  ·  abgerückt am __________ um ____:____ Uhr  ·  ins Gerät übertragen ${kasten(false)} von ______ um ____:____ Uhr`, margin: [0, 5, 0, 0] },
           // Beiblatt (R5-A6): Der Vordruck fasst 4 Fahrzeuge und 6 Qualifikationen. Mehr gehört
           // auf einen zweiten Vordruck mit gleicher Einheit und Nr., nicht an den Rand.
           {
@@ -2265,7 +2280,7 @@ export function pdfDokument(
       // Kein fester Seitenumbruch mehr; als unbreakable-Gruppe zusammengehalten,
       // damit der QR-Code nicht über eine Seitengrenze zerrissen wird. Passt der
       // Block nicht mehr, rückt er als Ganzes auf die nächste Seite.
-      ...(qr ? [qrBlock(qr, farbe.akzent, zeitgruppe(b.stand), vermerk, codeKopfzeile(b, zeitgruppe(b.stand), vermerk?.nummer))] : []),
+      ...(qr ? [qrBlock(qr, farbe.akzent, zeitgruppe(b.stand), vermerk, codeKopfzeile(b, zeitgruppe(b.stand), vermerk?.nummer), codeGueltigBisText(b, (z) => zeitpunktDeutsch(z).split(",")[0] ?? ""))] : []),
       ...(zusatz?.messpunkt ? [{ text: " ", fontSize: 1, id: `${MESS_BOGEN_ENDE}-qr${zusatz.messKennung ?? ""}` } as Content] : []),
     ],
   });

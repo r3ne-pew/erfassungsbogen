@@ -21,9 +21,11 @@ import {
   einsatzFunkrufSetzen,
   einsatzbeginnLaden,
   einsatzbeginnSetzen,
+  beginnHinweis,
 } from "./lagemonitor-beginn";
+import { frageJaNein } from "./dialoge";
 import { sammlungenBeiseitegelegt } from "./unlesbar";
-import { alterText, ausEingabeWert, bedarfText, dauerText, lagebild, uhrTeile, zuEingabeWert, type EinheitZeile } from "./lagemonitor";
+import { alterText, anwesendenAlterText, ausEingabeWert, bedarfText, dauerText, lagebild, uhrTeile, zuEingabeWert, type EinheitZeile } from "./lagemonitor";
 
 const URL_PARAMETER = "lagemonitor";
 /** Gemerkte Helligkeitsstufe des Monitors („dunkel" oder „gedimmt"; „hell" wird nie gemerkt, R7-L3). */
@@ -228,7 +230,7 @@ function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] })
         <tbody>
           {einheiten.map((e) => (
             <tr key={e.id}>
-              <td className="lm-orga">{e.orga}{e.soll && <abbr className="lm-soll" title="Sollstärke, nicht gemeldet"> S</abbr>}</td>
+              <td className="lm-orga">{e.orga}{e.soll && <abbr className="lm-soll" title="Sollstärke, nicht gemeldet"> S</abbr>}{e.alterMin != null && <abbr className="lm-alt" title="Meldung ist älter als eine Stunde"> ⚠ {e.alterMin >= 1440 ? `${Math.floor(e.alterMin / 1440)} T` : `${Math.floor(e.alterMin / 60)} Std`}</abbr>}</td>
               <td>{e.ort || "–"}</td>
               {/* Am Telefon entfällt die Ort-Spalte: Der Ort steht im Funkrufnamen oder, wenn nicht, als Zusatz darunter (R9-K5). */}
               <td data-ort={ortImFunkruf(e) ? undefined : e.ort}>{e.funkruf || "–"}</td>
@@ -363,12 +365,18 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
         ? `Alle ${bild.abgerueckt} Einheiten abgerückt`
         : "Noch nichts gemeldet"
       : `${s.einheiten} ${s.einheiten === 1 ? "Einheit" : "Einheiten"} · ${s.fahrzeuge} ${s.fahrzeuge === 1 ? "Fahrzeug" : "Fahrzeuge"}${bild.abgerueckt > 0 ? ` · ${bild.abgerueckt} abgerückt` : ""}`;
+  // Das Alter der anwesenden Einheiten, nicht nur der jüngsten Meldung: eine frische abgerückte Einheit
+  // verdeckte sonst, dass die Stärke auf Meldungen von vor Stunden beruht (R11-K1).
+  const alterAnwesende = bild.zeitenPruefen ? null : anwesendenAlterText(bild.anwesendenAlter, jetzt);
   const datenstand = bild.zeitenPruefen
     ? "Meldezeiten liegen in der Zukunft – Zeiten prüfen (Geräteuhr?)"
     : bild.letzteMeldung != null
-      ? `letzte Meldung ${alterText(bild.letzteMeldung, jetzt)}`
+      ? `letzte Meldung ${alterText(bild.letzteMeldung, jetzt)}${alterAnwesende ? ` · ⚠ ${alterAnwesende}` : ""}`
       : "";
-  const veraltet = bild.zeitenPruefen || (bild.letzteMeldung != null && jetzt - bild.letzteMeldung >= VERALTET_MIN * 60_000);
+  const veraltet =
+    bild.zeitenPruefen ||
+    alterAnwesende != null ||
+    (bild.letzteMeldung != null && jetzt - bild.letzteMeldung >= VERALTET_MIN * 60_000);
   const ortText = bild.ort?.trim() ? <span className="lm-ort"> · {bild.ort.trim()}</span> : null;
   const sichtbareBewegungen = bild.bewegungen.slice(0, BEWEGUNGEN_MAX);
   const weitereBewegungen = bild.bewegungen.length - sichtbareBewegungen.length;
@@ -486,11 +494,13 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
 export function LagemonitorBlock({ einsatzId, alleIds }: { einsatzId: string; alleIds: readonly string[] }) {
   const [beginn, setBeginn] = useState<number | null>(() => einsatzbeginnLaden(einsatzId));
   const [fehler, setFehler] = useState(false);
+  // Der Funkrufname meldet ein Scheitern des Speicherns wie der Beginn, mit eigenem Satz (R11-O5).
+  const [funkrufFehler, setFunkrufFehler] = useState(false);
   const [funkruf, setFunkruf] = useState(() => einsatzFunkrufLaden(einsatzId) ?? "");
 
   function setzeFunkruf(text: string) {
     setFunkruf(text.slice(0, FUNKRUF_MAX));
-    setFehler(!einsatzFunkrufSetzen(einsatzId, text, alleIds));
+    setFunkrufFehler(!einsatzFunkrufSetzen(einsatzId, text, alleIds));
   }
 
   function setze(ms: number | null) {
@@ -498,6 +508,25 @@ export function LagemonitorBlock({ einsatzId, alleIds }: { einsatzId: string; al
     setFehler(!ok);
     if (ok) setBeginn(ms);
   }
+
+  /** „Jetzt" ersetzt keinen eingetragenen Beginn ohne Rückfrage, die den alten Wert nennt (R11-D4). */
+  async function setzeJetzt() {
+    if (beginn != null) {
+      const alt = uhrTeile(new Date(beginn));
+      const ja = await frageJaNein({
+        titel: "Einsatzbeginn überschreiben?",
+        text: `Eingetragen ist ${alt.zeit} Uhr, ${alt.datum}. „Jetzt" ersetzt ihn durch die aktuelle Uhrzeit; der alte Beginn ist danach nicht mehr gespeichert.`,
+        ok: "Durch jetzt ersetzen",
+        abbruch: "Beginn behalten",
+        gefahr: true,
+        fokus: "abbruch",
+      });
+      if (!ja) return;
+    }
+    setze(Date.now());
+  }
+
+  const hinweis = beginnHinweis(beginn, Date.now());
 
   return (
     <div className="lm-block">
@@ -528,13 +557,17 @@ export function LagemonitorBlock({ einsatzId, alleIds }: { einsatzId: string; al
             onChange={(e) => setze(ausEingabeWert(e.target.value))}
           />
         </label>{" "}
-        <button type="button" onClick={() => setze(Date.now())}>Jetzt</button>{" "}
+        <button type="button" onClick={() => void setzeJetzt()}>Jetzt</button>{" "}
         {beginn != null && <button type="button" onClick={() => setze(null)}>Löschen</button>}{" "}
         <button type="button" className="primaer" onClick={() => lagemonitorOeffnen(einsatzId)}>
           Lagemonitor öffnen
         </button>
       </div>
+      {hinweis && <p className="hinweis warnung-text lm-beginn-hinweis" role="status">{hinweis}</p>}
       {fehler && <p className="fehler" role="status">Der Beginn konnte nicht gespeichert werden (Speicher voll oder gesperrt).</p>}
+      {funkrufFehler && (
+        <p className="fehler" role="status">Der Funkrufname konnte nicht gespeichert werden (Speicher voll oder gesperrt) — der Lagemonitor zeigt ihn nicht.</p>
+      )}
     </div>
   );
 }

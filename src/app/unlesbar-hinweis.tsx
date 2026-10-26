@@ -117,8 +117,8 @@ export function UnlesbarHinweis({ sammlungId }: { sammlungId?: string }) {
           Datei an (Downloads). Die App kann den Text nicht öffnen; die Datei kann, wer die App betreut.
         </p>
         <p>
-          <strong>Weg zurück auf Papier:</strong> die letzte Sammel-PDF und das Lageblatt gelten weiter. Die Bögen daraus mit „Bögen einlesen…“
-          bzw. „Einsatz importieren…“ neu einlesen.
+          <strong>Weg zurück auf Papier:</strong> die letzte Sammel-PDF gilt weiter — ihre Bögen mit „Bögen einlesen…“ bzw. „Einsatz importieren…“
+          neu einlesen. Das Lageblatt dient nur zum Aushängen und Abgleichen und lässt sich nicht einlesen.
         </p>
         {offen.length > 0 && (
           <p className="warnung-text">

@@ -5655,6 +5655,84 @@
       dialog.abfrage form:has(> .abfrage-fuss) .abfrage-fuss .abfrage-aktionen > button { height: auto; }
     }
     /* ===== Ende Runde 10 (Layout) ===== */
+
+    /* ===== Runde 11 (Layout) ===== */
+    /* R11-G3: Zwischen zwei Antippflächen bleiben mindestens 8 px. Die Ziele selbst waren groß genug; es fehlte die Lücke. */
+    /* Tabellenköpfe: Die Kopfzelle gibt 2 px je Seite zurück, zwischen zwei Sortierknöpfen liegen 4 px statt der 1-px-Naht. */
+    table.einheiten-tabelle thead th:has(> .spalten-sortierung) { padding-inline: 2px; }
+    table.einheiten-tabelle thead th > .spalten-sortierung { box-sizing: border-box; }
+    /* Aufklapp-Karten: abgesetzte Fläche mit Rand und 8 px Luft statt aneinanderstoßender Streifen. */
+    .einheit-zeile.kompakt,
+    .einheit-zeile.kompakt:first-of-type {
+      margin-top: 8px; padding: var(--r-2) 2rem var(--r-2) var(--r-3);
+      border: var(--strich) solid var(--linie-fein); border-radius: var(--radius);
+    }
+    .einheit-zeile.gestrichen.kompakt { padding-left: var(--r-3); }
+    /* Aufgeklappte Karte: der Hinweise-Link stößt nicht an „Zuklappen/Details", die Knöpfe darunter stehen mit 12 px. */
+    .einheit-zeile .vorlage-aktionen { margin-top: 12px; gap: 12px; }
+    /* Zeile über „Suchen, sortieren, filtern" und Kopfzeile mit Karten/Tabelle. */
+    p.hinweis.luecken-zaehler { margin-bottom: 12px; }
+    .einsatz-liste > .kopfzeile { row-gap: 8px; margin-bottom: 8px; }
+    /* Schritt 3 und 4 (auch quer): „+ Person/Fahrzeug hinzufügen" und der StAN-Knopf darunter mit 12 px. */
+    .schritt-inhalt button.primaer + p:has(> button:first-child) { margin-top: 12px; }
+
+    /* R11-M2: Der Name der Einheit ist das Merkmal der Zeile und nicht die kleinste Schrift: am Telefon 13 px (nur im
+       Zoom-Fenster unter 200 px Rahmenbreite bleibt es bei 11 px, R9-M3). */
+    @container (min-width: 12.5rem) and (max-width: 30rem) {
+      table.einheiten-tabelle tbody th { font-size: 13px; }
+    }
+
+    /* R11-M3: Die Quittung nach „Abrücken" kürzt den Namen der Einheit nicht mehr nach zwei Zeilen. */
+    .quittung-daumen.quittung-mehrzeilig > .quittung-text { -webkit-line-clamp: 4; line-clamp: 4; }
+
+    /* R11-M4: „Bogen fortsetzen" / „Weiter erfassen" als ruhiger Knopf in Zielgröße statt 30 px hohem Textlink. */
+    button.link.bogen-weiter {
+      display: flex; align-items: center; justify-content: center; width: fit-content; margin: 8px auto 0;
+      min-height: calc(var(--ziel-basis) + var(--ziel)); padding: 0 var(--r-4);
+      border: var(--strich) solid var(--linie-stark); border-radius: var(--radius); background: var(--flaeche);
+      color: var(--text); text-decoration: none; font-weight: 600;
+    }
+    @media (hover: hover) { button.link.bogen-weiter:hover { border: var(--strich) solid var(--akzent); background: var(--flaeche); color: var(--akzent); } }
+
+    /* R11-M5: Telefon quer (568 × 320): Die fünf Kacheln bleiben in einer Zeile (kleinere Ziffer und Beschriftung), sonst
+       stand „Gesamt" allein in der zweiten Zeile und „Bogen scannen…" begann unter dem Bildrand. */
+    @media (orientation: landscape) and (max-height: 31.25rem) and (width > 30rem) {
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) { flex-wrap: nowrap; }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div { min-width: 0; padding: var(--r-1) var(--r-2); }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) strong { font-size: calc(var(--t-zahl) * 0.8); }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) span { font-size: min(var(--t-xs), 11px); letter-spacing: 0.04em; overflow-wrap: break-word; }
+    }
+
+    /* R11-M1: Die optionalen Zettelfelder der Aufnahme (Eingetroffen um, Nr., Zug) stehen eingeklappt; die Zusammenfassung
+       ist ein voller Knopf. So liegt „Ort der Einheit" nicht zwei Bildschirme unter dem Kopf. */
+    details.zettel-angaben > summary {
+      cursor: pointer; display: flex; align-items: center;
+      min-height: calc(var(--ziel-basis) + var(--ziel)); font-size: var(--t-s); font-weight: 600; color: var(--text-2);
+    }
+    details.zettel-angaben[open] > summary { margin-bottom: var(--r-2); }
+
+    /* R11-L2: Unter erzwungenen Farben (Windows-Kontrast-Designs) verlieren Knöpfe ihre Füllung. Der gewählte Zustand steht
+       dann in Systemfarben (Highlight), mit Haken und Unterstreichung; der Hauptknopf trägt einen dicken Rahmen. */
+    @media (forced-colors: active) {
+      button[aria-pressed="true"],
+      .seiten-kopf.assistent-kopf .schritte button.aktiv,
+      .seiten-kopf.assistent-kopf .schritte button[aria-current="step"] {
+        background: Highlight; color: HighlightText; border-color: Highlight; text-decoration: underline; font-weight: 700;
+      }
+      button[aria-pressed="true"]::before { content: "✓ "; }
+      button.primaer, button.uebernehmen { border: 3px solid ButtonText; font-weight: 700; }
+    }
+    /* R11-N1: Telefon (110 px) und E-Mail (197 px) der Verzeichnis-Ergänzung waren abgeschnitten, die Nummer lässt sich so nicht prüfen.
+       Am Telefon bekommen beide die volle Zeilenbreite. */
+    @media (max-width: 47.999rem) {
+      .ebenen-zeile > label.feld.schmal, .ebenen-zeile > label.feld { flex: 1 1 100%; }
+    }
+    /* ===== Ende Runde 11 (Layout) ===== */
+    /* ===== Runde 11 (Zustand) ===== */
+    /* R11-D1: „Zur Kenntnis genommen" und „Zuletzt gemeldete oben zeigen" als 44-px-Ziele mit 8 px Abstand. */
+    .stapel-eingang .kenntnis-aktionen { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .stapel-eingang .kenntnis-aktionen button.link { min-height: 44px; display: inline-flex; align-items: center; padding-block: 0; }
+    /* ===== Ende Runde 11 (Zustand) ===== */
   </style>
 </head>
 <body>

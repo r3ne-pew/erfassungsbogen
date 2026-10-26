@@ -25,6 +25,12 @@ export interface EinsatzSummen {
   einheiten: number;
   staerke: Staerke;
   verpflegung: VerpflegungSplit;
+  /**
+   * Personen, für die Verpflegung ausdrücklich angefordert ist (Schritt 5 angehakt, R11-W1).
+   * `verpflegung.gesamt` ist die Kopfstärke nach Bogen und bleibt davon getrennt: Wer nichts
+   * angekreuzt hat, will nicht mitbestellt werden.
+   */
+  verpflegungAngefordert: number;
   unterbringung: { m: number; w: number; d: number };
   /**
    * Personen, deren M/W/D-Aufteilung niemand angegeben hat (Schnellerfassung
@@ -87,6 +93,7 @@ function leereSummen(): EinsatzSummen {
     einheiten: 0,
     staerke: { fuehrer: 0, unterfuehrer: 0, mannschaft: 0, gesamt: 0 },
     verpflegung: { gesamt: 0, fleisch: 0, vegetarisch: 0, vegan: 0 },
+    verpflegungAngefordert: 0,
     unterbringung: { m: 0, w: 0, d: 0 },
     unterbringungOhneAngabe: 0,
     unterbringungBenoetigt: 0,
@@ -114,6 +121,23 @@ export function verpflegungLage(b: Erfassungsbogen): VerpflegungSplit {
     return { gesamt, fleisch: gesamt, vegetarisch: 0, vegan: 0 };
   }
   return verpflegung(b);
+}
+
+/**
+ * Personen, für die dieser Bogen Verpflegung anfordert: nur mit angehaktem Schritt 5 (Sofortbedarf),
+ * dann die dort eingetragene Zahl. Ohne Sofortbedarf 0 — die Kopfstärke ist keine Bestellung (R11-W1).
+ */
+export function verpflegungAngefordertLage(b: Erfassungsbogen): number {
+  return b.sofortbedarf ? Math.max(0, b.sofortbedarf.verpflegungPersonen) : 0;
+}
+
+/**
+ * Verpflegung für Kopfzeile und Lageblatt: Stimmen angefordert und Stärke überein, steht eine Zahl
+ * („Verpflegung 9"); sonst beide benannt („Verpflegung angefordert 0 (Stärke 9)", R11-W1).
+ */
+export function verpflegungText(s: Pick<EinsatzSummen, "verpflegung" | "verpflegungAngefordert">): string {
+  if (s.verpflegungAngefordert === s.verpflegung.gesamt) return `Verpflegung ${s.verpflegung.gesamt}`;
+  return `Verpflegung angefordert ${s.verpflegungAngefordert} (Stärke ${s.verpflegung.gesamt})`;
 }
 
 /**
@@ -147,6 +171,7 @@ export function summiereBoegen(boegen: Erfassungsbogen[]): EinsatzSummen {
     s.verpflegung.fleisch += vp.fleisch;
     s.verpflegung.vegetarisch += vp.vegetarisch;
     s.verpflegung.vegan += vp.vegan;
+    s.verpflegungAngefordert += verpflegungAngefordertLage(b);
 
     const u = unterbringungLage(b);
     s.unterbringung.m += u.m;

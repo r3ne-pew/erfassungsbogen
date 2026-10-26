@@ -45,6 +45,7 @@ import {
 import { debugAktiv } from "../debug-plattform";
 import { mwdText } from "../auswertung";
 import { bogenCsvInhalt } from "../bogen-csv";
+import { qrGroessePosten, VIELE_TEILE } from "../qr-posten";
 import { einheitSymbolSvg, svgDataUrl } from "../taktische-zeichen-bogen";
 import {
   absenderLabel,
@@ -59,7 +60,7 @@ import { geraeteKurzform, geraeteSchluesselNurSitzung, geraeteOeffentlichHex } f
 import { istNativ, linkTeilen, nahbereichDienst, pdfEinbettbar, shareSheetVerfuegbar, textTeilen } from "../nativ";
 import { fehlerText, istNachladeFehler } from "../nachladen";
 import { frageJaNein, frageText, frageWahl, zeigeHinweis } from "../dialoge";
-import { mindestzeigeDauer, ortSperren } from "../tipp-schutz";
+import { mindestzeigeDauer, ortSperren, SCHRITTWECHSEL_SPERRE_MS } from "../tipp-schutz";
 import { arbeiten, useArbeitet } from "../arbeitet";
 import { SpeicherVollFehler, istSpeicherVoll } from "../eintrag-zeiten";
 import { uebergabeText, type UebergabeStand, type UebergabeWeg } from "../uebergabe-stand";
@@ -135,7 +136,7 @@ export function Uebersicht(props: {
       vorgabe: props.vorlageBearbeitung ? "" : einheitAnzeigename(bogen.einheit),
       hinweis: props.vorlageBearbeitung
         ? `Legt eine zweite Vorlage neben „${props.vorlageBearbeitung.name}" an; die bleibt, wie sie war.`
-        : "Die Vorlage bleibt auf diesem Gerät und lässt sich für den nächsten Einsatz mustern.",
+        : "Die Vorlage bleibt auf diesem Gerät und lässt sich für den nächsten Einsatz laden und verwenden.",
       ok: "Vorlage speichern",
     });
     if (name == null) return;
@@ -885,6 +886,7 @@ export function Uebersicht(props: {
               <p className="hinweis">
                 Bogen zu groß für einen Code — in {qr.teile.length} Teile aufgeteilt. Alle Teile
                 nacheinander scannen; die App setzt sie zusammen. Auch auf den letzten PDF-Seiten, je Teil eine Seite.
+                {qr.teile.length > VIELE_TEILE && qrGroessePosten(bogen) ? ` Den größten Anteil haben: ${qrGroessePosten(bogen)}.` : ""}
               </p>
               <div className="qr-teile">
                 {qr.teile.map((t) => (
@@ -1256,7 +1258,9 @@ export function QrVollbild(props: {
   }, [index, phase, sofortGezeigt]);
   /** Teilwechsel: Die Fingerstelle bleibt kurz gesperrt, der Nachtipp überspringt keinen Teil (R5-S1, R5-G1). */
   const wechseln = (i: number) => {
-    ortSperren();
+    // 0,9 s wie beim Schrittwechsel (R11-S1): Bei 1,5 s verwarf die Sperre bei ruhigem Tippen im Abstand von
+    // 0,8 bis 1,3 s jeden zweiten „Weiter zu Teil n"; der Doppeltipp (bis ~700 ms) bleibt gesperrt.
+    ortSperren(SCHRITTWECHSEL_SPERRE_MS);
     props.onTeil(i);
   };
   /**

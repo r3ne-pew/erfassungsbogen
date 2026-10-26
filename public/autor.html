@@ -295,6 +295,12 @@
        Bildschirm abgescannt. */
     html.dunkel-modus figure:not(.scancodes figure) img,
     html.nacht-modus figure:not(.scancodes figure) img { filter: brightness(0.4); }
+    /* R11-L1: Organisationszeichen (THW, Malteser, Bundeswehr) haben durchsichtigen Grund und dunkle Zeichnung. Auf dem
+       dunklen Seitengrund und unter der Abdunklung der Fotos maßen sie 1,0:1 bis 1,1:1 — unsichtbar. In Dunkel und Nacht
+       stehen sie auf einer eigenen hellen, gedimmten Platte (wie der QR-Code), und die Abdunklung der Fotos gilt für sie
+       nicht. Die Platte steht im Kasten des Bildes (box-sizing), die Seite verschiebt sich nicht. */
+    html.dunkel-modus figure.zeichen:not(.scancodes figure) img { filter: brightness(0.8); background: #fff; padding: 0.35rem; box-sizing: border-box; border-radius: 0.4rem; }
+    html.nacht-modus figure.zeichen:not(.scancodes figure) img { filter: brightness(0.5); background: #fff; padding: 0.35rem; box-sizing: border-box; border-radius: 0.4rem; }
     /* THEMA:CSS:END */
     /* UMBRUCH:CSS:START */
     /* Große Systemschrift (Umbruch-Regel, scripts/content-stil.mts; Audit
