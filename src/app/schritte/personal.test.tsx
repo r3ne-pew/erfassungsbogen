@@ -1397,6 +1397,17 @@ describe("Dienststelle je Person (Hoya: Helfer aus mehreren OVs)", () => {
     expect(feld.value).toBe("Hoya"); // … danach gilt wieder die Einheit
   });
 
+  it("schlägt beim THW die Ortsverbände vor und übernimmt den gewählten Namen", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={hoyaBogen()} />);
+    const feld = screen.getByLabelText("Dienststelle") as HTMLInputElement;
+    await nutzer.clear(feld);
+    await nutzer.type(feld, "Nienb");
+    await nutzer.click(await screen.findByRole("option", { name: /Nienburg/ }));
+    expect(feld.value).toBe("Nienburg");
+    expect(screen.getByText("abweichend von der Einheit (Hoya)")).toBeDefined();
+  });
+
   it("führt die Spalte auch in der Schnelleingabe und lässt Enter im Nachnamen weiter zur nächsten Zeile", async () => {
     const nutzer = userEvent.setup();
     render(<SchrittBuehne komponente={SchrittPersonal} bogen={hoyaBogen()} />);

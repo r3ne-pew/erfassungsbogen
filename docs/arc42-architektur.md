@@ -16,8 +16,10 @@
 > (optional, nur die Abweichung von der Dienststelle der Einheit; Submodul
 > `eeb-format`, `SCHEMA_VERSION` 10, `transportSchemaVersion` fordert 10 nur für
 > Bögen, die das Feld nutzen; eingefrorene v9-Fixture). Schritt 3 belegt das Feld
-> je Person mit der Dienststelle aus Schritt 1 vor; das PDF nennt eine Abweichung
-> hinter dem Namen. Kein neuer Host, kein neuer Speicherort.
+> je Person mit der Dienststelle aus Schritt 1 vor und schlägt beim THW die
+> Ortsverbände des Verzeichnisses vor (`OvVorschlagFeld`/`useOvDaten` aus Schritt 1,
+> in Karte und Kurz-Liste); das PDF nennt eine Abweichung hinter dem Namen. Kein
+> neuer Host, kein neuer Speicherort.
 >
 > **Nachgezogen 2026-10-26 (Probelauf Meldekopf):** Kap. 5, 6.2, 8.2: neuer
 > Baustein `src/app/handscanner.ts` (Tastatur-Wedge-Erkennung am Tempo, Abschluss

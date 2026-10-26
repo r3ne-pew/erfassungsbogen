@@ -50,8 +50,8 @@ type LandesvorlagenModul = typeof import("../../vokabulare/landesvorlagen");
 let ovDatenCache: OvDaten | null = null;
 let landesvorlagenCache: LandesvorlagenModul | null = null;
 
-/** THW-OV-Verzeichnis samt Regionalstruktur; lädt nur, wenn `aktiv` (THW gewählt). */
-function useOvDaten(aktiv: boolean): OvDaten | null {
+/** THW-OV-Verzeichnis samt Regionalstruktur; lädt nur, wenn `aktiv` (THW gewählt). Auch Schritt 3 nutzt es (Dienststelle je Person). */
+export function useOvDaten(aktiv: boolean): OvDaten | null {
   const [daten, setDaten] = useState(ovDatenCache);
   useEffect(() => {
     if (!aktiv || daten) return;
@@ -183,9 +183,11 @@ export function ovFreiHinweis(name: string, treffer: readonly ThwOrtsverband[]):
  * Kürzel + Kontaktdaten; ein direkt eingetipptes Kürzel ("OODE") wird beim
  * Verlassen des Felds aufgelöst.
  */
-function OvVorschlagFeld(props: {
+export function OvVorschlagFeld(props: {
   /** id des Eingabefelds — Sprungziel einer Rückfrage („Name der Einheit fehlt"). */
   id?: string;
+  /** Zugänglicher Name, wo kein <Feld> ihn liefert (Tabellenzelle). */
+  beschriftung?: string;
   wert: string;
   platzhalter: string;
   /** OV-Verzeichnis; leer, solange das Datenpaket noch lädt. */
@@ -196,8 +198,10 @@ function OvVorschlagFeld(props: {
   aufgeloest?: (ov: ThwOrtsverband) => void;
   /** true: das Feld nimmt das Kürzel auf, nicht den Namen (R2-M6). */
   kennung?: boolean;
+  /** Beim Verlassen des Felds, vor der Auflösung — etwa um einen Tipp-Entwurf zu verwerfen. */
+  verlassen?: (wert: string) => void;
 }) {
-  const { id, wert, platzhalter, verzeichnis, tippen, uebernehmen, aufgeloest, kennung } = props;
+  const { id, beschriftung, wert, platzhalter, verzeichnis, tippen, uebernehmen, aufgeloest, kennung, verlassen } = props;
 
   // Beide Seiten gefaltet (R11-H1): „Hassmersheim" und „Muellheim" finden „Haßmersheim" und „Müllheim".
   // Bindestrich und Leerzeichen gleich (R13-H2): „Neu Ulm" findet „Neu-Ulm".
@@ -209,6 +213,7 @@ function OvVorschlagFeld(props: {
   return (
     <VorschlagFeld
       id={id}
+      beschriftung={beschriftung}
       wert={wert}
       platzhalter={platzhalter}
       treffer={gezeigt}
@@ -226,6 +231,7 @@ function OvVorschlagFeld(props: {
       kennung={kennung}
       keineTreffer={kennung ? undefined : "Kein Ort mit diesem Namen in der Liste — Schreibweise prüfen. Ein Ortsverband, den es dort nicht gibt, darf so stehen bleiben."}
       verlassen={(eingabe) => {
+        verlassen?.(eingabe);
         const e = eingabe.trim();
         if (!e) return;
         // Beim Verlassen nur eindeutig auflösen: das Kürzel, oder ein Name,

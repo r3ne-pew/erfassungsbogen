@@ -65,6 +65,8 @@ import {
   staerkeVorlesen,
   type SchrittProps,
 } from "./bausteine";
+import { OvVorschlagFeld, useOvDaten } from "./einheit";
+import type { ThwOrtsverband } from "@bos/vokabulare/thw-ov";
 
 /** Rollen-Beschriftung für die Einfüge-Vorschau — dieselben Wörter wie im Auswahlfeld. */
 const ROLLE_LABEL: Record<StaerkeRolle, string> = {
@@ -252,29 +254,62 @@ export function kraftfahrerHinweis(suche: string): string | undefined {
  * Während des Tippens hält ein Entwurf das Feld, sonst spränge es beim Leeren
  * sofort auf die Vorbelegung zurück.
  */
-function DienststelleFeld(props: { person: Person; set: (patch: Partial<Person>) => void; einheitsDienststelle: string; index: number }) {
-  const { person: p, set, einheitsDienststelle } = props;
+/** Nur die Abweichung von der Dienststelle der Einheit zählt; leer oder gleich heißt „wie die Einheit". */
+function abweichendeDienststelle(wert: string, einheitsDienststelle: string): string | undefined {
+  const w = wert.trim();
+  return w && w !== einheitsDienststelle.trim() ? wert : undefined;
+}
+
+function DienststelleFeld(props: {
+  person: Person;
+  set: (patch: Partial<Person>) => void;
+  einheitsDienststelle: string;
+  index: number;
+  org: OrganisationsTyp;
+  /** THW-OV-Verzeichnis für die Vorschläge; leer bei anderen Organisationen oder solange es lädt. */
+  ovVerzeichnis: readonly ThwOrtsverband[];
+}) {
+  const { person: p, set, einheitsDienststelle, org, ovVerzeichnis } = props;
   const [entwurf, setEntwurf] = useState<string | null>(null);
   const vorgabe = einheitsDienststelle.trim();
-  const abweichend = (wert: string) => {
-    const w = wert.trim();
-    return w && w !== vorgabe ? wert : undefined;
-  };
+  const abweichend = (wert: string) => abweichendeDienststelle(wert, vorgabe);
+  const wert = entwurf ?? p.dienststelle ?? vorgabe;
   return (
     <div className="zeile">
       <Feld titel="Dienststelle">
-        <input
-          id={`feld-dienststelle-${props.index}`}
-          {...FREMDE_DATEN}
-          {...NAMEN_EINGABE}
-          value={entwurf ?? p.dienststelle ?? vorgabe}
-          placeholder={vorgabe ? undefined : "wie die Einheit (Schritt 1)"}
-          onChange={(e) => {
-            setEntwurf(e.target.value);
-            set({ dienststelle: abweichend(e.target.value) });
-          }}
-          onBlur={() => setEntwurf(null)}
-        />
+        {org === OrganisationsTyp.THW ? (
+          /* Beim THW sind alle Ortsverbände bekannt: dieselben Vorschläge wie
+             in Schritt 1 (Hoya: „ist nur ein Freitextfeld, es kommen nicht
+             die Vorschläge"). Ein gewählter Eintrag setzt den OV-Namen. */
+          <OvVorschlagFeld
+            id={`feld-dienststelle-${props.index}`}
+            wert={wert}
+            platzhalter={vorgabe ? "" : "wie die Einheit (Schritt 1)"}
+            verzeichnis={ovVerzeichnis}
+            tippen={(v) => {
+              setEntwurf(v);
+              set({ dienststelle: abweichend(v) });
+            }}
+            uebernehmen={(ov) => {
+              setEntwurf(null);
+              set({ dienststelle: abweichend(ov.name) });
+            }}
+            verlassen={() => setEntwurf(null)}
+          />
+        ) : (
+          <input
+            id={`feld-dienststelle-${props.index}`}
+            {...FREMDE_DATEN}
+            {...NAMEN_EINGABE}
+            value={wert}
+            placeholder={vorgabe ? undefined : "wie die Einheit (Schritt 1)"}
+            onChange={(e) => {
+              setEntwurf(e.target.value);
+              set({ dienststelle: abweichend(e.target.value) });
+            }}
+            onBlur={() => setEntwurf(null)}
+          />
+        )}
       </Feld>
       {/* Was gilt, steht dran — sonst sieht die Vorbelegung aus wie etwas, das jemand eingetragen hat. */}
       <span className="hinweis dienststelle-zusatz">
@@ -430,6 +465,8 @@ function PersonKarte(props: {
   ansprechSatz?: string;
   /** Dienststelle der Einheit (Schritt 1) — Vorbelegung des Felds „Dienststelle" je Person. */
   einheitsDienststelle: string;
+  /** THW-OV-Verzeichnis für die Dienststellen-Vorschläge (leer bei anderen Organisationen). */
+  ovVerzeichnis: readonly ThwOrtsverband[];
   aendern: (p: Person) => void;
   /** `ort`: Stelle des Tipps auf „Person entfernen" (Bildschirm), sofern getippt. */
   entfernen: (ort?: { x: number; y: number }) => void;
@@ -574,7 +611,7 @@ function PersonKarte(props: {
             </Feld>
             <FahrerlaubnisFeld person={p} set={set} />
           </div>
-          <DienststelleFeld person={p} set={set} einheitsDienststelle={props.einheitsDienststelle} index={index} />
+          <DienststelleFeld person={p} set={set} einheitsDienststelle={props.einheitsDienststelle} index={index} org={org} ovVerzeichnis={props.ovVerzeichnis} />
           {(vorgabe.geschlecht || vorgabe.ernaehrung) && (
             <p className="hinweis warnung-text vorgabe-hinweis" role="status">
               {vorgabe.geschlecht && vorgabe.ernaehrung
@@ -638,8 +675,10 @@ function PersonalSchnellTabelle(props: {
   org: OrganisationsTyp;
   /** Dienststelle der Einheit (Schritt 1) — Platzhalter der Spalte „Dienststelle". */
   einheitsDienststelle: string;
+  /** THW-OV-Verzeichnis für die Dienststellen-Vorschläge (leer bei anderen Organisationen). */
+  ovVerzeichnis: readonly ThwOrtsverband[];
 }) {
-  const { personal, aendern, fokusNeue, aufNeueFokus, verschieben, entfernt, org, einheitsDienststelle } = props;
+  const { personal, aendern, fokusNeue, aufNeueFokus, verschieben, entfernt, org, einheitsDienststelle, ovVerzeichnis } = props;
   const set = (i: number, patch: Partial<Person>) =>
     aendern(personal.map((p, j) => (j === i ? { ...p, ...patch } : p)));
 
@@ -681,7 +720,9 @@ function PersonalSchnellTabelle(props: {
     const zeile = feld.closest("tr");
     // Die Dienststelle (Nebenfeld, meist Vorbelegung) gehört nicht in die Kette: Enter im Nachnamen führt
     // weiter zur nächsten Zeile, wie es die Tastatur verspricht.
-    const felder = zeile ? Array.from(zeile.querySelectorAll<HTMLInputElement>("input:not([data-nebenfeld])")) : [];
+    const felder = zeile
+      ? Array.from(zeile.querySelectorAll<HTMLInputElement>("input")).filter((f) => !f.closest("[data-nebenfeld]"))
+      : [];
     const stelle = felder.indexOf(feld);
     const fokussieren = (el: HTMLInputElement | null | undefined) => {
       el?.focus();
@@ -762,21 +803,28 @@ function PersonalSchnellTabelle(props: {
                   <option value={Geschlecht.D}>D</option>
                 </Auswahl>
               </td>
-              <td role="cell">
+              <td role="cell" data-nebenfeld="1">
                 {/* Nur die Abweichung wird gespeichert (siehe DienststelleFeld); leer heißt „wie die Einheit". */}
-                <input
-                  data-nebenfeld="1"
-                  aria-label={`Person ${i + 1}: Dienststelle`}
-                  placeholder={einheitsDienststelle.trim() || "wie die Einheit"}
-                  {...FREMDE_DATEN}
-                  {...NAMEN_EINGABE}
-                  value={p.dienststelle ?? ""}
-                  onChange={(e) => {
-                    const w = e.target.value;
-                    set(i, { dienststelle: w.trim() && w.trim() !== einheitsDienststelle.trim() ? w : undefined });
-                  }}
-                  onKeyDown={(e) => enterWeiter(e, i)}
-                />
+                {org === OrganisationsTyp.THW ? (
+                  <OvVorschlagFeld
+                    beschriftung={`Person ${i + 1}: Dienststelle`}
+                    wert={p.dienststelle ?? ""}
+                    platzhalter={einheitsDienststelle.trim() || "wie die Einheit"}
+                    verzeichnis={ovVerzeichnis}
+                    tippen={(w) => set(i, { dienststelle: abweichendeDienststelle(w, einheitsDienststelle) })}
+                    uebernehmen={(ov) => set(i, { dienststelle: abweichendeDienststelle(ov.name, einheitsDienststelle) })}
+                  />
+                ) : (
+                  <input
+                    aria-label={`Person ${i + 1}: Dienststelle`}
+                    placeholder={einheitsDienststelle.trim() || "wie die Einheit"}
+                    {...FREMDE_DATEN}
+                    {...NAMEN_EINGABE}
+                    value={p.dienststelle ?? ""}
+                    onChange={(e) => set(i, { dienststelle: abweichendeDienststelle(e.target.value, einheitsDienststelle) })}
+                    onKeyDown={(e) => enterWeiter(e, i)}
+                  />
+                )}
               </td>
               {/* Die Reihenfolge entscheidet, wer als Ansprechpartner/in gilt —
                   in der Tabelle sieht man die Liste ganz, hier wird sie sortiert. */}
@@ -1104,6 +1152,9 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
   }, [zurNeuen]);
   // Nur die Detail-Karten zeigen Qualifikationen; die Schnelltabelle nicht.
   const vorschlaege = useQualiVorschlaege(!nurStaerke && !schnell, bogen.einheit.organisation);
+  // OV-Verzeichnis für die Dienststelle je Person (THW): dieselben Vorschläge wie in Schritt 1.
+  const ovDaten = useOvDaten(bogen.einheit.organisation === OrganisationsTyp.THW);
+  const ovVerzeichnis = ovDaten?.THW_ORTSVERBAENDE ?? [];
   // Nach dem Verschieben wandert der Fokus mit der Person. Ohne das zeigt der
   // gerade gedrückte Knopf auf die Nachbarperson, die nachgerückt ist: der
   // zweite Klick hebt dann die falsche. Gemerkt wird die Zielstelle, der
@@ -1573,6 +1624,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             entfernt={personEntfernt}
             org={bogen.einheit.organisation}
             einheitsDienststelle={bogen.einheit.hierarchie[0]?.name ?? ""}
+            ovVerzeichnis={ovVerzeichnis}
           />
         )
       ) : (
@@ -1591,6 +1643,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             ansprech={!nurStaerke && i === 0}
             ansprechSatz={!nurStaerke && i === 0 ? ansprechWechselSatz(bogen.personal) : undefined}
             einheitsDienststelle={bogen.einheit.hierarchie[0]?.name ?? ""}
+            ovVerzeichnis={ovVerzeichnis}
             nichtGezaehlt={nurStaerke}
             verschieben={personVerschieben}
             aendern={(np) => aendern({ personal: bogen.personal.map((x, j) => (j === i ? np : x)) })}
