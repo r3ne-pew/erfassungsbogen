@@ -332,6 +332,8 @@ export function weitergabeUmImportErgaenzen(
   vermerke: string[],
   bekannt: Record<string, Partial<Record<StandFeld, string>>> = {},
   jetzt = Date.now(),
+  /** Hat die Datei etwas gebracht? Eine ältere Datei übernimmt nichts, und der Kopf darf es nicht behaupten (R13-A4). */
+  uebernommen = true,
 ): void {
   const alt = ablageLaden(WEITERGABE_SCHLUESSEL);
   const stand = alt[einsatzId];
@@ -353,7 +355,7 @@ export function weitergabeUmImportErgaenzen(
     eintragIds: [...new Set([...stand.eintragIds, ...eintragIds])],
     ...(stand.vermerke ? { vermerke: [...new Set([...stand.vermerke, ...vermerke.map(pruefsumme)])] } : {}),
     ...(zustand ? { zustand } : {}),
-    uebernommenAm: jetzt,
+    ...(uebernommen ? { uebernommenAm: jetzt } : {}),
   };
   ablageSpeichern(alt, WEITERGABE_SCHLUESSEL);
 }
@@ -473,6 +475,17 @@ export function neueEintraege(eintraege: MeldeEintrag[], stand: ExportStand | nu
   // alte Stärke in den Nachtrag (Audit Runde 6, R6-W1).
   const geltend = new Set(geltendeJeEinheit(eintraege).map((e) => e.id));
   return eintraege.filter((e) => !bekannt.has(e.id) && geltend.has(e.id));
+}
+
+/**
+ * „Neu seit der letzten Kenntnisnahme": die neuen Meldungen ohne eigene Umbauten (Aufteilen, Zusammenführen) und
+ * ohne abgerückte Einheiten. Wer abgerückt ist, ist abgefertigt — die Startseite zählte ihn noch als neu, die
+ * Einsatzansicht nach dem Abrücken nicht mehr, und beim Wiederöffnen stand er wieder da (R13-W2).
+ */
+export function neuZurKenntnis(eintraege: MeldeEintrag[], stand: ExportStand | null): MeldeEintrag[] {
+  return neueEintraege(eintraege, stand).filter(
+    (e) => e.quelle !== "aufteilung" && e.quelle !== "zusammenfuehrung" && e.status !== MeldeStatus.ABGERUECKT,
+  );
 }
 
 /**

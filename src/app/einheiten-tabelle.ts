@@ -162,6 +162,18 @@ export function anzahlEinheiten(eintraege: MeldeEintrag[]): string {
   return n === 1 ? "1 Einheit" : `${n} Einheiten`;
 }
 
+/**
+ * Eine Sammlung, eine Aussage: „1 Einheit gemeldet · 0 anwesend", sobald gemeldete und anwesende Einheiten
+ * auseinanderfallen (abgerückt, aufgegangen, Übung); sonst wie {@link anzahlEinheiten}. Schnellzugriff und
+ * Sammlungskarte der Startseite nannten für dieselbe Sammlung „1 Einheit" und „0 Einheit(en) anwesend" (R13-W3).
+ */
+export function einheitenAufteilung(eintraege: MeldeEintrag[], art: EinsatzArt): string {
+  const gemeldet = new Set(eintraege.map((e) => e.einheitSchluessel)).size;
+  const anwesend = aktuelleMeldungen(eintraege, art).length;
+  if (gemeldet === anwesend) return anzahlEinheiten(eintraege);
+  return `${gemeldet === 1 ? "1 Einheit" : `${gemeldet} Einheiten`} gemeldet · ${anwesend} anwesend`;
+}
+
 /** Eine Einheit, deren laufende Nummer sich durch eine Übernahme geändert hat (R5-W3). */
 export interface NummernWechsel {
   einheitSchluessel: string;
@@ -695,6 +707,30 @@ export interface SpaltenDefinition {
    * käme „26.09., 23:00" vor „08:00" von heute).
    */
   sortiertNach?: keyof TabellenZeile;
+}
+
+const TRENN_BAUSTEINE = [
+  "gefahren", "schaden", "abwehr", "versorgung", "instandsetzung", "beleuchtung", "bergung",
+  "ortung", "unterstützung", "führung", "kommunikation", "verpflegung", "logistik", "pumpen",
+  "räumen", "brückenbau", "infrastruktur", "sprengen",
+];
+
+/**
+ * Weiche Trennstellen in langen zusammengesetzten Namen („Wasser-gefahren"), damit die schmale Namensspalte der
+ * Tabelle vor dem Baustein umbricht statt mitten im Wort (R13-M2). Nur vor bekannten Bausteinen, die im Wort auf
+ * einen Kleinbuchstaben folgen; der Text bleibt sonst gleich (U+00AD ist unsichtbar, solange nicht umgebrochen wird).
+ */
+export function weicheTrennstellen(text: string): string {
+  return text.replace(/\p{L}{11,}/gu, (wort) => {
+    let aus = wort;
+    for (const b of TRENN_BAUSTEINE) {
+      const i = aus.toLowerCase().indexOf(b);
+      if (i > 2 && /\p{Ll}/u.test(aus.charAt(i - 1))) {
+        aus = [aus.slice(0, i), aus.slice(i)].join(String.fromCharCode(0xad));
+      }
+    }
+    return aus;
+  });
 }
 
 /**

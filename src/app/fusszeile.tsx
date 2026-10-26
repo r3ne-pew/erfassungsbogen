@@ -39,6 +39,7 @@ import { dauerhaftenSpeicherAnfragen, speicherDauerhaft } from "./speicher-brows
 import { WERKZEUGE, WERKZEUGE_TITEL } from "./werkzeuge";
 import { folgenText } from "./uhr-folgen";
 import { arbeiten, useArbeitet } from "./arbeitet";
+import { FehlerImBild } from "./fehler-im-bild";
 
 const KONTAKT = "johannes.rudolph@thw-oldenburg.de";
 const REPO = "https://github.com/wattnpapa/erfassungsbogen";
@@ -1251,7 +1252,7 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
             </table>
           </div>
         )}
-        {beispielFehler && <p className="fehler">{beispielFehler}</p>}
+        {beispielFehler && <FehlerImBild text={beispielFehler} />}
       </Dialog>
 
       <Dialog titel="Über dieses Projekt" dialogRef={ueber}>

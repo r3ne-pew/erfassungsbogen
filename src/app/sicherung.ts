@@ -448,17 +448,46 @@ export function sicherungEinspielen(text: string): number {
   const eintraege = sicherungParsen(text);
   const s = speicher();
   if (!s) throw new Error("Lokaler Speicher ist nicht verfügbar (Privatmodus?).");
-  for (const k of alleEebSchluessel(s)) if (k !== UHR_SCHLUESSEL) s.removeItem(k);
-  let anzahl = 0;
-  for (const [k, v] of Object.entries(eintraege)) {
-    // Der Uhrstand gehört zu diesem Gerät, nicht zur Datei: Der Stand aus einer
-    // 100 Tage alten Sicherung löste beim nächsten Start „Geräteuhr prüfen"
-    // aus, obwohl die Uhr stimmte (Audit Runde 5, R5-D4).
+  // R13-O1: Vorher merken, was auf dem Gerät liegt. Passt die Datei nicht in den Speicher, wird der alte Stand
+  // zurückgeschrieben, statt ein leeres Gerät und einen englischen Browser-Text zu hinterlassen.
+  const vorher: Record<string, string> = {};
+  for (const k of alleEebSchluessel(s)) {
     if (k === UHR_SCHLUESSEL) continue;
-    s.setItem(k, v);
-    anzahl++;
+    const v = s.getItem(k);
+    if (v != null) vorher[k] = v;
+  }
+  let anzahl = 0;
+  try {
+    for (const k of Object.keys(vorher)) s.removeItem(k);
+    for (const [k, v] of Object.entries(eintraege)) {
+      // Der Uhrstand gehört zu diesem Gerät, nicht zur Datei: Der Stand aus einer
+      // 100 Tage alten Sicherung löste beim nächsten Start „Geräteuhr prüfen"
+      // aus, obwohl die Uhr stimmte (Audit Runde 5, R5-D4).
+      if (k === UHR_SCHLUESSEL) continue;
+      s.setItem(k, v);
+      anzahl++;
+    }
+  } catch (err) {
+    // Rückfall: halb geschriebene Schlüssel der Datei entfernen, dann den alten Stand zurückschreiben.
+    let wiederhergestellt = true;
+    try {
+      for (const k of Object.keys(eintraege)) if (k !== UHR_SCHLUESSEL) s.removeItem(k);
+      for (const [k, v] of Object.entries(vorher)) s.setItem(k, v);
+    } catch {
+      wiederhergestellt = false;
+    }
+    throw new Error(sicherungEinspielFehlerText(wiederhergestellt, err));
   }
   return anzahl;
+}
+
+/** Deutscher Satz, wenn das Einspielen scheitert (R13-O1): sagt, ob die bisherigen Daten noch da sind. */
+export function sicherungEinspielFehlerText(bestandUnveraendert: boolean, ursache?: unknown): string {
+  const voll = ursache instanceof Error && /quota|voll|full/i.test(`${ursache.name} ${ursache.message}`);
+  const grund = voll ? "Der Speicher dieses Geräts reicht für diese Sicherung nicht" : "Die Sicherung ließ sich nicht schreiben";
+  return bestandUnveraendert
+    ? `Nicht eingespielt: ${grund}. Ihre bisherigen Daten auf diesem Gerät sind unverändert.`
+    : `Nicht eingespielt: ${grund}, und die bisherigen Daten ließen sich nicht vollständig zurückschreiben. Seite nicht schließen, Sicherung vorher erstellen.`;
 }
 
 // ------------------------------------------------- Restlos löschen

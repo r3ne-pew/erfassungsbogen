@@ -34,6 +34,23 @@ export function ausgabeFrei(schluessel: string, jetzt: number = Date.now(), sper
   return true;
 }
 
+/**
+ * Darf der Tipp `ereignis` die Ausgabe `schluessel` starten? Gemessen wird an der Ereigniszeit (`timeStamp`, wann der
+ * Finger tippte), nicht daran, wann die App den Tipp bearbeitet (R13-G1): Das Sammel-PDF blockiert den Hauptfaden für
+ * Sekunden, ein Doppeltipp nach 150 ms wurde erst danach bearbeitet und galt dann als „lange genug her". Ein Tipp,
+ * der in einen laufenden oder gerade beendeten Lauf fiel (`tippWaehrendLauf`), tut nichts.
+ */
+export function ausgabeFreiBeiTipp(
+  schluessel: string,
+  ereignis: { timeStamp: number } | undefined,
+  wahrend: (zeit: number) => boolean,
+  sperreMs: number = aktiveSperreMs,
+): boolean {
+  const zeit = ereignis && Number.isFinite(ereignis.timeStamp) && ereignis.timeStamp > 0 ? ereignis.timeStamp : undefined;
+  if (zeit !== undefined && sperreMs > 0 && wahrend(zeit)) return false;
+  return ausgabeFrei(schluessel, zeit ?? Date.now(), sperreMs);
+}
+
 /** Nur für Tests. */
 export function ausgabeSperreZuruecksetzen(): void {
   zuletzt.clear();

@@ -270,6 +270,17 @@ export interface AbgleichErgebnis {
   bekannt: Record<string, Partial<Record<StandFeld, string>>>;
 }
 
+/**
+ * Hat das Einspielen einer Datei etwas verändert? Neue Meldungen oder aktualisierte Werte ja; eine ältere Datei,
+ * deren Inhalt hier schon steht (oder überholt ist), nicht (R13-A4).
+ */
+export function importUebernahm(r: Pick<AbgleichErgebnis, "neuerEinsatz" | "hinzugefuegt" | "aktualisiert">): boolean {
+  return r.neuerEinsatz || r.hinzugefuegt > 0 || r.aktualisiert.length > 0;
+}
+
+/** Satz der Quittung, wenn die Datei nichts Neueres enthielt. */
+export const NICHTS_UEBERNOMMEN_SATZ = "Datei war älter oder gleich: keine Änderung übernommen, dieser Stand bleibt.";
+
 function kurzname(e: MeldeEintrag): string {
   const ort = e.bogen.einheit.hierarchie[0]?.name?.trim();
   const basis = ort || einheitAnzeigename(e.bogen.einheit);

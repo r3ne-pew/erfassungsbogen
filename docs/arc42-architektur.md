@@ -12,6 +12,23 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-26 (Runde 13):** Audit Runde 13 (38 Befunde, drei Pakete)
+> — Kap. 5, 8.2, 8.4, 8.6, 9: kein neuer Speicherschlüssel. `sicherungEinspielen`
+> schreibt bei einem Fehler den vorherigen Bestand zurück und meldet auf Deutsch,
+> ob die Daten unverändert sind. Der Update-Hinweis „Neu laden" lädt nach 1,5 s
+> selbst neu, falls der Service Worker nichts auslöst (`neuLadenMitRueckfall`).
+> Ausgabe-Sperre misst an der Ereigniszeit des Tipps (`ausgabeFreiBeiTipp`), weil die
+> Erzeugung den Hauptfaden blockiert. „Aufteilen" erkennt doppelt gezählte
+> abgeteilte Personen (`abgeteilt-doppelt.ts`) und bietet „ohne Trupp" an; die
+> Rückfrage beim Ersetzen einer Vorlage nennt Unterschiede auch bei Typ, Ort und
+> Sofortbedarf (`vorlagen-unterschied.ts`). Abgerückte Einheiten zählen nicht als
+> „neu"; Bedarfszeile und Lagemonitor führen Diesel, Benzin und Gemisch; das
+> Lageblatt markiert Meldungen ab einer Stunde Alter und die Einheiten mit
+> entfernter Bemerkung nach Anonymisierung. Suchfelder: Bindestrich, Schrägstrich
+> und Leerzeichen gelten gleich, Kürzel zuerst. Autokorrektur und Rechtschreibprüfung
+> sind bei Namen-, Orts- und Typfeldern aus. Startbündel 1,18 MB (Budget neu gesetzt,
+> ADR-003 Aufnahmeregel 5). Kein neuer Host, Transportformat und Schema unverändert.
+>
 > **Nachgezogen 2026-10-26 (Runde 12):** Audit Runde 12 (38 Befunde ohne
 > Doppelungen, drei Pakete) — Kap. 5, 8.2, 8.4, 8.6, 9: neuer localStorage-Schlüssel
 > `eeb.sicherung.stand.v1` (`{ einsaetze, meldungen }`, bei „Sicherung erstellen"

@@ -54,6 +54,7 @@ import {
 } from "@bos/eeb-format/datenschutzfrist";
 import { datenschutzZeitpunkt, stempelZeitpunkt } from "./datenschutz-uhr";
 import { anonymQuittung } from "./anonym-hinweis";
+import { standNachEintreffenQuittung } from "./stand-uhr";
 import { leseausgabeMeldung } from "./pdf-titel";
 import { Kopfnav } from "./kopfnav-ui";
 import { bogenLinksEmpfangen, imWebBrowser, istNativ, qrScannen, textTeilen } from "./nativ";
@@ -91,6 +92,7 @@ import {
   istSpeicherVoll,
   meldungAufnehmen,
   nummerUndZugSetzen,
+  statusMitZeitSetzen,
   speicherFehlerArt,
   speicherVollMeldung,
   vomPapierMarkieren,
@@ -100,9 +102,9 @@ import {
 import { offlineText, useOfflineStand } from "./offline-bereit";
 import { uebergabeBestaetigen, uebergabeNachWeg, uebergabeText, type UebergabeStand } from "./uebergabe-stand";
 import { ART_LABEL, EinsatzDetail, EinsatzListe, letzteMeldungText, type Eingang } from "./einsaetze-ui";
-import { anzahlEinheiten, letzteMeldung, meldungsNummern, nummernWechsel, nummernWechselText, rueckkehrText } from "./einheiten-tabelle";
+import { anzahlEinheiten, einheitenAufteilung, letzteMeldung, meldungsNummern, nummernWechsel, nummernWechselText, rueckkehrText } from "./einheiten-tabelle";
 import { exportSammlung, exportStaendeLaden, exportStaendeUebernehmen, exportStandAusWeitergabe, exportVermerken, lieferungsMarke, weitergabeUmImportErgaenzen, type ExportStand, type ExportUmfang, type ExportZiel } from "./export-stand";
-import { abgleichGliederung, abgleichText, einsatzAbgleichen, sammlungFuerZiel, widerspruecheZumMerken, type Einzelheit } from "./einsatz-abgleich";
+import { NICHTS_UEBERNOMMEN_SATZ, abgleichGliederung, abgleichText, einsatzAbgleichen, importUebernahm, sammlungFuerZiel, widerspruecheZumMerken, type Einzelheit } from "./einsatz-abgleich";
 import { widerspruchMerken } from "./widerspruch-merker";
 import { aktuelleMeldungen } from "./auswertung";
 import { lageAngabenLaden, lageAngabenUebernehmen } from "./lage-angaben";
@@ -126,8 +128,9 @@ import {
 } from "./qr-stapel";
 import { EinleseQuittung } from "./einlese-quittung";
 import { StapelQuittung } from "./stapel-quittung";
-import { EintreffzeitFeld, aehnlicherOrt, andererEinheitstyp, eintreffzeitPruefen } from "./nacherfassung";
+import { EintreffzeitFeld, abrueckzeitVomZettel, aehnlicherOrt, andererEinheitstyp, eintreffzeitPruefen } from "./nacherfassung";
 import { meldungenVergleichen, steckbriefZeile, type MeldungsVergleich } from "./meldungs-vergleich";
+import { abgeteiltDoppelt, abgeteiltDoppeltText, doppeltHerausnehmbar, ohneAbgeteilte } from "./abgeteilt-doppelt";
 import { DaumenQuittung } from "./daumen-quittung";
 import {
   entwurfAusAnderemFenster,
@@ -997,6 +1000,8 @@ function AppInhalt() {
   // Nacherfassung vom Papier: Uhrzeit vom Meldeblock, leer = Zeit der Übernahme (R2-A5).
   // Die drei Zettelangaben liegen mit im Entwurf und überleben das Neuladen (R9-S1).
   const [nachEintreffzeit, setNachEintreffzeit] = useState(ENTWURF?.fremd?.zettel?.zeit ?? "");
+  // „Abgerückt um“ vom Meldeblock („an / ab“, R13-A1): Die Einheit wird gleich als abgerückt angelegt.
+  const [nachAbgerueckt, setNachAbgerueckt] = useState(ENTWURF?.fremd?.zettel?.ab ?? "");
   // „Nr. laut Zettel“ und Zug der von Hand erfassten Einheit (R5-A4).
   const [nachNummer, setNachNummer] = useState(ENTWURF?.fremd?.zettel?.nr ?? "");
   const [nachZug, setNachZug] = useState(ENTWURF?.fremd?.zettel?.zug ?? "");
@@ -1048,6 +1053,14 @@ function AppInhalt() {
   const zielBekannt = useRef<{ id: string; name: string } | null>(null);
   // Einsatz, den dieses Fenster selbst gerade in den Papierkorb gelegt hat (R12-S1).
   const selbstGeloescht = useRef<string | null>(null);
+  // Die dazu gezeigte Statuszeile: Mit „Rückgängig" ist der Einsatz wieder da, die Zeile verschwindet (R13-S1).
+  const selbstMeldung = useRef<{ id: string; text: string } | null>(null);
+  useEffect(() => {
+    const m = selbstMeldung.current;
+    if (!m || !einsaetze.some((s) => s.id === m.id)) return;
+    selbstMeldung.current = null;
+    setMeldung((jetzt) => (jetzt === m.text ? "" : jetzt));
+  }, [einsaetze]);
   useEffect(() => {
     if (!sammelZielId || !fremdeErfassung) {
       zielBekannt.current = null;
@@ -1066,7 +1079,9 @@ function AppInhalt() {
     if (selbstGeloescht.current === bekannt.id) {
       selbstGeloescht.current = null;
       setZeigeStart(true);
-      setMeldung(selbstGeloeschtMeldung(bekannt.name, bogen ? einheitAnzeigename(bogen.einheit) || "(noch ohne Namen)" : ""));
+      const text = selbstGeloeschtMeldung(bekannt.name, bogen ? einheitAnzeigename(bogen.einheit) || "(noch ohne Namen)" : "");
+      selbstMeldung.current = { id: bekannt.id, text };
+      setMeldung(text);
       return;
     }
     setMeldung(
@@ -1282,7 +1297,7 @@ function AppInhalt() {
                 einsatzId: sammelZielId ?? undefined,
                 beginn: erfassungBeginn ?? undefined,
                 ...(zeigeStart ? { startseite: true as const } : {}),
-                zettel: zettelPruefen({ zeit: nachEintreffzeit, nr: nachNummer, zug: nachZug }),
+                zettel: zettelPruefen({ zeit: nachEintreffzeit, ab: nachAbgerueckt, nr: nachNummer, zug: nachZug }),
               }
             : undefined,
           schritt,
@@ -1523,7 +1538,7 @@ function AppInhalt() {
     const ok = ersetztenEntwurfMerken(
       b,
       fremdeErfassung
-        ? { einsatzId: sammelZielId ?? undefined, beginn: erfassungBeginn ?? undefined, zettel: zettelPruefen({ zeit: nachEintreffzeit, nr: nachNummer, zug: nachZug }) }
+        ? { einsatzId: sammelZielId ?? undefined, beginn: erfassungBeginn ?? undefined, zettel: zettelPruefen({ zeit: nachEintreffzeit, ab: nachAbgerueckt, nr: nachNummer, zug: nachZug }) }
         : undefined,
       { ...opt, geaendertUm },
     );
@@ -1850,6 +1865,7 @@ function AppInhalt() {
     setFremdeErfassung(!!zurueck.fremd);
     setErfassungBeginn(zurueck.fremd?.beginn ?? null);
     setNachEintreffzeit(zurueck.fremd?.zettel?.zeit ?? "");
+    setNachAbgerueckt(zurueck.fremd?.zettel?.ab ?? "");
     setNachNummer(zurueck.fremd?.zettel?.nr ?? "");
     setNachZug(zurueck.fremd?.zettel?.zug ?? "");
     setSammelZiel(ziel && einsaetzeLaden().some((x) => x.id === ziel) ? ziel : null);
@@ -2014,6 +2030,10 @@ function AppInhalt() {
     // im Bogen (R4-W1). "neu" = die eingehende gilt, "bisher" = sie liegt nur
     // in der Historie.
     let entschieden: "neu" | "bisher" | null = null;
+    // Steht ein Teil dieser Einheit schon als abgeteilter Trupp in der Lage, würden seine Personen mit der
+    // Folgemeldung doppelt zählen (R13-W1). Auch im Kiosk-Stapel ohne Frage: die Quittung nennt es dann.
+    const doppeltBefund = bekannt && !schonDa && einsatz ? abgeteiltDoppelt(einsatz.eintraege, schl, b) : null;
+    let doppeltHerausgenommen = false;
     if (bekannt && !schonDa && !kiosk) {
       const bisherKopf = einsatz ? fassungenJeEinheit(einsatz.eintraege, schl)[0] : undefined;
       const bisher = bisherKopf?.bogen;
@@ -2035,6 +2055,17 @@ function AppInhalt() {
             : "Normalfall bei einer Nachmeldung: die bisherige wandert in die Historie, die neue gilt.") +
           (bisher ? wegfallHinweis(bisher) : ""),
       };
+      // Die Folgemeldung enthält Personen, die hier schon als eigener Trupp stehen: der sichere Weg nimmt sie heraus.
+      const ohneTeileWeg: Antwortweg[] =
+        doppeltBefund && doppeltHerausnehmbar(b)
+          ? [
+              {
+                wert: "fassung-ohne",
+                label: `Als neue Fassung anhängen, ohne ${doppeltBefund.teile.map((t) => t.etikett).join(", ")}`,
+                hinweis: `Die abgeteilten Personen bleiben beim Trupp und zählen nicht doppelt: ${staerkeKurz(ohneAbgeteilte(b, doppeltBefund))} statt ${staerkeKurz(b)}.`,
+              },
+            ]
+          : [];
       const historieWeg: Antwortweg[] = nichtJuenger
         ? [{ wert: "historie", label: "Nur in die Historie legen", hinweis: "Die bisherige Meldung gilt weiter." }]
         : [];
@@ -2051,14 +2082,22 @@ function AppInhalt() {
           <>
             „{einheitAnzeigename(b.einheit)}" steht in diesem Einsatz schon. Wie soll der neue Bogen dazu stehen?
             {vergleich && <MeldungsGegenueberstellung vergleich={vergleich} warAbgerueckt={bisherKopf?.status === MeldeStatus.ABGERUECKT} />}
+            {doppeltBefund && (
+              <>
+                <br />
+                <span className="warnung-text">
+                  ⚠ {abgeteiltDoppeltText(doppeltBefund)} Als gewöhnliche neue Fassung zählten sie doppelt.
+                </span>
+              </>
+            )}
           </>
         ),
         wege: vergleich?.keineUeberschneidung
-          ? [eigeneWeg, ...(bisher ? nurStaerkeWeg(bisher) : []), fassungWeg, ...historieWeg]
+          ? [eigeneWeg, ...(bisher ? nurStaerkeWeg(bisher) : []), ...ohneTeileWeg, fassungWeg, ...historieWeg]
           : nichtJuenger && !platzhalterBisher && b.stand < (bisher?.stand ?? 0)
             ? // Älterer Bogen nach einem echten jüngeren: Historie zuerst.
-              [...historieWeg, ...(bisher ? nurStaerkeWeg(bisher) : []), fassungWeg, eigeneWeg]
-            : [...(bisher ? nurStaerkeWeg(bisher) : []), fassungWeg, ...historieWeg, eigeneWeg],
+              [...historieWeg, ...(bisher ? nurStaerkeWeg(bisher) : []), ...ohneTeileWeg, fassungWeg, eigeneWeg]
+            : [...(bisher ? nurStaerkeWeg(bisher) : []), ...ohneTeileWeg, fassungWeg, ...historieWeg, eigeneWeg],
       });
       if (!wahl) {
         // Abgebrochen: der Bogen bleibt draußen. Im Kiosk-Scan steht die
@@ -2070,7 +2109,11 @@ function AppInhalt() {
       }
       if (wahl === "eigene") override = `${schl}#${Date.now()}`;
       if (wahl === "staerke" && bisher) aufzunehmen = nurStaerkeUebernehmen(bisher, staerke(b), b.stand);
-      if (wahl === "fassung" || wahl === "staerke") entschieden = "neu";
+      if (wahl === "fassung-ohne" && doppeltBefund) {
+        aufzunehmen = ohneAbgeteilte(b, doppeltBefund);
+        doppeltHerausgenommen = true;
+      }
+      if (wahl === "fassung" || wahl === "fassung-ohne" || wahl === "staerke") entschieden = "neu";
       if (wahl === "historie") entschieden = "bisher";
     }
     // Ähnliche Einheit schon da (gleiche Organisation und gleicher Ort, aber
@@ -2191,8 +2234,17 @@ function AppInhalt() {
     }
     // Holt die Folgemeldung eine abgerückte Einheit zurück, sagt die Quittung es ausdrücklich (R5-K1).
     const rueckkehrZusatz = r.neu && r.rueckkehr ? `; ⚠ ${rueckkehrText(r.rueckkehr)}, zählt wieder mit` : "";
+    // Abgeteilte Trupps (R13-W1): herausgenommen oder, im Stapel ohne Frage, als Warnung genannt.
+    const teileZusatz =
+      r.neu && doppeltBefund
+        ? doppeltHerausgenommen
+          ? `; ohne ${doppeltBefund.teile.map((t) => t.etikett).join(", ")} (${doppeltBefund.personen.length} ${doppeltBefund.personen.length === 1 ? "Person" : "Personen"} stehen dort)`
+          : `; ⚠ ${abgeteiltDoppeltText(doppeltBefund)} Sie zählen doppelt`
+        : "";
     const folgeText =
-      r.neu && vorige ? `Folgemeldung: ${diffKurzfassung(bogenDiff(vorige.bogen, aufzunehmen)) || "inhaltlich unverändert"}${rueckkehrZusatz}` : "";
+      r.neu && vorige
+        ? `Folgemeldung: ${diffKurzfassung(bogenDiff(vorige.bogen, aufzunehmen)) || "inhaltlich unverändert"}${rueckkehrZusatz}${teileZusatz}`
+        : "";
     const folge =
       (vorrang && folgeText && pruefung?.lage === "gleiche-minute"
         ? ` (${folgeText}; ${vorrang.text})`
@@ -3102,6 +3154,12 @@ function AppInhalt() {
       if (!wahl) return;
       if (wahl === "beginn") zeit = erfassungBeginn;
     }
+    // „Abgerückt um“ vom Meldeblock: prüfen, bevor etwas abgelegt wird (R13-A1).
+    const abWahl = abrueckzeitVomZettel(nachAbgerueckt, zeit);
+    if (abWahl.art === "fehler") {
+      await zeigeHinweis({ titel: "Abgerückt um", text: abWahl.text });
+      return;
+    }
     setMeldung("");
     const vorherDa = new Set(einsaetzeLaden().find((s) => s.id === ziel)?.eintraege.map((e) => e.id));
     // Manuell erfasster Bogen ist kein signierter Transport.
@@ -3137,6 +3195,8 @@ function AppInhalt() {
       if (neu && eintraege.filter((e) => e.einheitSchluessel === neu.einheitSchluessel).length === 1) {
         if (zeit != null) eintreffzeitSetzen(ziel, neu.id, zeit);
         if (zettelNr != null || nachZug.trim() !== "") nummerUndZugSetzen(ziel, neu.id, { nummer: zettelNr, zug: nachZug });
+        // Auf dem Meldeblock schon abgerückt: gleich mit dieser Zeit abgerückt anlegen, nicht in die Summen (R13-A1).
+        if (abWahl.art === "zeit") statusMitZeitSetzen(ziel, neu.id, MeldeStatus.ABGERUECKT, abWahl.zeit, abWahl.zeit);
         einsaetzeNeuLaden();
         // Ohne Nr. vom Zettel: sagen, welche die App vergeben hat — sie gehört auf den Zettel,
         // sonst laufen Papier und Gerät in zwei Nummernreihen (R5-A4).
@@ -3147,6 +3207,7 @@ function AppInhalt() {
       }
     }
     setNachEintreffzeit("");
+    setNachAbgerueckt("");
     setNachNummer("");
     setNachZug("");
     setSammelZiel(null);
@@ -3210,6 +3271,7 @@ function AppInhalt() {
     setFremdeErfassung(true);
     setErfassungBeginn(Date.now());
     setNachEintreffzeit("");
+    setNachAbgerueckt("");
     setNachNummer("");
     setNachZug("");
     setSammelZiel(zielId);
@@ -3581,7 +3643,9 @@ function AppInhalt() {
     const ids = new Set(neueIds);
     const eintraege = (einsaetzeLaden().find((x) => x.id === zielId)?.eintraege ?? []).filter((e) => ids.has(e.id));
     const satz = anonymQuittung(eintraege, datenschutzZeitpunkt());
-    return satz ? [satz] : [];
+    // Stand nach dem Eingang: eine falsche Geräteuhr schreibt alle Zeiten falsch (R13-A3). Gleiche Stelle der Quittung.
+    const uhr = standNachEintreffenQuittung(eintraege);
+    return [...(satz ? [satz] : []), ...(uhr ? [uhr] : [])];
   }
 
   async function importiereBoegen(zielId: string, dateien: File[], mitBildern = false): Promise<DateiAnteil & { fehler: string; meldung: string }> {
@@ -3958,7 +4022,7 @@ function AppInhalt() {
       const eintraegeVorher = (einsaetzeLaden().find((x) => x.id === s.id)?.eintraege ?? []).map((e) => ({ ...e }));
       const r = einsatzAbgleichen(geklaert.sammlung);
       // Was von dort kam, hat das andere Gerät schon (R3-W2).
-      weitergabeUmImportErgaenzen(s.id, r.neueIds, r.neueVermerke, r.bekannt);
+      weitergabeUmImportErgaenzen(s.id, r.neueIds, r.neueVermerke, r.bekannt, Date.now(), importUebernahm(r));
       // Was der Stab laut dem anderen Gerät schon bekam, gilt hier auch (R5-W6).
       exportStaendeUebernehmen(s.id, dateiStaende, [...einsaetzeLaden(), ...einsaetzePapierkorb()].map((x) => x.id));
       const lageSatz = lageAngabenUebernehmen(s.id, dateiLage, [...einsaetzeLaden(), ...einsaetzePapierkorb()].map((x) => x.id));
@@ -3994,6 +4058,8 @@ function AppInhalt() {
           ...(r.neuerEinsatz ? [] : gliederung.kurz),
           // Wie aktuell die übernommene Lage ist (Audit Runde 3, R3-K5).
           ...(letzteImImport != null ? [`Stand der Datei: letzte Meldung ${zeitLang(letzteImImport)}.`] : []),
+          // Die Datei war nicht neuer: sagen, dass nichts übernommen wurde (R13-A4).
+          ...(!r.neuerEinsatz && !importUebernahm(r) ? [NICHTS_UEBERNOMMEN_SATZ] : []),
           ...(nummernHinweis ? [nummernHinweis] : []),
           ...(lageSatz ? [lageSatz] : []),
           ...(geklaert.hinweis ? [geklaert.hinweis.trim()] : []),
@@ -4518,7 +4584,7 @@ function AppInhalt() {
                 >
                   „{s.name}" öffnen
                   {/* Einheitenzahl und Ort: zwei gleichnamige Sammlungen sind sonst nur an der Zeit zu unterscheiden (R11-K3). */}
-                  <span className="knopf-zusatz sammlung-kenndaten">{anzahlEinheiten(s.eintraege)}{s.ort ? ` · ${s.ort}` : ""}</span>
+                  <span className="knopf-zusatz sammlung-kenndaten">{einheitenAufteilung(s.eintraege, s.art)}{s.ort ? ` · ${s.ort}` : ""}</span>
                   <span className="knopf-zusatz">{letzteMeldungText(s)}</span>
                 </button>
               ))}
@@ -4786,6 +4852,8 @@ function AppInhalt() {
         <EintreffzeitFeld
           wert={nachEintreffzeit}
           onAendern={setNachEintreffzeit}
+          abgerueckt={nachAbgerueckt}
+          onAbgerueckt={setNachAbgerueckt}
           nummer={nachNummer}
           onNummer={setNachNummer}
           zug={nachZug}

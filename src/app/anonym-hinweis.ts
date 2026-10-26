@@ -13,8 +13,8 @@ import { einheitAnzeigename } from "./hilfen";
 
 /** Erklärung der Marke „ANONYMISIERT" — sichtbar auf der aufgeklappten Karte und als Tooltip. */
 export const ANONYM_ERKLAERUNG =
-  `Datenschutzfrist abgelaufen (Stand älter als ${DATENSCHUTZFRIST_TAGE} Tage): Namen, Funktionen, Qualifikationen und ` +
-  "Erreichbarkeiten wurden entfernt. Sie stehen nur noch auf dem Papier der Einheit — dort nachfragen.";
+  `Datenschutzfrist abgelaufen (Stand älter als ${DATENSCHUTZFRIST_TAGE} Tage): Namen, Funktionen, Qualifikationen, ` +
+  "Erreichbarkeiten und die Bemerkung der Einheit wurden entfernt. Sie stehen nur noch auf dem Papier der Einheit — dort nachfragen.";
 
 /** Ganze Tage zwischen dem Stand des Bogens und jetzt (beide in Minuten, wie `EebZeitpunkt`). */
 export function standAlterTage(b: Pick<Erfassungsbogen, "stand">, jetzt: EebZeitpunkt): number {
@@ -31,9 +31,10 @@ export function anonymQuittung(eintraege: readonly Pick<MeldeEintrag, "bogen">[]
   const namen = betroffen
     .map((e) => `„${einheitAnzeigename(e.bogen.einheit)}“ (Stand vor ${standAlterTage(e.bogen, jetzt)} Tagen)`)
     .join(", ");
+  // Auch die Bemerkung der Einheit („Sonstiges“) entfällt mit der Frist (R13-A2).
   return betroffen.length === 1
-    ? `1 Bogen ohne Namen und Erreichbarkeiten: Datenschutzfrist, ${namen} — Angaben vom Papier der Einheit nachfragen.`
-    : `${betroffen.length} Bögen ohne Namen und Erreichbarkeiten: Datenschutzfrist, ${namen} — Angaben vom Papier der Einheit nachfragen.`;
+    ? `1 Bogen ohne Namen und Erreichbarkeiten: Datenschutzfrist, ${namen} — auch die Bemerkung der Einheit fehlt; Angaben vom Papier der Einheit nachfragen.`
+    : `${betroffen.length} Bögen ohne Namen und Erreichbarkeiten: Datenschutzfrist, ${namen} — auch die Bemerkungen der Einheiten fehlen; Angaben vom Papier der Einheit nachfragen.`;
 }
 
 /** „Namen im Code gültig bis 17.10.2026" für den Ausdruck neben dem Code; leer bei Übungsbögen (keine Frist). */
@@ -50,6 +51,9 @@ export function codeGueltigBisText(
 
 /** Vermerk für Lageblatt und Übergabe-Übersicht neben der Einheit eines anonymisierten Bogens (R12-A1). */
 export const ANONYM_PAPIER_VERMERK = `ANONYMISIERT (Stand über ${DATENSCHUTZFRIST_TAGE} Tage): Namen und Rufnummern beim Papier der Einheit erfragen`;
+
+/** Ersatz in der Notizzelle des Lageblatts, wo die entfernte Bemerkung der Einheit stünde (R13-A2). */
+export const ANONYM_BEMERKUNG_VERMERK = "Bemerkung der Einheit entfernt (Datenschutzfrist), beim Papier der Einheit erfragen";
 
 /** Satz im Personalblock der Bogenseite: warum dort „Einsatzkraft n" steht und wo die Namen zu holen sind (R12-A1). */
 export const ANONYM_PERSONAL_SATZ =

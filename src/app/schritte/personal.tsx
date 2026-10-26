@@ -1416,7 +1416,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
       {!nurStaerke && unbenannte > 0 && bogen.personal.some(personLeer) && (
         <p>
           <button type="button" onClick={vorbelegungWegnehmen}>
-            {unbenannte === 1 ? "1 leeren Platz entfernen" : `${unbenannte} leere Plätze entfernen`}
+            Vorbelegung entfernen ({unbenannte === 1 ? "1 Person ohne Namen" : `${unbenannte} Personen ohne Namen`})
           </button>
         </p>
       )}
@@ -1549,7 +1549,8 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
       {/* Der Rückweg zur Vorbelegung aus Schritt 1: entfernt nur Karten ohne
           Namen und Erreichbarkeit — deshalb ohne Rückfrage (Rückfrage-Regel:
           verloren geht nichts Erfasstes). Was jemand ausgefüllt hat, bleibt. */}
-      {unbenannte > 0 && (
+      {/* Nur ein Weg (R13-N2): Steht der Knopf schon an der Warnung oben, entfällt er hier. */}
+      {unbenannte > 0 && (nurStaerke || !bogen.personal.some(personLeer)) && (
         <p>
           <button type="button" onClick={vorbelegungWegnehmen}>
             Vorbelegung entfernen ({unbenannte === 1 ? "1 Person ohne Namen" : `${unbenannte} Personen ohne Namen`})

@@ -46,8 +46,8 @@ import {
 } from "./hilfen";
 import { mwdText, summiereBoegen, unterbringungAngefordertText, verpflegungText, type EinsatzSummen } from "./auswertung";
 import { zeitLang } from "./eintrag-zeiten";
-import { lageblattAlterText, zugAlterText } from "./lagemonitor";
-import { ANONYM_PAPIER_VERMERK, ANONYM_PERSONAL_SATZ, codeGueltigBisText } from "./anonym-hinweis";
+import { lageblattAlterText, lageblattZeilenAlter, staerkeSummenText, zugAlterText } from "./lagemonitor";
+import { ANONYM_BEMERKUNG_VERMERK, ANONYM_PAPIER_VERMERK, ANONYM_PERSONAL_SATZ, codeGueltigBisText } from "./anonym-hinweis";
 import { bedarfMarken, datumVonMs, lueckenAlle, rueckkehrText } from "./einheiten-tabelle";
 import { FELD_GESAMTSTAERKE, bogenDiff, diffZeilen, type BogenDiff } from "@bos/meldekopf/meldung-diff";
 import { fahrzeugSymbolSvg } from "./taktische-zeichen-bogen";
@@ -561,6 +561,11 @@ export function aenderungFuerPapier(zeile: string): string {
 }
 
 /** Zeitpunkt auf dem Blatt — immer mit Datum: gelesen wird es auch morgen noch. */
+function alterMarke(empfangenAm: number | undefined, erstellt: number): Content[] {
+  const t = lageblattZeilenAlter(empfangenAm, erstellt);
+  return t ? [{ text: t, bold: true, fontSize: 7 }] : [];
+}
+
 function blattZeit(ms: number | undefined): string {
   return ms == null ? "" : zeitLang(ms);
 }
@@ -700,9 +705,11 @@ function bedarfZelle(b: Erfassungsbogen): TableCell {
 const BEMERKUNG_LAGEBLATT = 70;
 
 /** Zelle „Auftrag / Notiz (Bemerkung der Einheit)": Auftrag oben, Bemerkung kursiv darunter (R3-K3). */
-function bemerkungZelle(notiz: string | undefined, sonstiges: string | undefined, kuerzen?: number): TableCell {
+function bemerkungZelle(notiz: string | undefined, sonstiges: string | undefined, kuerzen?: number, anonym = false): TableCell {
   const teile: Content[] = [];
   if (notiz?.trim()) teile.push({ text: weichUmbrechen(notiz.trim()) });
+  // Anonymisiert: Die Bemerkung der Einheit ist mit der Frist entfallen; das Blatt sagt es (R13-A2).
+  if (anonym) teile.push({ text: ANONYM_BEMERKUNG_VERMERK, italics: true, fontSize: 7 });
   let b = sonstiges?.trim() ?? "";
   // Gekürzt, und das Blatt sagt, wo der Rest steht (R5-A9) — sonst endete sie bei „… MTW OV zusätzlich über St …“.
   if (kuerzen != null && b.length > kuerzen) b = `${b.slice(0, kuerzen).trimEnd()} … (Rest: Sammel-PDF)`;
@@ -718,6 +725,8 @@ function uebersichtsTabelle(
   zumWeiterfuehren = false,
   /** Nachtrag (R4-W4): „seit 05.10.2026, 20:49" — die Summen heißen dann „Summe Nachtrag". */
   nachtrag?: string,
+  /** Druckzeitpunkt (ms): Zeilen mit Meldungen über einer Stunde Alter bekommen die Marke (R13-K2). */
+  erstellt?: number,
 ): Content {
   const kopf = (text: string): TableCell => ({ text, bold: true, fillColor: GRAU });
   // Zug und Bedarf je Einheit, wie in der App-Tabelle — „Ruhezeit bei 5
@@ -817,6 +826,8 @@ function uebersichtsTabelle(
           { text: blattZeit(e.eingetroffenAm) },
           ...(e.zeitUnbestaetigt ? [{ text: "Zeit nicht bestätigt (vom Papier)", italics: true, fontSize: 7 }] : []),
           ...(e.abgerueckAm != null ? [{ text: `ab ${blattZeit(e.abgerueckAm)}`, bold: true }] : []),
+          // Welche der „n von m älter als 1 Std" gemeint sind, steht an der Zeile (R13-K2); nur zählende Anwesende.
+          ...(erstellt != null && !nachtrag && zaehlend(e) ? alterMarke(e.empfangenAm, erstellt) : []),
           // Ohne Abrückzeit steht auf dem Wandblatt eine leere Stelle: Sie soll nicht wie „nie bekannt" wirken (R7-A2).
           ...(e.abgerueckt && e.abgerueckAm == null
             ? [{ text: e.zeitUnbestaetigt ? "Abrückzeit nicht bestätigt (vom Papier)" : "Abrückzeit nicht festgehalten", italics: true, fontSize: 7 }]
@@ -827,7 +838,7 @@ function uebersichtsTabelle(
       { text: `${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt}` },
       { text: `${b.fahrzeuge.length}` },
       bedarfZelle(b),
-      bemerkungZelle(e.notiz, b.sonstiges, maxZeilen === LAGEBLATT_MAX_ZEILEN ? BEMERKUNG_LAGEBLATT : undefined),
+      bemerkungZelle(e.notiz, b.sonstiges, maxZeilen === LAGEBLATT_MAX_ZEILEN ? BEMERKUNG_LAGEBLATT : undefined, bogenAnonymisiert(b)),
       aenderung,
     ];
   };
@@ -877,7 +888,7 @@ function uebersichtsTabelle(
     body.push(
       summenZeile(
         `Summe${nachtrag ? " Nachtrag" : ""}${zumWeiterfuehren ? " laut Gerät" : ""} (${beschriftung.join(" · ")})`,
-        `${summe.staerke.fuehrer} / ${summe.staerke.unterfuehrer} / ${summe.staerke.mannschaft} / ${summe.staerke.gesamt}`,
+        staerkeSummenText(summe.staerke.fuehrer, summe.staerke.unterfuehrer, summe.staerke.mannschaft, summe.staerke.gesamt),
         `${summe.fahrzeuge}`,
       ),
     );
@@ -1102,7 +1113,7 @@ function lageKopfleiste(eintraege: UebersichtEintrag[], leer = false, nachtrag?:
 }
 
 /** Spaltenbreiten des Lageblatts (714 pt Satzbreite). */
-const LAGEBLATT_SPALTEN: (number | "*")[] = [100, 34, 86, 46, 46, 50, 14, 56, 104, "*"];
+const LAGEBLATT_SPALTEN: (number | "*")[] = [100, 34, 86, 46, 46, 54, 14, 56, 104, "*"];
 /** Wie das Lageblatt, die letzte Spalte geteilt: hinten schmal „übertragen“ (R4-A4). */
 const NACHTRAG_SPALTEN: (number | "*")[] = [...LAGEBLATT_SPALTEN.slice(0, 9), "*", 64];
 
@@ -1219,7 +1230,7 @@ function uebersichtsSeite(
     // Stärke ohne Bedarf weiter (Audit Runde 3, R3-K6).
     lageKopfleiste(eintraege, leer, nachtrag, erstellt),
     ...(bedarfVorn ? [bedarfBlock] : []),
-    uebersichtsTabelle(eintraege, maxZeilen, zumWeiterfuehren, nachtrag),
+    uebersichtsTabelle(eintraege, maxZeilen, zumWeiterfuehren, nachtrag, erstellt),
     ...(nachtragsTab && !rueckseite ? [nachtragsTab] : []),
     ...(hinweis ? [{ text: hinweis, italics: true, margin: [0, 2, 0, 0] } as Content] : []),
     // Bedarf und Zwischensummen nebeneinander statt untereinander: vorher

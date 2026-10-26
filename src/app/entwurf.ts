@@ -46,6 +46,8 @@ const ERSETZT_SCHLUESSEL = "eeb.entwurf.ersetzt.v1";
  */
 export interface ErfassungsZettel {
   zeit?: string;
+  /** „Abgerückt um“ (HH:MM) — die Spalte „ab“ des Meldeblocks (R13-A1). */
+  ab?: string;
   nr?: string;
   zug?: string;
 }
@@ -102,10 +104,12 @@ export function zettelPruefen(x: unknown): ErfassungsZettel | undefined {
   const zeit = text(o.zeit, 5);
   const nr = text(o.nr, 8);
   const zug = text(o.zug, 80);
+  const ab = text(o.ab, 5);
   if (zeit && /^\d{2}:\d{2}$/.test(zeit)) z.zeit = zeit;
+  if (ab && /^\d{2}:\d{2}$/.test(ab)) z.ab = ab;
   if (nr) z.nr = nr;
   if (zug) z.zug = zug;
-  return z.zeit || z.nr || z.zug ? z : undefined;
+  return z.zeit || z.ab || z.nr || z.zug ? z : undefined;
 }
 
 export function entwurfAusJson(text: string | null): Entwurf | null {

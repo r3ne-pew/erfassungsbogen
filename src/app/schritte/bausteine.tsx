@@ -9,9 +9,9 @@ import { Erfassungsbogen, VokabularWert } from "@bos/eeb-format/model";
 import type { VokabularEintrag } from "@bos/vokabulare/thw";
 import { vokabSortiert, type Pruefpunkt } from "../hilfen";
 import { funktionVergeben } from "../haeufige-funktionen";
-import { HOECHST_PERSONEN, zahlLesen, type ZahlRegeln } from "../zahl-eingabe";
+import { HOECHST_PERSONEN, mitGeltendemWert, zahlLesen, type ZahlRegeln } from "../zahl-eingabe";
 import { naechstesFeld } from "../tastatur";
-import { beginntMit, falte, passtZurSuche } from "../schreibweise";
+import { beginntMit, falte, passtZurSuche, suchAlternativen, vokabRang } from "../schreibweise";
 
 export type SchrittProps = {
   bogen: Erfassungsbogen;
@@ -144,7 +144,15 @@ function VokabCombobox(props: {
   // nicht vorgesehen, statt zu tippen.
   // Wortweise und ohne Umlaut-Unterschiede (R11-H2): „FGr Wasserschaden/Pumpen", das Beispiel im Feld,
   // findet „FGr WP – Fachgruppe Wasserschaden/Pumpen", obwohl Kürzel und Name getrennt stehen.
-  const treffer = suche ? sortiert.filter((t) => passtZurSuche(label(t), suche)) : sortiert;
+  // Rang statt Reihenfolge der Liste (R13-H1): das Kürzel als ganzes Wort zuerst, dann Wortanfänge, zuletzt Treffer mitten im Wort;
+  // gebräuchliche Kurzformen („BGr", „1. BGr") kommen als zusätzliche Suchtexte dazu.
+  const treffer = suche
+    ? sortiert
+        .map((t, i) => ({ t, i, r: Math.min(...[suche, ...suchAlternativen(suche)].map((s) => vokabRang(t.kurz, t.name, s))) }))
+        .filter((x) => x.r < 3)
+        .sort((a, b) => a.r - b.r || a.i - b.i)
+        .map((x) => x.t)
+    : sortiert;
 
   const freitext = wert.code == null ? (wert.freitext ?? "").trim() : "";
   return (
@@ -246,7 +254,14 @@ export const KENNUNG_EINGABE = {
  * Dienststellenkontakt auf den Bogen (R2-M6). Nur „Name/Kontakt hinterlegen"
  * (Absenderkarte) meint wirklich den Gerätebesitzer und behält name/email/tel.
  */
-export const FREMDE_DATEN = { autoComplete: "off" } as const;
+export const FREMDE_DATEN = { autoComplete: "off", autoCorrect: "off", spellCheck: false } as const;
+
+/**
+ * Für Namen, Orte, Typen und Zuordnungen mit Fachwörtern („FGr“, „GrFü“, „Haßmersheim“, seltene Familiennamen):
+ * Die Tastatur unterstrich sie rot und tauschte sie beim Leertaste-Druck gegen Wörterbuchwörter aus (R13-H3).
+ * Anders als {@link KENNUNG_EINGABE} bleibt die Großschreibung am Wortanfang.
+ */
+export const NAMEN_EINGABE = { autoCorrect: "off", spellCheck: false } as const;
 
 /**
  * Die offene Vorschlagsliste soll über den festen Leisten am unteren Rand (Fußleiste des
@@ -365,6 +380,8 @@ export function VorschlagFeld<T>(props: {
         aria-autocomplete="list"
         // Sonst legt sich die Autovervollständigung des Browsers über unsere.
         autoComplete="off"
+        // Ort, Einheitstyp, Funktion, Beruf: Fachwörter und Kürzel, keine Wörterbuchwörter (R13-H3).
+        {...NAMEN_EINGABE}
         enterKeyHint={imFluss ? "enter" : "next"}
         {...(kennung ? KENNUNG_EINGABE : {})}
         value={wert}
@@ -689,7 +706,7 @@ export function useZahlEingabe(
       setzen(undefined);
       return;
     }
-    const r = zahlLesen(roh, regeln);
+    const r = mitGeltendemWert(zahlLesen(roh, regeln), zuletzt.current);
     setMeldung(r.meldung);
     setAbgelehnt(r.wert === null);
     if (r.wert === null) {

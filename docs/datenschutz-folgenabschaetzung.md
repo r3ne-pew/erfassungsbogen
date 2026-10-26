@@ -11,6 +11,13 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-26 — Audit Runde 13:** Keine neuen Speicherorte und Empfänger.
+> Nach der Anonymisierung entfällt auch die „Bemerkung der Einheit" (Freitext), das
+> Lageblatt und die Quittung nennen das (Art. 5 Abs. 1 lit. e DSGVO). Autokorrektur und
+> Rechtschreibprüfung sind bei Namensfeldern ausgeschaltet, damit Browser und
+> Tastatur keine Namen in Wörterbücher übernehmen (Art. 25 DSGVO). 5.4, 5.7 und 5.8
+> unverändert.
+>
 > **Nachgezogen 2026-10-26 — Audit Runde 12:** Speicherort neu: `eeb.sicherung.stand.v1`
 > im `localStorage` (nur Zahlen: Einsätze und Meldungen zum Zeitpunkt der letzten
 > Sicherung; 5.4, 5.7; Teil der Datensicherung, fällt mit „Alle Daten löschen"
