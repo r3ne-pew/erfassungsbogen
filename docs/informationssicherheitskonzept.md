@@ -16,6 +16,15 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > Abhängigkeiten (6.4/R8/M8). Die betroffenen Abschnitte sind entsprechend
 > gekennzeichnet.
 >
+> **Nachgezogen 2026-10-26 — Probelauf Meldekopf:** USB-Handscanner (3.3, 5.2, K1):
+> Die App lauscht jetzt auf der ganzen Seite auf Tastenfolgen im Scanner-Tempo
+> (`src/app/handscanner.ts`), nicht nur im Scanner-Fenster — außerhalb von
+> Textfeldern und offenen Rückfragen; ein Scan ohne Fenster nimmt denselben Weg wie
+> ein angetippter Bogen-Link (Rückfrage „Wohin damit?", Signaturprüfung unverändert).
+> Neuer Speicherschlüssel `eeb-scanweg` (localStorage, nur „handscanner" als
+> gewählter Weg im Scanner-Fenster; keine Personendaten, fällt mit „Alle Daten
+> löschen" nicht weg, da reine Bedienvorgabe wie `eeb-kamera`). Keine neuen Hosts.
+>
 > **Nachgezogen 2026-09-13:** Datenschutzfrist — nach 90 Tagen anonymisiert die
 > App die Personaldaten gespeicherter und eingelesener Bögen, Übungen
 > ausgenommen (3.3, 5.5; Branch `feat/datenschutzfrist`).

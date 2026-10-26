@@ -11,6 +11,12 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-26 — Probelauf Meldekopf:** Speicherort neu: `eeb-scanweg`
+> im `localStorage` (nur die Wahl „Handscanner statt Kamera" im Scanner-Fenster, keine
+> Personendaten; 5.7). Ein USB-Handscanner wird jetzt auch ohne offenes Scanner-Fenster
+> angenommen; der Bogen nimmt dann denselben Weg wie ein Bogen-Link (Rückfrage vor
+> dem Ablegen, 5.1). Empfänger und Netzverbindungen unverändert (5.8).
+>
 > **Nachgezogen 2026-10-26 — Audit Runde 15:** Speicherorte neu: `eeb.papierabgleich.v1.<Einsatz-ID>`
 > im `localStorage` (Zwischenstand des Papierabgleichs mit den eingetragenen Zeilen,
 > also Namen und Zahlen der Einheit; verfällt nach 3 Tagen, ist Teil der

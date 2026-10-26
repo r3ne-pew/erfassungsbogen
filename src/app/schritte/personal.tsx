@@ -1382,15 +1382,40 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
           {/* Die Karten stehen unter den Zählern und sehen aus wie gezählt —
               sind es aber nicht. Das muss dranstehen, sonst liest sich
               „Stärke 4" über vier Karten als bestätigt. */}
-          {bogen.personal.length > 0 && (
-            <p className="hinweis">
-              {bogen.personal.every(personUnbenannt)
-                ? bogen.personal.length === 1 ? "Dieser vorbelegte Platz zählt" : `Diese ${bogen.personal.length} vorbelegten Plätze zählen`
-                : bogen.personal.length === 1 ? "Diese Person zählt" : `Diese ${bogen.personal.length} Personen zählen`} nicht in die
-              Stärke mit. Die Stärke ist nur die Zahl, die du oben einträgst; die Angaben hier sind Telefon oder E-Mail für Rückfragen.
-              Gehört die Person zur Einheit, zähle sie oben selbst mit.
-            </p>
-          )}
+          {/* Getrennt nach eingetragenen Personen und vorbelegten Plätzen: „Diese 9 Personen zählen nicht
+              in die Stärke" über einer eingetragenen Person und acht leeren Plätzen las sich im Probelauf
+              als „die soll doch zählen — und wieso 9, ich habe nur eine?". Die Zahl oben ist die Stärke,
+              die Karten sind Erreichbarkeiten; die leeren Plätze gehen direkt hier weg. */}
+          {bogen.personal.length > 0 && (() => {
+            const benannt = bogen.personal.length - unbenannte;
+            return (
+              <div className="hinweis nur-staerke-erreichbar">
+                {benannt > 0 ? (
+                  <p>
+                    Die Stärke ist allein die Zahl oben — {benannt === 1 ? "die Person hier wird" : `die ${benannt} Personen hier werden`} nicht
+                    dazugerechnet. Hier steht nur, wen der Meldekopf bei Rückfragen erreicht (Name, Telefon).
+                    {" "}{benannt === 1 ? "Gehört sie zur Einheit, zählt sie" : "Gehören sie zur Einheit, zählen sie"} in der Zahl oben mit.
+                  </p>
+                ) : (
+                  <p>
+                    {unbenannte === 1 ? "Diese Karte ist ein vorbelegter Platz" : `Diese ${unbenannte} Karten sind vorbelegte Plätze`} nach
+                    Einheitstyp ohne Namen, keine erfassten Personen — die Stärke ist allein die Zahl oben. Wer für Rückfragen erreichbar
+                    ist, trägt hier Name und Telefon ein.
+                  </p>
+                )}
+                {unbenannte > 0 && (
+                  <p>
+                    {benannt > 0 && (unbenannte === 1
+                      ? "Die weitere Karte ist ein vorbelegter Platz nach Einheitstyp ohne Namen — hier ohne Bedeutung. "
+                      : `Die weiteren ${unbenannte} Karten sind vorbelegte Plätze nach Einheitstyp ohne Namen — hier ohne Bedeutung. `)}
+                    <button type="button" onClick={vorbelegungWegnehmen}>
+                      Vorbelegung entfernen ({unbenannte === 1 ? "1 Person ohne Namen" : `${unbenannte} Personen ohne Namen`})
+                    </button>
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </>
       )}
       {!nurStaerke && (
@@ -1552,8 +1577,8 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
       {/* Der Rückweg zur Vorbelegung aus Schritt 1: entfernt nur Karten ohne
           Namen und Erreichbarkeit — deshalb ohne Rückfrage (Rückfrage-Regel:
           verloren geht nichts Erfasstes). Was jemand ausgefüllt hat, bleibt. */}
-      {/* Nur ein Weg (R13-N2): Steht der Knopf schon an der Warnung oben, entfällt er hier. */}
-      {unbenannte > 0 && (nurStaerke || !bogen.personal.some(personLeer)) && (
+      {/* Nur ein Weg (R13-N2): Steht der Knopf schon an der Warnung oben oder im „Nur Stärke"-Hinweis, entfällt er hier. */}
+      {!nurStaerke && unbenannte > 0 && !bogen.personal.some(personLeer) && (
         <p>
           <button type="button" onClick={vorbelegungWegnehmen}>
             Vorbelegung entfernen ({unbenannte === 1 ? "1 Person ohne Namen" : `${unbenannte} Personen ohne Namen`})

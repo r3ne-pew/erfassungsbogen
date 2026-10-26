@@ -115,6 +115,8 @@ import type { QrBogen } from "./qr-boegen";
 import { einsatzCsvInhalt } from "./einsatz-csv";
 import { einsatzDetailCsvInhalt } from "./bogen-csv";
 import { QrScannerWeb } from "./qr-scanner-web";
+import { handscannerLauscher } from "./handscanner";
+import { istTexteingabe } from "./tastatur";
 import { TeilQuittung, fehlendeTeile, fehltNochSatz, teilGelesenSatz, verworfeneTeileSatz } from "./teil-quittung";
 import { qrAusBild } from "./qr-bild";
 import {
@@ -2777,9 +2779,9 @@ function AppInhalt() {
    * einer Fehlermeldung an die Scanner-Konfiguration zu schicken. Der
    * Fehlertext zeigt weiterhin, was TATSÄCHLICH ankam.
    */
-  async function uebernehmeQrText(rohText: string): Promise<boolean> {
+  async function uebernehmeQrText(rohText: string, opt: { ohneKiosk?: boolean } = {}): Promise<boolean> {
     const text = entwirreScanText(rohText, istLesbarerScan);
-    const fertig = await uebernehmeText(text, scanFehlertext(rohText));
+    const fertig = await uebernehmeText(text, scanFehlertext(rohText), opt);
     // Nach der Übernahme melden: Sie setzt ihrerseits Meldungen, die den
     // Hinweis sonst gleich wieder überschrieben.
     if (text !== rohText) setMeldung(BELEGUNG_HINWEIS);
@@ -2916,6 +2918,31 @@ function AppInhalt() {
     window.addEventListener("hashchange", beiFragmentwechsel);
     return () => window.removeEventListener("hashchange", beiFragmentwechsel);
   }, []);
+
+  // USB-Handscanner auf der ganzen Seite, nicht nur im Scanner-Fenster: Beim
+  // Probelauf lösten Helfer den Scanner aus, ohne vorher „Bogen scannen…" zu
+  // drücken — wie an jeder Kasse. Dann passierte nichts, oder der Browser
+  // öffnete auf das „/" der Adresse seine Schnellsuche. Jetzt ist ein Scan
+  // ohne offenes Fenster dasselbe wie ein angetippter Bogen-Link: „Wohin
+  // damit?" bzw. der Bogen öffnet sich; ein Teil eines mehrteiligen Bogens
+  // öffnet das Scanner-Fenster, damit die übrigen Teile folgen können. Offen
+  // ist das Fenster, übernimmt dessen eigener Lauscher; in Textfeldern und
+  // bei offenen Fenstern (Rückfragen) bleibt die Tastatur der Seite.
+  const handscannerRef = useRef<(text: string) => void>(() => {});
+  handscannerRef.current = (text: string) => {
+    void uebernehmeQrText(text, { ohneKiosk: true }).then((fertig) => {
+      if (!fertig && segmentTeileRef.current.length > 0) void scanneQr();
+    });
+  };
+  useEffect(
+    () =>
+      handscannerLauscher(window, {
+        onScan: (text) => handscannerRef.current(text),
+        zustaendig: () =>
+          !scannerOffenRef.current && !istTexteingabe(document.activeElement) && !document.querySelector("dialog[open]"),
+      }),
+    [],
+  );
 
   // Universal Link (iOS) / App Link (Android) öffnet die native App:
   // Bogen oder Vorlage aus der übergebenen URL übernehmen (Kaltstart und laufende App).

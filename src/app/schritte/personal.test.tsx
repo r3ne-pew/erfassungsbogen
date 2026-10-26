@@ -1162,7 +1162,7 @@ describe("Umschalten auf „Nur Stärke“", () => {
     // Die Namen bleiben — als nicht gezählte Erreichbarkeiten.
     expect(screen.getAllByLabelText("Vorname")).toHaveLength(4);
     expect(screen.getByText("Person 1 von 4 · nicht gezählt")).toBeDefined();
-    expect(screen.getByText(/Diese 4 Personen zählen nicht in die Stärke/)).toBeDefined();
+    expect(screen.getByText(/die 4 Personen hier werden nicht dazugerechnet/)).toBeDefined();
   });
 
   it("nennt bei Sollplätzen ohne Namen Plätze statt „erfasster Personen“ (R10-N1, R10-H4)", async () => {
@@ -1178,7 +1178,9 @@ describe("Umschalten auf „Nur Stärke“", () => {
     expect(dialog.textContent).toContain("Keine Person mit Namen, nur 5 vorbelegte Plätze");
     expect(dialog.textContent).not.toContain("erfasste Person");
     await nutzer.click(within(dialog).getByRole("button", { name: "Nur Stärke melden" }));
-    expect(screen.getByText(/Diese 5 vorbelegten Plätze zählen nicht in die Stärke/)).toBeDefined();
+    expect(screen.getByText(/Diese 5 Karten sind vorbelegte Plätze nach Einheitstyp ohne Namen/)).toBeDefined();
+    // Der Weg, die Plätze loszuwerden, steht direkt am Hinweis — einmal (R13-N2).
+    expect(screen.getAllByRole("button", { name: "Vorbelegung entfernen (5 Personen ohne Namen)" })).toHaveLength(1);
   });
 
   it("fragt vor „Personal vollständig erfassen“ nach eingetragenen Zahlen und bietet „Rückgängig“ (R10-E1)", async () => {

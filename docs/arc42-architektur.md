@@ -12,6 +12,16 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-26 (Probelauf Meldekopf):** Kap. 5, 6.2, 8.2: neuer
+> Baustein `src/app/handscanner.ts` (Tastatur-Wedge-Erkennung am Tempo, Abschluss
+> mit Enter/Tab oder nach kurzer Stille) — genutzt vom Scanner-Fenster und von
+> `App` als seitenweiter Lauscher außerhalb von Textfeldern; ein Scan ohne offenes
+> Fenster geht den Link-Weg. Das Scanner-Fenster lässt sich auf „Handscanner statt
+> Kamera" umstellen (neuer Schlüssel `eeb-scanweg`, localStorage, keine
+> Personendaten). Vorschlagslisten (`VorschlagFeld`) halten beim Klick auf ihre
+> Rollleiste den Fokus und rollen die Pfeiltasten-Markierung ins Bild. Kein neuer
+> Host, Transportformat und Schema unverändert.
+>
 > **Nachgezogen 2026-10-26 (Runde 15):** Audit Runde 15 (40 Befunde, drei Pakete)
 > — Kap. 5, 8.2, 8.4, 8.6, 9: zwei neue Speicherschlüssel. `eeb.import-laeuft.v1`
 > (sessionStorage, `import-unterbrochen.ts`: Einsatz-ID, Dateizahl und Meldungszahl
@@ -700,7 +710,7 @@ flowchart LR
 | Einheit (Erfasser) | Bedienoberfläche (Web/App) | Füllt den Assistenten aus (Einheit, Einsatz, Personal, Fahrzeuge, Sofortbedarf), druckt PDF, gibt Bogen per QR/Datei/AirDrop weiter. |
 | Meldekopf/Führungsstelle (Sammler) | Bedienoberfläche + Scan-Eingang | Erfasst fremde Einheiten neu (Schnellerfassung) oder importiert deren Bögen (Kamera-Scan, USB-Handscanner, Foto-Stapel, Datei/PDF); sammelt sie unter einem Einsatz, sieht laufende Summen, gibt Sammel-PDF/CSV weiter. Der Lagemonitor zeigt dieselben Summen in einem zweiten Fenster für einen Fernseher am Gerät (DTG, Einsatzdauer ab handgesetztem Beginn, Stärke, Einheitentabelle mit Organisation, Ort, Funkrufname, Einheitentyp und Führer/Unterführer/Mannschaft, Fahrzeuge; ohne Personennamen). |
 | Papier-Erfassungsbogen der Organisation | Referenzformat (kein Datenfluss) | Das PDF-Layout muss dem gewohnten amtlichen Papierbogen entsprechen, damit Ausdrucke in bestehende (nicht-digitale) Meldewege passen. |
-| USB-Handscanner | Tastatur-Emulation | Der Scanner „tippt" den dekodierten QR-Inhalt wie eine Tastatur ein; die App entwirrt scancode-bedingte Tastaturbelegungsfehler (`src/app/tastaturbelegung.ts`). |
+| USB-Handscanner | Tastatur-Emulation | Der Scanner „tippt" den dekodierten QR-Inhalt wie eine Tastatur ein; die App erkennt die Folge am Tempo (`src/app/handscanner.ts`, im Scanner-Fenster und auf der ganzen Seite außerhalb von Textfeldern, Abschluss mit Enter/Tab oder nach kurzer Stille) und entwirrt scancode-bedingte Tastaturbelegungsfehler (`src/app/tastaturbelegung.ts`). |
 | AirDrop (Apple) / Quick Share (Android) | Betriebssystem-Nahfeldfreigabe | Reiner Transportkanal für den geteilten Link/die Datei; die App implementiert dafür nichts außer einem teilbaren Link. |
 | Excel-Vorlage „Oldenburg" | Exportformat | Fest vorgegebenes, nicht verhandelbares Spaltenformat (38 Spalten, Farben, Datumsformat) einer externen Führungsstelle; die App liefert nur ihre Spalten, der Rest (Ablösung, Zusagen, Schicht) bleibt leer. |
 | THW-Ortsverbandsverzeichnis | Eingebettete Referenzdaten (kein Live-Zugriff) | ~700 THW-Ortsverbände mit Nummer/Name/Kontakten sind im Bundle enthalten; ein QR kann statt der ausgeschriebenen Hierarchie nur die Ortsverbandsnummer tragen (`standortRef`). |
@@ -1152,8 +1162,13 @@ Wichtige Eigenschaften:
   akzeptiert; ein eingefrorener v2-Payload dient als Regressionstest
   (`vendor/eeb-format/src/codec.migration.test.ts`).
 - Bei Scan über einen USB-Handscanner entfällt der Kamera-Schritt;
+  `handscannerLauscher` in `src/app/handscanner.ts` sammelt die Tastenfolge
+  (im Scanner-Fenster und, seit 2026-10-26, auch ohne offenes Fenster — ein
+  Scan auf der Seite nimmt denselben Weg wie ein angetippter Bogen-Link),
   `entwirreScanText` in `src/app/tastaturbelegung.ts` korrigiert layoutbedingte
-  Fehlinterpretationen, bevor `decodePayloadUrl` aufgerufen wird.
+  Fehlinterpretationen, bevor `decodePayloadUrl` aufgerufen wird. Der im
+  Scanner-Fenster gewählte Weg (Kamera/Handscanner) liegt als `eeb-scanweg`
+  im `localStorage` (wie die Kamerawahl `eeb-kamera`; keine Personendaten).
 
 ### 6.3 Meldekopf: fremden Bogen in die Einsatz-Sammlung aufnehmen
 
