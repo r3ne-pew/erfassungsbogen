@@ -668,7 +668,7 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
       const anzahl = sicherungEinspielen(text);
       await zeigeHinweis({
         titel: "Sicherung eingespielt",
-        text: `${anzahl} Einträge übernommen. Die App lädt jetzt neu.`,
+        text: `${anzahl} Einträge übernommen. Zum Abschluss „Neu laden“ tippen.`,
         ok: "Neu laden",
       });
       window.location.reload();
@@ -776,8 +776,8 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
       await zeigeHinweis({
         titel: "Geräteschlüssel neu erzeugt",
         text: kurz
-          ? `Die neue Kurzform lautet ${kurz}. Sie muss den Empfängern bekannt gemacht werden. Die App lädt jetzt neu.`
-          : "Der neue Schlüssel steht. Die App lädt jetzt neu.",
+          ? `Die neue Kurzform lautet ${kurz}. Sie muss den Empfängern bekannt gemacht werden. Zum Abschluss „Neu laden“ tippen.`
+          : "Der neue Schlüssel steht. Zum Abschluss „Neu laden“ tippen.",
         kopiertext: kurz ?? undefined,
         ok: "Neu laden",
       });
@@ -1107,8 +1107,8 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
         )}
         <p className="warnung">
           Bereits erzeugte PDFs, QR-Codes und Sicherungsdateien bleiben unberührt —
-          nur der Speicher dieser App wird geleert. Der Widerspruch zur
-          Reichweitenmessung bleibt bestehen.
+          nur der Speicher dieser App wird geleert. Die Einstellung „Nicht
+          mitzählen“ aus dem Datenschutzhinweis bleibt erhalten.
         </p>
         <label className="inline">
           <input

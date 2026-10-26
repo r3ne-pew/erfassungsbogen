@@ -299,7 +299,7 @@ describe("Lagemonitor, Runde 7", () => {
     expect(zeilen).toHaveLength(2);
     expect(zeilen[0]).toContain("OV Neu");
     expect(zeilen[1]).toContain("OV Alt");
-    expect(document.querySelector(".lm-weitere")!.textContent).toMatch(/zuletzt gemeldet zuerst/);
+    expect(document.querySelector(".lm-weitere")!.textContent).toMatch(/zuletzt gemeldete zuerst/);
   });
 });
 

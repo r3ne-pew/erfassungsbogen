@@ -113,3 +113,12 @@ export function kennzeichenSchreibweise(text: string): string {
   const thw = /^THW[\s\-–—]*(\d{3,})$/.exec(gross);
   return thw ? `THW-${thw[1]}` : gross;
 }
+
+/**
+ * „Stimmt das?" bei einem THW-Kennzeichen mit „THW-" und weniger oder mehr als fünf Ziffern (R15-E5): ein Zahlendreher
+ * oder eine fehlende Ziffer fiel erst beim Abgleich mit dem Papier auf. Andere Formate und freier Text bleiben unbeanstandet.
+ */
+export function kennzeichenHinweis(text: string): string | null {
+  const m = /^THW-(\d+)$/.exec(kennzeichenSchreibweise(text));
+  return m && m[1]!.length !== 5 ? `THW-Kennzeichen: fünf Ziffern, „THW-${m[1]}“ hat ${m[1]!.length}. Stimmt das?` : null;
+}

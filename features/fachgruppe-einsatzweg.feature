@@ -27,8 +27,8 @@ Funktionalität: Einsatzweg einer Fachgruppe — Vorbereitung, Fahrt, Meldekopf
   # Anhänger sind keine Funkstellen und bleiben ohne.
   Szenario: Die vorbelegten Funkrufnamen tragen Teileinheit- und Fahrzeugkennzahl
     Wenn ich zum Schritt "6. Übersicht" wechsle
-    Dann sehe ich den Text "Heros Oldenburg (NI) 48/43"
-    Und sehe ich den Text "Heros Oldenburg (NI) 48/34"
+    Dann sehe ich den Text "Heros Oldenburg 48/43"
+    Und sehe ich den Text "Heros Oldenburg 48/34"
 
   # Der Meldekopf will die ganze Meldekette: OV, Regionalstelle, Landesverband.
   # Die OV-Auswahl füllt beide übergeordneten Ebenen aus der Regionalstruktur.
@@ -49,7 +49,7 @@ Funktionalität: Einsatzweg einer Fachgruppe — Vorbereitung, Fahrt, Meldekopf
     Und ich das Feld "Einheitstyp" auf "FGr WP (C) – Fachgruppe Wasserschaden/Pumpen (C)" stelle
     Und ich zum Schritt "6. Übersicht" wechsle
     Dann sehe ich den Text "THW-84711"
-    Und sehe ich den Text "Heros Oldenburg (NI) 48/43"
+    Und sehe ich den Text "Heros Oldenburg 48/43"
     Und sehe ich die Überschrift "Fahrzeuge (5)"
 
   # Die StAN setzt bewusst keine Fahrerlaubnisklassen — vergisst der Bogen

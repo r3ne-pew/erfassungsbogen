@@ -107,6 +107,8 @@ export function Uebersicht(props: {
   herkunft?: Uint8Array | null;
   /** Gesetzt, wenn der Bogen für eine Einsatz-Sammlung erfasst wird (Meldekopf/Zugführer). */
   sammelAktion?: { label: string; onUebernehmen: () => void };
+  /** Fremde Erfassung (Schnellerfassung): Einsatz und Sofortbedarf entfallen, der Rückweg führt nicht dorthin (R15-N3). */
+  fremdeErfassung?: boolean;
   /**
    * Öffnet die Einsatz-Auswahl, um den offenen Bogen nachträglich in eine
    * Sammlung zu legen — der Meldekopf scannt/öffnet oft erst und entscheidet
@@ -279,6 +281,8 @@ export function Uebersicht(props: {
   // in eine Sammlung — nicht in „Mängel beheben und weitergeben".
   const empfangenFremd = props.signatur != null && props.signatur.zustand !== "unsigniert";
   const schnellAblegen = (nurStaerke || empfangenFremd) && !props.sammelAktion && !props.vorlageBearbeitung && props.onInEinsatzAufnehmen != null;
+  // Die Fortschrittsleiste führt Schritt 5 dann als „–" (entfällt); der Rückknopf nennt den Schritt davor (R15-N3).
+  const schnellOhneBedarf = nurStaerke && props.fremdeErfassung === true;
   const mwd = unterbringungMWD(bogen);
   const vp = verpflegung(bogen);
   /**
@@ -797,7 +801,7 @@ export function Uebersicht(props: {
               <th>Kennzeichen</th>
               {zeigeFunkruf && <th>Funkrufname</th>}
               <th>Sitzplätze</th>
-              <th>StAN</th>
+              <th>Ausstattung (StAN)</th>
               {zeigeAenderungen && <th>Änderungen</th>}
             </tr>
           </thead>
@@ -988,7 +992,9 @@ export function Uebersicht(props: {
       {/* Die Übersicht hat keine feste Fußleiste: der Weg zurück steht am Ende
           der Seite, an der gewohnten Stelle (R7-N9). */}
       <p className="uebersicht-zurueck">
-        <button type="button" onClick={() => geheZu(4)}>← Zurück zu Schritt 5 (Sofortbedarf)</button>
+        <button type="button" onClick={() => geheZu(schnellOhneBedarf ? 3 : 4)}>
+          {schnellOhneBedarf ? "← Zurück zu Schritt 4 (Fahrzeuge)" : "← Zurück zu Schritt 5 (Sofortbedarf)"}
+        </button>
       </p>
       </div>
 

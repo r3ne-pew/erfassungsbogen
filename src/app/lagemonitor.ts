@@ -10,7 +10,7 @@
 import { staerke, type EebZeitpunkt } from "@bos/eeb-format/model";
 import { angabenAlterWort, angabenZeit } from "./angaben-alter";
 import { einheitOrt } from "@bos/meldekopf/darstellung";
-import { EinsatzArt, MeldeStatus, revisionen, type Einsatzsammlung } from "@bos/meldekopf/einsaetze";
+import { EinsatzArt, MeldeStatus, revisionen, type Einsatzsammlung, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { aggregiere, aktuelleMeldungen, type EinsatzSummen } from "./auswertung";
 import { eintreffzeit } from "./eintrag-zeiten";
 import { sollstaerkeAnteil } from "./einheiten-tabelle";
@@ -283,7 +283,12 @@ function bewegungenSeit(einsatz: Einsatzsammlung, jetzt: number): Bewegung[] {
 export function lagebild(einsatz: Einsatzsammlung, jetzt: number = Date.now()): Lagebild {
   const geltend = geltendeJeEinheit(einsatz.eintraege);
   const einheiten = [...aktuelleMeldungen(einsatz.eintraege, einsatz.art)]
-    .sort((a, b) => b.empfangenAm - a.empfangenAm) // zuletzt gemeldet zuerst (R8-K5); bei gleicher Zeit bleibt die Reihenfolge der Meldungen
+    // Erst die mit ⚠ (Angaben älter als eine Stunde), älteste zuerst: Bei knappem Platz werden die unauffälligen Zeilen
+    // gekürzt, nicht die gewarnten (R15-K2). Danach zuletzt gemeldet zuerst (R8-K5); bei gleicher Zeit bleibt die Reihenfolge.
+    .sort((a, b) => {
+      const alt = (m: MeldeEintrag) => jetzt - angabenZeit(m) >= VERALTET_ALTER_MIN * 60_000;
+      return Number(alt(b)) - Number(alt(a)) || (alt(a) ? angabenZeit(a) - angabenZeit(b) : b.empfangenAm - a.empfangenAm);
+    })
     .map((m): EinheitZeile => {
       const e = m.bogen.einheit;
       const st = staerke(m.bogen);

@@ -154,6 +154,27 @@ export async function meldungPdfAnzeigen(m: MeldeEintrag, fenster: Window | null
   }
   const qr = await qrErzeugen(m.bogen, herkunft);
   await pdfMake.createPdf(await einzelDokument(m.bogen, qr)).open(fenster);
+  tabNachErzeugung(fenster);
+}
+
+/** Text des Platzhalter-Tabs, solange der Bogen entsteht. */
+export const TAB_ERZEUGT_TEXT = "Bogen wird erzeugt…";
+export const TAB_FERTIG_TEXT = "Fertig — der Bogen liegt im Download-Ordner. Dieser Tab kann geschlossen werden.";
+
+/**
+ * Ein Browser ohne PDF-Anzeige legt das PDF als Download ab und lässt den Tab bei „Bogen wird erzeugt…" stehen (R15-A5).
+ * Zeigt der Tab nach kurzer Zeit noch den eigenen Platzhalter, sagt er jetzt, dass es fertig ist; zeigt er das PDF,
+ * ist der Zugriff darauf nicht möglich oder der Text ein anderer — dann bleibt alles, wie es ist.
+ */
+export function tabNachErzeugung(fenster: Window, nach = 2500): void {
+  setTimeout(() => {
+    try {
+      if (fenster.closed) return;
+      if (fenster.document.body?.textContent === TAB_ERZEUGT_TEXT) fenster.document.body.textContent = TAB_FERTIG_TEXT;
+    } catch {
+      /* Fremder Ursprung (PDF-Anzeige geladen): nichts zu tun */
+    }
+  }, nach);
 }
 
 /**
@@ -163,7 +184,9 @@ export async function meldungPdfAnzeigen(m: MeldeEintrag, fenster: Window | null
  */
 export function zeitEingelesen(m: MeldeEintrag, fassungenNeuesteZuerst: MeldeEintrag[]): boolean {
   const erste = fassungenNeuesteZuerst[fassungenNeuesteZuerst.length - 1] ?? m;
-  if (m.quelle === "manuell" || erste.quelle === "manuell") return false;
+  // Nur die erste Fassung entscheidet: Eine von Hand korrigierte Stärke (Quelle „manuell") erbt die Eintreffzeit der
+  // eingelesenen Meldung und damit auch deren Kennzeichnung (R15-A1).
+  if (erste.quelle === "manuell") return false;
   return eintreffzeit(m) === erste.empfangenAm;
 }
 
@@ -202,6 +225,7 @@ function uebersichtEintrag(
     ...(m.vomPapier == null && zeitEingelesen(m, revs) ? { zeitEingelesen: true } : {}),
     // Stand nach dem Eingang: falsche Geräteuhr (R13-A3) — gehört auch aufs Papier (R14-A2).
     ...(standLiegtNachEintreffen(m) ? { standNachEintreffen: true } : {}),
+    ...(m.signatur?.zustand === "ungueltig" ? { signaturUngueltig: true } : {}),
     // Anderer Einsatz? wie an der Karte (R5-K5); beim Nachtrag aus der ganzen Sammlung gerechnet.
     ...(fremderOrt != null ? { fremderOrt } : {}),
     // Beim Nachtrag: warum die Einheit dabei ist, und ob ihre Kräfte zur Summe

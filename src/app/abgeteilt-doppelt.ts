@@ -131,9 +131,11 @@ export function abgeteiltDoppeltImStapel(
   neueIds: readonly string[],
 ): string[] {
   const zeilen: string[] = [];
+  // Nur, was in die Lage übernommen wurde: Eine ältere Datei liegt nur in der Historie, nichts zählt doppelt (R15-D3).
+  const geltend = new Set(geltendeJeEinheit(nachher).map((g) => g.id));
   for (const id of neueIds) {
     const e = nachher.find((x) => x.id === id);
-    if (!e || !vorher.some((v) => v.einheitSchluessel === e.einheitSchluessel)) continue;
+    if (!e || !geltend.has(e.id) || !vorher.some((v) => v.einheitSchluessel === e.einheitSchluessel)) continue;
     const d = abgeteiltDoppelt(vorher, e.einheitSchluessel, e.bogen);
     if (!d) continue;
     zeilen.push(

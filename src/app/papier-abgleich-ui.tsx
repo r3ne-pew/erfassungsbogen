@@ -284,8 +284,8 @@ export function PapierAbgleich(props: {
         )}
         {entwurfAnzahl > 0 && (
           <p className="hinweis">
-            Angefangene Eingaben für {entwurfAnzahl === 1 ? "1 Einheit" : `${entwurfAnzahl} Einheiten`} sind noch da (nur in diesem Browserfenster, bis du
-            sie übernimmst oder den Tab schließt). Sie erscheinen wieder, wenn du den Abgleich öffnest.
+            Angefangene Eingaben für {entwurfAnzahl === 1 ? "1 Einheit" : `${entwurfAnzahl} Einheiten`} sind noch da (auf diesem Gerät, bis du
+            sie übernimmst, höchstens drei Tage). Sie erscheinen wieder, wenn du den Abgleich öffnest.
           </p>
         )}
         {props.knopfImBericht ? (

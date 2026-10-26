@@ -22,7 +22,9 @@ function stanTyp() {
   const typ = vokabularFuer(OrganisationsTyp.THW, "einheitstyp").find(
     (e) => stanFahrzeugVorbelegung(OrganisationsTyp.THW, { code: e.code }).length > 0,
   )!;
-  return { typ, vorlage: stanFahrzeugVorbelegung(OrganisationsTyp.THW, { code: typ.code }) };
+  // Wie die App: ohne „Ausstattung nach StAN: ja" des Bausteins — das hat niemand angegeben (R15-N1).
+  const vorlage = stanFahrzeugVorbelegung(OrganisationsTyp.THW, { code: typ.code }).map(({ stanKonform: _s, ...f }) => f);
+  return { typ, vorlage };
 }
 
 describe("Schritt Fahrzeuge", () => {

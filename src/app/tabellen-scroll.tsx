@@ -35,6 +35,9 @@ export function TabellenScroll({ titel, children }: { titel: string; children: R
   }, []);
 
   return (
+    <>
+      {/* R15-N2: Wer nicht wischt, hielt die Tabelle für abgeschnitten („ERR", „S" am Rand). Der Hinweis steht nur, solange etwas verdeckt ist. */}
+      {rollbar && <p className="hinweis tabellen-hinweis">Zum Weiterlesen seitlich wischen →</p>}
     <div
       ref={ref}
       className="tabellen-scroll"
@@ -46,5 +49,6 @@ export function TabellenScroll({ titel, children }: { titel: string; children: R
     >
       {children}
     </div>
+    </>
   );
 }

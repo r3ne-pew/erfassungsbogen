@@ -10,6 +10,12 @@
  * nach „Abgleich übernehmen" oder auf ausdrücklichen Wunsch gelöscht.
  *
  * Schlüssel: `eeb.papierabgleich.v1.<Einsatz-ID>` (sessionStorage).
+ *
+ * R15-A4: Ein vom Betriebssystem beendeter Browser oder ein leerer Akku nahm den Zwischenstand mit — die
+ * Nacherfassung von 20 Zeilen vom Meldeblock begann von vorn. Derselbe Schlüssel liegt jetzt zusätzlich im
+ * dauerhaften `localStorage` (Wert: `{ am, zeilen }`, nur Nr., Zeit, Zug, Notiz, Name der Einheit) und verfällt nach
+ * {@link ENTWURF_FRIST_MS}; der Sitzungsspeicher bleibt die erste Quelle. „Abgleich übernehmen" und „Verwerfen"
+ * löschen beide, „Alle Daten löschen" wie alles unter `eeb.`.
  */
 
 export interface AbgleichZeile {
@@ -25,13 +31,18 @@ export interface AbgleichZeile {
 
 const PRAEFIX = "eeb.papierabgleich.v1.";
 
-function speicher(): Storage | null {
+/** So lange gilt der dauerhaft gelegte Zwischenstand; danach ist es ein neuer Einsatztag (R15-A4). */
+export const ENTWURF_FRIST_MS = 3 * 24 * 3_600_000;
+
+function ort(art: "sessionStorage" | "localStorage"): Storage | null {
   try {
-    return globalThis.sessionStorage ?? null;
+    return globalThis[art] ?? null;
   } catch {
     return null;
   }
 }
+const speicher = () => ort("sessionStorage");
+const dauerhaft = () => ort("localStorage");
 
 export function abgleichSchluessel(einsatzId: string): string {
   return `${PRAEFIX}${einsatzId}`;
@@ -58,11 +69,19 @@ export function geaenderteZeilen(zeilen: AbgleichZeile[], basis: AbgleichZeile[]
 }
 
 /** Zwischenstand lesen; unlesbar oder fehlend ergibt eine leere Liste. */
-export function abgleichEntwurfLaden(einsatzId: string): AbgleichZeile[] {
+export function abgleichEntwurfLaden(einsatzId: string, jetzt = Date.now()): AbgleichZeile[] {
   try {
-    const roh = speicher()?.getItem(abgleichSchluessel(einsatzId));
-    if (!roh) return [];
-    const x = JSON.parse(roh) as unknown;
+    const schluessel = abgleichSchluessel(einsatzId);
+    let x: unknown = null;
+    const roh = speicher()?.getItem(schluessel);
+    if (roh) x = JSON.parse(roh) as unknown;
+    else {
+      // Neuer Browserstart: Der Sitzungsspeicher ist leer, der dauerhafte Zwischenstand trägt (R15-A4).
+      const spaet = dauerhaft()?.getItem(schluessel);
+      const d = spaet ? (JSON.parse(spaet) as { am?: unknown; zeilen?: unknown }) : null;
+      if (d && typeof d.am === "number" && jetzt - d.am <= ENTWURF_FRIST_MS) x = d.zeilen;
+      else if (d) dauerhaft()?.removeItem(schluessel);
+    }
     if (!Array.isArray(x)) return [];
     return x.filter(
       (z): z is AbgleichZeile =>
@@ -95,18 +114,23 @@ export function abgleichEntwurfSpeichern(einsatzId: string, zeilen: AbgleichZeil
       const b = basis.find((x) => x.eintragId === z.eintragId);
       return b ? zeileGeaendert(z, b) : false;
     });
-    if (mitEingaben.length === 0) s.removeItem(abgleichSchluessel(einsatzId));
-    else s.setItem(abgleichSchluessel(einsatzId), JSON.stringify(mitEingaben));
+    if (mitEingaben.length === 0) abgleichEntwurfLoeschen(einsatzId);
+    else {
+      s.setItem(abgleichSchluessel(einsatzId), JSON.stringify(mitEingaben));
+      dauerhaft()?.setItem(abgleichSchluessel(einsatzId), JSON.stringify({ am: Date.now(), zeilen: mitEingaben }));
+    }
   } catch {
     /* Speicher voll oder gesperrt — der Abgleich arbeitet dann wie bisher ohne Zwischenstand */
   }
 }
 
 export function abgleichEntwurfLoeschen(einsatzId: string): void {
-  try {
-    speicher()?.removeItem(abgleichSchluessel(einsatzId));
-  } catch {
-    /* nichts zu tun */
+  for (const s of [speicher(), dauerhaft()]) {
+    try {
+      s?.removeItem(abgleichSchluessel(einsatzId));
+    } catch {
+      /* nichts zu tun */
+    }
   }
 }
 

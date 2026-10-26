@@ -12,6 +12,7 @@ import {
   fahrzeugLeer,
   fahrzeugUnbenannt,
   neuesFahrzeug,
+  ortOhneZusatz,
   transportBilanz,
   vokabText,
   vokabularFuer,
@@ -19,7 +20,7 @@ import {
 } from "../hilfen";
 import { fahrzeugSymbolSvg, svgDataUrl } from "../taktische-zeichen-bogen";
 import { frageJaNein } from "../dialoge";
-import { kennzeichenSchreibweise } from "../schreibweise";
+import { kennzeichenHinweis, kennzeichenSchreibweise } from "../schreibweise";
 import { einheitOrt } from "@bos/meldekopf/darstellung";
 import { mitAbgang, useEinzugsstempel } from "../eintrag-bewegung";
 import { DaumenQuittung } from "../daumen-quittung";
@@ -55,6 +56,9 @@ function FahrzeugKarte(props: {
   const richtwert = sitzplaetzeRichtwert(f, vokabularFuer(org, "fahrzeug"));
   const typLang = f.typ.code != null ? vokabText(f.typ, vokabularFuer(org, "fahrzeug"), "name") : "";
   const karte = useRef<HTMLDivElement>(null);
+  // „Stimmt das?" zum THW-Kennzeichen erst nach dem Verlassen des Felds, nicht während des Tippens (R15-E5).
+  const [kennzeichenFertig, setKennzeichenFertig] = useState(false);
+  const kennzeichenFrage = kennzeichenFertig ? kennzeichenHinweis(f.kennzeichen ?? "") : null;
   // Sitzplätze: Komma gerundet, Minus abgelehnt, Obergrenze genannt — nie still eine andere Zahl (R9-E1).
   const sitz = useZahlEingabe(f.sitzplaetze, (n) => aendern({ ...f, sitzplaetze: n }), { min: 0, max: 99, leer: true, einheit: "Plätze" });
   const grenzeText = sitz.meldung;
@@ -92,16 +96,23 @@ function FahrzeugKarte(props: {
             value={f.kennzeichen ?? ""}
             onChange={(e) => set({ kennzeichen: e.target.value })}
             // R12-N7: Beim Verlassen Großschreibung und Trennstrich („thw 80101“ → „THW-80101“).
+            onFocus={() => setKennzeichenFertig(false)}
             onBlur={(e) => {
               const roh = e.target.value;
               const schoen = kennzeichenSchreibweise(roh);
               if (roh !== "" && schoen !== roh) set({ kennzeichen: schoen });
+              setKennzeichenFertig(true);
             }}
             // Beispiel der eigenen Organisation, mit „z. B." — das feste
             // „OL-FW 2041 / THW-84397" sah wie ein eingetragener Wert aus und
             // wurde ausgelassen (Audit Runde 2, R2-N9).
             placeholder={org === OrganisationsTyp.THW ? "z. B. THW-84397" : "z. B. OL-FW 2041"}
           />
+          {kennzeichenFrage && (
+            <small className="hinweis warnung-text kennzeichen-frage" role="status">
+              {kennzeichenFrage}
+            </small>
+          )}
         </Feld>
         <Feld titel="Sitzplätze" schmal>
           {/* Leer = Richtwert des Typs. Der Richtwert steht als Platzhalter
@@ -324,7 +335,7 @@ export function SchrittFahrzeuge({ bogen, aendern }: SchrittProps) {
           key={i}
           fahrzeug={f}
           org={bogen.einheit.organisation}
-          standort={einheitOrt(bogen.einheit)}
+          standort={ortOhneZusatz(einheitOrt(bogen.einheit))}
           ovKennzahl={ovKennzahl}
           frisch={f === frisch}
           index={i}

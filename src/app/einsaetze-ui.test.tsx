@@ -278,7 +278,7 @@ describe("Einheit mit Folgemeldung entfernen (R2-D1)", () => {
     await nutzer.click(within(karte).getByRole("button", { name: "Mehr…" }));
     await nutzer.click(within(karte).getByRole("button", { name: "Entfernen" }));
     let dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Meldung entfernen?']")!;
-    expect(dialog.textContent).toMatch(/„Rückgängig" gibt es nur, solange die App geöffnet bleibt/);
+    expect(dialog.textContent).toMatch(/„Rückgängig" gilt bis zum Neuladen oder Schließen der App/);
     expect(dialog.textContent).toMatch(/danach ist die Meldung endgültig weg/);
     // R10-D1: der Name steht im ersten Satz, R10-S3: die Rückfrage ist kurz (höchstens rund 45 Wörter).
     // R14-D1: dazu Nummer und Stärke (bei einem abgeteilten Trupp auch der Teil), damit gleich benannte Karten verschieden lauten.
@@ -565,7 +565,7 @@ describe("Einheiten als Tabelle", () => {
     expect(zellen[0]).toContain("Wardenburg");
     expect(zellen[koepfe.findIndex((k) => k.startsWith("Auftrag"))]).toBe("Deich Nord");
     // Die Aufschlüsselung folgt dahinter, der Absender-Stand steht zuletzt.
-    expect(koepfe.findIndex((k) => k.startsWith("Unt. M"))).toBeGreaterThan(8);
+    expect(koepfe.findIndex((k) => k.startsWith("Unterbr. M"))).toBeGreaterThan(8);
     expect(koepfe[koepfe.length - 1]).toMatch(/^Stand/);
   });
 });
@@ -1053,7 +1053,8 @@ describe("Ausgabewege der Einsatzansicht", () => {
       expect(knopf.getAttribute("aria-busy")).toBe("true");
       expect((screen.getByRole("button", { name: "Lageblatt (A4 quer)" }) as HTMLButtonElement).disabled).toBe(true);
       expect((screen.getByRole("button", { name: "Blanko-Vordruck (Papier-Reserve)" }) as HTMLButtonElement).disabled).toBe(true);
-      expect(document.querySelector(".arbeitet-zeile")!.textContent).toMatch(/bis zu einer halben Minute.*nicht noch einmal tippen/);
+      // R15-O1: Die Dauer richtet sich nach der Zahl der Bögen (hier einer), nie nach einer festen Obergrenze.
+      expect(document.querySelector(".arbeitet-zeile")!.textContent).toMatch(/bei 1 Bogen am Telefon etwa 2 Sekunden oder länger\. Nicht noch einmal tippen/);
     } finally {
       fertig();
       await lauf;

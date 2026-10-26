@@ -5874,6 +5874,74 @@
     .bedarf-marke.bedarf-nicht-erfasst { font-style: italic; }
     .bedarf-ohne-angabe { margin: var(--r-2) 0 0; }
     /* ===== Ende Runde 14 (Inhalte) ===== */
+    /* ===== Runde 15 (Layout) ===== */
+    /* R15-M1: Die aufgeklappte Karte trägt wie die zugeklappten Rahmen, Abstand und Innenrand — in der Kennfarbe, damit „offen" zu sehen ist.
+       Der linke Rand ist von Anfang an 3 px (R12-G3): „Abrücken" ändert nur seine Art (gestrichelt), nicht das Maß. */
+    .einheit-zeile.karte-offen:not(.kompakt) {
+      margin-top: 8px; padding: var(--r-2) var(--r-3) var(--r-2) calc(var(--r-3) - 2px);
+      border: var(--strich) solid var(--akzent); border-left: 3px solid var(--akzent); border-radius: var(--radius);
+    }
+    .einheit-zeile.gestrichen.karte-offen:not(.kompakt) { border-left: 3px dashed var(--linie-stark); }
+    /* R15-M4: Jeder Bedarfsposten ist unteilbar; umbrochen wird nur zwischen den Posten. */
+    details.bedarf-block > summary > .bedarf-werte .bedarf-posten { white-space: nowrap; }
+    details.bedarf-block > summary { align-items: flex-start; padding-top: 10px; }
+    /* R15-H1: Der Text der Quittungsleiste bekommt die volle Breite (die Knöpfe rutschen darunter, wenn er sonst in einer schmalen Spalte
+       steht) und bis zu vier Zeilen — „Zur Kenntnis genommen: 8…" und „Stärke 4 → 5 geändert: „THW…" ohne den Namen waren abgeschnitten. */
+    .quittung-daumen > .quittung-text { flex-basis: 12em; -webkit-line-clamp: 4; line-clamp: 4; }
+    /* R15-N2: Hinweis über Tabellen, die seitlich rollen. */
+    .tabellen-hinweis { margin: 0 0 4px; }
+    @media (max-width: 29.999rem) {
+      /* R15-G2: Die sechs Reiter bleiben gleich breit; „offen" steht klein unter der Nummer statt den Reiter zu verbreitern. */
+      .seiten-kopf.assistent-kopf .schritte button { flex: 1 1 0; min-width: 0; }
+      .seiten-kopf.assistent-kopf .schritte button.status-begonnen { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; line-height: 1.1; }
+      .seiten-kopf.assistent-kopf .schritte button.status-begonnen .schritt-status { margin: 0; font-size: 0.7em; }
+    }
+    /* R15-M3: Die aufgeklappte Ansichtswahl liegt als Überlagerung unter dem Knopf; Kopf, Logo und Formularbeginn bleiben, wo sie sind.
+       Die Kacheln tragen die Farbe des Kopfes, nur die gewählte ist hell. */
+    @media (max-width: 29.999rem) {
+      .seiten-kopf.assistent-kopf .kopf-oberzeile { position: relative; }
+      .seiten-kopf.assistent-kopf .kopf-oberzeile .anzeige-schalter.klappbar.offen {
+        position: absolute; top: 0; right: 0; z-index: 30; width: max-content; max-width: 100%;
+        flex-direction: column; flex-wrap: nowrap; padding-bottom: 8px;
+        --wahl-fond: var(--kopf-fond); background: var(--wahl-fond); box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+      }
+      .platform-ios .seiten-kopf.assistent-kopf .anzeige-schalter.klappbar.offen,
+      .platform-android .seiten-kopf.assistent-kopf .anzeige-schalter.klappbar.offen { --wahl-fond: var(--flaeche); }
+      .seiten-kopf.assistent-kopf .kopf-oberzeile .anzeige-schalter.klappbar.offen .anzeige-klappe { flex: none; }
+      .seiten-kopf.assistent-kopf .kopf-oberzeile .anzeige-schalter.klappbar.offen > button:not(.anzeige-klappe) {
+        flex: none; border: max(var(--strich), 2px) solid var(--kopf-linie); background: var(--wahl-fond); color: var(--kopf-auf);
+      }
+      .seiten-kopf.assistent-kopf .kopf-oberzeile .anzeige-schalter.klappbar.offen > button.aktiv { background: var(--kopf-auf); color: var(--wahl-fond); border-color: var(--kopf-auf); }
+      .seiten-kopf.assistent-kopf .kopf-oberzeile:has(.anzeige-schalter.klappbar.offen) .zur-start { flex: 0 1 auto; }
+    }
+    /* R15-M2: Mit „In Einsatz übernehmen" bleibt die Fußleiste am niedrigen Telefon einzeilig (70 statt 128 px): Der Abschluss steht
+       zwischen „◐" und „→", „Ansicht" und „Weiter" fallen als Wort weg (Namen bleiben als aria-label). */
+    @media (min-width: 20rem) and (max-width: 35.99rem) and (max-height: 43.75rem) {
+      footer.nav.assistent-nav.mit-uebernehmen { grid-template-areas: "zurueck modus mitte weiter"; }
+      footer.nav.mit-uebernehmen .uebernehmen {
+        min-width: 0; padding-inline: 6px; white-space: normal; overflow-wrap: normal;
+        font-size: min(var(--t-s), 14px); line-height: 1.15;
+      }
+      footer.nav.assistent-nav.mit-uebernehmen .anzeige-leiste-text,
+      footer.nav.assistent-nav.mit-uebernehmen .nav-zur,
+      footer.nav.assistent-nav.mit-uebernehmen .nav-weiter-wort { display: none; }
+      main.mit-uebernehmen { padding-bottom: calc(min(7rem, 112px) + env(safe-area-inset-bottom)); }
+      html:has(main.mit-uebernehmen) { scroll-padding-bottom: calc(min(7rem, 112px) + env(safe-area-inset-bottom)); }
+    }
+    /* ===== Ende Runde 15 (Layout) ===== */
+    /* ===== Runde 15 (Inhalte) ===== */
+    /* R15-K4: Nur der Teil „älteste Meldung …" der Datenstand-Zeile trägt Warnfarbe und ⚠. */
+    .lm-label .lm-warnteil { color: var(--lm-warn); font-weight: 700; opacity: 1; }
+    /* R15-K5: Auftrag am Telefon (Typ-Spalte entfällt) als zweite Zeile unter dem Funkrufnamen. */
+    .lm-einheiten .lm-auftrag-tel { display: none; }
+    @media (max-width: 640px) {
+      .lm-einheiten .lm-auftrag-tel { display: block; opacity: 0.85; font-size: 0.85em; }
+    }
+    /* ===== Ende Runde 15 (Inhalte) ===== */
+    /* ===== Runde 15 (Zustand) ===== */
+    /* R15-E4: „Aufteilen…" rollt die Überschrift des Formulars an den oberen Rand; etwas Luft darüber. */
+    .aufteilen-panel > h4 { scroll-margin-top: 12px; }
+    /* ===== Ende Runde 15 (Zustand) ===== */
   </style>
 </head>
 <body>

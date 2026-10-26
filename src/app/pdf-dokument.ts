@@ -458,6 +458,9 @@ export function boegenAlsEingebetteteDatei(boegen: Erfassungsbogen[]): Eingebett
  * je Bogen; für ein Blatt an der Wand ist das der Unterschied zwischen
  * „drucke ich stündlich" und „drucke ich nie", Analog-Audit A3/A4).
  */
+/** Zeile im Lageblatt und in der Sammel-PDF zu einem Bogen mit ungültiger Signatur: Der Stab liest sie, nicht die Karte (R15-E1). */
+export const SIGNATUR_UNGUELTIG_PAPIER = "⚠ SIGNATUR UNGÜLTIG: Daten unterwegs verändert oder beschädigt — beim Absender prüfen";
+
 export interface UebersichtEintrag {
   bogen: Erfassungsbogen;
   /** Vorherige Meldung derselben Einheit; fehlt bei einer Erstmeldung. */
@@ -507,6 +510,8 @@ export interface UebersichtEintrag {
   zeitEingelesen?: boolean;
   /** Der Stand des Bogens liegt nach dem Eingang am Gerät: Geräteuhr oder Absenderuhr falsch (R13-A3, R14-A2). */
   standNachEintreffen?: boolean;
+  /** Die Signatur passt nicht zu den Daten: unterwegs verändert oder beschädigt (R15-E1). */
+  signaturUngueltig?: boolean;
   /** Ort/Auftrag, den der Bogen nennt, obwohl er nicht zur Lage zu passen scheint (R5-K5). */
   fremderOrt?: string;
   /** Name und Rufnummer des Absenders aus der mitsignierten Absenderkarte (R11-W2): „Hans Beispiel · 0170 5551234". */
@@ -812,6 +817,8 @@ function uebersichtsTabelle(
     if (nurSollstaerke(b)) namensZeilen.push({ text: "Sollstärke, nicht gemeldet", bold: true });
     // Wie an der Karte: Der Bogen nennt einen anderen Einsatz, gezählt wird er trotzdem (R5-K5).
     if (e.fremderOrt) namensZeilen.push({ text: `Anderer Einsatz? Bogen nennt: „${e.fremderOrt}“`, bold: true });
+    // Wie an der Karte: Daten und Signatur passen nicht zusammen — das Papier sagt es dem Stab (R15-E1).
+    if (e.signaturUngueltig) namensZeilen.push({ text: SIGNATUR_UNGUELTIG_PAPIER, bold: true, fontSize: 7 });
     // Nachtrag: der Grund je Zeile (R5-W7).
     if (e.nachtragGrund) {
       namensZeilen.push({
@@ -842,7 +849,7 @@ function uebersichtsTabelle(
       ...(zumWeiterfuehren ? [{ stack: erreichbarkeitZeilen(b, e.absender).map((text) => ({ text: weichUmbrechen(text) })) }] : []),
       {
         stack: [
-          { text: `${blattZeit(e.eingetroffenAm)}${e.zeitEingelesen && zumWeiterfuehren ? EINGELESEN_STERN : ""}` },
+          { text: `${blattZeit(e.eingetroffenAm)}${e.zeitEingelesen ? EINGELESEN_STERN : ""}` },
           ...(e.zeitUnbestaetigt ? [{ text: "Zeit nicht bestätigt (vom Papier)", italics: true, fontSize: 7 }] : []),
           ...(e.standNachEintreffen && zumWeiterfuehren ? [{ text: "⚠ Stand nach dem Eintreffen: Uhr prüfen", bold: true, fontSize: 7 }] : []),
           ...(e.abgerueckAm != null ? [{ text: `ab ${blattZeit(e.abgerueckAm)}`, bold: true }] : []),
@@ -1034,7 +1041,7 @@ function zugSummenTabelle(eintraege: UebersichtEintrag[], nachtrag?: string, ers
   const body: TableCell[][] = [
     // „Unterbr. angef." = Personen der Einheiten mit angeforderter
     // Unterbringung; „M / W / D (alle)" zählt alle Anwesenden (R3-K4).
-    [kopf("Zug / Verband"), kopf("Einh."), kopf("Stärke\nF / U / M / G"), kopf("Verpfl."), kopf("Unterbr.\nangef."), kopf("M / W / D\n(alle)"), kopf("Betriebsstoff"), kopf("Fzg")],
+    [kopf("Zug / Verband"), kopf("Einh."), kopf("Stärke\nF / U / M / G"), kopf("Verpfl."), kopf("Unterbr.\nangef."), kopf("M / W / D\n(alle)"), kopf("Betriebsstoff"), kopf("Ruhe-\nzeit"), kopf("Fzg")],
   ];
   const gruppen = [...nach.entries()].sort(([a], [b]) => {
     if (a === "") return 1; // „ohne Etikett" ans Ende — wie in der Oberfläche
@@ -1055,13 +1062,15 @@ function zugSummenTabelle(eintraege: UebersichtEintrag[], nachtrag?: string, ers
       // Nur, was gemeldet ist: „Benzin 0 l" brach die Zeile in der schmalen
       // Spalte auf drei Zeilen um und schob den Block auf Seite 2 (R3-K6).
       { text: kraftstoffKurz(s.kraftstoff) },
+      // Einheiten mit Ruhezeit je Zug: Die Summe geht mit „Ruhezeit erforderlich bei n Einheit(en)" auf (R15-K3).
+      { text: `${s.ruhezeitErforderlich}` },
       { text: `${s.fahrzeuge}` },
     ]);
   }
   return {
     stack: [
       { text: nachtrag ? "Zwischensummen nach Zug (nur Nachtrag)" : "Zwischensummen nach Zug", bold: true, margin: [0, 6, 0, 4] },
-      { table: { headerRows: 1, widths: [84, 22, 52, 28, 32, 44, "*", 18], body }, margin: [0, 0, 0, 4] },
+      { table: { headerRows: 1, widths: [84, 22, 52, 28, 32, 44, "*", 26, 18], body }, margin: [0, 0, 0, 4] },
     ],
     unbreakable: true,
   };
@@ -1320,6 +1329,21 @@ export function stiftHinweis(stand: string): string {
  * durchging (Audit Runde 4, R4-A5).
  */
 export const STIFT_KAESTCHEN = "[  ] von Hand geändert";
+export const STIFT_KAESTCHEN_ANGEKREUZT = "[X] von Hand geändert";
+
+/**
+ * Am Meldekopf auf eine andere Stärke gesetzt („Stärke ändern…"), obwohl der Bogen Namen führt? Dann stimmen Zahl und
+ * Namensliste nicht mehr überein; der Ausdruck kreuzt „von Hand geändert" an und nennt es unter „Sonstiges" (R15-A3).
+ */
+export function staerkeVonHand(b: Pick<Erfassungsbogen, "personalErfassung" | "staerkeManuell" | "personal">): boolean {
+  return b.staerkeManuell != null && b.personalErfassung !== PersonalErfassung.NUR_STAERKE && b.personal.length > 0;
+}
+
+/** Satz unter „Sonstiges" zu {@link staerkeVonHand}: gedruckte Stärke, Zahl der Namen, Stand. */
+export function staerkeVonHandSatz(b: Erfassungsbogen): string {
+  const s = staerke(b).gesamt;
+  return `Stärke am Meldekopf auf ${s} korrigiert (Stand ${zeitpunktDeutsch(b.stand)}); die Namensliste führt ${b.personal.length} und ist nicht angepasst. Der Code trägt die korrigierte Stärke.`;
+}
 
 /**
  * Kopfzeile der Codeseiten: Einheit, Funkrufname, Stand. Lose Codeseiten ohne
@@ -1495,7 +1519,8 @@ export function einsatzPdfDokument(
     (nachtrag
       ? `NACHTRAG ${nachtrag}: nur die neuen oder geänderten Einheiten — nicht die ganze Lage. Die ganze Lage steht in „Einsatz weitergeben / sichern“. `
       : "") +
-      "Die Änderungsspalte vergleicht jede Meldung mit der vorherigen Meldung derselben Einheit. Die vollständigen Bögen folgen.",
+      "Die Änderungsspalte vergleicht jede Meldung mit der vorherigen Meldung derselben Einheit. Die vollständigen Bögen folgen." +
+      (boegenMitQr.some((e) => e.zeitEingelesen) ? ` ${EINGELESEN_FUSSNOTE}` : ""),
     undefined,
     false,
     undefined,
@@ -2064,7 +2089,7 @@ export function pdfDokument(
           { text: `${zahl(s.fuehrer)} / ${zahl(s.unterfuehrer)} / ${zahl(s.mannschaft)} / ${zahl(s.gesamt)}` },
           // Zweite Zeile der Zelle: „Ansprechpartner/in:" daneben bricht ohnehin
           // auf zwei Zeilen um, das Kästchen kostet keine Höhe.
-          ...(qr ? [{ text: STIFT_KAESTCHEN, bold: true } as Content] : []),
+          ...(qr ? [{ text: !blanko && staerkeVonHand(b) ? STIFT_KAESTCHEN_ANGEKREUZT : STIFT_KAESTCHEN, bold: true } as Content] : []),
         ],
       },
       { text: "Ansprechpartner/in:", bold: true },
@@ -2340,8 +2365,8 @@ export function pdfDokument(
               ],
             } as Content,
           ]
-        : b.sonstiges
-          ? [{ text: `Sonstiges: ${weichUmbrechen(b.sonstiges)}`, margin: [0, 8, 0, 0] } as Content]
+        : b.sonstiges || staerkeVonHand(b)
+          ? [{ text: `Sonstiges: ${[b.sonstiges ? weichUmbrechen(b.sonstiges) : "", staerkeVonHand(b) ? staerkeVonHandSatz(b) : ""].filter(Boolean).join(" ")}`, margin: [0, 8, 0, 0] } as Content]
           : []),
       ...(zusatz?.messpunkt ? [{ text: " ", fontSize: 1, id: `${MESS_BOGEN_ENDE}-formular${zusatz.messKennung ?? ""}` } as Content] : []),
 

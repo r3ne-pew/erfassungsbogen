@@ -103,6 +103,7 @@ import {
 import { offlineText, useOfflineStand } from "./offline-bereit";
 import { uebergabeBestaetigen, uebergabeNachWeg, uebergabeText, type UebergabeStand } from "./uebergabe-stand";
 import { ART_LABEL, EinsatzDetail, EinsatzListe, LetzteMeldungZeit, type Eingang } from "./einsaetze-ui";
+import { uebersprungenText } from "./uebersprungen-text";
 import { anzahlEinheiten, einheitenAufteilung, letzteMeldung, lueckeKurz, meldungsNummern, nummernWechsel, nummernWechselText, rueckkehrText } from "./einheiten-tabelle";
 import { exportSammlung, exportStaendeLaden, exportStaendeUebernehmen, exportStandAusWeitergabe, exportVermerken, lieferungsMarke, weitergabeUmImportErgaenzen, type ExportStand, type ExportUmfang, type ExportZiel } from "./export-stand";
 import { NICHTS_UEBERNOMMEN_SATZ, abgleichGliederung, abgleichText, einsatzAbgleichen, importUebernahm, sammlungFuerZiel, widerspruecheZumMerken, type Einzelheit } from "./einsatz-abgleich";
@@ -114,7 +115,7 @@ import type { QrBogen } from "./qr-boegen";
 import { einsatzCsvInhalt } from "./einsatz-csv";
 import { einsatzDetailCsvInhalt } from "./bogen-csv";
 import { QrScannerWeb } from "./qr-scanner-web";
-import { TeilQuittung, fehlendeTeile, fehltNochSatz } from "./teil-quittung";
+import { TeilQuittung, fehlendeTeile, fehltNochSatz, teilGelesenSatz, verworfeneTeileSatz } from "./teil-quittung";
 import { qrAusBild } from "./qr-bild";
 import {
   LAGE_ABGLEICH_KURZ,
@@ -534,9 +535,11 @@ function staerkeKurz(b: Erfassungsbogen): string {
  * gelten soll (R4-W1): keine Rückfrage beim Dauerscannen, aber ein Satz,
  * der sagt, was gilt und wo es sich ändern lässt.
  */
+/** Wo eine nur abgelegte ältere Fassung doch gelten kann (R15-E2). */
+const HISTORIE_WEG = ". Ändern: Historie › „Diese Fassung gilt…“";
 function vorrangKioskText(p: FassungsPruefung): string {
   const bisher = zeitpunktDeutsch(p.bisher.bogen.stand);
-  if (p.lage === "aelter") return `älterer Stand als der vorhandene (${bisher}) — nur in die Historie gelegt`;
+  if (p.lage === "aelter") return `älterer Stand als der vorhandene (${bisher}) — nur in die Historie gelegt${HISTORIE_WEG}`;
   if (p.lage === "gleiche-minute") return `gleicher Stand wie die bisherige Fassung (${bisher}) — die eben gescannte gilt, an der Karte unter „Historie" änderbar`;
   return `älterer Stand als die Schnellerfassung (${bisher}) — an der Karte „Bogen übernehmen" tippen`;
 }
@@ -818,6 +821,8 @@ function AppInhalt() {
    * (Audit Runde 3, R3-S6). Wandert mit `fremd` in den Entwurf.
    */
   const [erfassungBeginn, setErfassungBeginn] = useState<number | null>(ENTWURF?.fremd?.beginn ?? null);
+  // Für welche Erfassung die Frage „Fahrzeuge und Sofortbedarf offen — jetzt übernehmen?" schon beantwortet ist (R15-S4).
+  const folgeFrageFuer = useRef<number | null>(null);
   /** Letzte Übergabe des offenen Bogens (R2-W2, uebergabe-stand.ts). */
   const [uebergabe, setUebergabe] = useState<UebergabeStand | null>(ENTWURF?.uebergabe ?? null);
   // „Fortsetzen" öffnet den Schritt, auf dem gearbeitet wurde — nicht immer
@@ -963,9 +968,9 @@ function AppInhalt() {
   const [frischeVorlageId, setFrischeVorlageId] = useState<string | null>(null);
   const eingangZaehler = useRef(0);
   /** Merkt die Zeile zum gerade aufgenommenen Bogen vor (siehe `eingang`). */
-  function markiereEingang(schluessel: string) {
+  function markiereEingang(schluessel: string, uebersprungen?: string) {
     eingangZaehler.current += 1;
-    setEingang({ schluessel, nonce: eingangZaehler.current });
+    setEingang({ schluessel, nonce: eingangZaehler.current, ...(uebersprungen ? { uebersprungen } : {}) });
   }
   // Nach einem Neustart mitten in einer Erfassung für eine Sammlung geht es
   // dort weiter, statt die fremde Einheit als eigenen Bogen zu zeigen (R2-E3).
@@ -1305,6 +1310,9 @@ function AppInhalt() {
       if (ansichtRef.current && ansichtGleich(ziel, ansichtRef.current)) return;
       verlaufZielRef.current = ziel;
       ruecksprungRef.current = null; // Zurück per Browser: kein Sprung mehr, der Verlauf stimmt nicht mehr mit dem Zähler
+      // Zurück aus der Sammlung (wie „‹ Startseite"): Hinweiszeilen zu einer einzelnen Einheit gehören nicht auf die
+      // Startseite, dort fehlt der Einsatz, auf den sie sich beziehen (R15-S3).
+      if (ansichtRef.current?.einsatz && !ziel.einsatz) einsatzHinweiseWeg();
       if (!ziel.muster && musterVorlageRef.current) setMusterVorlage(null);
       else if (ziel.muster && !musterVorlageRef.current) setMusterVorlage(musterungVorlageAusStand(vorlagenRef.current));
       setSchritt(ziel.schritt);
@@ -2349,7 +2357,18 @@ function AppInhalt() {
     // Auch beim übersprungenen Bogen: die Frage nach dem Scan lautet „welche
     // Zeile ist gemeint?", und darauf gibt es hier eine Antwort — die Zeile,
     // die den Inhalt schon trägt. Die Rückmeldezeile sagt, ob er neu war.
-    markiereEingang(r.eintrag.einheitSchluessel);
+    // Übersprungen: eigene, sichtbare Quittung in der Ansicht (R15-W1), mit beiden Stärken, wenn eine andere Fassung gilt.
+    const geltendJetzt = r.neu ? undefined : geltendeJeEinheit(einsaetzeLaden().find((x) => x.id === zielId)?.eintraege ?? []).find((e) => e.einheitSchluessel === r.eintrag.einheitSchluessel);
+    markiereEingang(
+      r.eintrag.einheitSchluessel,
+      r.neu
+        ? undefined
+        : uebersprungenText(
+            einheitAnzeigename(b.einheit),
+            staerke(b).gesamt,
+            geltendJetzt && geltendJetzt.id !== r.eintrag.id ? staerke(geltendJetzt.bogen).gesamt : null,
+          ),
+    );
     setZusammenlegung(
       zusammengelegtMit && r.neu
         ? {
@@ -2382,7 +2401,7 @@ function AppInhalt() {
     const stand = (e: MeldeEintrag) => `Stand ${zeitpunktDeutsch(e.bogen.stand)}, Stärke ${staerkeKurz(e.bogen)}`;
     if (p.lage === "aelter") {
       await vorrangSetzen(zielId, p.bisher.id, p.neu.id);
-      return { text: `älterer Stand als der vorhandene (${zeitpunktDeutsch(p.bisher.bogen.stand)}) — nur in die Historie gelegt, die Lage bleibt unverändert` };
+      return { text: `älterer Stand als der vorhandene (${zeitpunktDeutsch(p.bisher.bogen.stand)}) — nur in die Historie gelegt, die Lage bleibt unverändert${HISTORIE_WEG}` };
     }
     const vergleich = meldungenVergleichen(p.bisher.bogen, p.neu.bogen);
     if (p.lage === "ersetzt-platzhalter") {
@@ -2557,7 +2576,8 @@ function AppInhalt() {
     const wege: { wert: string; label: string; hinweis: string; gefahr?: boolean }[] = sortiert.slice(0, 4).map((s) => ({
       wert: s.id,
       label: `In „${s.name}" aufnehmen`,
-      hinweis: `${ART_LABEL[s.art]}${s.ort ? ` · ${s.ort}` : ""} · ${aktuelleMeldungen(s.eintraege, s.art).length} Einheit(en) anwesend`,
+      // R15-W1: Liegt genau dieser Inhalt dort schon, sagt es die Zeile vor dem Tipp.
+      hinweis: `${s.eintraege.some((e) => e.id === bogenInhaltsId(b)) ? "Schon dort, würde übersprungen · " : ""}${ART_LABEL[s.art]}${s.ort ? ` · ${s.ort}` : ""} · ${aktuelleMeldungen(s.eintraege, s.art).length} Einheit(en) anwesend`,
     }));
     // Steht ein eigener Bogen im Weg, nennt schon diese Zeile die Folge samt
     // Rückholplatz — „Bogen öffnen" gilt dann als Zustimmung, die zweite,
@@ -2604,7 +2624,15 @@ function AppInhalt() {
     opt: { ohneKiosk?: boolean } = {},
   ): Promise<boolean> {
     const ziel = sammelZielRef.current;
+    const ungueltig = signatur.zustand === "ungueltig";
     if (ziel && (!opt.ohneKiosk || scannerOffenRef.current)) {
+      // Handscanner im Reihentakt: Wer auf Fenster und Haken schaut, soll bei veränderten Daten nicht grün durchgehen.
+      // Es wird nichts aufgenommen; nochmal scannen oder beim Absender neu anfordern (R15-E1). Gleicher Inhalt zählt nicht.
+      if (ungueltig) {
+        piep(false);
+        setScanFortschritt((await import("./signatur-warnung")).signaturUngueltigScan(einheitAnzeigename(b.einheit)));
+        return false;
+      }
       // Abwarten: steckt in der Aufnahme eine Rückfrage (Einheit schon
       // gemeldet), darf der Scan-Loop nicht schon den nächsten Code lesen.
       // Die Datenschutzfrist wendet die Sammlung selbst an (meldungHinzufuegen).
@@ -2614,6 +2642,8 @@ function AppInhalt() {
     const bereitsGefragtVorab = oeffnenErsetztEigenenBogen(b);
     const wohin = await empfangsZielWaehlen(b);
     if (wohin == null) return true; // abgebrochen — nichts verändert
+    // Ablegen eines veränderten Bogens nur nach ausdrücklichem Ja; Öffnen zeigt die Signatur ohnehin an (R15-E1).
+    if (ungueltig && wohin !== "oeffnen" && !(await (await import("./signatur-warnung")).signaturUngueltigAufnehmen(einheitAnzeigename(b.einheit)))) return true;
     const bereitsGefragt = wohin === "oeffnen" && bereitsGefragtVorab;
     let nichtAbgelegt: string | null = null;
     if (wohin !== "oeffnen") {
@@ -2695,7 +2725,8 @@ function AppInhalt() {
     if (istSegmentNutzlast(text)) {
       try {
         const teil = parseSegmentUrl(text);
-        const r = segmentSammeln(segmentTeileRef.current, teil);
+        const vorherTeile = segmentTeileRef.current;
+        const r = segmentSammeln(vorherTeile, teil);
         setzeSegmentTeile(r.teile);
         if (r.status === "vollständig") {
           // Signatur über den zusammengesetzten Payload prüfen (auch signierte
@@ -2711,13 +2742,12 @@ function AppInhalt() {
         // Die fehlenden Teile ausdrücklich benennen, statt sie ausrechnen zu
         // lassen: „es fehlt noch Teil 4" ist im Feld die Anweisung, „3 von 5"
         // nur ein Zwischenstand. Die Kästchenzeile zeigt dasselbe fürs Auge.
+        // Der Satz nennt die Nummer des gelesenen Teils und, was ein anderer Bogen wegwirft (R15-E3).
         const fehlt = fehltNochSatz(r.teile);
         setScanFortschritt(
           r.status === "duplikat"
             ? `Teil ${teil.teilNr} war schon dabei — ${fehlt}.`
-            : r.status === "fremd"
-              ? `Anderer Bogen erkannt — neu begonnen (Teil ${teil.teilNr} von ${r.anzahl}); ${fehlt}.`
-              : `Teil ${r.haben} von ${r.anzahl} gescannt — ${fehlt}.`,
+            : (r.status === "fremd" ? `Anderer Bogen erkannt — ${verworfeneTeileSatz(vorherTeile)}; neu begonnen. ` : "") + teilGelesenSatz(teil.teilNr, r.teile),
         );
         return false;
       } catch {
@@ -2777,16 +2807,28 @@ function AppInhalt() {
   /** Fehlertext des letzten Scans — gesetzt von uebernehmeText, gelesen vom Web-Scanner. */
   const scanFehlerRef = useRef<string | null>(null);
 
+  /** Hinweiszeilen der Einsatzansicht räumen, wenn sie verlassen wird („‹ Startseite" und Zurück-Geste). */
+  function einsatzHinweiseWeg() {
+    setMeldung("");
+    setAusgabeQuittung(null);
+    setEingang(null);
+    setZusammenlegung(null);
+    setEinlese(null);
+    setStapelBericht([]);
+  }
+
   function scanAbbrechen(auchSammelZiel: boolean) {
     setScannerOffen(false);
     if (auchSammelZiel) setSammelZiel(null);
+    // Ein angefangener mehrteiliger Bogen geht mit „Abbrechen" verloren — das Fenster sagt es (R15-E3).
+    const verworfen = verworfeneTeileSatz(segmentTeileRef.current);
     setzeSegmentTeile([]);
     setScanFortschritt("");
     // Kiosk-Bilanz beim Schließen kurz bestätigen (der Zähler stand im Overlay).
-    if (kioskZaehlerRef.current > 0) {
-      setMeldung(`${kioskZaehlerRef.current} ${kioskZaehlerRef.current === 1 ? "Bogen" : "Bögen"} in diesem Durchgang aufgenommen.`);
-      kioskZaehlerRef.current = 0;
-    }
+    const n = kioskZaehlerRef.current;
+    kioskZaehlerRef.current = 0;
+    const bilanz = [n > 0 && `${n} ${n === 1 ? "Bogen" : "Bögen"} in diesem Durchgang aufgenommen.`, verworfen && `${verworfen}.`].filter(Boolean).join(" ");
+    if (bilanz) setMeldung(bilanz);
   }
 
   // Kaltstart über QR/Universal Link: den beim Rendern schon dekodierten Bogen
@@ -2897,7 +2939,7 @@ function AppInhalt() {
         const fehlen = fehlendeTeile(teile);
         const anweisung =
           teile.length > 0 && fehlen.length > 0
-            ? `Teil ${teile.length} von ${teile[0]!.anzahl} gescannt — jetzt Teil ${fehlen[0]} in den Rahmen halten`
+            ? `${teile.length} von ${teile[0]!.anzahl} Teilen gelesen — jetzt Teil ${fehlen[0]} in den Rahmen halten`
             : "QR-Code des Erfassungsbogens in den Rahmen halten";
         const text = await qrScannen(anweisung);
         if (!text) {
@@ -3158,6 +3200,12 @@ function AppInhalt() {
         feld?.focus({ preventScroll: true });
       }
       return;
+    }
+    // Fahrzeuge und Sofortbedarf noch nicht bearbeitet: einmal je Erfassung nachfragen, nicht den Abschluss unter
+    // dem Daumen 16 px über „Weiter →" verstecken (R15-S4).
+    if (folgeFrageFuer.current !== (erfassungBeginn ?? -1)) {
+      if (!(await (await import("./folgeschritte")).folgeschrittFrage(b, schritt))) return;
+      folgeFrageFuer.current = erfassungBeginn ?? -1;
     }
     // „Nr. laut Zettel“: eine ganze Zahl ab 1, nicht schon an eine andere Einheit vergeben (R5-A4). Vor allen Rückfragen zur Stärke: Die Übernahme scheitert sonst nach einer schon beschlossenen Stärke trotzdem (R10-E4).
     let zettelNr: number | undefined;
@@ -3727,12 +3775,19 @@ function AppInhalt() {
     setStapelBericht([]);
     setFehler("");
     setMeldung("");
-    const d = daten.length > 0 ? await importiereBoegen(zielId, daten, bilder.length > 0) : undefined;
-    if (bilder.length > 0) {
-      await importiereQrBilder(zielId, bilder, d);
-      return;
+    // Spur für den Fall, dass die Seite mitten im Stapel neu lädt: Der Einsatz sagt es beim Wiederöffnen (R15-S1).
+    const spur = await import("./import-unterbrochen");
+    spur.importBeginnt(zielId, daten.length + bilder.length, einsaetzeLaden().find((x) => x.id === zielId)?.eintraege.length ?? 0);
+    try {
+      const d = daten.length > 0 ? await importiereBoegen(zielId, daten, bilder.length > 0) : undefined;
+      if (bilder.length > 0) {
+        await importiereQrBilder(zielId, bilder, d);
+        return;
+      }
+      setEinlese(d ? { fehler: d.fehler, meldung: d.meldung } : { fehler: "In der Auswahl sind keine Bilddateien.", meldung: "" });
+    } finally {
+      spur.importEndet();
     }
-    setEinlese(d ? { fehler: d.fehler, meldung: d.meldung } : { fehler: "In der Auswahl sind keine Bilddateien.", meldung: "" });
   }
 
   /** Folgemeldungen aufgeteilter Einheiten im Stapel: die abgeteilten Personen stehen doppelt (R14-D2). */
@@ -3748,7 +3803,10 @@ function AppInhalt() {
     const satz = anonymQuittung(eintraege, datenschutzZeitpunkt());
     // Stand nach dem Eingang: eine falsche Geräteuhr schreibt alle Zeiten falsch (R13-A3). Gleiche Stelle der Quittung.
     const uhr = standNachEintreffenQuittung(eintraege);
-    return [...(satz ? [satz] : []), ...(uhr ? [uhr] : [])];
+    // Daten und Signatur passen nicht zusammen: nicht still mit Haken durch den Stapel (R15-E1).
+    const ungueltig = eintraege.filter((e) => e.signatur?.zustand === "ungueltig");
+    const sig = ungueltig.length ? `⚠ Signatur ungültig: ${ungueltig.map((e) => `„${einheitAnzeigename(e.bogen.einheit)}"`).join(", ")} — beim Absender prüfen.` : "";
+    return [...(satz ? [satz] : []), ...(uhr ? [uhr] : []), ...(sig ? [sig] : [])];
   }
 
   async function importiereBoegen(zielId: string, dateien: File[], mitBildern = false): Promise<DateiAnteil & { fehler: string; meldung: string }> {
@@ -4213,7 +4271,7 @@ function AppInhalt() {
         <UhrWarnung />
         <EinsatzDetail
           einsatz={offenerEinsatz}
-          onZurueck={() => { setOffenerEinsatzId(null); setZeigeStart(true); setMeldung(""); setAusgabeQuittung(null); setEingang(null); setZusammenlegung(null); setEinlese(null); setStapelBericht([]); }}
+          onZurueck={() => { setOffenerEinsatzId(null); setZeigeStart(true); einsatzHinweiseWeg(); }}
           onGeaendert={einsaetzeNeuLaden}
           onScannen={() => scanneInEinsatz(offenerEinsatz.id)}
           onManuell={() => manuellInEinsatz(offenerEinsatz.id)}
@@ -5012,6 +5070,7 @@ function AppInhalt() {
               ? { label: "In Einsatz übernehmen", onUebernehmen: () => void erfassungUebernehmen() }
               : undefined
           }
+          fremdeErfassung={fremdeErfassung}
         />
       )}
       </div>

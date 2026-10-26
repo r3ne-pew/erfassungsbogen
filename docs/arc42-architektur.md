@@ -12,6 +12,26 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-26 (Runde 15):** Audit Runde 15 (40 Befunde, drei Pakete)
+> — Kap. 5, 8.2, 8.4, 8.6, 9: zwei neue Speicherschlüssel. `eeb.import-laeuft.v1`
+> (sessionStorage, `import-unterbrochen.ts`: Einsatz-ID, Dateizahl und Meldungszahl
+> vor einem Stapelimport, damit ein Neuladen mitten drin gemeldet wird) und
+> `eeb.papierabgleich.v1.<Einsatz-ID>` zusätzlich im localStorage (Zwischenstand des
+> Papierabgleichs, `{ am, zeilen }`, nach 3 Tagen verworfen). Bögen mit ungültiger
+> Signatur werden nicht mehr stillschweigend aufgenommen (Handscanner: abgelehnt,
+> übrige Wege: Rückfrage; `signatur-warnung.ts`). Es gilt immer nur die zuletzt
+> ausgelöste Quittung (`juengste-quittung.ts`). Sortierung „Älteste Angaben zuerst"
+> und der Lagemonitor rechnen nach dem früheren von Stand und Eingang; der Monitor
+> kürzt zuerst die Zeilen ohne ⚠. Tabelle: Spalten „Unterbr. M/W/D" (nur bei
+> Anforderung) und „WC M/W/D" (alle Anwesenden). Vorbelegte Fahrzeuge starten ohne
+> „Ausstattung nach StAN: ja" (Wrapper `fahrzeugVorbelegung`, Vorgabe des Bausteins in
+> `vendor/` unverändert). Funkrufname ohne Klammerzusatz des Ortes
+> (`ortOhneZusatz`). Lageblatt: Ruhezeit je Zug, Stärke von Hand geändert mit
+> Vermerk; Sammel-PDF-Übersicht mit „*" für eingelesene Zeiten. Langsame Teile
+> (Import-Hinweis, Auftrag-Quittung, „Neuere Eingabe nicht übernommen") werden per
+> `lazy` nachgeladen, damit das Startbündel bei 1,20 MB bleibt (Budget neu gesetzt,
+> ADR-003 Aufnahmeregel 5). Kein neuer Host, Transportformat und Schema unverändert.
+>
 > **Nachgezogen 2026-10-26 (Runde 14):** Audit Runde 14 (42 Befunde ohne
 > Doppelungen, drei Pakete) — Kap. 5, 8.2, 8.4, 8.6, 9: zwei neue Speicherschlüssel.
 > `eeb.beispiel-herkunft.v1` (localStorage, `beispiel-herkunft.ts`: Namen und
