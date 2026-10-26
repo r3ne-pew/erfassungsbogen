@@ -115,8 +115,7 @@ import type { QrBogen } from "./qr-boegen";
 import { einsatzCsvInhalt } from "./einsatz-csv";
 import { einsatzDetailCsvInhalt } from "./bogen-csv";
 import { QrScannerWeb } from "./qr-scanner-web";
-import { handscannerLauscher } from "./handscanner";
-import { istTexteingabe } from "./tastatur";
+import { handscannerLauscher, tastaturGehoertElement } from "./handscanner";
 import { TeilQuittung, fehlendeTeile, fehltNochSatz, teilGelesenSatz, verworfeneTeileSatz } from "./teil-quittung";
 import { qrAusBild } from "./qr-bild";
 import {
@@ -2926,8 +2925,9 @@ function AppInhalt() {
   // ohne offenes Fenster dasselbe wie ein angetippter Bogen-Link: „Wohin
   // damit?" bzw. der Bogen öffnet sich; ein Teil eines mehrteiligen Bogens
   // öffnet das Scanner-Fenster, damit die übrigen Teile folgen können. Offen
-  // ist das Fenster, übernimmt dessen eigener Lauscher; in Textfeldern und
-  // bei offenen Fenstern (Rückfragen) bleibt die Tastatur der Seite.
+  // ist das Fenster, übernimmt dessen eigener Lauscher; in Eingabefeldern
+  // (auch Zeit, Datum, Zahl, Auswahl) und bei offenen Fenstern (Rückfragen)
+  // bleibt die Tastatur der Seite.
   const handscannerRef = useRef<(text: string) => void>(() => {});
   handscannerRef.current = (text: string) => {
     void uebernehmeQrText(text, { ohneKiosk: true }).then((fertig) => {
@@ -2939,7 +2939,7 @@ function AppInhalt() {
       handscannerLauscher(window, {
         onScan: (text) => handscannerRef.current(text),
         zustaendig: () =>
-          !scannerOffenRef.current && !istTexteingabe(document.activeElement) && !document.querySelector("dialog[open]"),
+          !scannerOffenRef.current && !tastaturGehoertElement(document.activeElement) && !document.querySelector("dialog[open]"),
       }),
     [],
   );

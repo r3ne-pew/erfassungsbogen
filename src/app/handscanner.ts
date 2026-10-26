@@ -144,6 +144,26 @@ export function handscannerLauscher(ziel: Window, opt: HandscannerOptionen): () 
   };
 }
 
+/** Eingabetypen, in denen Tasten nichts eintragen — dort darf der Scan gelten. */
+const TASTENFREIE_TYPEN = new Set(["button", "checkbox", "radio", "submit", "reset", "file", "image", "range", "color"]);
+
+/**
+ * Gehören Tastendrücke diesem Element? In Text-, Zeit-, Datums- und
+ * Zahlfeldern, Textbereichen, Auswahllisten und editierbaren Bereichen tippt
+ * oder wählt jemand — der seitenweite Lauscher hält sich dort heraus. Nur die
+ * Texteingaben auszunehmen reichte nicht: In einem Zeitfeld (`type="time"`)
+ * verschluckte er die Ziffern, sobald sie im Scanner-Tempo kamen (Prüfstand).
+ */
+export function tastaturGehoertElement(el: Element | null | undefined): boolean {
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (tag === "INPUT") return !TASTENFREIE_TYPEN.has(((el as HTMLInputElement).getAttribute("type") ?? "text").toLowerCase());
+  // `isContentEditable` fehlt in jsdom — das Attribut sagt dasselbe.
+  const editierbar = el.getAttribute("contenteditable");
+  return (el as HTMLElement).isContentEditable === true || editierbar === "" || editierbar === "true" || editierbar === "plaintext-only";
+}
+
 /** Welcher Weg im Scanner-Fenster gewählt ist: Kamera (Vorgabe) oder Handscanner. */
 export type ScanWeg = "kamera" | "handscanner";
 

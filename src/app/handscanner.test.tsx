@@ -9,6 +9,7 @@ import {
   gemerkterScanWeg,
   handscannerLauscher,
   merkeScanWeg,
+  tastaturGehoertElement,
   type HandscannerOptionen,
 } from "./handscanner";
 
@@ -126,6 +127,37 @@ describe("Handscanner-Lauscher auf der Seite", () => {
     for (const z of "0ABC") taste(z);
     taste("Enter");
     expect(onScan).toHaveBeenCalledExactlyOnceWith("https://erfassungsbogen.app/#0ABC");
+  });
+});
+
+describe("Wem die Tastatur gehört", () => {
+  it("lässt Eingabefelder jeder Art, Auswahllisten und editierbare Bereiche in Ruhe", () => {
+    for (const typ of ["text", "time", "date", "number", "tel", "search", "password"]) {
+      const feld = document.createElement("input");
+      feld.type = typ;
+      expect(tastaturGehoertElement(feld), typ).toBe(true);
+    }
+    const ohneTyp = document.createElement("input");
+    expect(tastaturGehoertElement(ohneTyp)).toBe(true);
+    expect(tastaturGehoertElement(document.createElement("textarea"))).toBe(true);
+    expect(tastaturGehoertElement(document.createElement("select"))).toBe(true);
+    const bereich = document.createElement("div");
+    bereich.setAttribute("contenteditable", "true");
+    document.body.append(bereich);
+    expect(tastaturGehoertElement(bereich)).toBe(true);
+    bereich.remove();
+  });
+
+  it("gibt den Scan bei Knöpfen, Haken, Links und ohne Fokus frei", () => {
+    for (const typ of ["checkbox", "radio", "button", "submit", "file", "range"]) {
+      const feld = document.createElement("input");
+      feld.type = typ;
+      expect(tastaturGehoertElement(feld), typ).toBe(false);
+    }
+    expect(tastaturGehoertElement(document.createElement("button"))).toBe(false);
+    expect(tastaturGehoertElement(document.createElement("a"))).toBe(false);
+    expect(tastaturGehoertElement(document.body)).toBe(false);
+    expect(tastaturGehoertElement(null)).toBe(false);
   });
 });
 
