@@ -473,8 +473,8 @@ export function ZugSchnellZuordnen(props: {
       <input
         type="text"
         value={wert}
-        placeholder="z. B. 2. Zug"
-        aria-label="Zug"
+        placeholder="Zug für alle, z. B. 3. Zug"
+        aria-label="Zug für diese Einheiten"
         list={listeId}
         {...NAMEN_EINGABE}
         onChange={(e) => setWert(e.target.value)}

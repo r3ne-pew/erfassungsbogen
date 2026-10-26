@@ -146,7 +146,7 @@ describe("R13-W5 Zug gleich bei der Aufnahme", () => {
     expect(gruppe.textContent).toContain("Zug für 3 Einheiten ohne Zug:");
     const zuordnen = within(gruppe).getByRole("button", { name: "Zuordnen" }) as HTMLButtonElement;
     expect(zuordnen.disabled).toBe(true);
-    await nutzer.type(within(gruppe).getByLabelText("Zug"), "2.Zug");
+    await nutzer.type(within(gruppe).getByLabelText("Zug für diese Einheiten"), "2.Zug");
     await nutzer.click(zuordnen);
     expect(geaendert).toHaveBeenCalledTimes(1);
     expect(einsaetzeLaden()[0]!.eintraege.map((e) => e.zugEtikett)).toEqual(["2. Zug", "2. Zug", "2. Zug"]);
