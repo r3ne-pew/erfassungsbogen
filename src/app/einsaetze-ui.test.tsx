@@ -1568,6 +1568,30 @@ describe("Quittung nennt die zuletzt aufgenommenen Einheiten (R2-S4)", () => {
     expect(document.querySelector(".stapel-eingang")).toBeNull();
   });
 
+  // R11-D1: „Zur Kenntnis genommen" hat eine Quittung mit „Rückgängig", die die Liste zurückbringt; die Ziele liegen
+  // in einer eigenen Reihe (44-px-Regel im Stylesheet). R11-O4: bei vollem Speicher meldet es das.
+  it("quittiert „Zur Kenntnis genommen“ mit „Rückgängig“ und meldet einen vollen Speicher (R11-D1, R11-O4)", async () => {
+    const nutzer = userEvent.setup();
+    const { einsatzId, neuLaden } = buehne(["Zeitz"]);
+    for (const n of ["Weinsberg", "Albstadt"]) meldungHinzufuegen(einsatzId, bogenMitName(n));
+    neuLaden();
+    const quittung = document.querySelector<HTMLElement>(".stapel-eingang")!;
+    expect(quittung.querySelector(".kenntnis-aktionen")).not.toBeNull();
+    await nutzer.click(within(quittung).getByRole("button", { name: "Zur Kenntnis genommen" }));
+    expect(document.querySelector(".stapel-eingang")).toBeNull();
+    const rueck = await screen.findByRole("button", { name: "Zur Kenntnis genommen rückgängig machen" });
+    await waitFor(() => expect((rueck as HTMLButtonElement).disabled).toBe(false));
+    await nutzer.click(rueck);
+    expect(document.querySelector(".stapel-eingang")).not.toBeNull();
+
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("voll", "QuotaExceededError");
+    });
+    await nutzer.click(within(document.querySelector<HTMLElement>(".stapel-eingang")!).getByRole("button", { name: "Zur Kenntnis genommen" }));
+    expect(document.querySelector("dialog.abfrage")?.textContent).toContain("Kenntnisnahme nicht gespeichert");
+    vi.restoreAllMocks();
+  });
+
   /**
    * R4-K7: „neu" und „neue Fassung" hängen an der Kenntnisnahme, nicht an der
    * Uhr — „Zur Kenntnis genommen" nimmt beide Marken weg, und eine eben

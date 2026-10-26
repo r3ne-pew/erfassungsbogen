@@ -136,7 +136,7 @@ export function Uebersicht(props: {
       vorgabe: props.vorlageBearbeitung ? "" : einheitAnzeigename(bogen.einheit),
       hinweis: props.vorlageBearbeitung
         ? `Legt eine zweite Vorlage neben „${props.vorlageBearbeitung.name}" an; die bleibt, wie sie war.`
-        : "Die Vorlage bleibt auf diesem Gerät und lässt sich für den nächsten Einsatz mustern.",
+        : "Die Vorlage bleibt auf diesem Gerät und lässt sich für den nächsten Einsatz laden und verwenden.",
       ok: "Vorlage speichern",
     });
     if (name == null) return;

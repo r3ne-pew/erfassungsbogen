@@ -1167,6 +1167,26 @@ describe("Assistenten-Durchlauf", () => {
     }
   });
 
+  // Audit Runde 11, R11-S2: Nach „In Einsatz übernehmen" zeigte Zurück das erledigte Formular oder dieselbe
+  // Einsatzansicht noch einmal. Jetzt führt eine Zurück-Geste aus dem Einsatz auf die Startseite.
+  it("führt nach „In Einsatz übernehmen“ mit einem Zurück auf die Startseite (R11-S2)", async () => {
+    einsatzImSpeicherAnlegen("Sammelhausen", EinsatzArt.EINSATZ);
+    const nutzer = userEvent.setup();
+    render(<App />);
+    await nutzer.click(screen.getByRole("button", { name: "Einheit schnell erfassen (nur Stärke)…" }));
+    await nutzer.click(within(rueckfrage("Einheit schnell erfassen — für welche Sammlung?")).getByRole("button", { name: /Für „Sammelhausen" erfassen/ }));
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Schnellhausen");
+    await nutzer.click(screen.getByRole("button", { name: "Weiter →" }));
+    await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
+    await nutzer.click(within(await screen.findByRole("dialog", { name: "Stärke fehlt" })).getByRole("button", { name: "Trotzdem mit Stärke 0 übernehmen" }));
+    await screen.findByRole("heading", { level: 1, name: "Sammelhausen" });
+    // Der Verlauf wird asynchron zurückgesetzt; danach genügt eine Geste.
+    await new Promise((r) => setTimeout(r, 50));
+    act(() => { history.back(); });
+    await waitFor(() => expect(screen.queryByRole("heading", { level: 1, name: "Sammelhausen" })).toBeNull());
+    expect(screen.getByRole("button", { name: "Neuen Bogen erstellen" })).toBeDefined();
+  }, 30000);
+
   // Audit Runde 4, R4-S1: Zurück bei offener Rückfrage wechselte die Ansicht
   // dahinter, die Rückfrage blieb über der Startseite stehen und wirkte von
   // dort. Jetzt ist Zurück ihr „Abbrechen", die Ansicht bleibt.

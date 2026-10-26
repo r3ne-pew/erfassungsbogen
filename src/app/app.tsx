@@ -102,7 +102,8 @@ import { uebergabeBestaetigen, uebergabeNachWeg, uebergabeText, type UebergabeSt
 import { ART_LABEL, EinsatzDetail, EinsatzListe, letzteMeldungText, type Eingang } from "./einsaetze-ui";
 import { anzahlEinheiten, letzteMeldung, meldungsNummern, nummernWechsel, nummernWechselText, rueckkehrText } from "./einheiten-tabelle";
 import { exportSammlung, exportStaendeLaden, exportStaendeUebernehmen, exportStandAusWeitergabe, exportVermerken, lieferungsMarke, weitergabeUmImportErgaenzen, type ExportStand, type ExportUmfang, type ExportZiel } from "./export-stand";
-import { abgleichGliederung, abgleichText, einsatzAbgleichen, sammlungFuerZiel, type Einzelheit } from "./einsatz-abgleich";
+import { abgleichGliederung, abgleichText, einsatzAbgleichen, sammlungFuerZiel, widerspruecheZumMerken, type Einzelheit } from "./einsatz-abgleich";
+import { widerspruchMerken } from "./widerspruch-merker";
 import { aktuelleMeldungen } from "./auswertung";
 import { lageAngabenLaden, lageAngabenUebernehmen } from "./lage-angaben";
 import { ablehnungsSatz, abgelehnteBoegen, boegenAusJsonTextMitUrsachen, boegenAusPdfBytes, einsatzAusDatei, einsatzAusPdfBytes, einsatzDateiInhalt, istPdfDatei, pdfInhaltArt } from "./einsatz-transport";
@@ -3912,6 +3913,8 @@ function AppInhalt() {
       // Gegliedert statt ein Absatz (R5-K3): oben Einheiten, Aktualisierungen und
       // inhaltliche Widersprüche, die kleinen Abweichungen eingeklappt dahinter.
       const gliederung = abgleichGliederung(r);
+      // Widersprüche bleiben an der Einsatzansicht stehen, bis sie erledigt sind (R11-O3).
+      widerspruchMerken(s.id, widerspruecheZumMerken(r));
       // Einheiten statt Fassungen zählen, wie die Liste darunter (R4-K2).
       const jetzt = einsaetzeLaden().find((x) => x.id === s.id);
       const koepfe = geltendeJeEinheit(jetzt?.eintraege ?? []);

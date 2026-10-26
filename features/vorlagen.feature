@@ -98,5 +98,5 @@ Funktionalität: Vorlagen anlegen, verwalten und mustern
     Und ich in der Musterung "Weber" abwähle
     Und ich auf "‹ Abbrechen" klicke
     Dann sehe ich den Dialog "Musterung verwerfen?"
-    Wenn ich im Dialog auf "Weiter mustern" klicke
+    Wenn ich im Dialog auf "Weiter auswählen" klicke
     Dann sehe ich die Schaltfläche "Bogen anlegen · 2 Pers · 1 Fz"

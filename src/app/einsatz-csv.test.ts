@@ -84,7 +84,7 @@ describe("einsatzCsvInhalt()", () => {
     expect(kopf!.split(";")).toEqual([
       "Nr.", "Einheit", "Teil", "Organisation", "Zug",
       "Stärke F", "Stärke U", "Stärke M", "Stärke gesamt",
-      "Verpflegung gesamt", "Verpflegung veg.", "Verpflegung vegan",
+      "Verpflegung gesamt", "Verpflegung angefordert", "Verpflegung veg.", "Verpflegung vegan",
       "Unterbringung angefordert M", "Unterbringung angefordert W", "Unterbringung angefordert D",
       "WC/Dusche M", "WC/Dusche W", "WC/Dusche D",
       "Diesel (l)", "Benzin (l)", "Gemisch (l)",
@@ -113,7 +113,7 @@ describe("einsatzCsvInhalt()", () => {
     expect(f[sp("Organisation")]).toBe("THW");
     expect(f[sp("Zug")]).toBe("1. Zug");
     expect(f.slice(sp("Stärke F"), sp("Stärke gesamt") + 1)).toEqual(["1", "0", "2", "3"]);
-    expect(f.slice(sp("Verpflegung gesamt"), sp("Verpflegung vegan") + 1)).toEqual(["3", "1", "1"]);
+    expect(f.slice(sp("Verpflegung gesamt"), sp("Verpflegung vegan") + 1)).toEqual(["3", "3", "1", "1"]);
     // Unterbringung angefordert (hier: ja) und WC/Dusche (alle Anwesenden) — beide M/W/D.
     expect(f.slice(sp("Unterbringung angefordert M"), sp("Unterbringung angefordert D") + 1)).toEqual(["2", "1", "0"]);
     expect(f.slice(sp("WC/Dusche M"), sp("WC/Dusche D") + 1)).toEqual(["2", "1", "0"]);

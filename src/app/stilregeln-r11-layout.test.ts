@@ -91,3 +91,17 @@ describe("Organisationszeichen in Dunkel und Nacht (R11-L1)", () => {
     }
   });
 });
+
+describe("R11-N1/N2/W5 (Hauptagent)", () => {
+    const einheit = readFileSync(new URL("./schritte/einheit.tsx", import.meta.url), "utf8");
+  it("Telefon und E-Mail der Ebenen-Zeile füllen am Telefon die Zeile (R11-N1)", () => {
+    expect(html).toMatch(/R11-N1[\s\S]*?\.ebenen-zeile > label\.feld\.schmal, \.ebenen-zeile > label\.feld \{ flex: 1 1 100%; \}/);
+  });
+  it("das Kürzelfeld zeigt keine Liste, die nur den eingetragenen Eintrag wiederholt (R11-N2)", () => {
+    expect(einheit).toContain("nurEintrag");
+    expect(einheit).toContain("treffer={gezeigt}");
+  });
+  it("kein „mustern“ mehr im Übersichts-Dialog (R11-W5)", () => {
+    expect(readFileSync(new URL("./schritte/uebersicht.tsx", import.meta.url), "utf8")).not.toContain("mustern");
+  });
+});

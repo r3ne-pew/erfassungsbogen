@@ -1479,3 +1479,48 @@ describe("Gemerkter Rückweg im Sitzungsspeicher (R7-O5)", () => {
     expect(lesen()).toBeNull();
   });
 });
+
+/** R11-E2 und R11-E3: Art-Wechsel und Telefonfeld der Erreichbarkeit. */
+describe("Erreichbarkeit: Art und Nummer (R11)", () => {
+  const bogenMit = (art: KontaktArt, wert: string) => ({
+    ...neuerBogen(),
+    personal: [{ ...neuePerson(), vorname: "Sabine", nachname: "Lang", kontakte: [{ art, dienstlich: false, wert }] }],
+  });
+
+  it("behält die Nummer bei Mobil → Festnetz (R11-E2)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={bogenMit(KontaktArt.MOBIL, "01711234567")} />);
+    await nutzer.selectOptions(screen.getByLabelText("Art"), "Festnetz");
+    expect((screen.getByLabelText("Nummer") as HTMLInputElement).value).toBe("01711234567");
+  });
+
+  it("fragt bei Wechsel nach E-Mail nach und behält die Nummer bei „Art behalten“ (R11-E2)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={bogenMit(KontaktArt.MOBIL, "01711234567")} />);
+    await nutzer.selectOptions(screen.getByLabelText("Art"), "E-Mail");
+    const dialog = document.querySelector<HTMLDialogElement>("dialog.abfrage")!;
+    expect(dialog.textContent).toContain("01711234567");
+    await nutzer.click(within(dialog).getByRole("button", { name: "Art behalten" }));
+    expect((screen.getByLabelText("Nummer") as HTMLInputElement).value).toBe("01711234567");
+    await nutzer.selectOptions(screen.getByLabelText("Art"), "E-Mail");
+    await nutzer.click(within(document.querySelector<HTMLDialogElement>("dialog.abfrage")!).getByRole("button", { name: "Art ändern, Wert entfernen" }));
+    expect((screen.getByLabelText("Adresse") as HTMLInputElement).value).toBe("");
+  });
+
+  it("behält das Plus und nennt eine abgetrennte zweite Nummer (R11-E3)", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={bogenMit(KontaktArt.MOBIL, "")} />);
+    const feld = screen.getByLabelText("Nummer") as HTMLInputElement;
+    await nutzer.type(feld, "+49 171 1234567");
+    expect(feld.value).toBe("+491711234567");
+    await nutzer.clear(feld);
+    await nutzer.click(feld);
+    await nutzer.paste("0171 1234567 / 0441 99");
+    expect(feld.value).toBe("01711234567");
+    expect(document.querySelector(".zahl-meldung")?.textContent).toContain("Zweite Nummer");
+    await nutzer.clear(feld);
+    await nutzer.type(feld, "017112");
+    await nutzer.tab();
+    expect(document.querySelector(".zahl-meldung")?.textContent).toContain("stimmt die Nummer");
+  });
+});

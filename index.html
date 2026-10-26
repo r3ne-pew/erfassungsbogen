@@ -5722,6 +5722,11 @@
       button[aria-pressed="true"]::before { content: "✓ "; }
       button.primaer, button.uebernehmen { border: 3px solid ButtonText; font-weight: 700; }
     }
+    /* R11-N1: Telefon (110 px) und E-Mail (197 px) der Verzeichnis-Ergänzung waren abgeschnitten, die Nummer lässt sich so nicht prüfen.
+       Am Telefon bekommen beide die volle Zeilenbreite. */
+    @media (max-width: 47.999rem) {
+      .ebenen-zeile > label.feld.schmal, .ebenen-zeile > label.feld { flex: 1 1 100%; }
+    }
     /* ===== Ende Runde 11 (Layout) ===== */
     /* ===== Runde 11 (Zustand) ===== */
     /* R11-D1: „Zur Kenntnis genommen" und „Zuletzt gemeldete oben zeigen" als 44-px-Ziele mit 8 px Abstand. */

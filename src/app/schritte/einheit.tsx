@@ -185,13 +185,16 @@ function OvVorschlagFeld(props: {
         .sort((a, b) => Number(falte(b.name).startsWith(suche)) - Number(falte(a.name).startsWith(suche)))
         .slice(0, 8)
     : [];
+  // R11-N2: steht das Kürzel schon da und ist der einzige Vorschlag, wiederholt die Liste nur den Eintrag und verdeckt Telefon und E-Mail.
+  const nurEintrag = !!kennung && treffer.length === 1 && treffer[0]!.kurz === wert.trim().toUpperCase();
+  const gezeigt = nurEintrag ? [] : treffer;
 
   return (
     <VorschlagFeld
       id={id}
       wert={wert}
       platzhalter={platzhalter}
-      treffer={treffer}
+      treffer={gezeigt}
       schluessel={(o) => o.name}
       zeile={(o) => (
         <>

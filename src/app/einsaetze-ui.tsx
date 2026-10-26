@@ -148,6 +148,7 @@ import { mitAbgang, useEingangsquittung } from "./eintrag-bewegung";
 import { AbgangKnopf, Kartenstapel } from "./kartenstapel";
 import { istBilddatei } from "./qr-stapel";
 import { fehlerText } from "./nachladen";
+import { widerspruchLaden, widerspruchVergessen } from "./widerspruch-merker";
 import { entfernteMerken, entfernteVergessen } from "./entfernte-meldungen";
 import {
   EXPORT_ZIELE,
@@ -1257,6 +1258,11 @@ export function EinsatzDetail(props: {
    * „Rückgängig", die den Stand davor samt der Hinweise („passt das zu dieser Lage?") zurückbringt. Schlägt das
    * Speichern fehl (voller Speicher), sagt es ein Hinweis, statt still zu scheitern (R11-O4).
    */
+  // Offene Widersprüche eines Imports (R11-O3): bleiben nach dem Neuladen stehen, bis „Erledigt".
+  const [widersprueche, setWidersprueche] = useState<string[]>(() => widerspruchLaden(einsatz.id));
+  useEffect(() => {
+    setWidersprueche(widerspruchLaden(einsatz.id));
+  }, [einsatz.id, einsatz.geaendert]);
   const [kenntnisGenommen, setKenntnisGenommen] = useState<{ vorher: ExportStand; anzahl: number; nonce: number } | null>(null);
   // Die Quittung gehört zu diesem Einsatz und weicht jeder jüngeren Quittung (eine Leiste zur Zeit).
   useEffect(() => {
@@ -1617,6 +1623,19 @@ export function EinsatzDetail(props: {
           Einheiten als Übung nicht zählen (R2-S4). Sie bleibt über ein
           Neuladen hinweg stehen, bis jemand sie zur Kenntnis nimmt; ein Tipp
           stellt die zuletzt gemeldeten nach oben (Audit Runde 3, R3-K1). */}
+      {widersprueche.length > 0 && (
+        <div className="meldung warnung-text widerspruch-merker" role="status">
+          <p><strong>{widersprueche.length === 1 ? "1 Widerspruch" : `${widersprueche.length} Widersprüche`} zwischen den Geräten (offen):</strong></p>
+          <ul>{widersprueche.map((z) => <li key={z}>{z}</li>)}</ul>
+          <button
+            type="button"
+            className="link"
+            onClick={() => { widerspruchVergessen(einsatz.id); setWidersprueche([]); }}
+          >
+            Erledigt
+          </button>
+        </div>
+      )}
       {sammelquittungZeigen && (
         <div className="meldung stapel-eingang" role="status">
           <p>

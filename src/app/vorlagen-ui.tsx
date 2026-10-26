@@ -434,7 +434,7 @@ export function Musterung(props: {
         titel: "Musterung verwerfen?",
         text: `Die Haken dieser Musterung (${was.join(", ")}) gehen verloren; beim nächsten Öffnen sind wieder alle angehakt. Die Vorlage selbst bleibt unverändert.`,
         ok: "Verwerfen",
-        abbruch: "Weiter mustern",
+        abbruch: "Weiter auswählen",
         gefahr: true,
       });
       if (!sicher) return;

@@ -110,7 +110,10 @@ describe("Rückruf einer Soll-Einheit (R9-A3)", () => {
     expect(z.join(" ")).toMatch(/Vorbelegung/);
   });
   it("lässt gemeldete Einheiten unverändert", () => {
-    const z = erreichbarkeitZeilen(gemeldet());
+    // Mit eigener Angabe an der Fahrzeugzeile (Kennzeichen); ohne sie gilt der Funkrufname als Vorbelegung (R11-W4).
+    const b = gemeldet();
+    b.fahrzeuge[0]!.kennzeichen = "THW-12345";
+    const z = erreichbarkeitZeilen(b);
     expect(z.join(" ")).not.toMatch(/Vorbelegung/);
   });
 });

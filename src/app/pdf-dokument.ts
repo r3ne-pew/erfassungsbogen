@@ -1128,8 +1128,7 @@ function nachtragsTabelle(zeilen: number, leer: boolean, rueckseite: boolean): C
     body.push(
       Array.from({ length: SP }, (_, i): TableCell => ({
         // Hinten das Kästchen mit Platz für das Kürzel dahinter.
-        // Spalte „Eingetroffen (abgerückt)": Platz für beide Uhrzeiten, auch die Abrückzeit (R11-A2).
-        text: i === SP - 1 ? NACHTRAG_UEBERTRAGEN : i === 3 ? "an ____\nab ____" : " ",
+        text: i === SP - 1 ? NACHTRAG_UEBERTRAGEN : " ",
         margin: [0, 5, 0, 5],
         ...(i === 0 && (n === 1 || n === 2) ? { id: `${MESS_NACHTRAG}${n}` } : {}),
       })),
