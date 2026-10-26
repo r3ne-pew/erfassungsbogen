@@ -74,7 +74,12 @@ export function AufteilenPanel(props: {
   const ganz = staerke(bogen);
 
   const kopf = useRef<HTMLHeadingElement>(null);
-  useEffect(() => kopf.current?.focus({ preventScroll: true }), []);
+  // Das Formular öffnet unter dem Knopf — am Telefon unterhalb des Bildes, ein zweiter Tipp schloss es wieder (R15-E4):
+  // Überschrift an den oberen Bildrand rollen, damit das erste Feld im Bild steht.
+  useEffect(() => {
+    kopf.current?.focus({ preventScroll: true });
+    kopf.current?.scrollIntoView?.({ block: "start" });
+  }, []);
   const [teilEtikett, setTeilEtikett] = useState("");
   const [personal, setPersonal] = useState<number[]>([]);
   const [fahrzeuge, setFahrzeuge] = useState<number[]>([]);

@@ -124,6 +124,11 @@ export function einheitAnzeigename(e: Einheit): string {
   return teile.join(" ");
 }
 
+/** Ort ohne den Klammerzusatz des Ortsverzeichnisses: „Oldenburg (NI)" → „Oldenburg" — so wird er gerufen (R15-H2). */
+export function ortOhneZusatz(ort: string): string {
+  return ort.replace(/\s*\([^()]*\)\s*$/, "");
+}
+
 /**
  * Funkrufname eines Fahrzeugs, wie er gesprochen wird. Im Regelfall die
  * Darstellung des Bausteins („Heros Oldenburg 18/13", Ortsteil = OV-Name).
@@ -136,7 +141,7 @@ export function einheitAnzeigename(e: Einheit): string {
 export function funkrufText(f: Fahrzeug, einheit: Einheit): string {
   const fr = f.funkrufname;
   const ov = funkrufOrtsverband(einheit);
-  if (!fr || !ov || !fr.eigenerStandort) return funkrufTextEinfach(f, einheitOrt(einheit));
+  if (!fr || !ov || !fr.eigenerStandort) return funkrufTextEinfach(f, ortOhneZusatz(einheitOrt(einheit)));
   const kennzahlen = funkrufKennzahlen(fr, ov)
     .map((t, i) => String(t).padStart(i === 0 ? ov.stellen : 2, "0"))
     .join("/");

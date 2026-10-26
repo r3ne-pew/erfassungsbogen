@@ -38,13 +38,13 @@ export const SORTIERUNGEN: { wert: EinheitenSortierung; label: string }[] = [
   // Die Nummer, die am Funk genannt wird und das Lageblatt ordnet (R7-K9).
   { wert: "nummer", label: "Nr. (wie auf dem Lageblatt)" },
   { wert: "name", label: "Name (A–Z)" },
-  // „Zuletzt gemeldet" ordnet nach dem Eingang der aktuellen Fassung, auch
+  // „Zuletzt gemeldet" ordnet nach dem Alter der Angaben der aktuellen Fassung (R15-K1), auch
   // einer Folgemeldung. Die Eintreffzeit vererbt sich auf die Folgemeldung
   // (R2-K1); eine frische Fassung mit drei Helfern weniger stand darin auf
   // dem letzten Platz (Audit Runde 3, R3-K1).
   { wert: "zuletzt", label: "Zuletzt gemeldet (neueste zuerst)" },
-  // Wem fehlt eine frische Meldung? Die älteste oben (R12-K2).
-  { wert: "aelteste", label: "Älteste Meldung zuerst" },
+  // Wem fehlt eine frische Meldung? Die ältesten Angaben oben, gerechnet wie die Marke „Stand vor …" (R12-K2, R15-K1).
+  { wert: "aelteste", label: "Älteste Angaben zuerst" },
   { wert: "eintreffzeit", label: "Eintreffzeit vor Ort (neueste zuerst)" },
   { wert: "zug", label: "Zug" },
   { wert: "organisation", label: "Organisation" },
@@ -237,13 +237,14 @@ export function einheitenSortieren(
       });
     case "zuletzt":
       // Eingang der aktuellen Fassung (Geräteuhr), nicht das Eintreffen.
-      return liste.sort((a, b) => b.empfangenAm - a.empfangenAm || nameVergleich(a, b));
+      // Wie die Altersmarken: früherer von Stand und Eingang (R15-K1).
+      return liste.sort((a, b) => angabenZeit(b) - angabenZeit(a) || nameVergleich(a, b));
     case "aelteste":
       // Anwesende vor Abgerückten: Für eine abgerückte Einheit ist „lange nichts gehört" kein Mangel (R12-K2).
       return liste.sort(
         (a, b) =>
           Number(a.status !== MeldeStatus.ANWESEND) - Number(b.status !== MeldeStatus.ANWESEND) ||
-          a.empfangenAm - b.empfangenAm ||
+          angabenZeit(a) - angabenZeit(b) ||
           nameVergleich(a, b),
       );
     case "eintreffzeit":

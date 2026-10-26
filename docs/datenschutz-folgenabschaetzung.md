@@ -11,6 +11,15 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-26 — Audit Runde 15:** Speicherorte neu: `eeb.papierabgleich.v1.<Einsatz-ID>`
+> im `localStorage` (Zwischenstand des Papierabgleichs mit den eingetragenen Zeilen,
+> also Namen und Zahlen der Einheit; verfällt nach 3 Tagen, ist Teil der
+> Datensicherung und fällt mit „Alle Daten löschen" weg; 5.4, 5.7, Speicherbegrenzung
+> Art. 5 Abs. 1 lit. e DSGVO) und `eeb.import-laeuft.v1` im `sessionStorage` (nur
+> Zahlen und Einsatz-ID, keine Personendaten). Bögen mit ungültiger Signatur
+> werden nur nach Rückfrage aufgenommen und im Lageblatt gekennzeichnet (Richtigkeit,
+> Art. 5 Abs. 1 lit. d). Empfänger und Netzverbindungen unverändert (5.8).
+>
 > **Nachgezogen 2026-10-26 — Audit Runde 14:** Speicherorte neu: `eeb.beispiel-herkunft.v1`
 > im `localStorage` (Namen und Nummern eines Beispiel- oder Übungsbogens, also
 > fiktive Daten; wird gelöscht, sobald kein Bogen offen ist und mit „Alle Daten

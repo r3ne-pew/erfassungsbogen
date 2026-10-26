@@ -673,6 +673,10 @@ export interface TabellenZeile {
   unterbringungM: number;
   unterbringungW: number;
   unterbringungD: number;
+  /** WC/Dusche: alle Anwesenden nach Geschlecht (R15-W2: nicht unter „Unterbringung" führen). */
+  wcM: number;
+  wcW: number;
+  wcD: number;
   diesel: number;
   benzin: number;
   gemisch: number;
@@ -720,6 +724,9 @@ export type TabellenSpalte =
   | "unterbringungM"
   | "unterbringungW"
   | "unterbringungD"
+  | "wcM"
+  | "wcW"
+  | "wcD"
   | "diesel"
   | "benzin"
   | "gemisch"
@@ -807,9 +814,13 @@ export const TABELLEN_SPALTEN: SpaltenDefinition[] = [
   { schluessel: "verpflegung", kopf: "Verpfl.", titel: "Verpflegung gesamt", zahl: true },
   { schluessel: "vegetarisch", kopf: "veg.", titel: "Verpflegung vegetarisch", zahl: true },
   { schluessel: "vegan", kopf: "vegan", titel: "Verpflegung vegan", zahl: true },
-  { schluessel: "unterbringungM", kopf: "Unt. M", titel: "Unterbringung männlich", zahl: true },
-  { schluessel: "unterbringungW", kopf: "Unt. W", titel: "Unterbringung weiblich", zahl: true },
-  { schluessel: "unterbringungD", kopf: "Unt. D", titel: "Unterbringung divers", zahl: true },
+  // Unterbringung nur bei Anforderung, WC/Dusche für alle Anwesenden — wie CSV, Excel und Lageblatt (R15-W2).
+  { schluessel: "unterbringungM", kopf: "Unterbr. M", titel: "Unterbringung angefordert männlich", zahl: true },
+  { schluessel: "unterbringungW", kopf: "Unterbr. W", titel: "Unterbringung angefordert weiblich", zahl: true },
+  { schluessel: "unterbringungD", kopf: "Unterbr. D", titel: "Unterbringung angefordert divers", zahl: true },
+  { schluessel: "wcM", kopf: "WC M", titel: "WC/Dusche männlich (alle Anwesenden)", zahl: true },
+  { schluessel: "wcW", kopf: "WC W", titel: "WC/Dusche weiblich (alle Anwesenden)", zahl: true },
+  { schluessel: "wcD", kopf: "WC D", titel: "WC/Dusche divers (alle Anwesenden)", zahl: true },
   { schluessel: "diesel", kopf: "Diesel", titel: "Diesel (Liter)", zahl: true },
   { schluessel: "benzin", kopf: "Benzin", titel: "Benzin (Liter)", zahl: true },
   { schluessel: "gemisch", kopf: "Gemisch", titel: "Gemisch (Liter)", zahl: true },
@@ -852,9 +863,12 @@ export function tabellenZeilen(eintraege: MeldeEintrag[], art?: EinsatzArt, jetz
       verpflegung: vp.gesamt,
       vegetarisch: vp.vegetarisch,
       vegan: vp.vegan,
-      unterbringungM: u.m,
-      unterbringungW: u.w,
-      unterbringungD: u.d,
+      unterbringungM: sb?.unterbringung ? u.m : 0,
+      unterbringungW: sb?.unterbringung ? u.w : 0,
+      unterbringungD: sb?.unterbringung ? u.d : 0,
+      wcM: u.m,
+      wcW: u.w,
+      wcD: u.d,
       diesel: sb?.dieselLiter ?? 0,
       benzin: sb?.benzinLiter ?? 0,
       gemisch: sb?.gemischLiter ?? 0,

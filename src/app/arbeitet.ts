@@ -32,6 +32,17 @@ function abonnieren(h: () => void): () => void {
   return () => hoerer.delete(h);
 }
 
+/**
+ * Satz zur Dauer der Sammel-PDF, an der Zahl der Bögen ausgerichtet (R15-O1): gemessen rund 0,4 s je Bogen am Rechner,
+ * mit vierfach gedrosselter CPU (Telefon) rund 1,5 s. „Bis zu einer halben Minute" galt nur für kleine Einsätze; wer
+ * nach 40 Sekunden noch nichts sah, hielt die App für hängend. Einen Fortschritt „n von m" gibt es nicht: Die Erzeugung
+ * läuft in einem Zug im Hauptfaden.
+ */
+export function sammelPdfDauerText(boegen: number): string {
+  const s = Math.ceil(boegen * 1.5);
+  return `Die Sammel-PDF wird erzeugt — bei ${boegen} ${boegen === 1 ? "Bogen" : "Bögen"} am Telefon etwa ${s < 60 ? `${s} Sekunden` : `${Math.ceil(s / 60)} Min.`} oder länger. Nicht noch einmal tippen, Bildschirm anlassen.`;
+}
+
 /** Name der gerade laufenden Aktion, sonst null. */
 export function arbeitetGerade(): string | null {
   return aktuell;

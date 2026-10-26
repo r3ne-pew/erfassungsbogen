@@ -24,6 +24,7 @@ import {
   beginnHinweis,
 } from "./lagemonitor-beginn";
 import { frageJaNein } from "./dialoge";
+import { ortOhneZusatz } from "./hilfen";
 import { sammlungenBeiseitegelegt } from "./unlesbar";
 import { alterKurz, alterText, anwesendenAlterText, ausEingabeWert, bedarfText, dauerText, lagebild, uhrTeile, zuEingabeWert, type EinheitZeile } from "./lagemonitor";
 
@@ -43,7 +44,7 @@ export const STUFEN_SPERRE_MS = 1500;
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 /** Steht der Ort einer Einheit schon im Funkrufnamen? Dann wird er am Telefon nicht noch einmal genannt (R9-K5). */
 export function ortImFunkruf(e: { ort?: string | null; funkruf?: string | null }): boolean {
-  const ort = norm(e.ort ?? "");
+  const ort = norm(ortOhneZusatz(e.ort ?? ""));
   return ort === "" || norm(e.funkruf ?? "").includes(ort);
 }
 
@@ -233,7 +234,7 @@ function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] })
               <td className="lm-orga">{e.orga}{e.soll && <abbr className="lm-soll" title="Sollstärke, nicht gemeldet"> S</abbr>}{e.alterMin != null && <abbr className="lm-alt" title={e.standAlt ? "Der Stand der Angaben ist älter als eine Stunde" : "Meldung ist älter als eine Stunde"}> ⚠ {e.standAlt ? "Stand " : ""}{alterKurz(e.alterMin)}</abbr>}{e.zug && <span className="lm-zug-tel">{e.zug}</span>}</td>
               <td>{e.ort || "–"}</td>
               {/* Am Telefon entfällt die Ort-Spalte: Der Ort steht im Funkrufnamen oder, wenn nicht, als Zusatz darunter (R9-K5). */}
-              <td data-ort={ortImFunkruf(e) ? undefined : e.ort}>{e.funkruf || "–"}</td>
+              <td data-ort={ortImFunkruf(e) ? undefined : e.ort}>{e.funkruf || "–"}{e.auftrag && <span className="lm-auftrag-tel">{e.auftrag}</span>}</td>
               <td className="lm-typ">
                 {e.typ || (e.zug ? "" : "–")}
                 {e.zug && <span className="lm-zug">{e.typ ? " · " : ""}{e.zug}</span>}
@@ -247,7 +248,7 @@ function EinheitenTabelle({ einheiten }: { einheiten: readonly EinheitZeile[] })
         </tbody>
       </table>
       <div className="lm-weitere" ref={hinweisEl} style={weitere === 0 ? { display: "none" } : undefined}>
-        + {Math.max(weitere, 1)} weitere {weitere <= 1 ? "Einheit" : "Einheiten"} · zuletzt gemeldet zuerst
+        + {Math.max(weitere, 1)} weitere {weitere <= 1 ? "Einheit" : "Einheiten"} · ⚠ und zuletzt gemeldete zuerst
       </div>
     </div>
   );
@@ -372,15 +373,14 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
   // Das Alter der anwesenden Einheiten, nicht nur der jüngsten Meldung: eine frische abgerückte Einheit
   // verdeckte sonst, dass die Stärke auf Meldungen von vor Stunden beruht (R11-K1).
   const alterAnwesende = bild.zeitenPruefen ? null : anwesendenAlterText(bild.anwesendenAlter, jetzt);
+  // Nur der Teil „älteste Meldung …" trägt Warnfarbe und ⚠; eine frische letzte Meldung ist keine Warnung (R15-K4).
+  const letzteAlt = bild.letzteMeldung != null && jetzt - bild.letzteMeldung >= VERALTET_MIN * 60_000;
   const datenstand = bild.zeitenPruefen
     ? "Meldezeiten liegen in der Zukunft – Zeiten prüfen (Geräteuhr?)"
     : bild.letzteMeldung != null
-      ? `letzte Meldung ${alterText(bild.letzteMeldung, jetzt)}${alterAnwesende ? ` · ⚠ ${alterAnwesende}` : ""}`
+      ? `letzte Meldung ${alterText(bild.letzteMeldung, jetzt)}`
       : "";
-  const veraltet =
-    bild.zeitenPruefen ||
-    alterAnwesende != null ||
-    (bild.letzteMeldung != null && jetzt - bild.letzteMeldung >= VERALTET_MIN * 60_000);
+  const veraltet = bild.zeitenPruefen || letzteAlt;
   const ortText = bild.ort?.trim() ? <span className="lm-ort"> · {bild.ort.trim()}</span> : null;
   const sichtbareBewegungen = bild.bewegungen.slice(0, BEWEGUNGEN_MAX);
   const weitereBewegungen = bild.bewegungen.length - sichtbareBewegungen.length;
@@ -424,7 +424,12 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
       )}
       <div className="lm-zeile lm-r3 lm-stand">
         {lage}
-        {datenstand && <span className={`lm-label${veraltet ? " lm-veraltet" : ""}`}>{datenstand}</span>}
+        {datenstand && (
+          <span className={`lm-label${veraltet ? " lm-veraltet" : ""}`}>
+            {datenstand}
+            {alterAnwesende && <span className="lm-warnteil">{" · "}⚠ {alterAnwesende}</span>}
+          </span>
+        )}
       </div>
       {/* Sofortbedarf wie in der Kopfzeile der Einsatzansicht; eine kleine Zeile, nur wenn etwas angefordert ist (R10-K5). */}
       {(dauerZeile || bedarf) && (

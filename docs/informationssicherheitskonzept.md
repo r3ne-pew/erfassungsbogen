@@ -343,6 +343,15 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > und `vendor/` unverändert. Der Entwurf trägt zusätzlich die Marke „über die
 > Startseite verlassen" (`fremd.startseite`, R5-N3, 3.3 D1) — keine Daten.
 
+> **Nachgezogen 2026-10-26 (Runde 15):** Audit Runde 15. Speicher (3.3, 5.5): zwei neue
+> Schlüssel, `eeb.papierabgleich.v1.<Einsatz-ID>` (localStorage, 3 Tage, über die
+> Präfixregel `eeb.` in Sicherung und Löschweg enthalten) und `eeb.import-laeuft.v1`
+> (sessionStorage). Integrität (5.2): Bögen mit ungültiger Signatur werden nicht
+> mehr stillschweigend aufgenommen (Handscanner abgelehnt, sonst Rückfrage);
+> Lageblatt und Sammel-PDF kennzeichnen sie. Bedienung (5.3): immer nur die jüngste
+> Quittung, Rückfragen beim Abschließen der Schnellerfassung. Lieferkette (6.4):
+> Startbündel 1,20 MB. Keine neuen Hosts, CSP und Transportformat unverändert.
+
 > **Nachgezogen 2026-10-26 (Runde 14):** Audit Runde 14. Speicher (3.3, 5.5): zwei neue
 > Schlüssel, `eeb.beispiel-herkunft.v1` (localStorage, fiktive Beispieldaten,
 > über die Präfixregel `eeb.` in Sicherung und Löschweg enthalten) und
