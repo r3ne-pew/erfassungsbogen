@@ -895,7 +895,7 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
         <button type="button" className="link" onClick={() => ueber.current?.showModal()}>Johannes Rudolph</button>
       </p>
 
-      <Dialog titel="Datensicherung" dialogRef={sicherung}>
+      <Dialog titel="Datensicherung" dialogRef={sicherung} klasse="rollhinweis">
         <p>
           Alle lokalen Daten dieser App — Vorlagen, Einsatz-Sammlungen, der aktuelle
           Entwurf, Einstellungen und der Signatur-Geräteschlüssel — lassen sich als
@@ -1047,7 +1047,7 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
       {/* Restlos löschen — z. B. bevor ein geteiltes Tablet weitergegeben wird
           oder nach einer Übung. Bewusst mit Zahlen, Sicherungs-Ausweg und
           eigenem Haken: rückgängig gibt es hier nicht. */}
-      <Dialog titel="Alle lokalen Daten löschen" dialogRef={loeschen}>
+      <Dialog titel="Alle lokalen Daten löschen" dialogRef={loeschen} klasse="rollhinweis">
         <p>
           Entfernt <strong>alle</strong> Daten dieser App von diesem Gerät — auch die
           Einträge im Papierkorb. Es gibt keine Kopie in einer Cloud: was hier weg
@@ -1110,21 +1110,24 @@ export function Fusszeile({ onBogenOeffnen, kompakt = false }: {
           nur der Speicher dieser App wird geleert. Die Einstellung „Nicht
           mitzählen“ aus dem Datenschutzhinweis bleibt erhalten.
         </p>
-        <label className="inline">
-          <input
-            type="checkbox"
-            checked={loeschVerstanden}
-            onChange={(e) => setLoeschVerstanden(e.target.checked)}
-          />
-          Ja, alle lokalen Daten dieser App endgültig löschen
-        </label>
-        <div className="aktionen">
-          <button type="button" className="gefahr" disabled={!loeschVerstanden} onClick={alleDatenLoeschenJetzt}>
-            Endgültig löschen
-          </button>
-          <button type="button" onClick={() => loeschen.current?.close()}>Abbrechen</button>
+        {/* R16-M2: Haken und Entscheidung kleben am Dialogfuß, auch wenn die Aufzählung darüber lang ist. */}
+        <div className="dialog-entscheidung">
+          <label className="inline">
+            <input
+              type="checkbox"
+              checked={loeschVerstanden}
+              onChange={(e) => setLoeschVerstanden(e.target.checked)}
+            />
+            Ja, alle lokalen Daten dieser App endgültig löschen
+          </label>
+          <div className="aktionen">
+            <button type="button" className="gefahr" disabled={!loeschVerstanden} onClick={alleDatenLoeschenJetzt}>
+              Endgültig löschen
+            </button>
+            <button type="button" onClick={() => loeschen.current?.close()}>Abbrechen</button>
+          </div>
+          {loeschFehler && <p className="fehler">{loeschFehler}</p>}
         </div>
-        {loeschFehler && <p className="fehler">{loeschFehler}</p>}
       </Dialog>
 
       <Dialog

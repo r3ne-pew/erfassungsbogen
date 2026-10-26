@@ -47,8 +47,13 @@ function zweiteNummer(roh: string): { von: number; bis: number } | undefined {
 /** Bereinigt das, was in ein Telefonfeld getippt oder eingefügt wurde. */
 export function telefonBereinigen(roh: string): TelefonEingabe {
   const z = zweiteNummer(roh);
-  const erste = z ? roh.slice(0, z.von) : roh;
+  const ersteRoh = z ? roh.slice(0, z.von) : roh;
   const rest = z ? roh.slice(z.bis) : "";
+  // „0441 123456 App 12": Ziffern hinter einem Zusatz mit Buchstaben gehören nicht zur Nummer; sie würden sonst an
+  // sie anwachsen („044112345612", R16-E3). Der Zusatz wird genannt statt angehängt.
+  const zusatz = /^(\+?[^\p{L}\d]*\d[^\p{L}]*?)\s*(\p{L}.*)$/u.exec(ersteRoh.trimStart());
+  const zusatzMitZiffern = zusatz != null && /\d/u.test(zusatz[2]!);
+  const erste = zusatzMitZiffern ? zusatz[1]! : ersteRoh;
   let wert = nurNummer(erste);
   const saetze: string[] = [];
   // „+49 (0) 171 …": Nach der Landesvorwahl entfällt die Null (R12-E1); sonst ist die Nummer nicht wählbar.
@@ -63,7 +68,9 @@ export function telefonBereinigen(roh: string): TelefonEingabe {
     .replace(SCHREIBWEISE, "")
     .replace(/\+/gu, "")
     .trim();
-  if (fremd) saetze.push(`Nur Ziffern übernommen („${fremd}" entfernt).`);
+  if (zusatzMitZiffern) {
+    saetze.push(`Übernommen: ${wert} — „${zusatz[2]!.trim()}" gehört nicht zur Nummer und wurde nicht angehängt. Stimmt die Nummer?`);
+  } else if (fremd) saetze.push(`Nur Ziffern übernommen („${fremd}" entfernt).`);
   else if (/\+/u.test(erste.trimStart().slice(1))) saetze.push("Das „+“ gilt nur am Anfang; es wurde entfernt.");
   if (nullEntfernt) saetze.push("Die „0“ nach der Landesvorwahl entfernt (nicht mitwählen).");
   if (z && ziffern(rest)) {

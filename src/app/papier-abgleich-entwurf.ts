@@ -4,10 +4,10 @@
  * Der Abgleich ist die Arbeit nach einem Geräteausfall: je Einheit fünf Felder,
  * bei acht Einheiten rund vierzig Eingaben vom Papier. Sie lagen nur im
  * Komponentenzustand — Neuladen, „Später" und „‹ Startseite" warfen sie ohne
- * Frage weg. Jetzt liegen sie im SITZUNGSSPEICHER des Browsers (nicht im
- * dauerhaften `localStorage`): Sie überleben Neuladen, „Später" und den Wechsel
- * auf die Startseite, verschwinden aber mit dem Schließen des Tabs und werden
- * nach „Abgleich übernehmen" oder auf ausdrücklichen Wunsch gelöscht.
+ * Frage weg. Jetzt liegen sie im SITZUNGSSPEICHER des Browsers: Sie überleben
+ * Neuladen, „Später" und den Wechsel auf die Startseite und werden nach
+ * „Abgleich übernehmen" oder auf ausdrücklichen Wunsch gelöscht. Seit R15-A4 liegt
+ * zusätzlich eine dauerhafte Kopie im `localStorage` (siehe unten, höchstens drei Tage).
  *
  * Schlüssel: `eeb.papierabgleich.v1.<Einsatz-ID>` (sessionStorage).
  *
@@ -33,6 +33,9 @@ const PRAEFIX = "eeb.papierabgleich.v1.";
 
 /** So lange gilt der dauerhaft gelegte Zwischenstand; danach ist es ein neuer Einsatztag (R15-A4). */
 export const ENTWURF_FRIST_MS = 3 * 24 * 3_600_000;
+
+/** Ein Wortlaut für alle Stellen, die sagen, wie lange die Eingaben bleiben (R16-A2). */
+export const ENTWURF_DAUER_TEXT = "auf diesem Gerät, bis du sie übernimmst oder verwirfst, höchstens drei Tage";
 
 function ort(art: "sessionStorage" | "localStorage"): Storage | null {
   try {
@@ -132,6 +135,33 @@ export function abgleichEntwurfLoeschen(einsatzId: string): void {
       /* nichts zu tun */
     }
   }
+}
+
+/**
+ * Zwischenstände von Einsätzen, die es nicht mehr gibt (endgültig gelöscht, Papierkorb nach 30 Tagen abgelaufen), aus
+ * beiden Speichern entfernen; `vorhandene` nennt die Kennungen aller Einsätze samt Papierkorb (R16-O1). Liefert die Zahl
+ * der entfernten Schlüssel.
+ */
+export function abgleichEntwurfAufraeumen(vorhandene: Iterable<string>): number {
+  const behalten = new Set(vorhandene);
+  let weg = 0;
+  for (const s of [speicher(), dauerhaft()]) {
+    try {
+      if (!s) continue;
+      const schluessel: string[] = [];
+      for (let i = 0; i < s.length; i++) {
+        const k = s.key(i);
+        if (k?.startsWith(PRAEFIX) && !behalten.has(k.slice(PRAEFIX.length))) schluessel.push(k);
+      }
+      for (const k of schluessel) {
+        s.removeItem(k);
+        weg++;
+      }
+    } catch {
+      /* gesperrt — beim nächsten Aufbau der Liste noch einmal */
+    }
+  }
+  return weg;
 }
 
 /**

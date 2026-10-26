@@ -14,7 +14,7 @@ import { Ernaehrung, Geschlecht, OrganisationsTyp, PersonalErfassung, type Erfas
 import { stanPersonalVorbelegung } from "@bos/vokabulare/thw-stan-personal";
 import { stanFahrzeugVorbelegung } from "@bos/vokabulare/thw-stan-fahrzeuge";
 import { SchrittBuehne } from "../../test/schritt-buehne";
-import { SchrittEinheit, ovImText } from "./einheit";
+import { SchrittEinheit, ovFreiHinweis, ovImText } from "./einheit";
 
 const buehne = () => render(<SchrittBuehne komponente={SchrittEinheit} />);
 
@@ -246,6 +246,25 @@ describe("Schritt Einheit", () => {
     expect(document.querySelector(".ov-frei-hinweis")!.textContent).toContain("„Xyzstadt\"");
   }, 15000);
 
+  it("nennt bei einem mehrdeutigen Ortsnamen die Treffer statt „nicht im Verzeichnis“ (R16-E4)", async () => {
+    const nutzer = userEvent.setup();
+    buehne();
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Oldenburg");
+    await nutzer.tab();
+    const hinweis = await screen.findByText(/kann mehrere Ortsverbände meinen/, undefined, { timeout: 5000 });
+    expect(hinweis.textContent).toContain("„Oldenburg\"");
+    expect(hinweis.textContent).toMatch(/Oldenburg \(NI\)/);
+    expect(hinweis.textContent).not.toContain("nicht im OV-Verzeichnis");
+    expect(hinweis.textContent).not.toContain("darf so stehen bleiben");
+  }, 15000);
+
+  it("ovFreiHinweis: nur ohne jeden Vorschlag heißt es „nicht im OV-Verzeichnis“ (R16-E4)", () => {
+    const ov = (name: string) => ({ name, kurz: "XX", ort: name, plz: "1" }) as never;
+    expect(ovFreiHinweis("Xyz", [])).toContain("nicht im OV-Verzeichnis");
+    expect(ovFreiHinweis("Ulm", [ov("Ulm"), ov("Neu-Ulm")])).toContain("mehrere Ortsverbände");
+    expect(ovFreiHinweis("Ulm", [ov("Ulm")])).toContain("meint vielleicht Ulm");
+  });
+
   it("zeigt beim Antippen des Einheitstyps die ganze Liste, nicht nur die ersten acht", async () => {
     const nutzer = userEvent.setup();
     buehne();
@@ -447,6 +466,25 @@ describe("Schritt Einheit — offene Pflichtangaben", () => {
     expect(kuerzel.getAttribute("autocapitalize")).toBe("characters");
     expect(kuerzel.getAttribute("autocorrect")).toBe("off");
     expect(kuerzel.getAttribute("spellcheck")).toBe("false");
+  });
+
+  /** R16-H2: Namen der höheren Ebenen (RB, LV) und der Organisationsname tragen wie das Ortsfeld keine Autokorrektur. */
+  it("schaltet Autokorrektur und Rechtschreibprüfung an den Namensfeldern der höheren Ebenen und am Organisationsnamen aus (R16-H2)", () => {
+    const b = neuerBogen();
+    b.einheit.hierarchie = [
+      { bezeichnung: { code: 1 }, name: "Husum" },
+      { bezeichnung: { code: 2 }, name: "Heilbronn" },
+      { bezeichnung: { code: 3 }, name: "Baden-Württemberg" },
+    ];
+    render(<SchrittEinheit bogen={b} aendern={() => {}} />);
+
+    const felder = [...screen.getAllByLabelText("Name"), screen.getByLabelText(/Organisationsname/)];
+    expect(felder.length).toBeGreaterThanOrEqual(3);
+    for (const f of felder) {
+      expect(f.getAttribute("autocorrect")).toBe("off");
+      expect(f.getAttribute("spellcheck")).toBe("false");
+      expect(f.getAttribute("autocomplete")).toBe("off");
+    }
   });
 
   /**

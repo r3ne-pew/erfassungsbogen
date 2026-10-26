@@ -72,6 +72,13 @@ function kuerzelSchluessel(text: string): string {
     .replace(/[^a-z]/g, "");
 }
 
+/** Wörter, die in einer Tabellenspalte eher eine Funktion als einen Vornamen meinen (R16-E1). */
+const FUNKTIONSWORT = /^(helfer(in)?|mannschaft|helfende|(kraft)?fahrer(in)?|maschinist(in)?|sanitäter(in)?|bediener(in)?|[a-zäöü]*f(ü|ue)hrer(in)?)$/i;
+
+function istFunktionswort(text: string): boolean {
+  return rolleAusFunktion(text) != null || FUNKTIONSWORT.test(text.trim());
+}
+
 /** Stärke-Rolle zu einem Funktionskürzel — `undefined`, wenn nichts passt. */
 export function rolleAusFunktion(funktion: string): StaerkeRolle | undefined {
   const schluessel = kuerzelSchluessel(funktion);
@@ -97,10 +104,15 @@ export function parseNamen(text: string): NamensEintrag[] {
     .map((zeile) => {
       // Aus einer Tabelle kopiert: Spalte 1 ist der Name, die nächste Spalte ohne Ziffern die Funktion, weitere
       // Spalten bleiben außen vor. Sonst wurde „Hans Müller⇥GrFü" zu Nachname „GrFü" (R11-H4).
-      if (zeile.includes("\t")) {
-        const [name = "", ...spalten] = zeile.split(/\t+/).map((s) => s.trim()).filter(Boolean);
-        const funktion = spalten.find((s) => !/\d/.test(s));
-        const eintrag = zeileLesen(name);
+      // Auch Semikolon (deutsches CSV) trennt Spalten (R16-E1). Steht in Spalte 1 nur ein Wort und folgt eine
+      // Spalte, die keine Funktion ist, sind es die Spalten „Nachname, Vorname[, Funktion]" („Meier⇥Klaus⇥Führer").
+      if (/[\t;]/.test(zeile)) {
+        const [name = "", ...spalten] = zeile.split(/[\t;]+/).map((s) => s.trim().replace(/^"(.*)"$/, "$1")).filter(Boolean);
+        const zweite = spalten[0];
+        const alsVorname =
+          zweite != null && !/\s/.test(name) && !name.includes(",") && !/\d/.test(zweite) && !istFunktionswort(zweite);
+        const funktion = (alsVorname ? spalten.slice(1) : spalten).find((s) => !/\d/.test(s));
+        const eintrag: NamensEintrag = alsVorname ? { nachname: name, vorname: zweite } : zeileLesen(name);
         return funktion ? { ...eintrag, funktion, rolle: eintrag.rolle ?? rolleAusFunktion(funktion) } : eintrag;
       }
       // Kürzel VOR dem Namen („GrFü Maier, Klaus", „TrFü Anna Schulz") wurde
@@ -123,8 +135,14 @@ function zeileLesen(zeile: string): NamensEintrag {
   if (komma >= 0) {
     const rest = zeile.slice(komma + 1);
     const zweites = rest.indexOf(",");
-    const vorname = (zweites >= 0 ? rest.slice(0, zweites) : rest).trim();
-    const funktion = zweites >= 0 ? rest.slice(zweites + 1).trim() : "";
+    let vorname = (zweites >= 0 ? rest.slice(0, zweites) : rest).trim();
+    let funktion = zweites >= 0 ? rest.slice(zweites + 1).trim() : "";
+    // „Meier, Klaus - Gruppenführer": Der Zusatz nach Gedankenstrich oder Schrägstrich ist die Funktion (R16-E1).
+    const zusatz = /\s+[-–—/]\s+/.exec(vorname);
+    if (zusatz && !funktion) {
+      funktion = vorname.slice(zusatz.index + zusatz[0].length).trim();
+      vorname = vorname.slice(0, zusatz.index).trim();
+    }
     const nachname = zeile.slice(0, komma).trim();
     const woerter = nachname.split(/\s+/);
     // „Lena Nowak, Zugführerin": zwei Wörter vor dem Komma, die nicht zu einem Präfixnamen gehören (R11-E4).
@@ -136,9 +154,28 @@ function zeileLesen(zeile: string): NamensEintrag {
       ...(unsicher ? { unsicher: true } : {}),
     };
   }
-  const teile = zeile.split(/\s+/);
+  let teile = zeile.split(/\s+/);
   if (teile.length === 1) return { vorname: "", nachname: teile[0]! };
-  return mitPraefix(teile.slice(0, -1), teile[teile.length - 1]!);
+  // „Mustermann Max Truppführer": ein Funktionswort am Ende ist kein Nachname (R16-E1).
+  const letztes = teile[teile.length - 1]!;
+  const funktion = teile.length >= 3 && istFunktionswort(letztes) ? letztes : undefined;
+  if (funktion) teile = teile.slice(0, -1);
+  const gelesen = mitPraefix(teile.slice(0, -1), teile[teile.length - 1]!);
+  // Mit Funktion am Ende bleiben zwei Wörter, deren Reihenfolge geraten ist: Vorschau „prüfen". Ohne Funktion gilt
+  // weiter „Vorname [weitere Vornamen] Nachname" (die Vorschau zeigt „Nachname, Vorname").
+  return funktion ? { ...gelesen, funktion, rolle: rolleAusFunktion(funktion), unsicher: true } : gelesen;
+}
+
+/** Warum eine Zeile nicht nach einem Namen aussieht – der tatsächliche Grund für den Hinweistext (R16-E1). */
+export function namenVerdachtGruende(zeilen: readonly { vorname: string; nachname: string }[]): string {
+  const text = zeilen.map((n) => `${n.vorname} ${n.nachname}`).join(" ");
+  const gruende = [
+    /\d/.test(text) && "Ziffern",
+    /[()[\]{}]/.test(text) && "Klammern",
+    /[;<>]/.test(text) && "Sonderzeichen",
+    zeilen.some((n) => !/\p{L}/u.test(`${n.vorname}${n.nachname}`)) && "keine Buchstaben",
+  ].filter(Boolean);
+  return gruende.join(", ") || "Sonderzeichen";
 }
 
 /** Ergebnis von {@link namenEinsetzen}: neue Liste und je eingefügter Person der Platz. */

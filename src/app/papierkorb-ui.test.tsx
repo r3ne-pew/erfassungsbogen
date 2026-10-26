@@ -98,6 +98,36 @@ describe("Papierkorb der Einsätze", () => {
     expect(einsaetzeLaden()).toHaveLength(0);
   });
 
+  it("nimmt beim endgültigen Löschen den Zwischenstand des Papier-Abgleichs mit (R16-O1)", async () => {
+    const nutzer = userEvent.setup();
+    const s = buehne();
+    const schluessel = `eeb.papierabgleich.v1.${s.id}`;
+    sessionStorage.setItem(schluessel, "[]");
+    localStorage.setItem(schluessel, JSON.stringify({ am: Date.now(), zeilen: [] }));
+
+    await nutzer.click(screen.getByRole("button", { name: /^Papierkorb Einsätze \(1\)/ }));
+    // Solange der Einsatz im Papierkorb liegt, bleibt der Zwischenstand (Wiederherstellen ist möglich).
+    expect(localStorage.getItem(schluessel)).not.toBeNull();
+    await nutzer.click(screen.getByRole("button", { name: "Endgültig löschen…" }));
+    await nutzer.click(
+      within(rueckfrage("Einsatz endgültig löschen?")).getByRole("button", { name: "Endgültig löschen" }),
+    );
+
+    expect(localStorage.getItem(schluessel)).toBeNull();
+    expect(sessionStorage.getItem(schluessel)).toBeNull();
+  });
+
+  it("räumt beim Aufbau der Liste Zwischenstände von Einsätzen weg, die der Kern still entfernt hat (R16-O1)", () => {
+    const s = einsatzAnlegen("Übung", EinsatzArt.EINSATZ, "Wardenburg");
+    localStorage.setItem(`eeb.papierabgleich.v1.${s.id}`, "{}");
+    localStorage.setItem("eeb.papierabgleich.v1.verschwunden", "{}");
+    sessionStorage.setItem("eeb.papierabgleich.v1.verschwunden", "[]");
+    render(<EinsatzListe einsaetze={einsaetzeLaden()} onOeffnen={() => {}} onGeaendert={() => {}} />);
+    expect(localStorage.getItem("eeb.papierabgleich.v1.verschwunden")).toBeNull();
+    expect(sessionStorage.getItem("eeb.papierabgleich.v1.verschwunden")).toBeNull();
+    expect(localStorage.getItem(`eeb.papierabgleich.v1.${s.id}`)).toBe("{}");
+  });
+
   it("behält den Einsatz im Papierkorb, wenn die Rückfrage abgebrochen wird", async () => {
     const nutzer = userEvent.setup();
     const s = buehne();

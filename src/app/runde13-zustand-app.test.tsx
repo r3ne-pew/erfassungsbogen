@@ -118,7 +118,7 @@ describe("R13-O1 Sicherung einspielen, die nicht auf das Gerät passt", () => {
     await nutzer.click(within(frage).getByRole("button", { name: "Einspielen und ersetzen" }));
 
     await waitFor(() => expect(dialog.textContent).toContain("Nicht eingespielt"));
-    expect(dialog.textContent).toContain("Ihre bisherigen Daten auf diesem Gerät sind unverändert.");
+    expect(dialog.textContent).toContain("Deine bisherigen Daten auf diesem Gerät sind unverändert.");
     expect(dialog.textContent).not.toMatch(/Failed to execute|quota/i);
     expect(einsaetzeLaden().map((s) => s.id)).toEqual([vorhanden.id]);
   }, 30000);

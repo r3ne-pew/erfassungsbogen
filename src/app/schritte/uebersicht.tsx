@@ -1172,7 +1172,7 @@ export function Uebersicht(props: {
                 ].filter(Boolean);
                 const ja = await frageJaNein({
                   titel: "Für neuen Einsatz vorbereiten?",
-                  text: `Zurückgesetzt werden: ${verloren.join("; ")}. Personal und Fahrzeuge bleiben. Das lässt sich hier nicht zurücknehmen — wer die Angaben noch braucht, gibt den Bogen vorher weiter.`,
+                  text: `Zurückgesetzt werden: ${verloren.join("; ")}. Personal und Fahrzeuge bleiben. „Rückgängig" holt sie zurück, bis du neue Angaben einträgst — wer sie länger braucht, gibt den Bogen vorher weiter.`,
                   ok: "Zurücksetzen",
                   abbruch: "Abbrechen, Bogen behalten",
                   gefahr: true,
@@ -1325,12 +1325,12 @@ export function QrVollbild(props: {
       <p className="qr-vollbild-kopf">
         <strong>{props.einheit}</strong>
         <br />
-        Stärke <strong>{props.staerke}</strong> <span className="hinweis">(F / UF / M / Ges) · Stand {stand} Uhr</span>
+        Stärke <strong>{props.staerke}</strong> <span className="hinweis">(F / UF / M / Ges) · Stand&nbsp;{stand}&nbsp;Uhr</span>
         {props.ohneNamen != null && props.ohneNamen > 0 && (
           <>
             <br />
             <span className="warnung-text">
-              ⚠ {props.ohneNamen} {props.ohneNamen === 1 ? "Platz" : "Plätze"} ohne Namen — Stärke nach Soll
+              ⚠ {props.ohneNamen}&nbsp;{props.ohneNamen === 1 ? "Platz" : "Plätze"} ohne Namen — Stärke nach&nbsp;Soll
             </span>
           </>
         )}

@@ -40,6 +40,7 @@ import {
   dateinameTeil,
   einheitAnzeigename,
   einheitOrt,
+  natoZeitstempel,
   neuerBogen,
   pruefpunkte,
   schrittStatus,
@@ -71,6 +72,9 @@ import { vorlageAktualisieren, vorlageAnlegen, vorlageAusDatei, vorlageZahlenTex
 import { Musterung, VorlagenListe } from "./vorlagen-ui";
 import { musterungVorlageAusStand } from "./musterung-stand";
 import { rueckwegeVergessen } from "./rueckweg-sitzung";
+import { gezaehltWegMerken } from "./gezaehlt-weg";
+import { SOLL_NICHT_GEMELDET } from "./soll-text";
+import { einsatzVorbereiten, einsatzWegGilt, einsatzWegHolen, einsatzWegVergessen, einsatzWiederherstellen, type EinsatzWeg } from "./einsatz-vorbereiten";
 import { absenderkarteGefuellt, absenderkarteLaden, type Absenderkarte } from "./absenderkarte";
 import { AbsenderkarteFeld } from "./absenderkarte-ui";
 import {
@@ -104,7 +108,7 @@ import { offlineText, useOfflineStand } from "./offline-bereit";
 import { uebergabeBestaetigen, uebergabeNachWeg, uebergabeText, type UebergabeStand } from "./uebergabe-stand";
 import { ART_LABEL, EinsatzDetail, EinsatzListe, LetzteMeldungZeit, type Eingang } from "./einsaetze-ui";
 import { uebersprungenText } from "./uebersprungen-text";
-import { anzahlEinheiten, einheitenAufteilung, letzteMeldung, lueckeKurz, meldungsNummern, nummernWechsel, nummernWechselText, rueckkehrText } from "./einheiten-tabelle";
+import { anzahlEinheiten, einheitenAnwesend, letzteMeldung, lueckeKurz, meldungsNummern, nummernWechsel, nummernWechselText, rueckkehrText } from "./einheiten-tabelle";
 import { exportSammlung, exportStaendeLaden, exportStaendeUebernehmen, exportStandAusWeitergabe, exportVermerken, lieferungsMarke, weitergabeUmImportErgaenzen, type ExportStand, type ExportUmfang, type ExportZiel } from "./export-stand";
 import { NICHTS_UEBERNOMMEN_SATZ, abgleichGliederung, abgleichText, einsatzAbgleichen, importUebernahm, sammlungFuerZiel, widerspruecheZumMerken, type Einzelheit } from "./einsatz-abgleich";
 import { widerspruchMerken } from "./widerspruch-merker";
@@ -112,7 +116,6 @@ import { aktuelleMeldungen } from "./auswertung";
 import { lageAngabenLaden, lageAngabenUebernehmen } from "./lage-angaben";
 import { ablehnungsSatz, abgelehnteBoegen, boegenAusJsonTextMitUrsachen, boegenAusPdfBytes, einsatzAusDatei, einsatzAusPdfBytes, einsatzDateiInhalt, istPdfDatei, pdfInhaltArt } from "./einsatz-transport";
 import type { QrBogen } from "./qr-boegen";
-import { einsatzCsvInhalt } from "./einsatz-csv";
 import { einsatzDetailCsvInhalt } from "./bogen-csv";
 import { QrScannerWeb } from "./qr-scanner-web";
 import { TeilQuittung, fehlendeTeile, fehltNochSatz, teilGelesenSatz, verworfeneTeileSatz } from "./teil-quittung";
@@ -899,6 +902,8 @@ function AppInhalt() {
   const [ausgabeQuittung, setAusgabeQuittung] = useState<string | null>(null);
   const pdfArbeitet = useArbeitet();
   const [ersetzterEntwurf, setErsetzterEntwurf] = useState<Entwurf | null>(() => ersetztenEntwurfLaden());
+  // „Für neuen Einsatz vorbereiten“: Stand davor für „Rückgängig“, auch nach dem Neuladen (R16-E2).
+  const [einsatzWeg, setEinsatzWeg] = useState<EinsatzWeg | null>(() => einsatzWegHolen(bogen));
   // Ein gespeicherter Bogen, den die App nicht lesen kann, liegt beiseite und
   // wird auf der Startseite genannt, statt zu verschwinden oder die Ansicht
   // weiß zu machen (Audit Runde 5, R5-E1).
@@ -3033,9 +3038,11 @@ function AppInhalt() {
     const sig = bogenSignatur;
     const herkunft = bogenHerkunft;
     // Ein empfangener Bogen ist die Meldung der Einheit — nur selbst Erfasstes prüfen (R2-E2).
+    let sollVorGezaehlt: Erfassungsbogen | null = null;
     if (!sig) {
       const frei = await sollstaerkeFreigeben(b);
       if (!frei) return;
+      if (frei !== b) sollVorGezaehlt = b;
       b = frei;
       if (!(await ortFreigeben(b))) return;
     }
@@ -3063,6 +3070,7 @@ function AppInhalt() {
     // Fehler dort, wo getippt wurde — vorher schloss sie, und der Assistent
     // meldete weiter „✓ gespeichert" (R2-O2).
     if (!ok) return;
+    if (sollVorGezaehlt) gezaehltWegMerken({ einsatzId: zielId, eintragId: bogenInhaltsId(b), name: einheitAnzeigename(b.einheit), soll: sollVorGezaehlt });
     einsatzWahlDialog.current?.close();
     if (eigener) return;
     setBogen(null);
@@ -3121,16 +3129,18 @@ function AppInhalt() {
         : `Für „${einheitAnzeigename(b.einheit)}" stehen nur die Sollplätze nach StAN (Stärke ${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt}${b.fahrzeuge.length ? `, ${b.fahrzeuge.length} Fahrzeug${b.fahrzeuge.length === 1 ? "" : "e"}` : ""}) — niemand hat Personen eingetragen.`,
       wege: [
         { wert: "eintragen", label: "Stärke jetzt eintragen", hinweis: "Springt zum Personal — Namen oder nur die Zahl (Schnellerfassung)." },
+        { wert: "soll", label: "Als Sollstärke ablegen", hinweis: `${SOLL_NICHT_GEMELDET}, bis eine echte Zahl vorliegt. Karte, Lageblatt und Sammel-PDF tragen die Marke „Sollstärke, nicht gemeldet“; die Summe nennt den Anteil.` },
+        // Zuletzt und als Wahl mit Gewicht: Sie macht erfundene Zahlen zur Meldung; danach quittiert die Sammlung mit „Rückgängig" (R16-S3).
         ...(nurZahl
           ? [
               {
                 wert: "gezaehlt",
                 label: "Zahlen stimmen, so gezählt",
-                hinweis: "Die Einheit hat genau diese Stärke gemeldet; die leeren Vorbelegungskarten fallen weg.",
+                hinweis: "Die Einheit hat genau diese Stärke gemeldet; die leeren Vorbelegungskarten fallen weg. „Rückgängig“ führt sie danach wieder als Sollstärke.",
+                gefahr: true,
               },
             ]
           : []),
-        { wert: "soll", label: "Als Sollstärke ablegen", hinweis: "Die Zahl zählt in den Summen mit, bis eine echte Zahl vorliegt. Karte, Lageblatt und Sammel-PDF tragen die Marke „Sollstärke, nicht gemeldet“; die Summe nennt den Anteil." },
       ],
     });
     if (wahl === "eintragen") {
@@ -3227,10 +3237,12 @@ function AppInhalt() {
       }
       zettelNr = n;
     }
+    let sollVorGezaehlt: Erfassungsbogen | null = null;
     {
       const frei = await sollstaerkeFreigeben(b);
       if (!frei) return;
       if (frei !== b) {
+        sollVorGezaehlt = b;
         b = frei;
         setBogen(frei); // „so gezählt": der offene Bogen trägt danach nur noch die Zahlen
       }
@@ -3333,6 +3345,7 @@ function AppInhalt() {
       }
       return;
     }
+    if (sollVorGezaehlt) gezaehltWegMerken({ einsatzId: ziel, eintragId: bogenInhaltsId(b), name: einheitAnzeigename(b.einheit), soll: sollVorGezaehlt });
     // Uhrzeit vom Blatt an die NEUE Einheit (R2-A5). Eine Folgemeldung erbt
     // die Eintreffzeit ihrer Vorgängerin, die bleibt maßgeblich.
     {
@@ -3387,7 +3400,7 @@ function AppInhalt() {
     scanneQr(); // web: Scanner-Overlay; nativ: Plugin-Modal → uebernehmeQrText
   }
 
-  async function manuellInEinsatz(zielId: string) {
+  async function manuellInEinsatz(zielId: string, schnell = false) {
     // Eine angefangene Erfassung liegt noch im Assistenten (abgebrochen über
     // „‹ Einsatz", oder nach einem Neustart): fortsetzen oder bewusst
     // verwerfen — nicht still in die Rückholung schieben, wo sie den eigenen
@@ -3430,7 +3443,7 @@ function AppInhalt() {
       .find((x) => x.id === zielId)
       ?.eintraege.filter((e) => e.quelle === "manuell")
       .sort((a, b) => b.empfangenAm - a.empfangenAm)[0];
-    setBogen(zuletzt?.bogen.personalErfassung === PersonalErfassung.NUR_STAERKE ? schnellerfassungsBogen() : neuerBogen());
+    setBogen(schnell || zuletzt?.bogen.personalErfassung === PersonalErfassung.NUR_STAERKE ? schnellerfassungsBogen() : neuerBogen());
     setzeEmpfang(null);
     setSchritt(0);
     setZeigeStart(false);
@@ -3524,9 +3537,11 @@ function AppInhalt() {
     leererEinsatz(s);
     const teil = exportSammlung(s, umfang, exportStaende.csv ?? null);
     const marke = nachtragMarke(umfang, "csv");
+    // Erst beim Klick geladen: der CSV-Schreiber gehört nicht ins Startbündel.
+    const { einsatzCsvInhalt } = await import("./einsatz-csv");
     const ok = await dateiAnbieten(
-      `eeb-einsatz-${marke}${einsatzDateiname(s)}.csv`,
-      einsatzCsvInhalt(teil, meldungsNummern(s.eintraege)),
+      `eeb-einsatz-${marke}${natoZeitstempel()}_${einsatzDateiname(s)}.csv`,
+      einsatzCsvInhalt(teil, meldungsNummern(s.eintraege), undefined, s.eintraege),
       "text/csv;charset=utf-8",
     );
     if (ok) exportVerbuchen(s, "csv");
@@ -3536,8 +3551,8 @@ function AppInhalt() {
     leererEinsatz(s);
     const teil = exportSammlung(s, umfang, exportStaende["csv-detail"] ?? null);
     const ok = await dateiAnbieten(
-      `eeb-einsatz-${nachtragMarke(umfang, "csv-detail")}${einsatzDateiname(s)}-alle-daten.csv`,
-      einsatzDetailCsvInhalt(teil, meldungsNummern(s.eintraege)),
+      `eeb-einsatz-${nachtragMarke(umfang, "csv-detail")}${natoZeitstempel()}_${einsatzDateiname(s)}-alle-daten.csv`,
+      einsatzDetailCsvInhalt(teil, meldungsNummern(s.eintraege), s.eintraege),
       "text/csv;charset=utf-8",
     );
     if (ok) exportVerbuchen(s, "csv-detail");
@@ -3552,7 +3567,11 @@ function AppInhalt() {
     const teil = exportSammlung(s, umfang, exportStaende.xlsx ?? null);
     try {
       const { XLSX_MIME, einsatzOldenburgXlsx } = await import("./oldenburg-xlsx");
-      const ok = await bytesAlsDatei(`eeb-einsatz-${nachtragMarke(umfang, "xlsx")}${einsatzDateiname(s)}-oldenburg.xlsx`, einsatzOldenburgXlsx(teil), XLSX_MIME);
+      const ok = await bytesAlsDatei(
+        `eeb-einsatz-${nachtragMarke(umfang, "xlsx")}${natoZeitstempel()}_${einsatzDateiname(s)}-oldenburg.xlsx`,
+        einsatzOldenburgXlsx(teil, s.eintraege),
+        XLSX_MIME,
+      );
       if (ok) exportVerbuchen(s, "xlsx");
     } catch (e) {
       setFehler(`Excel-Liste: ${fehlerText(e)}`);
@@ -4275,6 +4294,7 @@ function AppInhalt() {
           onGeaendert={einsaetzeNeuLaden}
           onScannen={() => scanneInEinsatz(offenerEinsatz.id)}
           onManuell={() => manuellInEinsatz(offenerEinsatz.id)}
+          onSchnell={() => manuellInEinsatz(offenerEinsatz.id, true)}
           onDateiImport={(dateien) => void importiereStapel(offenerEinsatz.id, dateien, [])}
           onBilderImport={(dateien) => void importiereStapel(offenerEinsatz.id, [], dateien)}
           onEinlesen={(daten, bilder) => void importiereStapel(offenerEinsatz.id, daten, bilder)}
@@ -4724,7 +4744,6 @@ function AppInhalt() {
                 {ausgabeQuittung}
               </p>
             )}
-            {erststart && offlineHinweis}
           </section>
           <section className="weiche-weg" aria-labelledby="weg-meldekopf">
             <h2 id="weg-meldekopf">Bögen sammeln (Meldekopf)</h2>
@@ -4749,7 +4768,7 @@ function AppInhalt() {
                 >
                   „{s.name}" öffnen
                   {/* Einheitenzahl und Ort: zwei gleichnamige Sammlungen sind sonst nur an der Zeit zu unterscheiden (R11-K3). */}
-                  <span className="knopf-zusatz sammlung-kenndaten">{einheitenAufteilung(s.eintraege, s.art)}{s.ort ? ` · ${s.ort}` : ""}</span>
+                  <span className="knopf-zusatz sammlung-kenndaten">{einheitenAnwesend(s.eintraege, s.art)}{s.ort ? ` · ${s.ort}` : ""}</span>
                   <span className="knopf-zusatz"><LetzteMeldungZeit s={s} /></span>
                 </button>
               ))}
@@ -4783,6 +4802,9 @@ function AppInhalt() {
                 <input type="file" accept=".json,application/json,.pdf,application/pdf" className="nur-sr" onChange={importiereEinsatzDatei} />
               </label>
             </div>
+            {/* Unter den Knöpfen beider Wege: Der Fortschritt des Offline-Ladens ändert beim Erstbesuch mehrfach seine
+                Höhe und schob die Knöpfe darunter um 21 bis 42 px (R16-H3). */}
+            {erststart && offlineHinweis}
           </section>
         </div>
         {scannerOffen && (
@@ -5005,6 +5027,22 @@ function AppInhalt() {
           Startseite auf. */}
       {meldung && <p className="meldung" role="status" key={meldung}>{meldung}{vorlageRueckwegKnopf()}</p>}
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
+      {/* R16-E2: „Für neuen Einsatz vorbereiten“ ist wie die Nachbarn zurückholbar, solange nichts Neues eingetragen ist. */}
+      {bogen && einsatzWegGilt(einsatzWeg, bogen) && (
+        <DaumenQuittung
+          key={`einsatz-weg:${einsatzWeg.nonce}`}
+          mehrzeilig
+          onRueckgaengig={() => {
+            setBogen(einsatzWiederherstellen(bogen, einsatzWeg, stempelZeitpunkt()));
+            setEinsatzWeg(null);
+            setMeldung("Zeitraum, Ort/Auftrag und Sofortbedarf des vorigen Einsatzes sind zurück.");
+          }}
+          rueckgaengigName="Rückgängig — Zeitraum, Ort/Auftrag und Sofortbedarf zurückholen"
+          onSchliessen={() => { einsatzWegVergessen(); setEinsatzWeg(null); }}
+        >
+          <strong>Für neuen Einsatz vorbereitet:</strong> Zeitraum, Ort/Auftrag und Sofortbedarf sind leer — „Rückgängig" holt sie zurück, bis du Neues einträgst.
+        </DaumenQuittung>
+      )}
       {/* Der Schrittwechsel trägt seine Richtung: vorwärts kommt der Inhalt von
           rechts, zurück von links. Die Schrittleiste oben sagt, WO man ist —
           dass man gerade zurückgesprungen ist (etwa weil ein Prüfpunkt in einen
@@ -5059,9 +5097,9 @@ function AppInhalt() {
           }
           onInEinsatzAufnehmen={() => { einsaetzeNeuLaden(); einsatzWahlDialog.current?.showModal(); }}
           onNeuerEinsatz={() => {
-            const heute = heuteDatum();
-            const { sofortbedarf: _alt, ...ohneBedarf } = bogen;
-            setBogen({ ...ohneBedarf, einsatz: { zeitraumVon: heute, zeitraumBis: heute, ortAuftrag: "" }, stand: stempelZeitpunkt() });
+            const { bogen: neu, weg } = einsatzVorbereiten(bogen, heuteDatum(), stempelZeitpunkt());
+            setBogen(neu);
+            setEinsatzWeg(weg);
             setSchritt(1);
             setMeldung("Einsatzdaten für den neuen Einsatz zurückgesetzt — Ort/Auftrag eintragen. Personal und Fahrzeuge sind geblieben.");
           }}

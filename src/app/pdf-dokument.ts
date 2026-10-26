@@ -45,7 +45,7 @@ import {
   zeitpunktDeutsch,
 } from "./hilfen";
 import { bedarfNichtErfasst, mwdText, summiereBoegen, unterbringungAngefordertText, verpflegungText, type EinsatzSummen } from "./auswertung";
-import { zeitLang } from "./eintrag-zeiten";
+import { EINTREFF_HINWEIS, zeitLang } from "./eintrag-zeiten";
 import { angabenAlterWort, angabenZeit } from "./angaben-alter";
 import { bedarfOhneAngabeText, kraftstoffTeile, lageblattAlterText, lageblattZeilenAlter, staerkeSummenText, zugAlterText } from "./lagemonitor";
 import { ANONYM_BEMERKUNG_VERMERK, ANONYM_PAPIER_VERMERK, ANONYM_PERSONAL_SATZ, codeGueltigBisText } from "./anonym-hinweis";
@@ -720,7 +720,7 @@ function bedarfZelle(b: Erfassungsbogen): TableCell {
 
 /** Marke hinter einer Eintreffzeit, die nur die Zeit des Einlesens ist (R14-A1); die Fußnote erklärt sie. */
 export const EINGELESEN_STERN = " *";
-export const EINGELESEN_FUSSNOTE = "* Eintreffzeit = Zeit des Einlesens am Gerät, nicht vom Absender oder Meldeblock bestätigt.";
+export const EINGELESEN_FUSSNOTE = `* ${EINTREFF_HINWEIS}`;
 
 /** So viele Zeichen der Bemerkung stehen auf dem Lageblatt, der Rest in der Sammel-PDF. */
 const BEMERKUNG_LAGEBLATT = 70;
@@ -1254,7 +1254,9 @@ function uebersichtsSeite(
   const bedarfBlock: Content = zugSummen
     ? { columns: [{ width: 300, stack: [bedarf] }, { width: "*", stack: [zugSummen] }], columnGap: 12, fontSize: 7.5 }
     : bedarf;
-  const bedarfVorn = !zumWeiterfuehren && eintraege.length > BEDARF_VORN_AB;
+  // Lageblatt mit Zügen: Die Zugsummen gehören auf Seite 1 (R16-K4) — wer nur sie aushängt, hat sonst die Stärke je Zug nicht;
+  // bei langen Zeilen der Tabelle rutschte der Block sonst auf die Rückseite.
+  const bedarfVorn = zumWeiterfuehren ? !leer && zugSummen != null : eintraege.length > BEDARF_VORN_AB;
   return [
     // Titel und Erstellzeit in einer Zeile — jede Zeile zählt, damit das
     // Lageblatt bei rund zehn Einheiten auf eine Seite passt (R2-K3).
@@ -1273,11 +1275,14 @@ function uebersichtsSeite(
     lageKopfleiste(eintraege, leer, nachtrag, erstellt),
     ...(bedarfVorn ? [bedarfBlock] : []),
     uebersichtsTabelle(eintraege, maxZeilen, zumWeiterfuehren, nachtrag, erstellt),
-    ...(nachtragsTab && !rueckseite ? [nachtragsTab] : []),
+    ...(nachtragsTab && !rueckseite && leer ? [nachtragsTab] : []),
     ...(hinweis ? [{ text: hinweis, italics: true, margin: [0, 2, 0, 0] } as Content] : []),
     // Bedarf und Zwischensummen nebeneinander statt untereinander: vorher
     // rutschten die Zwischensummen allein auf Seite 2 (R2-K3).
     ...(bedarfVorn ? [] : [bedarfBlock]),
+    // Das Raster zum Weiterschreiben füllt den Rest des Blatts NACH Bedarf und Zugsummen (R16-K4): bei zwei Zügen
+    // und einer abgerückten Einheit stand es vor ihnen, und sie rutschten hinter zwölf leere Zeilen auf die Rückseite.
+    ...(nachtragsTab && !rueckseite && !leer ? [nachtragsTab] : []),
     // Zu voll für eine Seite mit fünf Nachtragszeilen: die Zeilen bekommen die
     // Rückseite, Seite 1 bleibt, wie sie ist (R4-A3).
     ...(nachtragsTab && rueckseite ? [{ stack: [nachtragsTab], pageBreak: "before" } as Content] : []),
@@ -2276,7 +2281,8 @@ export function pdfDokument(
     pageSize: "A4",
     pageMargins: SEITENRAENDER,
     defaultStyle: { fontSize: 8, font: SCHRIFT },
-    info: { title: `Erfassungsbogen ${typKurz || typName}` },
+    // Titel mit Einheit und Stand: Ein im Tab angezeigter Bogen hat keinen Dateinamen, der Titel unterscheidet ihn in Tab und Ablage (R16-A3).
+    info: { title: blanko ? `Erfassungsbogen ${typKurz || typName}` : `Erfassungsbogen ${einheitAnzeigename(b.einheit)}, Stand ${zeitpunktDeutsch(b.stand)}` },
     ...(b.uebung ? { background: uebungsWasserzeichen() } : {}),
     // Maschinenlesbares JSON dokumentweit einbetten (ZUGFeRD-artig). Am
     // Vordruck hinge dort ein leerer Bogen — ein Anhang ohne jede Aussage.

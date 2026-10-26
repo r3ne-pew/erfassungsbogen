@@ -30,7 +30,7 @@ import {
   einsaetzePapierkorb as kernEinsaetzePapierkorb,
 } from "@bos/meldekopf/einsaetze";
 import { entfernteMerken } from "./entfernte-meldungen";
-import { geltendeJeEinheit } from "./fassung-vorrang";
+import { fassungenJeEinheit, geltendeJeEinheit } from "./fassung-vorrang";
 import { zugNormalisiert } from "./zug-name";
 import { EEB_EPOCHE_MS, type EebZeitpunkt } from "@bos/eeb-format/model";
 
@@ -134,6 +134,30 @@ export function zeitpunktZuMs(z: EebZeitpunkt): number {
 /** Eintreffzeit einer Meldung — korrigierter Wert oder Empfangszeit. */
 export function eintreffzeit(e: MeldeEintrag): number {
   return e.eingetroffenAm ?? e.empfangenAm;
+}
+
+/**
+ * Ist die Eintreffzeit der Meldung nur die Zeit, zu der das Gerät sie angenommen hat? Von Hand gesetzte oder
+ * korrigierte Zeiten (Zettel-Eingabe, „ändern") weichen vom Eingang der ersten Fassung ab; manuell erfasste
+ * Einheiten stammen vom Meldeblock (R14-A1).
+ */
+export function zeitEingelesen(m: MeldeEintrag, fassungenNeuesteZuerst: MeldeEintrag[]): boolean {
+  const erste = fassungenNeuesteZuerst[fassungenNeuesteZuerst.length - 1] ?? m;
+  // Nur die erste Fassung entscheidet: Eine von Hand korrigierte Stärke (Quelle „manuell") erbt die Eintreffzeit der
+  // eingelesenen Meldung und damit auch deren Kennzeichnung (R15-A1).
+  if (erste.quelle === "manuell") return false;
+  return eintreffzeit(m) === erste.empfangenAm;
+}
+
+/** Fußnote zur Eintreffzeit: Lageblatt, Sammel-PDF, Excel und CSV sagen dasselbe (R16-A1). */
+export const EINTREFF_HINWEIS = "Eintreffzeit = Zeit des Einlesens am Gerät, nicht vom Absender oder Meldeblock bestätigt.";
+
+/**
+ * Ist die Eintreffzeit dieser Meldung vom Gerät und nicht vom Absender bestätigt (Einlesen oder vom Papier)?
+ * `historie` ist die ganze Sammlung: Beim Teilexport fehlt die erste Fassung sonst (R16-A1).
+ */
+export function eintreffzeitUnbestaetigt(m: MeldeEintrag, historie: readonly MeldeEintrag[]): boolean {
+  return m.vomPapier != null || zeitEingelesen(m, fassungenJeEinheit(historie, m.einheitSchluessel));
 }
 
 /** Spielraum für „in der Zukunft": Uhren zweier Geräte gehen nie gleich. */
@@ -271,6 +295,23 @@ function eintragAendern(einsatzId: string, eintragId: string, aendern: (e: Melde
   aendern(e);
   s.geaendert = Date.now();
   sammlungenSchreiben(liste);
+}
+
+/**
+ * Name und Ort/Auftrag einer Sammlung nachträglich ändern (R16-K1): Beides steht beim Anlegen oft noch nicht fest. Der
+ * Kern bietet dafür keinen Setter; Einheiten, Zeiten und Aufträge bleiben unberührt. Ein leerer Name lässt den alten
+ * stehen, ein leerer Ort löscht ihn. Liefert die Werte davor (für „Rückgängig"); `null`, wenn es den Einsatz nicht gibt.
+ */
+export function einsatzKopfSetzen(einsatzId: string, name: string, ort: string): { name: string; ort: string } | null {
+  const liste = alleSammlungen();
+  const s = liste.find((x) => x.id === einsatzId);
+  if (!s) return null;
+  const vorher = { name: s.name, ort: s.ort ?? "" };
+  s.name = name.trim() || s.name;
+  s.ort = ort.trim() || undefined;
+  s.geaendert = Date.now();
+  sammlungenSchreiben(liste);
+  return vorher;
 }
 
 /** Eintreffzeit einer Meldung korrigieren (Nachtragen vom Papier). */

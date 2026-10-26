@@ -493,7 +493,7 @@ export function sicherungEinspielFehlerText(bestandUnveraendert: boolean, ursach
   const voll = ursache instanceof Error && /quota|voll|full/i.test(`${ursache.name} ${ursache.message}`);
   const grund = voll ? "Der Speicher dieses Geräts reicht für diese Sicherung nicht" : "Die Sicherung ließ sich nicht schreiben";
   return bestandUnveraendert
-    ? `Nicht eingespielt: ${grund}. Ihre bisherigen Daten auf diesem Gerät sind unverändert.`
+    ? `Nicht eingespielt: ${grund}. Deine bisherigen Daten auf diesem Gerät sind unverändert.`
     : `Nicht eingespielt: ${grund}, und die bisherigen Daten ließen sich nicht vollständig zurückschreiben. Seite nicht schließen, Sicherung vorher erstellen.`;
 }
 

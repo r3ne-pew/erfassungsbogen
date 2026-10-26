@@ -11,6 +11,14 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-26 — Audit Runde 16:** Speicherort neu: `eeb.einsatz.rueckweg` im
+> `sessionStorage` (Rückweg für das Zurücksetzen der Vorbereitung, 15 Minuten,
+> mit „Alle Daten löschen" geleert; 5.7). Exporte (5.1, 5.5): CSV und Excel tragen eine
+> Schlusszeile mit Einsatzname und Erstellzeit und kennzeichnen nicht bestätigte
+> Eintreffzeiten; die Dateinamen enthalten Datum und Uhrzeit (Richtigkeit,
+> Art. 5 Abs. 1 lit. d DSGVO). Der Einsatzname ist nachträglich änderbar. Empfänger
+> und Netzverbindungen unverändert (5.8).
+>
 > **Nachgezogen 2026-10-26 — Audit Runde 15:** Speicherorte neu: `eeb.papierabgleich.v1.<Einsatz-ID>`
 > im `localStorage` (Zwischenstand des Papierabgleichs mit den eingetragenen Zeilen,
 > also Namen und Zahlen der Einheit; verfällt nach 3 Tagen, ist Teil der

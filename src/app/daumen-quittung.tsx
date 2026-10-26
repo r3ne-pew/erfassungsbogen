@@ -19,8 +19,11 @@
  * `prellschutz`: Die Knöpfe nehmen erst nach PRELLSCHUTZ_MS an.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { PRELLSCHUTZ_MS, QUITTUNG_SPERRE_MS, letzterTippOrt, ortSperren } from "./tipp-schutz";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { PRELLSCHUTZ_MS, QUITTUNG_SPERRE_MS, letzterTippOrt, ortSperren, tippVerworfenZeigen } from "./tipp-schutz";
+
+/** So lange steht die Leiste in voller Höhe; danach eine Zeile mit „Rückgängig" und „✕" (R16-W1). */
+export const QUITTUNG_KOMPAKT_NACH_MS = 15_000;
 
 /** Die Karte (Einheit, Person, Fahrzeug) unter der getippten Stelle, durch die Leiste hindurch. */
 function darunterLiegendeKarte(tipp: { x: number; y: number }, leiste: HTMLElement): HTMLElement | null {
@@ -47,11 +50,21 @@ export function DaumenQuittung({ children, prellschutz = false, onRueckgaengig, 
   const leiste = useRef<HTMLDivElement>(null);
   // Nur einmal je Leiste rollen (StrictMode ruft den Effekt doppelt auf).
   const gerollt = useRef(false);
+  // Nach dem Lesen schrumpft die Leiste auf eine Zeile (R16-W1): Sie stand sonst minutenlang auf einem Viertel des Bildes.
+  const [kompakt, setKompakt] = useState(false);
+  useEffect(() => {
+    const uhr = setTimeout(() => setKompakt(true), QUITTUNG_KOMPAKT_NACH_MS);
+    return () => clearTimeout(uhr);
+  }, []);
   useEffect(() => {
     if (bereit) return;
     const uhr = setTimeout(() => setBereit(true), PRELLSCHUTZ_MS);
     return () => clearTimeout(uhr);
   }, [bereit]);
+  // Ein Tipp im Prellschutz verpuffte still (R16-D1): Jetzt sagt „Einen Moment …" auf dem Knopf, dass er verworfen wurde.
+  const verworfen = (e: MouseEvent<HTMLButtonElement>) => {
+    if (e.detail > 0) tippVerworfenZeigen(e.nativeEvent);
+  };
   useLayoutEffect(() => {
     const el = leiste.current;
     if (!el) return;
@@ -117,20 +130,21 @@ export function DaumenQuittung({ children, prellschutz = false, onRueckgaengig, 
     return () => {
       wurzel.style.removeProperty("--quittung-hoehe");
     };
-  }, []);
+    // `kompakt`: Die Seite hält nur so viel Platz frei, wie die Leiste jetzt braucht (R16-W1).
+  }, [kompakt]);
   return (
-    <div className={mehrzeilig ? "quittung-daumen quittung-mehrzeilig" : "quittung-daumen"} role="status" ref={leiste}>
+    <div className={`quittung-daumen${mehrzeilig ? " quittung-mehrzeilig" : ""}${kompakt ? " quittung-kompakt" : ""}`} role="status" ref={leiste}>
       <span className="quittung-text">{children}</span>
       {/* Die beiden Knöpfe bleiben als Paar zusammen: reicht die Breite nicht
           für Text und Knöpfe, rutscht das Paar unter den Text (R4-M1) — „✕"
           steht nie allein in einer Zeile. */}
       <span className="quittung-knoepfe">
         {onRueckgaengig && (
-          <button type="button" className="quittung-rueckgaengig" disabled={!bereit} onClick={onRueckgaengig} aria-label={rueckgaengigName} title={rueckgaengigName}>
+          <button type="button" className="quittung-rueckgaengig" aria-disabled={!bereit || undefined} onClick={(e) => (bereit ? onRueckgaengig() : verworfen(e))} aria-label={rueckgaengigName} title={rueckgaengigName}>
             Rückgängig
           </button>
         )}
-        <button type="button" className="quittung-schliessen" disabled={!bereit} aria-label="Quittung schließen" onClick={onSchliessen}>
+        <button type="button" className="quittung-schliessen" aria-disabled={!bereit || undefined} aria-label="Quittung schließen" onClick={(e) => (bereit ? onSchliessen() : verworfen(e))}>
           ✕
         </button>
       </span>

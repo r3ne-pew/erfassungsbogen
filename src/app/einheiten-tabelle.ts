@@ -176,6 +176,12 @@ export function einheitenAufteilung(eintraege: MeldeEintrag[], art: EinsatzArt):
   return `${gemeldet === 1 ? "1 Einheit" : `${gemeldet} Einheiten`} gemeldet · ${anwesend} anwesend`;
 }
 
+/** Wie {@link einheitenAufteilung}, mit „anwesend" auch im Gleichstand: Schnelleinstieg und Karte der Startseite sagen dasselbe (R16-N2). */
+export function einheitenAnwesend(eintraege: MeldeEintrag[], art: EinsatzArt): string {
+  const text = einheitenAufteilung(eintraege, art);
+  return text === anzahlEinheiten(eintraege) ? `${text} anwesend` : text;
+}
+
 /** Eine Einheit, deren laufende Nummer sich durch eine Übernahme geändert hat (R5-W3). */
 export interface NummernWechsel {
   einheitSchluessel: string;
@@ -596,6 +602,22 @@ function zitat(text: string): string {
  * 400 l") und geänderte Freitexte nur mit Namen. `diffKurzfassung` allein
  * sagte bei Weinsberg „2 Änderungen" — welche, stand erst hinter einem Tipp.
  */
+/**
+ * Zeile der Kurzfassung des Eingangskastens (ab sechs Neuen): was ausgeblendet ist, nach Neumeldung und Folgemeldung getrennt
+ * gezählt (R16-K3). „Einzelsatz" war ein Wort der Software, keines der Führungsstelle.
+ */
+export function ausgeblendetText(neu: number, folgen: number): string {
+  const teile = [
+    ...(neu > 0 ? [`${neu} ${neu === 1 ? "Einheit" : "Einheiten"} neu gemeldet`] : []),
+    ...(folgen > 0 ? [`${folgen} ${folgen === 1 ? "Folgemeldung" : "Folgemeldungen"}`] : []),
+  ];
+  return `${teile.join(", ")} — Zeilen je Einheit ausgeblendet, siehe Liste`;
+}
+
+const BEDARF_RANG = ["Ruhezeit erforderlich", "Unterbringung angefordert", "Unterbringung M/W/D", "Diesel", "Benzin", "Gemisch", "Verpflegung"];
+/** Kurzform des Feldnamens in der Kurzzeile: „Ruhezeit ja → nein". */
+const BEDARF_KURZ: Record<string, string> = { "Ruhezeit erforderlich": "Ruhezeit", "Unterbringung angefordert": "Unterbringung" };
+
 function folgeKurztext(d: ReturnType<typeof bogenDiff>, vorher: number, nachher: number): string {
   if (d.anzahl === 0) return "inhaltlich unverändert";
   const teile: string[] = [];
@@ -611,11 +633,14 @@ function folgeKurztext(d: ReturnType<typeof bogenDiff>, vorher: number, nachher:
     teile.push(fz);
     erklaert += d.fahrzeugeZugang.length + d.fahrzeugeAbgang.length;
   }
-  // Die M/W/D-Aufteilung folgt der Stärke — neben ihr nur Lärm.
-  const bedarf = vorher !== nachher ? d.bedarf.filter((a) => a.feld !== "Unterbringung M/W/D") : d.bedarf;
+  // Die M/W/D-Aufteilung folgt der Stärke — neben ihr nur Lärm; ebenso die Verpflegung, wenn sie nur die neue Stärke wiederholt
+  // (R16-K2). Der Rest nach Entscheidungsrelevanz: Ruhezeit und Unterbringung vor Betriebsstoff, nicht in der Reihenfolge des Bogens.
+  const bedarf = d.bedarf
+    .filter((a) => !(vorher !== nachher && a.feld === "Unterbringung M/W/D") && !(vorher !== nachher && a.feld === "Verpflegung" && a.nachher === `${nachher} Personen`))
+    .sort((a, b) => BEDARF_RANG.indexOf(a.feld) - BEDARF_RANG.indexOf(b.feld));
   erklaert += d.bedarf.length - bedarf.length;
   for (const a of bedarf.slice(0, Math.max(0, 3 - teile.length))) {
-    teile.push(`${a.feld} ${a.vorher} → ${a.nachher}`);
+    teile.push(`${BEDARF_KURZ[a.feld] ?? a.feld} ${a.vorher} → ${a.nachher}`);
     erklaert++;
   }
   for (const a of d.sonstiges.slice(0, Math.max(0, 3 - teile.length))) {

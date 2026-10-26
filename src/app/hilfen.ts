@@ -1176,8 +1176,9 @@ export function schrittStatus(b: Erfassungsbogen): SchrittStatus[] {
     b.personalErfassung === PersonalErfassung.VOLLSTAENDIG &&
     b.personal.length > 0 &&
     b.personal.every((p) => personLeer(p) || personUnbenannt(p));
+  // Auch die unveränderten Zahlen der Schnellerfassung sind nur die Vorbelegung, nicht gezählt: kein Haken (R16-S2).
   const personal: SchrittStatus =
-    staerkeGemeldet && !nurLeereKarten ? "ok" : b.personal.length > 0 || staerkeGemeldet ? "begonnen" : "leer";
+    staerkeGemeldet && !nurLeereKarten && !nurSollstaerke(b) ? "ok" : b.personal.length > 0 || staerkeGemeldet ? "begonnen" : "leer";
 
   // Vorbelegte Fahrzeuge ohne ein einziges Kennzeichen sind begonnen, nicht fertig (R2-N3).
   const fahrzeuge: SchrittStatus =

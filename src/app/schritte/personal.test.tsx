@@ -307,6 +307,17 @@ describe("Schritt Personal", () => {
     expect((within(dialog).getByRole("textbox") as HTMLTextAreaElement).value).toBe("");
   });
 
+  it("duzt im Hinweis zur stehenden Liste wie die übrige Oberfläche (R16-N3)", async () => {
+    const nutzer = userEvent.setup();
+    buehne();
+    await nutzer.click(screen.getByRole("button", { name: "Namen einfügen…" }));
+    const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Namen einfügen']")!;
+    await nutzer.type(within(dialog).getByRole("textbox"), "Muster, Max");
+    const satz = within(dialog).getByText(/Die Liste bleibt stehen/).textContent ?? "";
+    expect(satz).toContain("auch wenn du das Fenster schließt — bis du sie übernimmst oder leerst.");
+    expect(satz).not.toMatch(/\bSie\b/);
+  });
+
   it("übernimmt eine eingefügte Namensliste als Personen", async () => {
     const nutzer = userEvent.setup();
     buehne();

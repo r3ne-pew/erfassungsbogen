@@ -88,3 +88,16 @@ export function zahlLesen(eingabe: string, regeln: ZahlRegeln = {}): ZahlErgebni
   if (mitEinheit) return { wert: ganz, meldung: `„${gezeigt}“ gelesen als ${ganz}.` };
   return { wert: ganz, meldung: "" };
 }
+
+/**
+ * Beim Antippen eines Zahlenfelds den Inhalt markieren: Wer eine Vorgabe oder die bisherige Zahl überschreibt, tippt
+ * die neue und die alte ist weg. Ohne das hängte sich die Ziffer an („2" + „6" = 26, R16-S1). Nach dem Fokus noch
+ * einmal, weil mobile Browser den Textzeiger beim Loslassen des Fingers setzen.
+ */
+export function zahlMarkieren(e: { currentTarget: HTMLInputElement }): void {
+  const feld = e.currentTarget;
+  feld.select();
+  setTimeout(() => {
+    if (document.activeElement === feld && feld.selectionStart === feld.selectionEnd) feld.select();
+  }, 0);
+}

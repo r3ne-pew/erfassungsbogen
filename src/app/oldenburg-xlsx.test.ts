@@ -506,8 +506,8 @@ describe("Oldenburg-XLSX: Lage wie in der App (R2-K2)", () => {
     const zZtr = zeileMitId(b, "ztr");
     expect([zEss, zZtr].sort()).toEqual([7, 8]);
     const bem = spalteVon(b, "Bemerkung");
-    expect(zelle(b, `${bem}${zEss}`)).toMatch(/^Nr\. \d+ — ABGERÜCKT — zählt nicht in der Lage$/);
-    expect(zelle(b, `${bem}${zZtr}`)).toMatch(/^Nr\. \d+ — ÜBUNG — zählt nicht in der Lage$/);
+    expect(zelle(b, `${bem}${zEss}`)).toMatch(/^Nr\. \d+ — ABGERÜCKT — zählt nicht in der Lage( — Eintreffzeit nicht bestätigt.*)?$/);
+    expect(zelle(b, `${bem}${zZtr}`)).toMatch(/^Nr\. \d+ — ÜBUNG — zählt nicht in der Lage( — Eintreffzeit nicht bestätigt.*)?$/);
   });
 
   it("trägt die Abrückzeit in „Einsatz-ende“ und lässt „Rück-führung“ der Führungsstelle", () => {
@@ -553,7 +553,7 @@ describe("Oldenburg-XLSX: Lage wie in der App (R2-K2)", () => {
     });
     const b = blatt(einsatzOldenburgXlsx(sammlung([bergung, teil])));
     expect(zelle(b, `${spalteVon(b, "Bemerkung")}${zeileMitId(b, "teil")}`)).toMatch(
-      /^Nr\. \d+ — AUFGEGANGEN in .+ — zählt nicht in der Lage$/,
+      /^Nr\. \d+ — AUFGEGANGEN in .+ — zählt nicht in der Lage( — Eintreffzeit nicht bestätigt.*)?$/,
     );
     expect(subtotal(b, "Fü")).toBe(1);
   });
@@ -561,7 +561,36 @@ describe("Oldenburg-XLSX: Lage wie in der App (R2-K2)", () => {
   it("schreibt ohne nicht zählende Einheiten keinen Block", () => {
     const b = blatt(einsatzOldenburgXlsx(sammlung([fgrE])));
     expect(b).not.toContain("Nicht in der Lage gezählt");
-    expect(b).toContain('<dimension ref="A1:AJ3"/>');
+    // Zeile 3 die Einheit, Zeile 5 die Kennzeile (Einsatz, Erstellzeit, R16-A1); die Einheit ist von Hand erfasst, also keine Fußnote.
+    expect(b).toContain('<dimension ref="A1:AJ5"/>');
+  });
+});
+
+describe("Oldenburg-XLSX: Einsatzname, Erstellzeit, Eintreffzeit (R16-A1)", () => {
+  const erstellt = new Date(2026, 9, 26, 17, 16).getTime();
+
+  it("nennt Einsatz und Erstellzeit in A1 und in der Schlusszeile, die Fußnote nur bei eingelesener Eintreffzeit", () => {
+    const b = blatt(einsatzOldenburgXlsx(sammlung([meldung(bogen())]), undefined, erstellt));
+    expect(zelle(b, "A1")).toBe("Einsatz „Sturmflut 26“");
+    expect(b).toContain("Einsatz „Sturmflut 26“ · Erstellt 26.10.2026, 17:16");
+    expect(b).toContain("* Eintreffzeit = Zeit des Einlesens am Gerät, nicht vom Absender oder Meldeblock bestätigt.");
+    expect(zelle(b, `${spalteVon(b, "Bemerkung")}3`)).toContain("Eintreffzeit nicht bestätigt");
+  });
+
+  it("kennzeichnet eine von Hand erfasste Einheit nicht und lässt die Fußnote weg", () => {
+    const b = blatt(einsatzOldenburgXlsx(sammlung([meldung(bogen(), { quelle: "manuell" })]), undefined, erstellt));
+    expect(b).toContain("Einsatz „Sturmflut 26“ · Erstellt 26.10.2026, 17:16");
+    expect(b).not.toContain("Eintreffzeit nicht bestätigt");
+    expect(b).not.toContain("Eintreffzeit = Zeit des Einlesens");
+  });
+
+  it("rechnet die Kennzeichnung bei einem Teilexport aus der ganzen Sammlung", () => {
+    const erste = meldung(bogen(), { id: "alt", empfangenAm: 1000 });
+    const folge = meldung(bogen({ stand: 101 * 1440 }), { id: "neu", empfangenAm: 5000, eingetroffenAm: 1000 });
+    const teil = sammlung([folge]);
+    // Ohne die erste Fassung gälte die Folgemeldung als Erstmeldung mit anderer Eintreffzeit: nicht gekennzeichnet.
+    expect(blatt(einsatzOldenburgXlsx(teil, [folge], erstellt))).not.toContain("Eintreffzeit nicht bestätigt");
+    expect(blatt(einsatzOldenburgXlsx(teil, [folge, erste], erstellt))).toContain("Eintreffzeit nicht bestätigt");
   });
 });
 

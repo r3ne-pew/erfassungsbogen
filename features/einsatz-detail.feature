@@ -198,16 +198,17 @@ Funktionalität: Einsatz-Sammlung führen (Meldekopf)
     Wenn ich auf "Übersicht als CSV" klicke und eine Datei erhalte
     Dann sehe ich den Hinweis "seitdem keine neuen Bögen"
     Wenn ich "Nur neue Bögen seit dem letzten Export" ankreuze
-    Dann ist die Schaltfläche "Übersicht als CSV" gesperrt
+    # Im Nachtrag-Modus nennen die Knöpfe Nachtrag und Zahl, damit eine Teildatei nicht wie der Vollexport aussieht (R16-W2).
+    Dann ist die Schaltfläche "Übersicht als CSV — Nachtrag: nichts Neues" gesperrt
     Und ist die Schaltfläche "Sammel-PDF (erste Lieferung: alle Bögen)" bedienbar
-    Und ist die Schaltfläche "Excel-Liste (Format „Oldenburg“)" bedienbar
+    Und ist die Schaltfläche "Excel-Liste (Format „Oldenburg“) — erste Lieferung: alle Bögen" bedienbar
     Wenn ich die Einheit "DLRG" "Wardenburg" manuell in den Einsatz aufnehme
     Dann sehe ich den Hinweis "seitdem 1 neuer Bogen"
-    Und ist die Schaltfläche "Übersicht als CSV" bedienbar
-    Wenn ich auf "Übersicht als CSV" klicke und eine Datei erhalte
+    Und ist die Schaltfläche "Übersicht als CSV — Nachtrag (1 Einheit)" bedienbar
+    Wenn ich auf "Übersicht als CSV — Nachtrag (1 Einheit)" klicke und eine Datei erhalte
     Dann sehe ich den Hinweis "seitdem keine neuen Bögen"
-    Und ist die Schaltfläche "Übersicht als CSV" gesperrt
-    Und ist die Schaltfläche "Excel-Liste (Format „Oldenburg“)" bedienbar
+    Und ist die Schaltfläche "Übersicht als CSV — Nachtrag: nichts Neues" gesperrt
+    Und ist die Schaltfläche "Excel-Liste (Format „Oldenburg“) — erste Lieferung: alle Bögen" bedienbar
 
   Szenario: Gelöschter Einsatz liegt im Papierkorb und kommt zurück
     Wenn ich auf "Einsatz löschen…" klicke
@@ -255,4 +256,4 @@ Funktionalität: Einsatz-Sammlung führen (Meldekopf)
     Wenn ich auf "‹ Startseite" klicke
     Dann sehe ich die Überschrift "Einsatz-Sammlung (Meldekopf)"
     Und sehe ich die Überschrift "Hochwasser Weser"
-    Und sehe ich den Hinweis "1 Einheit(en) anwesend"
+    Und sehe ich den Hinweis "1 Einheit anwesend"

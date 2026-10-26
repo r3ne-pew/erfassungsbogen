@@ -24,7 +24,7 @@ import { BLANKO_DATEINAME, BLANKO_INFO, BLANKO_ZEILEN, leererBogen } from "./bla
 import { MeldeStatus, type Einsatzsammlung, type MeldeEintrag } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit, fassungenJeEinheit } from "./fassung-vorrang";
 import { zaehltInLage } from "./auswertung";
-import { eintreffzeit } from "./eintrag-zeiten";
+import { eintreffzeit, zeitEingelesen } from "./eintrag-zeiten";
 import { standLiegtNachEintreffen } from "./stand-uhr";
 import { exportStaendeLaden, lageblattVermerken, weitergabeVermerken } from "./export-stand";
 import { abweichenderOrt } from "./einheiten-tabelle";
@@ -177,18 +177,7 @@ export function tabNachErzeugung(fenster: Window, nach = 2500): void {
   }, nach);
 }
 
-/**
- * Ist die Eintreffzeit der Meldung nur die Zeit, zu der das Gerät sie angenommen hat? Von Hand gesetzte oder
- * korrigierte Zeiten (Zettel-Eingabe, „ändern") weichen vom Eingang der ersten Fassung ab; manuell erfasste
- * Einheiten stammen vom Meldeblock (R14-A1).
- */
-export function zeitEingelesen(m: MeldeEintrag, fassungenNeuesteZuerst: MeldeEintrag[]): boolean {
-  const erste = fassungenNeuesteZuerst[fassungenNeuesteZuerst.length - 1] ?? m;
-  // Nur die erste Fassung entscheidet: Eine von Hand korrigierte Stärke (Quelle „manuell") erbt die Eintreffzeit der
-  // eingelesenen Meldung und damit auch deren Kennzeichnung (R15-A1).
-  if (erste.quelle === "manuell") return false;
-  return eintreffzeit(m) === erste.empfangenAm;
-}
+export { zeitEingelesen };
 
 /**
  * Was die Übersichtsseite über eine Meldung wissen muss — Zeiten, Status,

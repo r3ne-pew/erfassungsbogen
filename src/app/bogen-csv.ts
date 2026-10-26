@@ -67,11 +67,11 @@ import {
 } from "./hilfen";
 import { csvDatei, csvZeile, jaNein } from "./csv";
 import { telefonAlsTabellenText } from "./telefon-eingabe";
-import { HERKUNFT_TEXT, eintreffzeit, zeitLang } from "./eintrag-zeiten";
+import { EINTREFF_HINWEIS, HERKUNFT_TEXT, eintreffzeit, eintreffzeitUnbestaetigt, zeitLang } from "./eintrag-zeiten";
 import { meldungsNummern } from "./einheiten-tabelle";
 import { MeldeStatus, type Einsatzsammlung, type MeldeEintrag, type MeldeQuelle } from "@bos/meldekopf/einsaetze";
 import { geltendeJeEinheit } from "./fassung-vorrang";
-import { nachtragGrundText, ortHinweisText, ortHinweise } from "./export-stand";
+import { exportKennzeile, nachtragGrundText, ortHinweisText, ortHinweise } from "./export-stand";
 
 // ------------------------------------------------------------------ Spalten
 
@@ -354,11 +354,12 @@ function bogenSaetze(b: Erfassungsbogen, k: Kontext): Satz[] {
   ];
 }
 
-function zuDatei(saetze: Satz[], zusatzSpalte?: { name: string; werte: (satz: Satz, index: number) => string; schluss?: string }): string {
+function zuDatei(saetze: Satz[], zusatzSpalte?: { name: string; werte: (satz: Satz, index: number) => string; schluss?: string }, fuss: string[] = []): string {
   const kopf = csvZeile([...SPALTEN, ...(zusatzSpalte ? [zusatzSpalte.name] : [])]);
   const zeilen = saetze.map((s, i) => csvZeile([...SPALTEN.map((sp) => s[sp] ?? ""), ...(zusatzSpalte ? [zusatzSpalte.werte(s, i)] : [])]));
-  // Schlusszeile (Nachtrag, R5-K6): ein Satz „Hinweis" mit dem Text im ersten Feld.
-  const schluss = zusatzSpalte?.schluss ? [csvZeile([zusatzSpalte.schluss, ...SPALTEN.slice(1).map((sp) => (sp === "Satzart" ? "Hinweis" : "")), ""])] : [];
+  // Schlusszeilen (Nachtrag R5-K6, Lage und Erstellzeit R16-A1): ein Satz „Hinweis" mit dem Text im ersten Feld.
+  const hinweis = (text: string) => csvZeile([text, ...SPALTEN.slice(1).map((sp) => (sp === "Satzart" ? "Hinweis" : "")), ...(zusatzSpalte ? [""] : [])]);
+  const schluss = [...(zusatzSpalte?.schluss ? [hinweis(zusatzSpalte.schluss)] : []), ...fuss.map(hinweis)];
   return csvDatei([kopf, ...zeilen, ...schluss]);
 }
 
@@ -369,12 +370,13 @@ export function bogenCsvInhalt(b: Erfassungsbogen): string {
   return zuDatei(bogenSaetze(b, {}));
 }
 
-function kontextAusMeldung(e: MeldeEintrag, einsatz: string, meldungNr?: number, fremderOrt?: string): Kontext {
+function kontextAusMeldung(e: MeldeEintrag, einsatz: string, meldungNr?: number, fremderOrt?: string, unbestaetigt = false): Kontext {
   return {
     fremderOrt,
     einsatz,
     meldungNr,
-    eingetroffen: zeitLang(eintreffzeit(e)),
+    // Stern wie Lageblatt und Sammel-PDF (R16-A1); die Fußnote steht am Dateiende.
+    eingetroffen: `${zeitLang(eintreffzeit(e))}${unbestaetigt ? " *" : ""}`,
     abgerueckt: e.abgerueckAm != null ? zeitLang(e.abgerueckAm) : "",
     notiz: e.notiz ?? "",
     teil: e.teilEtikett,
@@ -398,6 +400,9 @@ export function einsatzDetailCsvInhalt(
   s: Einsatzsammlung,
   /** Nummern aus der ganzen Sammlung — beim Teilexport „nur neue" sonst verschoben. */
   nummern: Map<string, number> = meldungsNummern(s.eintraege),
+  /** Ganze Sammlung für die Kennzeichnung der Eintreffzeit (beim Teilexport fehlt die erste Fassung sonst). */
+  historie: readonly MeldeEintrag[] = s.eintraege,
+  erstellt: number = Date.now(),
 ): string {
   const meldungen = geltendeJeEinheit(s.eintraege).sort(
     (a, b) =>
@@ -409,12 +414,15 @@ export function einsatzDetailCsvInhalt(
   const orte = ortHinweise(s);
   // Je Satz die Einheit, zu der er gehört — für die Spalte „Im Nachtrag wegen" (R5-W7).
   const einheitJeSatz: string[] = [];
+  const unbestaetigt = meldungen.filter((e) => eintreffzeitUnbestaetigt(e, historie));
   const saetze = meldungen.flatMap((e) => {
-    const teil = bogenSaetze(e.bogen, kontextAusMeldung(e, s.name, nummern.get(e.einheitSchluessel), orte[e.einheitSchluessel]));
+    const teil = bogenSaetze(e.bogen, kontextAusMeldung(e, s.name, nummern.get(e.einheitSchluessel), orte[e.einheitSchluessel], unbestaetigt.includes(e)));
     for (const _ of teil) einheitJeSatz.push(e.einheitSchluessel);
     return teil;
   });
-  if (!gruende) return zuDatei(saetze);
+  // Schlusszeilen: Lage, Erstellzeit und Fußnote zur Eintreffzeit (R16-A1).
+  const fuss = [exportKennzeile(s, erstellt), ...(unbestaetigt.length > 0 ? [`* ${EINTREFF_HINWEIS}`] : [])];
+  if (!gruende) return zuDatei(saetze, undefined, fuss);
   // Als Nachtrag: Grund auf jeder Zeile (wie der Kontext, damit eine gefilterte
   // Ansicht lesbar bleibt) und eine Schlusszeile, die die Datei als Teilmenge
   // kennzeichnet (R5-K6).
@@ -423,5 +431,5 @@ export function einsatzDetailCsvInhalt(
     name: "Im Nachtrag wegen",
     werte: (_satz, i) => nachtragGrundText(gruende[einheitJeSatz[i]!]),
     schluss: `NACHTRAG${seit} — nicht die ganze Lage (${meldungen.length} ${meldungen.length === 1 ? "Einheit" : "Einheiten"} in dieser Datei)`,
-  });
+  }, fuss);
 }

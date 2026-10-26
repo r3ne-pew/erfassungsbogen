@@ -24,6 +24,7 @@ import {
   abgleichEntwurfLoeschen,
   abgleichEntwurfSpeichern,
   abgleichZeilenMitEntwurf,
+  ENTWURF_DAUER_TEXT,
   geaenderteZeilen,
   type AbgleichZeile,
 } from "./papier-abgleich-entwurf";
@@ -284,8 +285,7 @@ export function PapierAbgleich(props: {
         )}
         {entwurfAnzahl > 0 && (
           <p className="hinweis">
-            Angefangene Eingaben für {entwurfAnzahl === 1 ? "1 Einheit" : `${entwurfAnzahl} Einheiten`} sind noch da (auf diesem Gerät, bis du
-            sie übernimmst, höchstens drei Tage). Sie erscheinen wieder, wenn du den Abgleich öffnest.
+            Angefangene Eingaben für {entwurfAnzahl === 1 ? "1 Einheit" : `${entwurfAnzahl} Einheiten`} sind noch da ({ENTWURF_DAUER_TEXT}). Sie erscheinen wieder, wenn du den Abgleich öffnest.
           </p>
         )}
         {props.knopfImBericht ? (
@@ -379,7 +379,7 @@ export function PapierAbgleich(props: {
         <button type="button" className="gefahr" onClick={() => void eingabenVerwerfen()}>
           Eingaben verwerfen…
         </button>
-        <p className="hinweis">„Später“ schließt nur das Formular; die Eingaben bleiben für diese Sitzung erhalten.</p>
+        <p className="hinweis">„Später“ schließt nur das Formular; die Eingaben bleiben erhalten ({ENTWURF_DAUER_TEXT}).</p>
       </div>
     </section>
   );
