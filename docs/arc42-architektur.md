@@ -12,6 +12,28 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-26 (Runde 11):** Audit Runde 11 (51 Befunde ohne
+> Doppelungen, drei Pakete) — Kap. 5, 8.2, 8.4, 8.5, 8.6: neuer localStorage-Schlüssel
+> `eeb.widersprueche.v1` (`widerspruch-merker.ts`, Widersprüche des Imports je
+> Einsatz, bis „Erledigt"). Telefonfelder (`telefon-eingabe.ts`) behalten das
+> führende „+", trennen eine zweite Nummer ab und fragen bei weniger als sieben
+> Ziffern nach. Suchfelder gleichen Schreibweisen ab (`schreibweise.ts`: ß/ss,
+> ä/ae, ü/ue). Einsatz-CSV: neue Spalte „Verpflegung angefordert" hinter
+> „Verpflegung gesamt" (folgende Spalten rücken um eins), „Telefon Einheit" mit
+> Vorsatz „Tel. ". Lageblatt und Sammel-PDF: angeforderte Verpflegung getrennt
+> von der Stärke, Absender in der Rückrufspalte und im Kasten „Stand am
+> Meldekopf", „(Vorbelegung)" am Funkrufnamen; Einzel-PDF vermerkt „Namen im Code
+> gültig bis …"; Blanko-Vordruck mit Abrück-Feld (`npm run blanko-pdf`). PDF
+> als Lageblatt oder Blanko wird beim Einlesen am Titel erkannt (`pdf-titel.ts`).
+> „Zur Kenntnis genommen" quittiert mit Rückgängig. Tipp-Sperre im QR-Vollbild
+> 0,9 s; Verlaufseinträge tragen die Kennung des Seitenaufrufs (kein „Zurück" in
+> eine Zeit vor dem Neuladen). Neue Rückfragen: gleichnamige Sammlung anlegen,
+> „Jetzt" über eingetragenen Einsatzbeginn, erste Person entfernen. Layout: Telefon
+> und E-Mail der Ebenen-Zeile in voller Breite, `forced-colors`-Regeln,
+> Organisationszeichen auf heller Platte in Dunkel und Nacht (Vorlage
+> `scripts/content-stil.mts`, 36 Themenseiten neu erzeugt). Bundle-Budget erneut
+> gesetzt. Kein neuer Host, Transportformat und Schema unverändert.
+>
 > **Nachgezogen 2026-10-25 (Runde 10):** Audit Runde 10 (51 Befunde ohne
 > Doppelungen, drei Pakete) — Kap. 5, 8.2, 8.5, 8.6, 9: Texte und Sprungziele
 > folgen der Umbenennung „Ort der Einheit (Pflicht)"; der Prüfpunkt springt auf

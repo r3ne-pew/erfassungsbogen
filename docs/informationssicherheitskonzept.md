@@ -343,6 +343,15 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > und `vendor/` unverändert. Der Entwurf trägt zusätzlich die Marke „über die
 > Startseite verlassen" (`fremd.startseite`, R5-N3, 3.3 D1) — keine Daten.
 
+> **Nachgezogen 2026-10-26 (Runde 11):** Audit Runde 11. Speicher (3.3, 5.5): neuer
+> Schlüssel `eeb.widersprueche.v1` (Import-Widersprüche je Einsatz, über die
+> Präfixregel `eeb.` in Sicherung und Löschweg enthalten). Bedienung (5.3):
+> Rückfragen bei gleichnamiger Sammlung, überschriebenem Einsatzbeginn und beim
+> Entfernen der Ansprechperson; „Zur Kenntnis genommen" mit Rückgängig; Tipp-Sperre
+> im QR-Vollbild 0,9 s. Exporte (5.4): CSV-Spalte „Verpflegung angefordert",
+> Absender am Meldekopf im Lageblatt, Hinweis zur Gültigkeit der Namen im Einzel-PDF.
+> Keine neuen Hosts, CSP und Transportformat unverändert.
+
 > **Nachgezogen 2026-10-25 (Runde 10):** Audit Runde 10. Speicher (3.3, 5.5): ein
 > weiterer sessionStorage-Rückweg für den Funkrufnamen
 > (`eeb.funkruf.merker.<Index>`, 15 Minuten, fällt mit „Alle Daten löschen" weg).
