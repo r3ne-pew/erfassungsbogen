@@ -53,6 +53,7 @@ import { TabellenScroll } from "../tabellen-scroll";
 import {
   Feld,
   FREMDE_DATEN,
+  NAMEN_EINGABE,
   Auswahl,
   Hinweise,
   MWD_LEGENDE,
@@ -241,6 +242,48 @@ export function kraftfahrerHinweis(suche: string): string | undefined {
  * Nötig, weil sich nicht alle Klassen gegenseitig einschließen — CE deckt BE
  * ab, aber B + A (Pkw und Krad) sind nur als zwei Einträge abbildbar.
  */
+/**
+ * Dienststelle der Person (THW: Ortsverband). Vorbelegt mit der Dienststelle
+ * der Einheit aus Schritt 1 — Hoya: eine Einheit aus Helfern mehrerer OVs, und
+ * nur wer aus einem ANDEREN OV kommt, trägt hier etwas ein. Gespeichert wird
+ * deshalb nur die Abweichung (`Person.dienststelle`); ein Feld, das die
+ * Dienststelle der Einheit zeigt oder leer ist, lässt das Modell unberührt,
+ * und ein Wechsel des OV in Schritt 1 zieht die unveränderten Personen mit.
+ * Während des Tippens hält ein Entwurf das Feld, sonst spränge es beim Leeren
+ * sofort auf die Vorbelegung zurück.
+ */
+function DienststelleFeld(props: { person: Person; set: (patch: Partial<Person>) => void; einheitsDienststelle: string; index: number }) {
+  const { person: p, set, einheitsDienststelle } = props;
+  const [entwurf, setEntwurf] = useState<string | null>(null);
+  const vorgabe = einheitsDienststelle.trim();
+  const abweichend = (wert: string) => {
+    const w = wert.trim();
+    return w && w !== vorgabe ? wert : undefined;
+  };
+  return (
+    <div className="zeile">
+      <Feld titel="Dienststelle">
+        <input
+          id={`feld-dienststelle-${props.index}`}
+          {...FREMDE_DATEN}
+          {...NAMEN_EINGABE}
+          value={entwurf ?? p.dienststelle ?? vorgabe}
+          placeholder={vorgabe ? undefined : "wie die Einheit (Schritt 1)"}
+          onChange={(e) => {
+            setEntwurf(e.target.value);
+            set({ dienststelle: abweichend(e.target.value) });
+          }}
+          onBlur={() => setEntwurf(null)}
+        />
+      </Feld>
+      {/* Was gilt, steht dran — sonst sieht die Vorbelegung aus wie etwas, das jemand eingetragen hat. */}
+      <span className="hinweis dienststelle-zusatz">
+        {p.dienststelle ? `abweichend von der Einheit${vorgabe ? ` (${vorgabe})` : ""}` : "wie die Einheit — nur ändern, wenn die Person aus einer anderen Dienststelle kommt"}
+      </span>
+    </div>
+  );
+}
+
 function FahrerlaubnisFeld(props: { person: Person; set: (patch: Partial<Person>) => void }) {
   const { person: p, set } = props;
   const weitere = p.weitereFahrerlaubnisse ?? [];
@@ -385,6 +428,8 @@ function PersonKarte(props: {
   nichtGezaehlt?: boolean;
   /** Bei der ersten Person: Satz für die Rückfrage vor dem Entfernen — wer danach Ansprechperson ist (R11-D3). */
   ansprechSatz?: string;
+  /** Dienststelle der Einheit (Schritt 1) — Vorbelegung des Felds „Dienststelle" je Person. */
+  einheitsDienststelle: string;
   aendern: (p: Person) => void;
   /** `ort`: Stelle des Tipps auf „Person entfernen" (Bildschirm), sofern getippt. */
   entfernen: (ort?: { x: number; y: number }) => void;
@@ -529,6 +574,7 @@ function PersonKarte(props: {
             </Feld>
             <FahrerlaubnisFeld person={p} set={set} />
           </div>
+          <DienststelleFeld person={p} set={set} einheitsDienststelle={props.einheitsDienststelle} index={index} />
           {(vorgabe.geschlecht || vorgabe.ernaehrung) && (
             <p className="hinweis warnung-text vorgabe-hinweis" role="status">
               {vorgabe.geschlecht && vorgabe.ernaehrung
@@ -590,8 +636,10 @@ function PersonalSchnellTabelle(props: {
   /** Nach dem Entfernen einer Zeile: Quittung mit „Rückgängig" (R2-G1). */
   entfernt: (person: Person, index: number, bezeichnung: string) => void;
   org: OrganisationsTyp;
+  /** Dienststelle der Einheit (Schritt 1) — Platzhalter der Spalte „Dienststelle". */
+  einheitsDienststelle: string;
 }) {
-  const { personal, aendern, fokusNeue, aufNeueFokus, verschieben, entfernt, org } = props;
+  const { personal, aendern, fokusNeue, aufNeueFokus, verschieben, entfernt, org, einheitsDienststelle } = props;
   const set = (i: number, patch: Partial<Person>) =>
     aendern(personal.map((p, j) => (j === i ? { ...p, ...patch } : p)));
 
@@ -631,7 +679,9 @@ function PersonalSchnellTabelle(props: {
     e.preventDefault();
     const feld = e.target as HTMLInputElement;
     const zeile = feld.closest("tr");
-    const felder = zeile ? Array.from(zeile.querySelectorAll<HTMLInputElement>("input")) : [];
+    // Die Dienststelle (Nebenfeld, meist Vorbelegung) gehört nicht in die Kette: Enter im Nachnamen führt
+    // weiter zur nächsten Zeile, wie es die Tastatur verspricht.
+    const felder = zeile ? Array.from(zeile.querySelectorAll<HTMLInputElement>("input:not([data-nebenfeld])")) : [];
     const stelle = felder.indexOf(feld);
     const fokussieren = (el: HTMLInputElement | null | undefined) => {
       el?.focus();
@@ -655,7 +705,7 @@ function PersonalSchnellTabelle(props: {
           Raster aus (R4-H2) — Browser verlieren dann die Tabellen-Semantik. */}
       <table className="uebersicht schnell-tabelle" role="table">
         <thead role="rowgroup">
-          <tr role="row"><th role="columnheader">Stelle</th><th role="columnheader">Vorname</th><th role="columnheader">Nachname</th><th role="columnheader">Zählt als</th><th role="columnheader">Geschlecht</th><th role="columnheader" aria-label="Reihenfolge" /><th role="columnheader" aria-label="Entfernen" /></tr>
+          <tr role="row"><th role="columnheader">Stelle</th><th role="columnheader">Vorname</th><th role="columnheader">Nachname</th><th role="columnheader">Zählt als</th><th role="columnheader">Geschlecht</th><th role="columnheader">Dienststelle</th><th role="columnheader" aria-label="Reihenfolge" /><th role="columnheader" aria-label="Entfernen" /></tr>
         </thead>
         <tbody role="rowgroup">
           {personal.map((p, i) => (
@@ -711,6 +761,22 @@ function PersonalSchnellTabelle(props: {
                   <option value={Geschlecht.W}>W</option>
                   <option value={Geschlecht.D}>D</option>
                 </Auswahl>
+              </td>
+              <td role="cell">
+                {/* Nur die Abweichung wird gespeichert (siehe DienststelleFeld); leer heißt „wie die Einheit". */}
+                <input
+                  data-nebenfeld="1"
+                  aria-label={`Person ${i + 1}: Dienststelle`}
+                  placeholder={einheitsDienststelle.trim() || "wie die Einheit"}
+                  {...FREMDE_DATEN}
+                  {...NAMEN_EINGABE}
+                  value={p.dienststelle ?? ""}
+                  onChange={(e) => {
+                    const w = e.target.value;
+                    set(i, { dienststelle: w.trim() && w.trim() !== einheitsDienststelle.trim() ? w : undefined });
+                  }}
+                  onKeyDown={(e) => enterWeiter(e, i)}
+                />
               </td>
               {/* Die Reihenfolge entscheidet, wer als Ansprechpartner/in gilt —
                   in der Tabelle sieht man die Liste ganz, hier wird sie sortiert. */}
@@ -1506,6 +1572,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             verschieben={personVerschieben}
             entfernt={personEntfernt}
             org={bogen.einheit.organisation}
+            einheitsDienststelle={bogen.einheit.hierarchie[0]?.name ?? ""}
           />
         )
       ) : (
@@ -1523,6 +1590,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             anzahl={bogen.personal.length}
             ansprech={!nurStaerke && i === 0}
             ansprechSatz={!nurStaerke && i === 0 ? ansprechWechselSatz(bogen.personal) : undefined}
+            einheitsDienststelle={bogen.einheit.hierarchie[0]?.name ?? ""}
             nichtGezaehlt={nurStaerke}
             verschieben={personVerschieben}
             aendern={(np) => aendern({ personal: bogen.personal.map((x, j) => (j === i ? np : x)) })}

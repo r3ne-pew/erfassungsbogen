@@ -137,6 +137,7 @@ export function bogenBefund(x: unknown): BogenBefund {
       }
     }
     if (p.weitereFahrerlaubnisse != null && !Array.isArray(p.weitereFahrerlaubnisse)) delete p.weitereFahrerlaubnisse;
+    if (p.dienststelle != null && (typeof p.dienststelle !== "string" || !p.dienststelle.trim())) delete p.dienststelle;
   }
   b.personal = personal;
 

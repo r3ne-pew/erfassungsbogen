@@ -2210,7 +2210,9 @@ export function pdfDokument(
     personalZeilen.push([
       { text: funktionsText(p, org) },
       { text: ROLLE_KURZ[p.staerkeRolle] ?? "", alignment: "center" },
-      { text: namePapier(p.nachname, p.vorname) },
+      // Abweichende Dienststelle hinter dem Namen: Bei einer aus mehreren OVs
+      // zusammengestellten Einheit will der Meldekopf sehen, wer woher kommt.
+      { text: p.dienststelle ? `${namePapier(p.nachname, p.vorname)} (${weichUmbrechen(p.dienststelle)})` : namePapier(p.nachname, p.vorname) },
       { text: kontakte },
     ]);
   }

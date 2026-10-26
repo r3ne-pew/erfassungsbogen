@@ -1,7 +1,8 @@
 # Datenmodell Einheiten-Erfassungsbogen (EEB)
 
-**Stufe 1** — Datenmodell und QR-Code-Kodierung. Stand: 2026-09-15, **Schema-Version 9**
-(v9 = abweichende Sitzplatzzahl je Fahrzeug `Fahrzeug.sitzplaetze`;
+**Stufe 1** — Datenmodell und QR-Code-Kodierung. Stand: 2026-10-26, **Schema-Version 10**
+(v10 = abweichende Dienststelle je Person `Person.dienststelle`;
+v9 = abweichende Sitzplatzzahl je Fahrzeug `Fahrzeug.sitzplaetze`;
 v8 = mehrere Fahrerlaubnisklassen je Person `weitereFahrerlaubnisse`; v7 = `stand`
 minutengenau als Zeitpunkt statt Kalendertag; v6 = Übungs-Kennzeichnung
 `uebung`; v5 = Einheitsname in der Hierarchie; v4 = ein einziges Kennzeichen-Feld;
@@ -39,6 +40,14 @@ Ein Fahrzeug mit eigener Sitzplatzzahl fordert Schema 9: die Zahl steht als
 (Flag 16 ist durch das alte THW-Kennzeichen belegt, siehe unten). Bögen, in
 denen jedes Fahrzeug beim Richtwert seines Typs bleibt, kosten kein Byte und
 bleiben für ältere App-Stände lesbar.
+
+Eine Person aus einer anderen Dienststelle als der Einheit (Einheit aus Helfern
+mehrerer OVs) fordert Schema 10: ihre Dienststelle steht als String hinter dem
+Fahrerlaubnis-Zähler. Personen ohne Abweichung schreiben einen leeren String
+(1 Byte, in der 0-Serie wegkomprimiert); Bögen ohne das Feld bleiben bei
+Schema ≤ 9 lesbar (der String wird dann gar nicht geschrieben). Eine
+eingefrorene v9-Fixture (`codec.migration.test.ts`) belegt, dass v9-Bögen
+unverschoben gelesen werden.
 
 **Bewusste Ausnahme (v4):** Bis v3 stand das THW-Kennzeichen als Zahl im QR-Code
 (Flag 16 im Fahrzeug-Byte). Dieses Sonderformat ist entfallen; es gibt nur noch ein
@@ -202,6 +211,7 @@ ausgeschriebene Hierarchie der Normalfall.
 | funktionen | `VokabularWert[]` | Anzeige-Funktionen im Org-Namensraum |
 | fahrerlaubnis | Enum | EU-Klassen (4 Bit) |
 | weitereFahrerlaubnisse | `Fahrerlaubnis[]?` | ab Schema 8: Klassen neben der Hauptklasse, die sich nicht gegenseitig einschließen (B + A); nur gesetzt, wenn nicht leer |
+| dienststelle | string? | ab Schema 10: Dienststelle (THW: Ortsverband) der Person, wenn sie nicht die der Einheit ist; fehlt = `einheit.hierarchie[0]`. Die App belegt das Feld mit der Dienststelle der Einheit vor und speichert nur die Abweichung |
 | geschlecht | Enum | M/W/D (2 Bit) |
 | ernaehrung | Enum | Fleisch/Vegetarisch/Vegan (2 Bit) — Verpflegung wird **abgeleitet** |
 | kontakte | `Kontakt[]` | Art (Mobil/Festnetz/eMail), D/P-Flag, BCD bzw. Template |

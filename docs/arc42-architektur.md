@@ -12,6 +12,13 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
+> **Nachgezogen 2026-10-26 (Hoya, Schema 10):** Kap. 4.5, 8.4, 12: `Person.dienststelle`
+> (optional, nur die Abweichung von der Dienststelle der Einheit; Submodul
+> `eeb-format`, `SCHEMA_VERSION` 10, `transportSchemaVersion` fordert 10 nur für
+> Bögen, die das Feld nutzen; eingefrorene v9-Fixture). Schritt 3 belegt das Feld
+> je Person mit der Dienststelle aus Schritt 1 vor; das PDF nennt eine Abweichung
+> hinter dem Namen. Kein neuer Host, kein neuer Speicherort.
+>
 > **Nachgezogen 2026-10-26 (Probelauf Meldekopf):** Kap. 5, 6.2, 8.2: neuer
 > Baustein `src/app/handscanner.ts` (Tastatur-Wedge-Erkennung am Tempo, Abschluss
 > mit Enter/Tab oder nach kurzer Stille) — genutzt vom Scanner-Fenster und von

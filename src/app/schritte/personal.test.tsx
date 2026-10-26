@@ -224,7 +224,7 @@ describe("Schritt Personal", () => {
     const tabelle = screen.getByRole("table");
     expect(within(tabelle).getAllByRole("row")).toHaveLength(2); // Kopf + 1 Person
 
-    const vorname = within(tabelle).getAllByRole("textbox")[0]!;
+    const vorname = within(tabelle).getAllByRole("textbox", { name: /Vorname|Nachname/ })[0]!;
     // Eingabetaste im Vornamen: weiter zum Nachnamen derselben Zeile (R10-G1), noch keine neue Zeile.
     await nutzer.type(vorname, "Erika{Enter}");
     expect(document.activeElement).toBe(within(screen.getByRole("table")).getByLabelText("Person 1: Nachname"));
@@ -260,7 +260,7 @@ describe("Schritt Personal", () => {
     await nutzer.click(screen.getByLabelText("Kurz-Liste (Tabelle)"));
 
     const tabelle = screen.getByRole("table");
-    const namen = within(tabelle).getAllByRole("textbox").map((f) => f.getAttribute("aria-label"));
+    const namen = within(tabelle).getAllByRole("textbox", { name: /Vorname|Nachname/ }).map((f) => f.getAttribute("aria-label"));
     expect(namen).toEqual(["Person 1: Vorname", "Person 1: Nachname", "Person 2: Vorname", "Person 2: Nachname"]);
     // Der Name hängt nicht am Wert: auch mit Inhalt heißt das Feld so.
     await nutzer.type(within(tabelle).getByRole("textbox", { name: "Person 2: Nachname" }), "Musterfrau");
@@ -275,7 +275,7 @@ describe("Schritt Personal", () => {
     expect(screen.getByLabelText("Vorname").getAttribute("autocomplete")).toBe("off");
     expect(screen.getByLabelText("Nachname").getAttribute("autocomplete")).toBe("off");
     await nutzer.click(screen.getByLabelText("Kurz-Liste (Tabelle)"));
-    for (const feld of within(screen.getByRole("table")).getAllByRole("textbox")) {
+    for (const feld of within(screen.getByRole("table")).getAllByRole("textbox", { name: /Vorname|Nachname/ })) {
       expect(feld.getAttribute("autocomplete")).toBe("off");
     }
   });
@@ -335,7 +335,7 @@ describe("Schritt Personal", () => {
 
     expect(dialog.hasAttribute("open")).toBe(false);
     const tabelle = screen.getByRole("table");
-    const werte = (within(tabelle).getAllByRole("textbox") as HTMLInputElement[]).map((f) => f.value);
+    const werte = (within(tabelle).getAllByRole("textbox", { name: /Vorname|Nachname/ }) as HTMLInputElement[]).map((f) => f.value);
     expect(werte).toEqual(["Max", "Muster", "Erika", "Musterfrau"]);
   });
 
@@ -356,7 +356,7 @@ describe("Schritt Personal", () => {
     await nutzer.click(within(dialog).getByRole("checkbox", { name: /12345.*trotzdem als Name übernehmen/ }));
     await nutzer.click(within(dialog).getByRole("button", { name: "2 Personen übernehmen" }));
     const tabelle = screen.getByRole("table");
-    const werte = (within(tabelle).getAllByRole("textbox") as HTMLInputElement[]).map((f) => f.value);
+    const werte = (within(tabelle).getAllByRole("textbox", { name: /Vorname|Nachname/ }) as HTMLInputElement[]).map((f) => f.value);
     expect(werte).toContain("Müller");
     expect(werte).toContain("12345");
     expect(werte.some((w) => w.includes("Gf"))).toBe(false);
@@ -396,7 +396,7 @@ describe("Schritt Personal", () => {
     // Thomas + 9 Beispielpersonen, die beiden leeren Zeilen sind weg.
     const tabelle = screen.getByRole("table");
     expect(within(tabelle).getAllByRole("row")).toHaveLength(11); // Kopf + 10
-    const werte = (within(tabelle).getAllByRole("textbox") as HTMLInputElement[]).map((f) => f.value);
+    const werte = (within(tabelle).getAllByRole("textbox", { name: /Vorname|Nachname/ }) as HTMLInputElement[]).map((f) => f.value);
     expect(werte.slice(0, 2)).toEqual(["Thomas", "Lange"]);
     expect(werte.some((v) => v === "")).toBe(false);
   });
@@ -419,7 +419,7 @@ describe("Schritt Personal", () => {
     expect(within(dialog).getByText(/→ Platz 1/)).toBeDefined();
     await nutzer.click(within(dialog).getByRole("button", { name: "1 Person übernehmen" }));
 
-    const werte = (within(screen.getByRole("table")).getAllByRole("textbox") as HTMLInputElement[]).map((f) => f.value);
+    const werte = (within(screen.getByRole("table")).getAllByRole("textbox", { name: /Vorname|Nachname/ }) as HTMLInputElement[]).map((f) => f.value);
     expect(werte).toEqual(["Max", "Muster", "", ""]);
   });
 
@@ -444,11 +444,11 @@ describe("Schritt Personal", () => {
     await nutzer.click(within(dialog).getByRole("button", { name: "2 Personen übernehmen" }));
 
     expect(screen.getByLabelText("Stärke: 0 Führer, 2 Unterführer, 7 Mannschaft, 9 gesamt")).toBeDefined();
-    const werte = (within(screen.getByRole("table")).getAllByRole("textbox") as HTMLInputElement[]).map((f) => f.value);
+    const werte = (within(screen.getByRole("table")).getAllByRole("textbox", { name: /Vorname|Nachname/ }) as HTMLInputElement[]).map((f) => f.value);
     expect(werte.slice(0, 4)).toEqual(["Klaus", "Maier", "Anna", "Schulz"]);
 
     await nutzer.click(screen.getByRole("button", { name: "Rückgängig" }));
-    const danach = (within(screen.getByRole("table")).getAllByRole("textbox") as HTMLInputElement[]).map((f) => f.value);
+    const danach = (within(screen.getByRole("table")).getAllByRole("textbox", { name: /Vorname|Nachname/ }) as HTMLInputElement[]).map((f) => f.value);
     expect(danach.every((v) => v === "")).toBe(true);
    }, 20000);
 
@@ -1022,7 +1022,7 @@ describe("Personal umsortieren", () => {
     expect((within(reihe(2)).getByRole("button", { name: "Person 3 nach unten" }) as HTMLButtonElement).disabled).toBe(true);
     // Ein gesperrtes „⇑“ tut nichts.
     await nutzer.click(within(reihe(0)).getByRole("button", { name: "Person 1 an die erste Stelle" }));
-    expect((within(screen.getByRole("table")).getAllByRole("textbox") as HTMLInputElement[]).map((f) => f.value).slice(0, 2)).toEqual(["Anna", "Albers"]);
+    expect((within(screen.getByRole("table")).getAllByRole("textbox", { name: /Vorname|Nachname/ }) as HTMLInputElement[]).map((f) => f.value).slice(0, 2)).toEqual(["Anna", "Albers"]);
   });
 
   // Audit Runde 5, R5-M5: Die Felder einer neuen Person zeigten keine Bezeichnung.
@@ -1041,7 +1041,7 @@ describe("Personal umsortieren", () => {
 
     await nutzer.click(screen.getByRole("button", { name: "Person 1 nach unten" }));
 
-    const werte = (within(screen.getByRole("table")).getAllByRole("textbox") as HTMLInputElement[]).map((f) => f.value);
+    const werte = (within(screen.getByRole("table")).getAllByRole("textbox", { name: /Vorname|Nachname/ }) as HTMLInputElement[]).map((f) => f.value);
     expect(werte).toEqual(["Bernd", "Bruns", "Anna", "Albers", "Carla", "Claus"]);
   });
 
@@ -1353,6 +1353,63 @@ describe("Neue Person: Vorgaben sichtbar als „bitte wählen“ (R4-H4)", () =>
     render(<SchrittBuehne komponente={SchrittPersonal} bogen={{ ...neuerBogen(), personal: [{ ...neuePerson(), vorname: "Jan", nachname: "Meyer" }] }} />);
     expect(document.querySelector(".vorgabe-offen")).toBeNull();
     expect(document.querySelector(".vorgabe-hinweis")).toBeNull();
+  });
+});
+
+describe("Dienststelle je Person (Hoya: Helfer aus mehreren OVs)", () => {
+  function hoyaBogen() {
+    const b = neuerBogen();
+    b.einheit.hierarchie[0]!.name = "Hoya";
+    b.personal = [{ ...neuePerson(), vorname: "Jan", nachname: "Meyer" }];
+    return b;
+  }
+
+  it("belegt das Feld mit der Dienststelle der Einheit vor und speichert nur die Abweichung", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={hoyaBogen()} />);
+    const feld = screen.getByLabelText("Dienststelle") as HTMLInputElement;
+    expect(feld.value).toBe("Hoya");
+    expect(screen.getByText(/wie die Einheit — nur ändern/)).toBeDefined();
+
+    await nutzer.clear(feld);
+    await nutzer.type(feld, "Nienburg");
+    expect(feld.value).toBe("Nienburg");
+    expect(screen.getByText("abweichend von der Einheit (Hoya)")).toBeDefined();
+
+    // Zurück auf die Dienststelle der Einheit: keine Abweichung mehr.
+    await nutzer.clear(feld);
+    await nutzer.type(feld, "Hoya");
+    await nutzer.tab();
+    expect(feld.value).toBe("Hoya");
+    expect(screen.getByText(/wie die Einheit — nur ändern/)).toBeDefined();
+  });
+
+  it("zeigt eine gespeicherte Abweichung und lässt ein geleertes Feld auf die Vorbelegung zurückfallen", async () => {
+    const nutzer = userEvent.setup();
+    const b = hoyaBogen();
+    b.personal[0]!.dienststelle = "Nienburg";
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={b} />);
+    const feld = screen.getByLabelText("Dienststelle") as HTMLInputElement;
+    expect(feld.value).toBe("Nienburg");
+    await nutzer.clear(feld);
+    expect(feld.value).toBe(""); // während des Tippens bleibt das Feld leer …
+    await nutzer.tab();
+    expect(feld.value).toBe("Hoya"); // … danach gilt wieder die Einheit
+  });
+
+  it("führt die Spalte auch in der Schnelleingabe und lässt Enter im Nachnamen weiter zur nächsten Zeile", async () => {
+    const nutzer = userEvent.setup();
+    render(<SchrittBuehne komponente={SchrittPersonal} bogen={hoyaBogen()} />);
+    await nutzer.click(screen.getByLabelText("Kurz-Liste (Tabelle)"));
+    const tabelle = screen.getByRole("table");
+    const dienststelle = within(tabelle).getByLabelText("Person 1: Dienststelle") as HTMLInputElement;
+    expect(dienststelle.placeholder).toBe("Hoya");
+    await nutzer.type(dienststelle, "Verden");
+    expect(dienststelle.value).toBe("Verden");
+    const nachname = within(tabelle).getByLabelText("Person 1: Nachname");
+    await nutzer.click(nachname);
+    await nutzer.keyboard("{Enter}");
+    expect(within(tabelle).getAllByRole("row")).toHaveLength(3); // Kopf + 2 Personen
   });
 });
 

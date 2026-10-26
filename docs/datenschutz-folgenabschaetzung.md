@@ -11,6 +11,12 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-26 — Hoya, Schema 10:** Datenkategorie je Person erweitert (5.4):
+> `dienststelle` (Ortsverband/Dienststelle der Person, nur wenn abweichend von der
+> Einheit; organisatorische Angabe, kein besonderes Datum nach Art. 9). Reist mit dem
+> Bogen in QR, Datei und PDF, unterliegt wie die übrigen Personaldaten der Datenschutzfrist
+> (5.5). Speicherorte, Empfänger und Netzverbindungen unverändert (5.7, 5.8).
+>
 > **Nachgezogen 2026-10-26 — Probelauf Meldekopf:** Speicherort neu: `eeb-scanweg`
 > im `localStorage` (nur die Wahl „Handscanner statt Kamera" im Scanner-Fenster, keine
 > Personendaten; 5.7). Ein USB-Handscanner wird jetzt auch ohne offenes Scanner-Fenster

@@ -16,6 +16,11 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > Abhängigkeiten (6.4/R8/M8). Die betroffenen Abschnitte sind entsprechend
 > gekennzeichnet.
 >
+> **Nachgezogen 2026-10-26 — Hoya, Schema 10:** Transportformat (5.2): `Person.dienststelle`
+> als optionaler String im Binärformat, Schema 10 nur bei Nutzung; ältere App-Stände
+> lesen Bögen ohne das Feld unverändert, Bögen mit dem Feld lehnen sie als „nicht
+> unterstützte Schema-Version" ab (gewollt, siehe `docs/datenmodell.md`).
+>
 > **Nachgezogen 2026-10-26 — Probelauf Meldekopf:** USB-Handscanner (3.3, 5.2, K1):
 > Die App lauscht jetzt auf der ganzen Seite auf Tastenfolgen im Scanner-Tempo
 > (`src/app/handscanner.ts`), nicht nur im Scanner-Fenster — außerhalb von
