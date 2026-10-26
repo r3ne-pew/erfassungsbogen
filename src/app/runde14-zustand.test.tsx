@@ -31,9 +31,12 @@ describe("R14-G1 Doppeltipp: Tipps kurz nach dem Ende des Laufs gehören noch da
   });
 
   it("ein Tipp innerhalb des Nachlaufs nach dem Lauf tut nichts, ein bewusster späterer geht durch", async () => {
-    let fertig!: () => void;
+    let fertig: (() => void) | undefined;
     const lauf = arbeiten("weitergeben", () => new Promise<void>((r) => (fertig = r)));
-    await new Promise((r) => setTimeout(r, 20));
+    // `arbeiten` startet die Aktion erst nach dem nächsten Bild: Auf einem langsamen Runner reichten feste
+    // 20 ms nicht, und `fertig` war noch nicht gesetzt (CI-Ausfall am 26.10.). Deshalb warten, bis sie läuft.
+    for (let i = 0; !fertig && i < 200; i++) await new Promise((r) => setTimeout(r, 10));
+    if (!fertig) throw new Error("Die Aktion wurde nicht gestartet");
     expect(ausgabeFreiBeiTipp("weitergeben", { timeStamp: performance.now() }, tippWaehrendLauf, 2000)).toBe(false);
     fertig();
     await lauf;

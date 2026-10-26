@@ -259,6 +259,17 @@ describe("pdfDokument()", () => {
     expect(t).toContain("Bootsführer");
   });
 
+  it("nennt eine abweichende Dienststelle als „OV:“-Zeile in der Kontaktspalte, die der Einheit nicht", () => {
+    const b = basisBogen();
+    b.personal[1]!.dienststelle = "Bremen - Nord";
+    const t = texte(pdfDokument(b, QR).content).join("\n");
+    expect(t).toContain("OV: Bremen - Nord\n");
+    // Die erste Person kommt aus der Dienststelle der Einheit: keine OV-Zeile, Name unverändert.
+    expect(t).toContain("Rudolph, Johannes");
+    expect(t).not.toContain("OV: Oldenburg");
+    expect(t).not.toContain("(Bremen - Nord)");
+  });
+
   it("stellt Fahrzeug mit Kennzeichen, Funkruf und StAN-Angabe dar", () => {
     const t = texte(pdfDokument(basisBogen(), QR).content).join("\n");
     expect(t).toContain("MzKW");

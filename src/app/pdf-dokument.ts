@@ -2199,20 +2199,26 @@ export function pdfDokument(
     personalZeilen.push([leerZelle(), leerZelle(), leerZelle(), leerZelle()]);
   }
   for (const p of blanko ? [] : b.personal) {
-    const kontakte = p.kontakte
-      .map((k) => {
+    // Abweichende Dienststelle als erste Zeile der Kontaktspalte („OV: Bremen - Nord"),
+    // wie am Meldekopf gewünscht: Bei einer aus mehreren OVs zusammengestellten
+    // Einheit sieht man so auf einen Blick, wer woher kommt. Personen aus der
+    // Dienststelle der Einheit bekommen keine Zeile — das steht im Kopf des Bogens.
+    const dienststelle = p.dienststelle
+      ? [`${org === OrganisationsTyp.THW ? "OV" : "Dienststelle"}: ${weichUmbrechen(p.dienststelle)}`]
+      : [];
+    const kontakte = [
+      ...dienststelle,
+      ...p.kontakte.map((k) => {
         // Alte Bögen konnten statt einer Adresse ein Template tragen (siehe Kontakt).
         if (k.emailTemplate != null) return `eMail: — (${k.dienstlich ? "D" : "P"})`;
         const art = k.art === KontaktArt.EMAIL ? "eMail" : k.art === KontaktArt.MOBIL ? "Mobil" : "Telefon";
         return `${art}: ${weichUmbrechen(k.wert ?? "")} (${k.dienstlich ? "D" : "P"})`;
-      })
-      .join("\n");
+      }),
+    ].join("\n");
     personalZeilen.push([
       { text: funktionsText(p, org) },
       { text: ROLLE_KURZ[p.staerkeRolle] ?? "", alignment: "center" },
-      // Abweichende Dienststelle hinter dem Namen: Bei einer aus mehreren OVs
-      // zusammengestellten Einheit will der Meldekopf sehen, wer woher kommt.
-      { text: p.dienststelle ? `${namePapier(p.nachname, p.vorname)} (${weichUmbrechen(p.dienststelle)})` : namePapier(p.nachname, p.vorname) },
+      { text: namePapier(p.nachname, p.vorname) },
       { text: kontakte },
     ]);
   }
