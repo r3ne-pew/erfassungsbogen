@@ -16,7 +16,7 @@ Funktionalität: Einsatz-Sammlung führen (Meldekopf)
   Szenario: Die Sammlung summiert Stärke und Bedarf über alle Einheiten
     Dann sehe ich die Überschrift "Bedarf (anwesende Einheiten)"
     Und sehe ich zu "Verpflegung" den Wert "vegetarisch"
-    Und sehe ich zu "Kraftstoff" den Wert "Diesel"
+    Und sehe ich zu "Kraftstoff" den Wert "keiner angefordert"
     Und sehe ich zu "Fahrzeuge" den Wert "1"
 
   Szenario: Die Vollansicht einer gemeldeten Einheit aufklappen
