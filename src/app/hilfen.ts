@@ -34,6 +34,7 @@ import {
   verpflegung,
 } from "@bos/eeb-format/model";
 import { bogenBefund } from "./bogen-pruefung";
+import { emailProblem, emailSatz } from "./email-pruefung";
 import {
   EEB_URL_PREFIX,
   EEB_VORLAGE_MARKER,
@@ -88,6 +89,14 @@ export {
 // Vokabulare (Berufe, Ortsverbände, ~330 KB) aus den nachgeladenen Brocken in
 // das Startbündel (Startbündel 1,04 → 1,58 MB, ADR-003 Aufnahmeregel 5).
 let stempelQuelle: () => EebZeitpunkt = () => jetztZeitpunkt();
+
+/** Ist die Datenschutzfrist des Bogens abgelaufen (Namen, Funktionen und Erreichbarkeiten sind entfernt)? Geprüfte Uhr, Übungen nie. */
+export function bogenAnonymisiert(b: Pick<Erfassungsbogen, "uebung" | "stand">): boolean {
+  // Dieselbe Rechnung wie datenschutzfristAbgelaufen() (eeb-format/datenschutzfrist.ts, 90 Tage), hier nachgebaut: Der Import
+  // aus hilfen.ts verschob das Verzeichnis der Ortsverbände (~600 KB) ins Startbündel (R12, ADR-003 Aufnahmeregel 5).
+  // Ein Test hält beide Fassungen gleich (runde12-hilfen-frist.test.ts).
+  return !b.uebung && stempelQuelle() >= b.stand + 90 * MINUTEN_JE_TAG;
+}
 
 /** Meldet die Quelle für Stempelzeiten an (main.tsx: die geprüfte Uhr). */
 export function stempelQuelleSetzen(quelle: () => EebZeitpunkt): void {
@@ -768,6 +777,19 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
       schritt: S_EINHEIT,
     });
   }
+  // Die Schrittleiste zeigt „1 Einheit — offen", solange kein Typ gewählt ist; die Liste nannte den Grund nicht
+  // (R12-S2). Ohne Typ fehlen taktisches Zeichen und Soll-Vergleich beim Meldekopf.
+  const typFehlt =
+    b.einheit.einheitsTyp.code == null &&
+    !(b.einheit.einheitsTyp.freitext ?? "").trim() &&
+    b.personalErfassung !== PersonalErfassung.NUR_STAERKE &&
+    vokabularFuer(b.einheit.organisation, "einheitstyp").length > 0;
+  if (typFehlt) {
+    hinweise.push({
+      text: "Einheitstyp fehlt — ohne Typ fehlen taktisches Zeichen und Soll-Vergleich.",
+      schritt: S_EINHEIT,
+    });
+  }
   if (s.gesamt === 0) {
     hinweise.push({ text: "Stärke ist 0 — es ist noch kein Personal erfasst.", schritt: S_PERSONAL });
   }
@@ -857,12 +879,11 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
   // Weitere Tippfehler, die bisher ohne Hinweis durchgingen (Audit Runde 2,
   // R2-E4). Alle als Frage, nichts sperrt.
   const ohneZiffer = (t?: string) => !!t?.trim() && !/\d/.test(t);
-  const ohneAt = (t?: string) => !!t?.trim() && !t.includes("@");
   const nurZiffern = (t?: string) => !!t?.trim() && /^[\d\s./-]+$/.test(t.trim());
   b.einheit.hierarchie.forEach((h) => {
     const wo = h.name.trim() || "Zugehörigkeit";
     if (ohneZiffer(h.telefon)) hinweise.push({ text: `${wo}: Rufnummer „${h.telefon}" enthält keine Ziffer — stimmt das?`, schritt: S_EINHEIT });
-    if (ohneAt(h.email)) hinweise.push({ text: `${wo}: E-Mail „${h.email}" ohne „@" — stimmt das?`, schritt: S_EINHEIT });
+    if (emailProblem(h.email)) hinweise.push({ text: `${wo}: ${emailSatz(h.email)} — stimmt das?`, schritt: S_EINHEIT });
     if (nurZiffern(h.name)) hinweise.push({ text: `Zugehörigkeit „${h.name}" besteht nur aus Ziffern — stimmt der Name?`, schritt: S_EINHEIT });
   });
   b.personal.forEach((p, i) => {
@@ -871,9 +892,9 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
       hinweise.push({ text: `${wer}: Der Name besteht nur aus Ziffern — stimmt das?`, schritt: S_PERSONAL });
     }
     for (const k of p.kontakte) {
-      if (k.art === KontaktArt.EMAIL ? ohneAt(k.wert) : ohneZiffer(k.wert)) {
+      if (k.art === KontaktArt.EMAIL ? emailProblem(k.wert) : ohneZiffer(k.wert)) {
         hinweise.push({
-          text: `${wer}: ${k.art === KontaktArt.EMAIL ? `E-Mail „${k.wert}" ohne „@"` : `Rufnummer „${k.wert}" ohne Ziffer`} — stimmt das?`,
+          text: `${wer}: ${k.art === KontaktArt.EMAIL ? emailSatz(k.wert) : `Rufnummer „${k.wert}" ohne Ziffer`} — stimmt das?`,
           schritt: S_PERSONAL,
         });
       }
@@ -905,7 +926,9 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
   }
   if (b.sofortbedarf) {
     const vp = verpflegung(b);
-    if (vp.vegetarisch + vp.vegan > b.sofortbedarf.verpflegungPersonen) {
+    // Nur bei angeforderter Verpflegung: Wer bewusst 0 Portionen meldet (Selbstversorger), wird nicht nach der
+    // Zusammensetzung der nicht bestellten Portionen gefragt (R12-W2).
+    if (b.sofortbedarf.verpflegungPersonen > 0 && vp.vegetarisch + vp.vegan > b.sofortbedarf.verpflegungPersonen) {
       hinweise.push({
         text: "Sofortbedarf: mehr Vegetarier/Veganer erfasst als Personen mit Verpflegungsbedarf.",
         schritt: S_SOFORTBEDARF,
@@ -936,7 +959,10 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
   const telefonErfasst = b.personal.some((p) =>
     p.kontakte.some((k) => k.art !== KontaktArt.EMAIL && (k.wert ?? "").trim() !== ""),
   );
-  if (s.gesamt > 0 && !telefonErfasst && !(nurVorgabe && eingetragenePersonen.length === 0)) {
+  // Anonymisierte Bögen (Datenschutzfrist abgelaufen) tragen keine Rufnummern und Fahrerlaubnisse mehr, weil das Gerät sie
+  // gelöscht hat, nicht weil die Einheit sie nicht hat: weder Bildschirm noch Papier melden das als Mangel (R12-A1).
+  const anonymisiert = bogenAnonymisiert(b);
+  if (s.gesamt > 0 && !telefonErfasst && !anonymisiert && !(nurVorgabe && eingetragenePersonen.length === 0)) {
     hinweise.push({
       text: "Keine telefonische Erreichbarkeit erfasst — mindestens eine Führungskraft sollte eine Nummer angeben.",
       schritt: S_PERSONAL,
@@ -961,7 +987,8 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
       b.fahrzeuge.length > 0 &&
       b.personal.length > 0 &&
       b.personalErfassung === PersonalErfassung.VOLLSTAENDIG &&
-      !kraftfahrerErfasst
+      !kraftfahrerErfasst &&
+      !anonymisiert
     ) {
       hinweise.push({
         text: "Fahrzeuge erfasst, aber kein Kraftfahrer: Bei keiner Person ist eine Fahrerlaubnisklasse eingetragen.",

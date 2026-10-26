@@ -37,7 +37,20 @@ export function anonymQuittung(eintraege: readonly Pick<MeldeEintrag, "bogen">[]
 }
 
 /** „Namen im Code gültig bis 17.10.2026" für den Ausdruck neben dem Code; leer bei Übungsbögen (keine Frist). */
-export function codeGueltigBisText(b: Pick<Erfassungsbogen, "uebung" | "stand">, formatiere: (z: EebZeitpunkt) => string): string {
+export function codeGueltigBisText(
+  b: Pick<Erfassungsbogen, "uebung" | "stand">,
+  formatiere: (z: EebZeitpunkt) => string,
+  /** Frist beim Druck schon vorbei: „seit … abgelaufen" statt eines Datums in der Vergangenheit (R12-A1). */
+  abgelaufen = false,
+): string {
   if (b.uebung) return "";
-  return `Namen im Code gültig bis ${formatiere(b.stand + DATENSCHUTZFRIST_TAGE * MINUTEN_JE_TAG)}`;
+  const ende = formatiere(b.stand + DATENSCHUTZFRIST_TAGE * MINUTEN_JE_TAG);
+  return abgelaufen ? `Namen im Code seit ${ende} abgelaufen (Datenschutzfrist)` : `Namen im Code gültig bis ${ende}`;
 }
+
+/** Vermerk für Lageblatt und Übergabe-Übersicht neben der Einheit eines anonymisierten Bogens (R12-A1). */
+export const ANONYM_PAPIER_VERMERK = `ANONYMISIERT (Stand über ${DATENSCHUTZFRIST_TAGE} Tage): Namen und Rufnummern beim Papier der Einheit erfragen`;
+
+/** Satz im Personalblock der Bogenseite: warum dort „Einsatzkraft n" steht und wo die Namen zu holen sind (R12-A1). */
+export const ANONYM_PERSONAL_SATZ =
+  `Personal anonymisiert (Datenschutzfrist: Stand älter als ${DATENSCHUTZFRIST_TAGE} Tage). Namen, Funktionen und Rufnummern stehen nur noch auf dem Papier der Einheit - dort nachfragen.`;

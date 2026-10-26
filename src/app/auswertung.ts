@@ -240,6 +240,8 @@ export interface ZugGruppe {
   /** Zug-/Verbands-Etikett; undefined = Einheiten ohne Etikett („Einzeln"). */
   zugEtikett?: string;
   summen: EinsatzSummen;
+  /** Eingang der ältesten geltenden Meldung dieser Gruppe (ms) — Altersaussage je Zug (R12-K3). */
+  aeltesteMeldungAm?: number;
 }
 
 /**
@@ -259,5 +261,9 @@ export function aggregiereNachZug(eintraege: MeldeEintrag[], art?: EinsatzArt): 
       if (b === "") return -1;
       return a.localeCompare(b, "de");
     })
-    .map(([k, ms]) => ({ zugEtikett: k || undefined, summen: summiere(ms) }));
+    .map(([k, ms]) => ({
+      zugEtikett: k || undefined,
+      summen: summiere(ms),
+      aeltesteMeldungAm: Math.min(...ms.map((m) => m.empfangenAm)),
+    }));
 }

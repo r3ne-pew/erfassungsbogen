@@ -4,7 +4,7 @@
  * einem einzelnen Schritt — alles hier wird von mehreren Schritten genutzt.
  */
 
-import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type MouseEvent, type ReactNode } from "react";
 import { Erfassungsbogen, VokabularWert } from "@bos/eeb-format/model";
 import type { VokabularEintrag } from "@bos/vokabulare/thw";
 import { vokabSortiert, type Pruefpunkt } from "../hilfen";
@@ -494,6 +494,9 @@ export function VokabListe(props: {
 }) {
   const { werte, aendern, tabelle, hinzufuegenText, freitextVorschlaege, suchhinweis, haeufige } = props;
   const [eingabe, setEingabe] = useState("");
+  // Zuletzt entfernter Eintrag mit seinem Platz: Das Entfernen geschah ohne Spur, und ein Fehltipp mit Handschuh
+  // ließ die Funktion der Person unbemerkt verschwinden (R12-G1).
+  const [entfernt, setEntfernt] = useState<{ wert: VokabularWert; index: number; text: string } | null>(null);
 
   const suche = eingabe.trim();
   const treffer: Kandidat[] = [];
@@ -532,6 +535,22 @@ export function VokabListe(props: {
   const hinzu = (w: VokabularWert) => {
     aendern([...werte, w]);
     setEingabe("");
+    setEntfernt(null);
+  };
+  const wertText = (w: VokabularWert) =>
+    w.code != null ? (tabelle.find((t) => t.code === w.code)?.kurz ?? `#${w.code}`) : (w.freitext ?? "");
+  const entfernen = (i: number) => {
+    const w = werte[i];
+    if (!w) return;
+    setEntfernt({ wert: w, index: i, text: wertText(w) });
+    aendern(werte.filter((_, j) => j !== i));
+  };
+  const zurueckholen = () => {
+    if (!entfernt) return;
+    const neu = [...werte];
+    neu.splice(Math.min(entfernt.index, neu.length), 0, entfernt.wert);
+    aendern(neu);
+    setEntfernt(null);
   };
   const freitextHinzu = (text: string) => {
     const t = text.trim();
@@ -546,12 +565,20 @@ export function VokabListe(props: {
           <button
             type="button"
             aria-label={`${w.code != null ? (tabelle.find((t) => t.code === w.code)?.kurz ?? `#${w.code}`) : w.freitext} entfernen`}
-            onClick={() => aendern(werte.filter((_, j) => j !== i))}
+            onClick={() => entfernen(i)}
           >
             ×
           </button>
         </span>
       ))}
+      {entfernt && (
+        <span className="chip-rueckgaengig" role="status">
+          „{entfernt.text}" entfernt{" "}
+          <button type="button" onClick={zurueckholen}>
+            Rückgängig
+          </button>
+        </span>
+      )}
       <VorschlagFeld
         wert={eingabe}
         beschriftung={`${hinzufuegenText} hinzufügen`}
@@ -583,9 +610,30 @@ export function VokabListe(props: {
   );
 }
 
+/**
+ * Ein Tipp auf die Beschriftung (oder daneben) gibt der Beschriftung zufolge den Tipp an das erste bedienbare
+ * Element im Feld weiter. Bei Feldern mit Chips ist das der Knopf „<Funktion> entfernen" des ersten Chips: Ein Tipp
+ * auf die Titelzeile oder neben den Chip löschte die Funktion der Person ohne Rückfrage (R12-G1). Steht ein
+ * Knopf vor dem Eingabefeld, geht der Tipp deshalb an das Eingabefeld (Fokus), nie an den Knopf.
+ */
+export function feldTippFangen(e: MouseEvent<HTMLLabelElement>): void {
+  const ziel = e.target as Element | null;
+  if (ziel?.closest("button, input, select, textarea, a, [role='option'], [role='listbox']")) return;
+  const label = e.currentTarget;
+  const erstes = label.querySelector("button, input:not([type='hidden']), select, textarea");
+  if (!(erstes instanceof HTMLButtonElement)) return;
+  const eingabe = label.querySelector<HTMLElement>("input:not([type='hidden']), select, textarea");
+  if (!eingabe) return; // Ein Feld nur aus Knöpfen behält die Weitergabe des Tipps.
+  e.preventDefault();
+  eingabe.focus();
+}
+
 export function Feld(props: { titel: string; schmal?: boolean; klasse?: string; children: ReactNode }) {
   return (
-    <label className={["feld", props.schmal ? "schmal" : "", props.klasse ?? ""].filter(Boolean).join(" ")}>
+    <label
+      className={["feld", props.schmal ? "schmal" : "", props.klasse ?? ""].filter(Boolean).join(" ")}
+      onClick={feldTippFangen}
+    >
       {props.titel}
       <FeldTitel.Provider value={props.titel}>{props.children}</FeldTitel.Provider>
     </label>

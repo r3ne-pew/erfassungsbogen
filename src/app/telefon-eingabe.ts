@@ -49,8 +49,12 @@ export function telefonBereinigen(roh: string): TelefonEingabe {
   const z = zweiteNummer(roh);
   const erste = z ? roh.slice(0, z.von) : roh;
   const rest = z ? roh.slice(z.bis) : "";
-  const wert = nurNummer(erste);
+  let wert = nurNummer(erste);
   const saetze: string[] = [];
+  // „+49 (0) 171 …": Nach der Landesvorwahl entfällt die Null (R12-E1); sonst ist die Nummer nicht wählbar.
+  const ohneNull = wert.replace(/^(\+49|0049)0(?=\d)/u, "$1");
+  const nullEntfernt = ohneNull !== wert;
+  wert = ohneNull;
   // Entfernt wurde, was weder Ziffer noch übliche Schreibweise noch das führende „+" ist („0441 abc").
   const fremd = erste
     .trimStart()
@@ -61,6 +65,7 @@ export function telefonBereinigen(roh: string): TelefonEingabe {
     .trim();
   if (fremd) saetze.push(`Nur Ziffern übernommen („${fremd}" entfernt).`);
   else if (/\+/u.test(erste.trimStart().slice(1))) saetze.push("Das „+“ gilt nur am Anfang; es wurde entfernt.");
+  if (nullEntfernt) saetze.push("Die „0“ nach der Landesvorwahl entfernt (nicht mitwählen).");
   if (z && ziffern(rest)) {
     saetze.push(
       `Zweite Nummer „${rest.trim()}" nicht übernommen — eine Nummer je Zeile, weitere über „+ Kontakt“ anlegen.`,
@@ -69,9 +74,60 @@ export function telefonBereinigen(roh: string): TelefonEingabe {
   return { wert, hinweis: saetze.join(" ") };
 }
 
+/** Zustand des zeichenweisen Tippens: `undefined` = normal, sonst der Text, der hinter einem Trenner getippt wurde. */
+export type TelefonRest = string | undefined;
+
+export interface TelefonTipp extends TelefonEingabe {
+  rest: TelefonRest;
+}
+
+/** Ein einzelner Trenner, wie ihn die Bildschirmtastatur als eigenes Zeichen liefert. */
+const EIN_TRENNER = /^\s*[,;|/]\s*$/u;
+/** Ein einzelner Buchstabe hinter einer vollständigen Nummer: „oder", „und", „(Handy)" — auch das beginnt etwas Neues. */
+const EIN_BUCHSTABE = /^\s*\p{L}\s*$/u;
+
+/**
+ * Wie `telefonBereinigen`, aber für das zeichenweise Tippen (R12-E1). Die Bildschirmtastatur liefert „/" und die
+ * folgenden Ziffern einzeln; das Feld zeigt nur Ziffern, der Trenner wäre also schon weg, wenn die nächste Ziffer
+ * kommt, und die zweite Nummer verschmölze mit der ersten. Darum merkt sich der Aufrufer (`rest`), dass hinter
+ * einer vollständigen Nummer ein Trenner getippt wurde; alles Weitere landet nicht im Feld, sondern im Hinweis.
+ */
+export function telefonTippen(vorher: string | undefined, roh: string, rest: TelefonRest): TelefonTipp {
+  const alt = vorher ?? "";
+  const dazu = roh.startsWith(alt) ? roh.slice(alt.length) : undefined;
+  if (rest !== undefined && dazu !== undefined && dazu !== "") {
+    const neu = rest + dazu;
+    return { wert: alt, hinweis: zweiteNummerSatz(neu), rest: neu };
+  }
+  if (rest === undefined && dazu !== undefined && (EIN_TRENNER.test(dazu) || EIN_BUCHSTABE.test(dazu))) {
+    const mindestens = dazu.includes("/") || EIN_BUCHSTABE.test(dazu) ? 7 : 5;
+    if (ziffern(alt).length >= mindestens) {
+      const anfang = EIN_BUCHSTABE.test(dazu) ? dazu : "";
+      return { wert: alt, hinweis: zweiteNummerSatz(anfang), rest: anfang };
+    }
+  }
+  return { ...telefonBereinigen(roh), rest: undefined };
+}
+
+function zweiteNummerSatz(rest: string): string {
+  const t = rest.trim();
+  if (!t) {
+    return "Hinter dem Trenner folgt eine zweite Nummer? Sie wird nicht übernommen — eine Nummer je Zeile, weitere über „+ Kontakt“ anlegen.";
+  }
+  return ziffern(t)
+    ? `Zweite Nummer „${t}" nicht übernommen — eine Nummer je Zeile, weitere über „+ Kontakt“ anlegen.`
+    : `Nach der Nummer folgt „${t}" — nicht übernommen. Eine Nummer je Zeile, weitere über „+ Kontakt“ anlegen.`;
+}
+
+/** Länger als jede Telefonnummer (E.164: höchstens 15 Ziffern). */
+export const TELEFON_MAX_ZIFFERN = 15;
+
 /** Satz für eine auffällig kurze Nummer (nach dem Verlassen des Feldes); leer, wenn sie passt oder leer ist. */
 export function telefonKurzHinweis(wert: string | undefined): string {
   const n = ziffern(wert ?? "").length;
+  if (n > TELEFON_MAX_ZIFFERN) {
+    return `${n} Ziffern — länger als jede Telefonnummer, stimmt die Nummer? Der Meldekopf ruft hier zurück.`;
+  }
   if (n === 0 || n >= TELEFON_MIN_ZIFFERN) return "";
   return `Nur ${n} Ziffer${n === 1 ? "" : "n"} — stimmt die Nummer? Der Meldekopf ruft hier zurück.`;
 }

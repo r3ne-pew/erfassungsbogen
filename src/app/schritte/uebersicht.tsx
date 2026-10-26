@@ -14,7 +14,7 @@ import {
   unterbringungMWD,
   verpflegung,
 } from "@bos/eeb-format/model";
-import { vorlageAktualisieren, vorlageAnlegen, vorlagenLaden } from "../vorlagen";
+import { vorlageAktualisieren, vorlageAnlegen, vorlageZahlenText, vorlagenLaden, type Vorlage } from "../vorlagen";
 import { TabellenScroll } from "../tabellen-scroll";
 import { RolleMarke } from "../rolle-marke";
 import {
@@ -87,7 +87,7 @@ export function Uebersicht(props: {
    * folgenFuerOffenenBogen). Ohne ihn fällt die Rückfrage allgemein aus.
    */
   schliessenFolgen?: () => { satz: string; verlust: boolean };
-  onVorlageGespeichert?: (name: string) => void;
+  onVorlageGespeichert?: (name: string, ersetzt?: Vorlage) => void;
   /**
    * Gesetzt, wenn der Bogen die Bearbeitung einer gespeicherten Vorlage ist
    * („Bearbeiten" auf der Vorlagenkarte). Dann ist „Vorlage aktualisieren" die
@@ -148,10 +148,10 @@ export function Uebersicht(props: {
       const stand = new Date(gleichnamig.geaendert).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
       const wahl = await frageWahl({
         titel: "Vorlage mit diesem Namen vorhanden",
-        text: `Es gibt schon eine Vorlage „${gleichnamig.name}" (gespeichert ${stand} Uhr). Zwei gleich benannte Karten sind beim Mustern kaum zu unterscheiden.`,
+        text: `Es gibt schon eine Vorlage „${gleichnamig.name}" (gespeichert ${stand} Uhr). Zwei gleich benannte Karten sind beim Mustern kaum zu unterscheiden. Vorhanden: ${vorlageZahlenText(gleichnamig.bogen)} · dieser Bogen: ${vorlageZahlenText(bogen)}.`,
         wege: [
           { wert: "zusaetzlich", label: "Zusätzlich anlegen", hinweis: "Die vorhandene bleibt, wie sie ist." },
-          { wert: "ersetzen", label: "Vorhandene ersetzen", hinweis: "Ihr Inhalt wird durch diesen Bogen überschrieben.", gefahr: true },
+          { wert: "ersetzen", label: "Vorhandene ersetzen", hinweis: "Ihr Inhalt wird durch diesen Bogen überschrieben; danach gibt es „Rückgängig“.", gefahr: true },
         ],
       });
       if (wahl == null) return;
@@ -169,7 +169,9 @@ export function Uebersicht(props: {
       });
       return;
     }
-    props.onVorlageGespeichert?.(v.name);
+    // Ersetzt: die vorige Fassung mitgeben, damit die Quittung ein „Rückgängig“ tragen kann (R12-D1).
+    const ersetzt = ersetzen && v.id === ersetzen ? gleichnamig : undefined;
+    props.onVorlageGespeichert?.(v.name, ersetzt);
   }
 
   /**

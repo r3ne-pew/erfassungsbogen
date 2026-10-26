@@ -60,7 +60,7 @@ describe("bedarfText (R10-K5)", () => {
   it("nennt nur, was da ist, wie die Kopfzeile der Einsatzansicht", () => {
     expect(
       bedarfText(summen({ kraftstoff: { dieselLiter: 120, benzinLiter: 40, gemischLiter: 5 }, unterbringungBenoetigt: 2, unterbringungAngefordert: { personen: 24, m: 20, w: 4, d: 0, ohneAngabe: 0 }, ruhezeitErforderlich: 3 })),
-    ).toBe("Bedarf: Diesel 120 l · Unterbringung 24 · Ruhezeit 3 Einheiten");
+    ).toBe("Bedarf: Unterbringung 24 Personen · Diesel 120 l · Ruhezeit 3 Einheiten");
     expect(bedarfText(summen({ ruhezeitErforderlich: 1 }))).toBe("Bedarf: Ruhezeit 1 Einheit");
   });
 });

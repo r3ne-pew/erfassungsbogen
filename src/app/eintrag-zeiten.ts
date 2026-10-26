@@ -138,6 +138,8 @@ export function eintreffzeit(e: MeldeEintrag): number {
 
 /** Spielraum für „in der Zukunft": Uhren zweier Geräte gehen nie gleich. */
 export const ZUKUNFT_TOLERANZ_MS = 15 * 60_000;
+/** Wie weit vor der Aufnahme eine Eintreffzeit liegen darf, ohne dass nachgefragt wird (R12-E4). */
+export const VERGANGENHEIT_TOLERANZ_MS = 24 * 3_600_000;
 
 /**
  * Passt die Zeit zusammen? Eintreff- oder Abrückzeit mehr als eine
@@ -149,9 +151,22 @@ export const ZUKUNFT_TOLERANZ_MS = 15 * 60_000;
 export function zeitUnstimmigkeit(
   z: { eintreffen: number; abgerueckt?: number | null },
   jetzt = Date.now(),
+  /**
+   * Bezug für die Gegenrichtung (R12-E4): Aufnahmezeit der Meldung und Beginn des Einsatzzeitraums in ms. Eine
+   * Eintreffzeit, die mehr als einen Tag vor der Aufnahme UND vor dem Zeitraum liegt, ist meist ein Dreher im
+   * Jahr oder bei Tag und Monat.
+   */
+  bezug?: { aufnahme: number; zeitraumVon?: number },
 ): string | null {
   if (z.eintreffen > jetzt + ZUKUNFT_TOLERANZ_MS) {
     return `Eingetroffen ${zeitLang(z.eintreffen)} liegt in der Zukunft — Tag oder Monat vertauscht?`;
+  }
+  if (
+    bezug &&
+    z.eintreffen < bezug.aufnahme - VERGANGENHEIT_TOLERANZ_MS &&
+    (bezug.zeitraumVon == null || z.eintreffen < bezug.zeitraumVon)
+  ) {
+    return `Eingetroffen ${zeitLang(z.eintreffen)} liegt mehr als einen Tag vor der Aufnahme (${zeitLang(bezug.aufnahme)}) — Jahr, Tag oder Monat vertauscht?`;
   }
   if (z.abgerueckt != null && z.abgerueckt > jetzt + ZUKUNFT_TOLERANZ_MS) {
     return `Abgerückt ${zeitLang(z.abgerueckt)} liegt in der Zukunft — Tag oder Monat vertauscht?`;

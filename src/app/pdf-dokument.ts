@@ -40,12 +40,14 @@ import {
   vokabularFuer,
   zeitgruppe,
   pruefpunkte,
+  bogenAnonymisiert,
   type QrSatz,
   zeitpunktDeutsch,
 } from "./hilfen";
 import { mwdText, summiereBoegen, unterbringungAngefordertText, verpflegungText, type EinsatzSummen } from "./auswertung";
 import { zeitLang } from "./eintrag-zeiten";
-import { codeGueltigBisText } from "./anonym-hinweis";
+import { lageblattAlterText, zugAlterText } from "./lagemonitor";
+import { ANONYM_PAPIER_VERMERK, ANONYM_PERSONAL_SATZ, codeGueltigBisText } from "./anonym-hinweis";
 import { bedarfMarken, datumVonMs, lueckenAlle, rueckkehrText } from "./einheiten-tabelle";
 import { FELD_GESAMTSTAERKE, bogenDiff, diffZeilen, type BogenDiff } from "@bos/meldekopf/meldung-diff";
 import { fahrzeugSymbolSvg } from "./taktische-zeichen-bogen";
@@ -467,6 +469,8 @@ export interface UebersichtEintrag {
   eingetroffenAm?: number;
   /** Abrückzeit (ms), falls festgehalten. */
   abgerueckAm?: number;
+  /** Eingang der geltenden Fassung am Meldekopf (ms) — Grundlage der Altersaussage im Kopf des Lageblatts (R12-K3). */
+  empfangenAm?: number;
   /**
    * Nicht mehr vor Ort (abgerückt oder zusammengeführt): steht im eigenen
    * Block unter den anwesenden Einheiten. Bisher fehlten diese Einheiten auf
@@ -788,6 +792,8 @@ function uebersichtsTabelle(
         bold: true,
       });
     }
+    // Anonymisiert: Das Papier sagt, warum Namen und Rufnummern fehlen und wo sie zu holen sind (R12-A1).
+    if (bogenAnonymisiert(b)) namensZeilen.push({ text: ANONYM_PAPIER_VERMERK, bold: true, fontSize: 7 });
     // Lücken der Meldung als Zahl — am Gerät eine Marke an der Karte (R2-K3).
     // Mit Inhalt statt „1 Lücke" (R3-K7).
     // Auf dem Papier alle, nicht „… + 2 weitere" (R4-K3): Das Lageblatt nennt
@@ -983,11 +989,13 @@ function bedarfsTabelle(eintraege: UebersichtEintrag[], leer = false, nachtrag?:
  * mehr als eine Gruppe kennt (sonst wiederholt die Tabelle nur den Gesamtwert).
  * Nur zählende Einheiten, wie am Gerät (aggregiereNachZug).
  */
-function zugSummenTabelle(eintraege: UebersichtEintrag[], nachtrag?: string): Content | undefined {
+function zugSummenTabelle(eintraege: UebersichtEintrag[], nachtrag?: string, erstellt?: number): Content | undefined {
   const nach = new Map<string, Erfassungsbogen[]>();
+  const aeltester = new Map<string, number>();
   for (const e of eintraege.filter(zaehlend)) {
     const k = e.zugEtikett ?? "";
     (nach.get(k) ?? nach.set(k, []).get(k)!).push(e.bogen);
+    if (e.empfangenAm != null) aeltester.set(k, Math.min(aeltester.get(k) ?? e.empfangenAm, e.empfangenAm));
   }
   if (nach.size < 2) return undefined;
   const kopf = (text: string): TableCell => ({ text, bold: true, fillColor: GRAU });
@@ -1003,8 +1011,10 @@ function zugSummenTabelle(eintraege: UebersichtEintrag[], nachtrag?: string): Co
   });
   for (const [etikett, gruppe] of gruppen) {
     const s = summiereBoegen(gruppe);
+    // Die Stärke je Zug wirkt frisch, auch wenn sie es nicht ist (R12-K3).
+    const alter = erstellt != null && !nachtrag ? zugAlterText(aeltester.get(etikett), erstellt) : null;
     body.push([
-      { text: etikett || "Ohne Zug" },
+      alter ? { text: [{ text: etikett || "Ohne Zug" }, { text: `\n${alter}`, bold: true, fontSize: 6.5 }] } : { text: etikett || "Ohne Zug" },
       { text: `${s.einheiten}` },
       { text: `${s.staerke.fuehrer} / ${s.staerke.unterfuehrer} / ${s.staerke.mannschaft} / ${s.staerke.gesamt}` },
       { text: `${s.verpflegung.gesamt}` },
@@ -1030,7 +1040,7 @@ function zugSummenTabelle(eintraege: UebersichtEintrag[], nachtrag?: string): Co
  * in zwei Zeilen, Dringendes fett. Die Einzelheiten (Verpflegung nach
  * Kostform, WC/Dusche, Zwischensummen) stehen weiter unter der Tabelle.
  */
-function lageKopfleiste(eintraege: UebersichtEintrag[], leer = false, nachtrag?: string): Content {
+function lageKopfleiste(eintraege: UebersichtEintrag[], leer = false, nachtrag?: string, erstellt?: number): Content {
   if (leer) {
     // Leeres Lageblatt: Ausfülllinien statt „0 / 0 / 0 / 0" (R3-A5).
     const l = LEERFELD;
@@ -1072,8 +1082,20 @@ function lageKopfleiste(eintraege: UebersichtEintrag[], leer = false, nachtrag?:
       : { text: "keine Ruhezeit" },
     { text: ` · ${kraftstoffText(s.kraftstoff)}` },
   ];
+  // Wie alt sind die Meldungen hinter den Zahlen? Bildschirm und Monitor sagen es; die Wand sollte es auch sagen (R12-K3).
+  // Gerechnet zum Zeitpunkt des Ausdrucks, nicht zum Zeitpunkt des Lesens.
+  const alterZeile =
+    erstellt != null && !nachtrag
+      ? lageblattAlterText(
+          eintraege.filter(zaehlend).flatMap((e) => (e.empfangenAm != null ? [e.empfangenAm] : [])),
+          erstellt,
+        )
+      : null;
   return {
-    table: { widths: ["*"], body: [[{ stack: [{ text: staerkeZeile }, { text: bedarfZeile }] }]] },
+    table: {
+      widths: ["*"],
+      body: [[{ stack: [{ text: staerkeZeile }, { text: bedarfZeile }, ...(alterZeile ? [{ text: alterZeile, bold: true }] : [])] }]],
+    },
     fontSize: 9,
     margin: [0, 0, 0, 5],
   };
@@ -1171,7 +1193,7 @@ function uebersichtsSeite(
 ): Content[] {
   const leer = zumWeiterfuehren && eintraege.length === 0;
   const nachtragsTab = zumWeiterfuehren && nachtragZeilen > 0 ? nachtragsTabelle(nachtragZeilen, leer, rueckseite) : undefined;
-  const zugSummen = zugSummenTabelle(eintraege, nachtrag);
+  const zugSummen = zugSummenTabelle(eintraege, nachtrag, erstellt);
   const bedarf = bedarfsTabelle(eintraege, leer, nachtrag);
   // Sammel-PDF mit vielen Einheiten: Bedarf und Zwischensummen stehen unter der
   // Kopfleiste. Hinter der Tabelle passte der unteilbare Block oft nicht mehr auf
@@ -1195,7 +1217,7 @@ function uebersichtsSeite(
     // Stärke und Bedarf vor der Tabelle: Ab rund 13 Einheiten stand „Bedarf
     // gesamt" allein auf Seite 2 — wer nur Seite 1 aushängt oder faxt, gab
     // Stärke ohne Bedarf weiter (Audit Runde 3, R3-K6).
-    lageKopfleiste(eintraege, leer, nachtrag),
+    lageKopfleiste(eintraege, leer, nachtrag, erstellt),
     ...(bedarfVorn ? [bedarfBlock] : []),
     uebersichtsTabelle(eintraege, maxZeilen, zumWeiterfuehren, nachtrag),
     ...(nachtragsTab && !rueckseite ? [nachtragsTab] : []),
@@ -2254,6 +2276,7 @@ export function pdfDokument(
         table: { widths: [118, 30, "*", 160], body: personalZeilen, dontBreakRows: true, ...(blanko ? { headerRows: 1 } : {}) },
         margin: [0, luecke(12), 0, luecke(10)],
       },
+      ...(!blanko && bogenAnonymisiert(b) ? [{ text: ANONYM_PERSONAL_SATZ, bold: true, margin: [0, 0, 0, 6] } as Content] : []),
       ...(b.personalErfassung === PersonalErfassung.NUR_STAERKE
         ? [{ text: nurSollstaerke(b) ? "Personal am Meldekopf nur in Stärke erfasst. Die Zahl ist die Sollstärke der Vorbelegung, nicht gezählt." : "Personal am Meldekopf nur in Stärke erfasst.", italics: true, margin: [0, 0, 0, 6] } as Content]
         : []),
@@ -2280,7 +2303,7 @@ export function pdfDokument(
       // Kein fester Seitenumbruch mehr; als unbreakable-Gruppe zusammengehalten,
       // damit der QR-Code nicht über eine Seitengrenze zerrissen wird. Passt der
       // Block nicht mehr, rückt er als Ganzes auf die nächste Seite.
-      ...(qr ? [qrBlock(qr, farbe.akzent, zeitgruppe(b.stand), vermerk, codeKopfzeile(b, zeitgruppe(b.stand), vermerk?.nummer), codeGueltigBisText(b, (z) => zeitpunktDeutsch(z).split(",")[0] ?? ""))] : []),
+      ...(qr ? [qrBlock(qr, farbe.akzent, zeitgruppe(b.stand), vermerk, codeKopfzeile(b, zeitgruppe(b.stand), vermerk?.nummer), codeGueltigBisText(b, (z) => zeitpunktDeutsch(z).split(",")[0] ?? "", bogenAnonymisiert(b)))] : []),
       ...(zusatz?.messpunkt ? [{ text: " ", fontSize: 1, id: `${MESS_BOGEN_ENDE}-qr${zusatz.messKennung ?? ""}` } as Content] : []),
     ],
   });

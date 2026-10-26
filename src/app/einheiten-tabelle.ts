@@ -638,6 +638,8 @@ export interface TabellenZeile {
   eingetroffen: string;
   /** Eintreffzeit in ms — Sortierschlüssel der Spalte „Eingetroffen". */
   eingetroffenAm: number;
+  /** Eingang der geltenden Fassung in ms — Grundlage der Spalte „Meldung vor" (R12-K3). */
+  empfangenAm: number;
   /** Abrückzeit als Uhrzeit; leer, solange die Einheit da ist. */
   abgerueckt: string;
   /** Abrückzeit in ms, 0 = nicht abgerückt — Sortierschlüssel. */
@@ -674,6 +676,7 @@ export type TabellenSpalte =
   | "fahrzeuge"
   | "bedarf"
   | "eingetroffen"
+  | "meldung"
   | "abgerueckt"
   | "stand"
   | "auftrag";
@@ -721,6 +724,8 @@ export const TABELLEN_SPALTEN: SpaltenDefinition[] = [
   { schluessel: "auftrag", kopf: "Auftrag", titel: "Auftrag / Notiz der Führungsstelle", zahl: false },
   { schluessel: "eingetroffen", kopf: "Eingetr.", titel: "Eingetroffen", zahl: false, sortiertNach: "eingetroffenAm" },
   { schluessel: "bedarf", kopf: "Bedarf", titel: "Sofortbedarf", zahl: false },
+  // Alter der geltenden Meldung: Ältestes oben statt „Eingetr." (absolut) und „Stand" (vom Absender gesetzt) (R12-K3).
+  { schluessel: "meldung", kopf: "Meldung vor", titel: "Meldung vor (Alter der geltenden Meldung)", zahl: false, sortiertNach: "empfangenAm" },
   { schluessel: "abgerueckt", kopf: "Abger.", titel: "Abgerückt", zahl: false, sortiertNach: "abgerueckAm" },
   { schluessel: "organisation", kopf: "Org.", titel: "Organisation", zahl: false },
   { schluessel: "verpflegung", kopf: "Verpfl.", titel: "Verpflegung gesamt", zahl: true },
@@ -785,6 +790,7 @@ export function tabellenZeilen(eintraege: MeldeEintrag[], art?: EinsatzArt, jetz
       // „28.09.2026, 14:05" (Audit Runde 2, R2-A6).
       eingetroffen: zeitLang(eintreffzeit(e)),
       eingetroffenAm: eintreffzeit(e),
+      empfangenAm: e.empfangenAm,
       abgerueckt: e.abgerueckAm != null ? zeitLang(e.abgerueckAm) : "",
       abgerueckAm: e.abgerueckAm ?? 0,
       stand: zeitpunktDeutsch(b.stand),
@@ -860,7 +866,8 @@ export function zeilenSortieren(
 ): TabellenZeile[] {
   const vorzeichen = richtung === "auf" ? 1 : -1;
   const definition = TABELLEN_SPALTEN.find((s) => s.schluessel === spalte);
-  const feld: keyof TabellenZeile = definition?.sortiertNach ?? spalte;
+  // „meldung" hat keinen eigenen Wert in der Zeile, sortiert wird nach `empfangenAm` (sortiertNach).
+  const feld = (definition?.sortiertNach ?? spalte) as keyof TabellenZeile;
   return [...zeilen].sort((a, b) => {
     const wa = a[feld];
     const wb = b[feld];

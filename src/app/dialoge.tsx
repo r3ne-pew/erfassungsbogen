@@ -53,6 +53,8 @@ type Eingabeabfrage = {
   hinweis?: ReactNode;
   felder: Eingabefeld[];
   ok: string;
+  /** Laufende Zeile unter den Feldern (z. B. eine Summe), aus den aktuellen Werten gerechnet (R12-H2). */
+  zeile?: (werte: Record<string, string>) => string;
 };
 
 type Wahlabfrage = {
@@ -116,8 +118,9 @@ export function frageFelder(a: {
   felder: Eingabefeld[];
   hinweis?: ReactNode;
   ok?: string;
+  zeile?: (werte: Record<string, string>) => string;
 }): Promise<Record<string, string> | null> {
-  return stellen({ art: "eingabe", titel: a.titel, hinweis: a.hinweis, felder: a.felder, ok: a.ok ?? "Übernehmen" });
+  return stellen({ art: "eingabe", titel: a.titel, hinweis: a.hinweis, felder: a.felder, ok: a.ok ?? "Übernehmen", zeile: a.zeile });
 }
 
 /** Ein einzelnes Feld erfragen — der direkte Ersatz für `window.prompt`. */
@@ -461,6 +464,11 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
                 )}
               </label>
             ))}
+            {abfrage.zeile && (
+              <p className="dialog-zeile" role="status" aria-live="polite">
+                <strong>{abfrage.zeile(werte)}</strong>
+              </p>
+            )}
           </>
         )}
 

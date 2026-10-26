@@ -311,6 +311,8 @@ describe("Schritt Personal", () => {
     const nutzer = userEvent.setup();
     buehne();
 
+    // Die Übernahme ändert die Ansicht nicht mehr (R12-N6): hier ist die Kurz-Liste vorher gewählt.
+    await nutzer.click(screen.getByLabelText("Kurz-Liste (Tabelle)"));
     await nutzer.click(screen.getByRole("button", { name: "Namen einfügen…" }));
     const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Namen einfügen']")!;
     expect(dialog.hasAttribute("open")).toBe(true);
@@ -321,7 +323,7 @@ describe("Schritt Personal", () => {
     await nutzer.click(within(dialog).getByRole("button", { name: "2 Personen übernehmen" }));
 
     expect(dialog.hasAttribute("open")).toBe(false);
-    const tabelle = screen.getByRole("table"); // Übernahme schaltet auf die Tabelle
+    const tabelle = screen.getByRole("table");
     const werte = (within(tabelle).getAllByRole("textbox") as HTMLInputElement[]).map((f) => f.value);
     expect(werte).toEqual(["Max", "Muster", "Erika", "Musterfrau"]);
   });
@@ -330,6 +332,7 @@ describe("Schritt Personal", () => {
   it("markiert Zeilen mit Ziffern oder Klammern als „kein Name?“ und übernimmt sie nur angehakt (R7-E7)", async () => {
     const nutzer = userEvent.setup();
     buehne();
+    await nutzer.click(screen.getByLabelText("Kurz-Liste (Tabelle)")); // die Ansicht bleibt nach „Übernehmen“ (R12-N6)
     await nutzer.click(screen.getByRole("button", { name: "Namen einfügen…" }));
     const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Namen einfügen']")!;
     await nutzer.type(within(dialog).getByRole("textbox"), "Müller, Hans\n12345\nMax Mustermann (Gf)");
@@ -398,6 +401,7 @@ describe("Schritt Personal", () => {
       <SchrittBuehne komponente={SchrittPersonal} bogen={{ ...neuerBogen(), personal: [neuePerson(), neuePerson()] }} />,
     );
 
+    await nutzer.click(screen.getByLabelText("Kurz-Liste (Tabelle)")); // die Ansicht bleibt nach „Übernehmen“ (R12-N6)
     await nutzer.click(screen.getByRole("button", { name: "Namen einfügen…" }));
     const dialog = document.querySelector<HTMLDialogElement>("dialog[aria-label='Namen einfügen']")!;
     await nutzer.type(within(dialog).getByRole("textbox"), "Muster, Max");

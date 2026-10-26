@@ -65,7 +65,7 @@ import { eigenesZurueckUm, eigenesZurueckVerbrauchen, rueckfrageEintragErsetzbar
 import { FensterKonflikt, nachAbgleichFortsetzen, useFensterAbgleich } from "./fenster-abgleich";
 import { entwirreScanText } from "./tastaturbelegung";
 import { ortSperren, SCHRITTWECHSEL_SPERRE_MS, SEITENWECHSEL_SPERRE_MS } from "./tipp-schutz";
-import { vorlageAktualisieren, vorlageAnlegen, vorlageAusDatei, vorlagenLaden, vorlagenPapierkorb, vorlageZuruecksetzen, type Vorlage } from "./vorlagen";
+import { vorlageAktualisieren, vorlageAnlegen, vorlageAusDatei, vorlageZahlenText, vorlagenLaden, vorlagenPapierkorb, vorlageZuruecksetzen, type Vorlage } from "./vorlagen";
 import { Musterung, VorlagenListe } from "./vorlagen-ui";
 import { musterungVorlageAusStand } from "./musterung-stand";
 import { rueckwegeVergessen } from "./rueckweg-sitzung";
@@ -155,6 +155,8 @@ import { Fusszeile } from "./fusszeile";
 import { Aktualisierungshinweise } from "./aktualisierung";
 import { SpeicherWarnung } from "./speicher-warnung";
 import { arbeiten, useArbeitet } from "./arbeitet";
+import { LEERER_EINSATZ_TEXT, LEERE_DATEI_TEXT, einsatzLeer } from "./ausgabe-sperre";
+import { selbstGeloeschtMeldung } from "./einsatz-geloescht";
 import { wartendenLinkErledigt, wartendenLinkLesen, wartendenLinkMerken } from "./wartender-link";
 import { FesteWarnung } from "./feste-warnung";
 import { speicherFehlerDetails, speicherFehlerKurz } from "./speicher-fehler-text";
@@ -573,11 +575,19 @@ export function verlaufRest(ziel: { lauf?: string } | undefined | null, lauf: st
  * und kein Fahrzeug gemeinsam haben. Steht im `<p>` der Rückfrage, darum nur
  * Inline-Elemente.
  */
-function MeldungsGegenueberstellung({ vergleich, warAbgerueckt = false }: { vergleich: MeldungsVergleich; warAbgerueckt?: boolean }) {
+export function MeldungsGegenueberstellung({ vergleich, warAbgerueckt = false }: { vergleich: MeldungsVergleich; warAbgerueckt?: boolean }) {
   return (
     <>
       <br />
       <span className="meldungs-vergleich">
+        {/* Was die Wahl für den Anwesenheitsstand bedeutet, steht vor dem Vergleich und nicht dahinter, wo bei
+            360 × 640 der Rollbereich es verbirgt (R12-W4). */}
+        {warAbgerueckt && (
+          <>
+            <strong className="rueckkehr-hinweis">⚠ Die Einheit war abgerückt – mit der neuen Fassung zählt sie wieder mit.</strong>
+            <br />
+          </>
+        )}
         <strong>Bisher:</strong> {steckbriefZeile(vergleich.bisher)}
         <br />
         <strong>Neu:</strong> {steckbriefZeile(vergleich.neu)}
@@ -585,12 +595,6 @@ function MeldungsGegenueberstellung({ vergleich, warAbgerueckt = false }: { verg
           <>
             <br />
             <strong>Geändert:</strong> {vergleich.geaendert}
-          </>
-        )}
-        {warAbgerueckt && (
-          <>
-            <br />
-            <strong className="rueckkehr-hinweis">⚠ Die Einheit war abgerückt – mit der neuen Fassung zählt sie wieder mit.</strong>
           </>
         )}
       </span>
@@ -1042,9 +1046,12 @@ function AppInhalt() {
   // Dasselbe für eine laufende Aufnahme „für Einsatz" (R11-O2): Wird der Einsatz in einem anderen Fenster gelöscht, sprang die
   // Eingabe ohne Hinweis zum eigenen Bogen — „Aufnahme für" und „In Einsatz übernehmen" waren weg, ohne zu sagen, warum.
   const zielBekannt = useRef<{ id: string; name: string } | null>(null);
+  // Einsatz, den dieses Fenster selbst gerade in den Papierkorb gelegt hat (R12-S1).
+  const selbstGeloescht = useRef<string | null>(null);
   useEffect(() => {
     if (!sammelZielId || !fremdeErfassung) {
       zielBekannt.current = null;
+      selbstGeloescht.current = null;
       return;
     }
     const da = einsaetze.find((s) => s.id === sammelZielId);
@@ -1056,6 +1063,12 @@ function AppInhalt() {
     if (!bekannt || bekannt.id !== sammelZielId) return;
     zielBekannt.current = null;
     const imPapierkorb = einsaetzePapierkorb().some((s) => s.id === bekannt.id);
+    if (selbstGeloescht.current === bekannt.id) {
+      selbstGeloescht.current = null;
+      setZeigeStart(true);
+      setMeldung(selbstGeloeschtMeldung(bekannt.name, bogen ? einheitAnzeigename(bogen.einheit) || "(noch ohne Namen)" : ""));
+      return;
+    }
     setMeldung(
       imPapierkorb
         ? `Der Einsatz „${bekannt.name}" wurde in einem anderen Fenster in den Papierkorb gelegt. Die Eingabe ist jetzt ein eigener Bogen und lässt sich hier nicht mehr ablegen — zum Ablegen auf der Startseite unter „Papierkorb Einsätze" den Einsatz zurückholen und die Meldung dort neu aufnehmen.`
@@ -1791,6 +1804,28 @@ function AppInhalt() {
     setMeldung(`Vorlage „${v.name}" aktualisiert.`);
   }
 
+  /** „Rückgängig“ hinter der Meldung zur Vorlage, solange die vorige Fassung bekannt ist (R2-D2, R12-D1). */
+  function vorlageRueckwegKnopf() {
+    const rueck = vorlageRueckweg;
+    if (!rueck || !meldung.startsWith(`Vorlage „`)) return null;
+    return (
+      <>
+        {" "}
+        <button
+          type="button"
+          onClick={() => {
+            vorlageZuruecksetzen(rueck);
+            vorlagenNeuLaden();
+            setMeldung(`Vorlage „${rueck.name}" auf die vorige Fassung zurückgesetzt.`);
+            setVorlageRueckweg(null);
+          }}
+        >
+          Rückgängig
+        </button>
+      </>
+    );
+  }
+
   /** Den zuletzt verdrängten Bogen zurück in den Arbeitsplatz holen. */
   async function holeVerdraengtenZurueck() {
     const zurueck = ersetzterEntwurf;
@@ -1997,7 +2032,7 @@ function AppInhalt() {
         hinweis:
           (nichtJuenger && bisher
             ? `Der Bogen trägt ${b.stand < bisher.stand ? "einen älteren Stand" : "denselben Stand"} (${zeitpunktDeutsch(b.stand)}) ${b.stand < bisher.stand ? "als" : "wie"} die bisherige Meldung (${zeitpunktDeutsch(bisher.stand)}${platzhalterBisher ? ", von Hand erfasst" : ""}) — er gilt trotzdem, die bisherige wandert in die Historie.`
-            : "Der Normalfall bei einer Nachmeldung derselben Einheit: die bisherige Meldung wandert in die Historie, die neue gilt.") +
+            : "Normalfall bei einer Nachmeldung: die bisherige wandert in die Historie, die neue gilt.") +
           (bisher ? wegfallHinweis(bisher) : ""),
       };
       const historieWeg: Antwortweg[] = nichtJuenger
@@ -3266,7 +3301,19 @@ function AppInhalt() {
     return lieferungsMarke(umfang, exportStaende[ziel]);
   }
 
+  /**
+   * Ein Einsatz ohne Einheit liefert nur leere Dateien. Die Weitergabe meldete dann „Seit dem letzten Sammel-PDF …
+   * nichts geändert", als gäbe es ein früheres PDF (R12-E5); jetzt sagen alle Ausgaben, was Sache ist.
+   */
+  function leererEinsatz(s: Einsatzsammlung, blockieren = false): boolean {
+    if (!einsatzLeer(s)) return false;
+    // Die Weitergabe hat ohne Einheit nichts zu sichern; die Tabellenformate liefern weiter (leere) Dateien, sagen es aber.
+    setAusgabeQuittung(blockieren ? LEERER_EINSATZ_TEXT : LEERE_DATEI_TEXT);
+    return blockieren;
+  }
+
   async function exportiereEinsatzCsv(s: Einsatzsammlung, umfang: ExportUmfang) {
+    leererEinsatz(s);
     const teil = exportSammlung(s, umfang, exportStaende.csv ?? null);
     const marke = nachtragMarke(umfang, "csv");
     const ok = await dateiAnbieten(
@@ -3278,6 +3325,7 @@ function AppInhalt() {
   }
 
   async function exportiereEinsatzCsvDetail(s: Einsatzsammlung, umfang: ExportUmfang) {
+    leererEinsatz(s);
     const teil = exportSammlung(s, umfang, exportStaende["csv-detail"] ?? null);
     const ok = await dateiAnbieten(
       `eeb-einsatz-${nachtragMarke(umfang, "csv-detail")}${einsatzDateiname(s)}-alle-daten.csv`,
@@ -3292,6 +3340,7 @@ function AppInhalt() {
    * XLSX-Schreiber samt Stiltabelle wird nur beim Klick gebraucht (wie die PDF).
    */
   async function exportiereEinsatzOldenburg(s: Einsatzsammlung, umfang: ExportUmfang) {
+    leererEinsatz(s);
     const teil = exportSammlung(s, umfang, exportStaende.xlsx ?? null);
     try {
       const { XLSX_MIME, einsatzOldenburgXlsx } = await import("./oldenburg-xlsx");
@@ -3314,6 +3363,7 @@ function AppInhalt() {
   async function sammelPdf(s: Einsatzsammlung, umfang: ExportUmfang, weitergabe = false) {
     setFehler("");
     setAusgabeQuittung(null);
+    if (leererEinsatz(s, true)) return;
     const teil = exportSammlung(s, umfang, exportStaende.pdf ?? null);
     if (teil.eintraege.length === 0) {
       setFehler("Seit dem letzten Sammel-PDF ist kein Bogen neu dazugekommen und nichts geändert.");
@@ -3367,10 +3417,15 @@ function AppInhalt() {
   async function lageblatt(s: Einsatzsammlung) {
     setFehler("");
     setAusgabeQuittung(null);
+    const leer = einsatzLeer(s);
     await arbeiten("lageblatt", async () => {
       try {
         const { einsatzLageblattErzeugen } = await import("./pdf");
-        if (await einsatzLageblattErzeugen(s)) setAusgabeQuittung("✓ Lageblatt erzeugt (A4 quer) — liegt im Download-Ordner bzw. wurde über das Teilen-Menü abgelegt.");
+        if (await einsatzLageblattErzeugen(s)) {
+          setAusgabeQuittung(
+            `✓ Lageblatt erzeugt (A4 quer) — liegt im Download-Ordner bzw. wurde über das Teilen-Menü abgelegt.${leer ? ` ${LEERE_DATEI_TEXT}` : ""}`,
+          );
+        }
       } catch (e) {
         setFehler(`Lageblatt: ${fehlerText(e)}`);
       }
@@ -4045,7 +4100,15 @@ function AppInhalt() {
           zusammenlegungEintragId={zusammenlegung?.einsatzId === offenerEinsatz.id ? zusammenlegung.eintragId : null}
           ausgabeQuittung={ausgabeQuittung}
           eingang={eingang}
-          onGeloescht={() => { setOffenerEinsatzId(null); einsaetzeNeuLaden(); setMeldung(""); /* Quittung mit Rückweg: Startseite (R2-D6) */ }}
+          angefangeneErfassung={bogen && fremdeErfassung && sammelZielId === offenerEinsatz.id ? (einheitAnzeigename(bogen.einheit) || "(noch ohne Namen)") : undefined}
+          onGeloescht={() => {
+            // Selbst gelöscht, nicht „in einem anderen Fenster" (R12-S1): Die Meldung unten sagt, was aus der Erfassung wird.
+            selbstGeloescht.current = offenerEinsatz.id;
+            setOffenerEinsatzId(null);
+            setZeigeStart(true);
+            einsaetzeNeuLaden();
+            setMeldung(""); /* Quittung mit Rückweg: Startseite (R2-D6) */
+          }}
         />
         {(meldung || fehler) && (
           <p className={fehler ? "fehler" : "meldung"} role="status" style={{ textAlign: "center" }}>
@@ -4338,22 +4401,7 @@ function AppInhalt() {
         {meldung && (
           <p className="meldung" role="status" key={meldung}>
             {meldung}
-            {vorlageRueckweg && meldung.startsWith(`Vorlage „`) && (
-              <>
-                {" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    vorlageZuruecksetzen(vorlageRueckweg);
-                    vorlagenNeuLaden();
-                    setMeldung(`Vorlage „${vorlageRueckweg.name}" auf die vorige Fassung zurückgesetzt.`);
-                    setVorlageRueckweg(null);
-                  }}
-                >
-                  Rückgängig
-                </button>
-              </>
-            )}
+            {vorlageRueckwegKnopf()}
           </p>
         )}
         {/* Holt sich ins Bild und wird angesagt: die Knöpfe sitzen weit
@@ -4722,7 +4770,7 @@ function AppInhalt() {
           dorthin, wo die Aktion ausgelöst wurde. Ohne diese Zeile blieben sie
           im Assistenten unsichtbar und tauchten später unvermittelt auf der
           Startseite auf. */}
-      {meldung && <p className="meldung" role="status" key={meldung}>{meldung}</p>}
+      {meldung && <p className="meldung" role="status" key={meldung}>{meldung}{vorlageRueckwegKnopf()}</p>}
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
       {/* Der Schrittwechsel trägt seine Richtung: vorwärts kommt der Inhalt von
           rechts, zurück von links. Die Schrittleiste oben sagt, WO man ist —
@@ -4761,7 +4809,16 @@ function AppInhalt() {
           onUebergabeBestaetigen={() => setUebergabe((u) => uebergabeBestaetigen(bogen, u) ?? u)}
           schliessenFolgen={() => (bogenHatInhalt(bogen) ? folgenFuerOffenenBogen() : { satz: "", verlust: false })}
           neu={() => { if (bogenHatInhalt(bogen)) merkeVerdraengt(bogen); setMeldung(""); setBogen(null); setVorlageInBearbeitung(null); setFremdeErfassung(false); setSammelZiel(null); setzeEmpfang(null); setSchritt(0); }}
-          onVorlageGespeichert={(name) => { vorlagenNeuLaden(); setMeldung(`Als Vorlage „${name}" gespeichert.`); }}
+          onVorlageGespeichert={(name, ersetzt) => {
+            vorlagenNeuLaden();
+            // Ersetzt: die vorige Fassung bleibt für „Rückgängig“ in Reichweite (R12-D1).
+            setVorlageRueckweg(ersetzt ?? null);
+            setMeldung(
+              ersetzt
+                ? `Vorlage „${name}" ersetzt (vorher ${vorlageZahlenText(ersetzt.bogen)}).`
+                : `Als Vorlage „${name}" gespeichert.`,
+            );
+          }}
           vorlageBearbeitung={
             bearbeiteteVorlage ? { name: bearbeiteteVorlage.name, onAktualisieren: () => void vorlageAktualisierenUndSchliessen() } : undefined
           }

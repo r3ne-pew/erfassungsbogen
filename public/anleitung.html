@@ -515,8 +515,10 @@
         anpasst statt zu tippen.
       </li>
       <li>
-        <strong>Einsatz benennen.</strong> Einsatzstichwort, Auftrag, Meldekopf
-        und Zeitpunkt des Eintreffens.
+        <strong>Einsatz benennen.</strong> Zeitraum von/bis, Einsatzort bzw.
+        Auftrag und, falls es keine Lage ist, das Kästchen „Dies ist eine
+        Übung“. Die Eintreffzeit deiner Einheit trägst du in Schritt 1 ein; der
+        Meldekopf führt seine Eintreffzeiten getrennt.
       </li>
       <li>
         <strong>Personal erfassen.</strong> Die Stärke zählt die App in der
@@ -542,7 +544,8 @@
 
     <h2 id="bogen-drucken">Bogen drucken</h2>
     <p>
-      Am Ende der Gesamtübersicht steht „PDF erzeugen“. Das PDF folgt dem
+      In der Gesamtübersicht öffnet „Bogen übergeben…“ einen Dialog; dort steht
+      „PDF erzeugen“. Das PDF folgt dem
       Aufbau des gewohnten Papierbogens, damit der Ausdruck in bestehende
       Meldewege passt; wie ein leerer Bogen aussieht, zeigt die Seite
       <a href="./vorlage.html">Vorlage und Aufbau des Bogens</a>.
@@ -571,8 +574,9 @@
       steht. Für lange Bögen teilt die App den Code automatisch auf mehrere
       Teil-Codes auf. Scannst du denselben Code mit der normalen Handykamera,
       öffnet sich die Web-App (oder, wenn installiert, die App selbst) und der
-      Bogen ist ebenfalls da. Optional versiehst du einen Bogen mit einer
-      Ed25519-Signatur, damit die Gegenstelle die Herkunft prüfen kann.
+      Bogen ist ebenfalls da. Jeder übergebene Bogen trägt automatisch eine
+      Ed25519-Signatur, damit die Gegenstelle die Herkunft prüfen kann;
+      freiwillig hinterlegst du zusätzlich Name und Rückkanal als Absender.
     </p>
 
     <figure>
@@ -692,7 +696,7 @@
         <tr><td>Übergabe</td><td>QR-Code (kompletter Bogen im Code), Datei, PDF</td></tr>
         <tr><td>Export</td><td>PDF im Papier-Layout, Bogen-Datei, CSV der Einsatz-Sammlung</td></tr>
         <tr><td>Backup</td><td>Alle lokalen Daten als eine Datei sichern und wieder einspielen</td></tr>
-        <tr><td>Signatur</td><td>Optionale Ed25519-Signatur zur Herkunftsprüfung übergebener Bögen</td></tr>
+        <tr><td>Signatur</td><td>Automatische Ed25519-Signatur zur Herkunftsprüfung übergebener Bögen; Absenderangaben freiwillig</td></tr>
         <tr><td>Plattformen</td><td>Browser (alle Systeme), Windows, macOS, Linux, Android; iPhone/iPad über Safari („Zum Home-Bildschirm")</td></tr>
       </tbody></table>
     </div>
@@ -887,7 +891,7 @@
         "tool": { "@type": "HowToTool", "name": "Einheiten-Erfassungsbogen (erfassungsbogen.app)" },
         "step": [
           { "@type": "HowToStep", "name": "Einheit angeben", "text": "Trag Organisation, Einheit und Standort ein — für THW, Feuerwehr, DLRG und die Katastrophenschutz-Einheiten mehrerer Bundesländer gibt es fertige Vorbelegungen." },
-          { "@type": "HowToStep", "name": "Einsatz benennen", "text": "Trag Einsatzstichwort, Auftrag, Meldekopf und Zeitpunkt des Eintreffens ein." },
+          { "@type": "HowToStep", "name": "Einsatz benennen", "text": "Trag Zeitraum von/bis und Einsatzort bzw. Auftrag ein und kennzeichne eine Übung mit „Dies ist eine Übung“." },
           { "@type": "HowToStep", "name": "Personal erfassen", "text": "Die Stärke zählt die App in der Form Führer / Unterführer / Mannschaft / Gesamt; Namen und Funktionen kannst du angeben, brauchst du aber nicht." },
           { "@type": "HowToStep", "name": "Fahrzeuge und Sofortbedarf eintragen", "text": "Erfasse Fahrzeuge mit Funkrufname und Kennzeichen, dazu den Bedarf an Verpflegung, Unterkunft, Kraftstoff oder Material." },
           { "@type": "HowToStep", "name": "Drucken oder weitergeben", "text": "Druck das PDF im Papier-Layout; der QR-Code auf der letzten Seite enthält den kompletten Bogen und lässt sich ohne Internet auf einem anderen Gerät einlesen." }

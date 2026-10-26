@@ -5,7 +5,6 @@
 
 import {
   Einsatz,
-  datumAusIso,
   datumZuIso,
   zeitpunktAusIso,
   zeitpunktZuIso,
@@ -13,6 +12,7 @@ import {
 import { DATENSCHUTZFRIST_TAGE } from "@bos/eeb-format/datenschutzfrist";
 import { useRef } from "react";
 import { heuteDatum, pruefpunkte } from "../hilfen";
+import { zeitraumNachEingabe } from "../zeitraum-eingabe";
 import { Feld, Hinweise, type SchrittProps } from "./bausteine";
 
 /**
@@ -83,14 +83,11 @@ export function SchrittEinsatz({ bogen, aendern, meldekopf = false }: SchrittPro
           <input
             type="date"
             value={datumZuIso(ez.zeitraumVon)}
-            onChange={(e) => {
-              const zeitraumVon = datumAusIso(e.target.value);
-              setEz({ zeitraumVon, ...(bisFolgtVon ? { zeitraumBis: zeitraumVon } : {}) });
-            }}
+            onChange={(e) => setEz(zeitraumNachEingabe(ez, "von", e.target.value, heuteDatum()))}
           />
         </Feld>
         <Feld titel={bisFolgtVon ? "Zeitraum bis (Vorschlag: wie Beginn)" : "Zeitraum bis"} klasse="datum">
-          <input type="date" value={datumZuIso(ez.zeitraumBis)} onChange={(e) => setEz({ zeitraumBis: datumAusIso(e.target.value) })} />
+          <input type="date" value={datumZuIso(ez.zeitraumBis)} onChange={(e) => setEz(zeitraumNachEingabe(ez, "bis", e.target.value, heuteDatum()))} />
         </Feld>
         <Feld titel="Einsatzort / Auftrag">
           <input id="feld-ort-auftrag" value={ez.ortAuftrag} onChange={(e) => setEz({ ortAuftrag: e.target.value })} placeholder="z. B. Fernmeldebauübung Kabelblitz" />

@@ -362,6 +362,64 @@ export function sicherungFaellig(jetzt = Date.now()): { seit: number | null } | 
   return jetzt - bezug >= ERINNERUNG_TAGE * TAG_MS ? { seit } : null;
 }
 
+/**
+ * Datenstand der letzten Sicherung (R12-O4): wie viele Einsätze und Meldungen sie enthielt. Daraus rechnet die
+ * Anzeige „seit der Sicherung n neue Meldungen" — die Erinnerung allein rechnete nur in Tagen.
+ */
+const STAND_SCHLUESSEL = "eeb.sicherung.stand.v1";
+
+/**
+ * Zählt am rohen Speichertext statt über `einsaetzeLaden()`: Das Laden legt unlesbare Teile beiseite und schreibt
+ * dabei; mitten in einer Sicherung darf sie nichts am Bestand verändern.
+ */
+function meldungenGesamt(): { einsaetze: number; meldungen: number } {
+  try {
+    const roh = JSON.parse(speicher()?.getItem("eeb.einsaetze.v1") ?? "[]") as unknown;
+    if (!Array.isArray(roh)) return { einsaetze: 0, meldungen: 0 };
+    const aktiv = roh.filter((x): x is { eintraege?: unknown; geloeschtAm?: unknown } => !!x && typeof x === "object" && (x as { geloeschtAm?: unknown }).geloeschtAm == null);
+    return {
+      einsaetze: aktiv.length,
+      meldungen: aktiv.reduce((n, x) => n + (Array.isArray(x.eintraege) ? x.eintraege.length : 0), 0),
+    };
+  } catch {
+    return { einsaetze: 0, meldungen: 0 };
+  }
+}
+
+/** Was die letzte Sicherung enthielt; `null`, wenn unbekannt (ältere Sicherung ohne Vermerk). */
+export function sicherungStand(): { einsaetze: number; meldungen: number } | null {
+  try {
+    const roh = speicher()?.getItem(STAND_SCHLUESSEL);
+    if (!roh) return null;
+    const d = JSON.parse(roh) as { einsaetze?: unknown; meldungen?: unknown };
+    return typeof d.einsaetze === "number" && typeof d.meldungen === "number"
+      ? { einsaetze: d.einsaetze, meldungen: d.meldungen }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Satz zum Datenstand: „enthält 3 Einsätze, 54 Meldungen; seit der Sicherung 12 neue Meldungen"; leer ohne Vermerk. */
+export function sicherungStandText(): string {
+  const stand = sicherungStand();
+  if (!stand) return "";
+  const jetzt = meldungenGesamt();
+  const neu = Math.max(0, jetzt.meldungen - stand.meldungen);
+  const einsaetze = `${stand.einsaetze} ${stand.einsaetze === 1 ? "Einsatz" : "Einsätze"}`;
+  const meldungen = `${stand.meldungen} ${stand.meldungen === 1 ? "Meldung" : "Meldungen"}`;
+  return `Sie enthält ${einsaetze}, ${meldungen}; ${neu === 0 ? "seitdem ist nichts Neues dazugekommen" : `seit der Sicherung ${neu === 1 ? "1 neue Meldung" : `${neu} neue Meldungen`}`}.`;
+}
+
+/**
+ * Quittung nach „Sicherung erstellen…" (R12-O4): Dateiname, Ablage und der ehrliche Satz, dass die Kopie erst zählt,
+ * wenn sie woanders liegt. Ob der Browser die Datei wirklich ablegt, sieht die App nicht.
+ */
+export function sicherungQuittungText(dateiname: string, nativ: boolean): string {
+  const ablage = nativ ? "wurde über das Teilen-Menü abgelegt" : "liegt im Download-Ordner";
+  return `Sicherung „${dateiname}" erzeugt — ${ablage}. Gesichert ist sie erst, wenn sie auf einem zweiten Gerät oder Datenträger liegt.`;
+}
+
 /** Alle lokalen App-Daten als Sicherungsdatei-Inhalt. */
 export function sicherungErstellen(jetzt = new Date()): string {
   const s = speicher();
@@ -370,6 +428,7 @@ export function sicherungErstellen(jetzt = new Date()): string {
     // Vor dem Einsammeln merken, damit die Datei ihren eigenen Zeitpunkt trägt.
     try {
       s.setItem(ZULETZT_SCHLUESSEL, String(jetzt.getTime()));
+      s.setItem(STAND_SCHLUESSEL, JSON.stringify(meldungenGesamt()));
     } catch {
       /* Speicher voll — die Sicherung selbst ist wichtiger als der Vermerk */
     }
