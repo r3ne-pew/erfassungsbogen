@@ -5958,6 +5958,73 @@
     /* R15-E4: „Aufteilen…" rollt die Überschrift des Formulars an den oberen Rand; etwas Luft darüber. */
     .aufteilen-panel > h4 { scroll-margin-top: 12px; }
     /* ===== Ende Runde 15 (Zustand) ===== */
+    /* ===== Runde 16 (Layout) ===== */
+    /* R16-M2: „Alle Daten löschen" und „Datensicherung" rollen (Dialog 608 px, Inhalt bis 1 191 px). Schattenkante als Rollhinweis (wie im
+       Rumpf der Rückfragen); Haken und Entscheidung kleben am Dialogfuß, damit „Endgültig löschen" und „Abbrechen" ohne Rollen im Bild stehen. */
+    dialog.rollhinweis {
+      background:
+        linear-gradient(var(--flaeche) 30%, transparent) top / 100% 1.6rem no-repeat local,
+        linear-gradient(transparent, var(--flaeche) 70%) bottom / 100% 1.6rem no-repeat local,
+        radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.28), transparent) top / 100% 0.5rem no-repeat scroll,
+        radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.28), transparent) bottom / 100% 0.5rem no-repeat scroll,
+        var(--flaeche);
+    }
+    dialog .dialog-entscheidung {
+      position: sticky; bottom: 0; z-index: 1; margin-top: 8px; padding-top: 8px; background: var(--flaeche);
+      box-shadow: 0 -10px 8px -8px rgba(0, 0, 0, 0.35);
+    }
+    dialog .dialog-entscheidung > label.inline { margin: 0; }
+    dialog .dialog-entscheidung > .aktionen { margin-top: 8px; gap: 8px; flex-wrap: nowrap; }
+    dialog .dialog-entscheidung > .aktionen > button { flex: 1 1 0; min-width: 0; padding-inline: 8px; }
+    dialog .dialog-entscheidung > .fehler { margin: 8px 0 0; }
+    /* Bei großer Schrift wäre die Leiste höher als das Bild: dort rollt sie mit. */
+    html.schrift-gross dialog .dialog-entscheidung { position: static; box-shadow: none; }
+    /* R16-M3: Scanner ohne Kamera auf niedrigen Telefonen (320 × 568): Die Leiste steht zweizeilig (Kamera erneut versuchen allein, darunter
+       „QR aus Bild einlesen…" und „Abbrechen") auf deckendem Grund und lässt „Hinweise zum Handscanner" im ersten Bild frei. */
+    @media (max-height: 37.5rem) {
+      .scanner { padding-top: 0.75rem; gap: 0.5rem; }
+      .scanner > .scanner-aktionen { gap: 8px; padding: 6px 0 calc(6px + env(safe-area-inset-bottom)); background: rgba(0, 0, 0, 0.88); }
+      .scanner-aktionen > button, .scanner-aktionen > .datei-knopf { padding-inline: 12px; }
+      .scanner-aktionen > button:first-child:not(:last-child) { flex: 1 1 100%; }
+    }
+    /* R16-G1: Mit „In Einsatz übernehmen" liegen „Weiter" und der Abschluss wenigstens 16 px auseinander (bis 320 px nur der Pfeil);
+       ab 320 px Leistenbreite steht „Weiter →" wieder als Wort (360 × 640, 375 × 667). */
+    @media (min-width: 20rem) and (max-width: 35.99rem) and (max-height: 43.75rem) {
+      footer.nav.assistent-nav.mit-uebernehmen > .primaer { margin-left: 8px; }
+      @container assistent-nav (min-width: 20rem) {
+        footer.nav.assistent-nav.mit-uebernehmen .nav-weiter-wort { display: inline; }
+      }
+    }
+    /* R16-G2: Die Zeilen der offenen Punkte (jede springt in einen anderen Schritt) liegen mindestens 8 px auseinander. */
+    .vollstaendigkeit ul:has(button.link) { display: flex; flex-direction: column; gap: 8px; }
+    /* R16-H1: „Zur Liste springen ↓", „Alle n einzeln anzeigen" und „Weniger zeigen" haben dieselbe Zielhöhe wie die Nachbarn im Kasten. */
+    .stapel-eingang > button.link { min-height: 44px; display: inline-flex; align-items: center; padding-block: 0; }
+    /* ===== Ende Runde 16 (Layout) ===== */
+    /* ===== Runde 16 (Inhalte) ===== */
+    /* R16-K1: „Name / Ort ändern…“ neben dem Einsatznamen im Kopf; schmal, damit der Name Platz behält. */
+    .seiten-kopf .titelzeile .kopf-aendern { flex: 0 0 auto; font-size: var(--t-xs); padding: 0.25rem 0.7rem; }
+    /* R16-L1: In der Dreier-Zeile der Fünferleiste lief „EINHEITEN" im Feld-Modus (15,7 px, Sperrung 0,1 em) bei 360 und 390 px über die
+       Trennlinie in die Nachbarkachel („EINHEITENFÜHRER", Text 99 px in 68 bis 78 px). Beschriftung dort gedeckelt (13 px, engere
+       Sperrung) und die Kachel mit weniger Innenrand: Text 75 px in mindestens 80 px, auch bei 320 px. */
+    @media (max-width: 30rem) {
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div:nth-child(-n + 3) { padding-inline: 6px; }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div:nth-child(-n + 3) span { font-size: min(var(--t-xs), 13px); letter-spacing: 0.04em; }
+    }
+    @media (max-width: 21rem) {
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div:nth-child(-n + 3) { padding-inline: 4px; }
+      html:not(.schrift-gross) .staerke-leiste:has(> div:nth-child(5)) > div:nth-child(-n + 3) span { font-size: min(var(--t-xs), 12px); letter-spacing: 0.01em; }
+    }
+    /* ===== Ende Runde 16 (Inhalte) ===== */
+    /* ===== Runde 16 (Zustand) ===== */
+    /* R16-W1: Nach 15 s schrumpft die Quittungsleiste auf eine Zeile (Text gekürzt, „Rückgängig" und „✕" bleiben in voller Zielgröße):
+       Sie deckte bei 360 × 640 minutenlang 108 px; Zeilen am unteren Rand und „Mehr…" lagen darunter. */
+    .quittung-daumen.quittung-kompakt { flex-wrap: nowrap; padding-block: 4px; }
+    .quittung-daumen.quittung-kompakt > .quittung-text,
+    .quittung-daumen.quittung-mehrzeilig.quittung-kompakt > .quittung-text {
+      flex: 1 1 0; min-width: 0; -webkit-line-clamp: 1; line-clamp: 1;
+    }
+    .quittung-daumen.quittung-kompakt > .quittung-knoepfe { margin-left: 0; gap: 8px; }
+    /* ===== Ende Runde 16 (Zustand) ===== */
   </style>
 </head>
 <body>

@@ -114,7 +114,8 @@ describe("pdfDokument()", () => {
   it("setzt A4, Titel und übernimmt das QR-Bild", () => {
     const dd = pdfDokument(basisBogen(), QR);
     expect(dd.pageSize).toBe("A4");
-    expect((dd.info as { title: string }).title).toBe("Erfassungsbogen FGr K (A)");
+    // Mit Einheit und Stand: ein im Tab angezeigter Bogen hat keinen Dateinamen (R16-A3).
+    expect((dd.info as { title: string }).title).toMatch(/^Erfassungsbogen .*FGr K \(A\), Stand \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/);
     // Das übergebene QR-Bild muss unverändert im Dokument landen.
     expect(JSON.stringify(dd.content)).toContain(QR_BILD);
     expect(texte(dd.content)).toContain(
@@ -655,6 +656,26 @@ describe("einsatzLageblattDokument()", () => {
     expect(t).not.toContain(QR_BILD);
     expect(dd.files).toBeUndefined();
     expect((dd.content as { pageBreak?: string }[]).some((c) => c && c.pageBreak === "before")).toBe(false);
+  });
+
+  it("setzt Bedarf und Zwischensummen nach Zug vor das Raster zum Nachtragen (R16-K4)", () => {
+    const dd = einsatzLageblattDokument("Lage", [
+      { bogen: basisBogen(), zugEtikett: "1. Zug" },
+      { bogen: basisBogen(), zugEtikett: "2. Zug" },
+    ], 0, 12);
+    const t = texte(dd.content).join("\n");
+    const zug = t.indexOf("Zwischensummen nach Zug");
+    const bedarf = t.indexOf("Bedarf gesamt");
+    const raster = t.indexOf("Nachtrag von Hand");
+    expect(zug).toBeGreaterThan(-1);
+    expect(raster).toBeGreaterThan(zug);
+    expect(raster).toBeGreaterThan(bedarf);
+    // Mit Zügen stehen Bedarf und Zugsummen sogar vor der Einheitentabelle, damit sie auf Seite 1 bleiben.
+    expect(zug).toBeLessThan(t.indexOf("Veränderung seit der letzten Meldung"));
+    // Ohne Zug-Etiketten bleibt die gewohnte Reihenfolge: Tabelle, dann Bedarf.
+    const ohneZug = texte(einsatzLageblattDokument("Lage", [{ bogen: basisBogen() }], 0, 12).content).join("\n");
+    expect(ohneZug.indexOf("Bedarf gesamt")).toBeGreaterThan(ohneZug.indexOf("Veränderung seit der letzten Meldung"));
+    expect(ohneZug.indexOf("Nachtrag von Hand")).toBeGreaterThan(ohneZug.indexOf("Bedarf gesamt"));
   });
 
   it("beschriftet die Stärke-Linien des Blanko-Vordrucks (R2-A6)", () => {

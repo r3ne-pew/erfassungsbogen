@@ -676,8 +676,9 @@ describe("Abrücken mit Zeit, Quittung und Rückweg", () => {
     // Prellschutz: Die Leiste kann unter dem Finger des Doppeltipps liegen —
     // „Rückgängig" nimmt erst nach einem Augenblick an.
     const rueckgaengig = within(quittung).getByRole("button", { name: "Rückgängig" }) as HTMLButtonElement;
-    expect(rueckgaengig.disabled).toBe(true);
-    await waitFor(() => expect(rueckgaengig.disabled).toBe(false), { timeout: PRELLSCHUTZ_MS + 500 });
+    // Seit R16-D1 nicht mehr `disabled`: Ein Tipp im Prellschutz sagt „Einen Moment …", statt still zu verpuffen.
+    expect(rueckgaengig.getAttribute("aria-disabled")).toBe("true");
+    await waitFor(() => expect(rueckgaengig.getAttribute("aria-disabled")).toBeNull(), { timeout: PRELLSCHUTZ_MS + 500 });
     await nutzer.click(rueckgaengig);
     const zurueck = gespeichert(einsatzId, "Crailsheim");
     expect(zurueck.status).toBe(MeldeStatus.ANWESEND);
@@ -702,7 +703,7 @@ describe("Abrücken mit Zeit, Quittung und Rückweg", () => {
     expect(quittungen[0]!.textContent).toContain("Crailsheim");
 
     const schliessen = within(quittungen[0]!).getByRole("button", { name: "Quittung schließen" }) as HTMLButtonElement;
-    await waitFor(() => expect(schliessen.disabled).toBe(false), { timeout: PRELLSCHUTZ_MS + 500 });
+    await waitFor(() => expect(schliessen.getAttribute("aria-disabled")).toBeNull(), { timeout: PRELLSCHUTZ_MS + 500 });
     await nutzer.click(schliessen);
     expect(screen.queryByRole("status")).toBeNull();
   });
@@ -1122,7 +1123,8 @@ describe("Nur neue Bögen seit dem letzten Export", () => {
 
     await nutzer.click(screen.getByRole("button", { name: /^Sammel-PDF \((nur neue Bögen|erste Lieferung: alle Bögen)\)$/ }));
     expect(sammelPdf).toHaveBeenCalledWith("neue");
-    await nutzer.click(screen.getByRole("button", { name: "Übersicht als CSV" }));
+    // R16-W2: Im Nachtrag-Modus nennt der Knopf Nachtrag und Zahl.
+    await nutzer.click(screen.getByRole("button", { name: "Übersicht als CSV — Nachtrag (2 Einheiten)" }));
     expect(csvExport).toHaveBeenCalledWith("neue");
 
     // Zurück auf alle: die Knöpfe heißen wieder wie vorher und liefern alles.
@@ -1141,7 +1143,7 @@ describe("Nur neue Bögen seit dem letzten Export", () => {
 
     await nutzer.click(screen.getByRole("checkbox", { name: /Nur neue Bögen seit dem letzten Export/ }));
 
-    for (const name of [/^Sammel-PDF \(nur neue Bögen\)$/, "Übersicht als CSV", "Alle Daten als CSV", /^Excel-Liste/]) {
+    for (const name of [/^Sammel-PDF \(nur neue Bögen\)$/, "Übersicht als CSV — Nachtrag: nichts Neues", "Alle Daten als CSV — Nachtrag: nichts Neues", /^Excel-Liste .* — Nachtrag: nichts Neues$/]) {
       expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
     }
     await nutzer.click(screen.getByRole("button", { name: /^Sammel-PDF \((nur neue Bögen|erste Lieferung: alle Bögen)\)$/ }));
@@ -1607,7 +1609,7 @@ describe("Quittung nennt die zuletzt aufgenommenen Einheiten (R2-S4)", () => {
     await nutzer.click(within(quittung).getByRole("button", { name: "Zur Kenntnis genommen" }));
     expect(document.querySelector(".stapel-eingang")).toBeNull();
     const rueck = await screen.findByRole("button", { name: "Zur Kenntnis genommen rückgängig machen" });
-    await waitFor(() => expect((rueck as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect(rueck.getAttribute("aria-disabled")).toBeNull(), { timeout: PRELLSCHUTZ_MS + 500 });
     await nutzer.click(rueck);
     expect(document.querySelector(".stapel-eingang")).not.toBeNull();
 

@@ -24,7 +24,9 @@ describe("Dialoge (R10-L1, R10-M8, R10-W4)", () => {
     expect(dialoge).toMatch(/scrollIntoView\?\.\(\{ block: "nearest"/);
     // beim Öffnen (nach dem Zurücksetzen auf die Frage) und bei jedem Feldfokus
     expect(dialoge).toMatch(/dialog\.current\.scrollTop = 0;\s*\/\/[^\n]*\s*feldInsBild\(erstes\.current\)/);
-    expect((dialoge.match(/onFocus=\{\(e\) => feldInsBild\(e\.currentTarget\)\}/g) ?? []).length).toBe(3);
+    // Auswahl und Textfeld mehrzeilig: je ein Aufruf; das einzeilige Feld markiert zusätzlich Zahlen (R16-S1).
+    expect((dialoge.match(/onFocus=\{\(e\) => feldInsBild\(e\.currentTarget\)\}/g) ?? []).length).toBe(2);
+    expect(dialoge).toMatch(/feldInsBild\(e\.currentTarget\);\s*if \(f\.zahl\) zahlMarkieren\(e\)/);
   });
   it("Zoom-Fenster: 12 px zwischen den Wegen der Rückfrage (R10-M8)", () => {
     expect(abschnitt).toMatch(/@media \(max-width: 279\.98px\)\s*\{\s*dialog\.abfrage \.abfrage-fuss \.abfrage-weg\s*\{\s*margin:\s*12px 0 0/);

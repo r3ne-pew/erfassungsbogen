@@ -124,7 +124,8 @@ describe("einsatzCsvInhalt()", () => {
     // Eine Zeitform je Datei: Stand, Eingetroffen und Empfangen gleich (R3-K7).
     expect(f[sp("Stand")]).toMatch(/^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/);
     expect(f[sp("Empfangen")]).toMatch(/^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/);
-    expect(f[sp("Eingetroffen")]).toMatch(/^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/); // = Empfangszeit, wenn nicht korrigiert
+    // = Empfangszeit, wenn nicht korrigiert; dann mit Stern wie auf dem Lageblatt (R16-A1)
+    expect(f[sp("Eingetroffen")]).toMatch(/^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2} \*$/);
     expect(f[sp("Abgerückt")]).toBe(""); // nicht abgerückt
     expect(f[sp("Quelle")]).toBe("Empfangen"); // gleicher Wortlaut wie auf der Karte (R2-K6)
     expect(f[sp("Status")]).toBe("anwesend");
@@ -159,7 +160,7 @@ describe("einsatzCsvInhalt()", () => {
     const csv = einsatzCsvInhalt(sammlung([meldung(bogen("A")), meldung(bogen("B"))]));
     const sp = spaltenIndex(csv);
     const reihen = zeilen(csv);
-    expect(reihen).toHaveLength(4); // Kopf + 2 Einheiten + Summe
+    expect(reihen).toHaveLength(6); // Kopf + 2 Einheiten + Summe + Kennzeile + Fußnote (R16-A1)
     const summe = reihen[3]!.split(";");
     expect(summe[1]).toBe("Summe (2 Einheiten)");
     expect(summe.slice(sp("Stärke F"), sp("Stärke gesamt") + 1)).toEqual(["2", "0", "4", "6"]); // Stärke gesamt 6
@@ -206,7 +207,7 @@ describe("einsatzCsvInhalt()", () => {
     );
     const sp = spaltenIndex(csv);
     const reihen = zeilen(csv);
-    expect(reihen).toHaveLength(4); // Kopf + 2 Einheiten + Summe
+    expect(reihen).toHaveLength(6); // Kopf + 2 Einheiten + Summe + Kennzeile + Fußnote (R16-A1)
     const abgerueckt = reihen[2]!.split(";");
     expect(abgerueckt[sp("Status")]).toBe("abgerückt");
     expect(abgerueckt[sp("Zählt in Lage")]).toBe("nein");

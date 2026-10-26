@@ -19,6 +19,7 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { ortSperren, tippVerworfenZeigen } from "./tipp-schutz";
+import { zahlMarkieren } from "./zahl-eingabe";
 import { ersteEbeneBetreten, ersteEbeneVerlassen } from "./modal-overlay";
 
 /** Ein Eingabefeld einer Abfrage. `name` ist der Schlüssel im Ergebnis. */
@@ -459,7 +460,10 @@ function Dialogfenster({ abfrage }: { abfrage: Abfrage }) {
                     value={werte[f.name] ?? ""}
                     placeholder={f.platzhalter}
                     onChange={(e) => setWerte({ ...werte, [f.name]: e.target.value })}
-                    onFocus={(e) => feldInsBild(e.currentTarget)}
+                    onFocus={(e) => {
+                      feldInsBild(e.currentTarget);
+                      if (f.zahl) zahlMarkieren(e); // alle Zahlenfelder des Dialogs gleich: Antippen markiert (R16-S1)
+                    }}
                   />
                 )}
               </label>

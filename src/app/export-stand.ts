@@ -43,6 +43,14 @@ import { ORT_REGEL, abweichenderOrt } from "./einheiten-tabelle";
 const SPEICHER_SCHLUESSEL = "eeb.export-stand.v2";
 const ALTER_SCHLUESSEL = "eeb.export-stand.v1";
 
+/**
+ * Kennzeile jeder Tabellendatei (Excel, CSV): zu welcher Lage sie gehört und wann sie erzeugt wurde — wie der
+ * Kopf von Lageblatt und Sammel-PDF (R16-A1). Zwei Dateien vom selben Tag lassen sich so ordnen.
+ */
+export function exportKennzeile(s: Pick<Einsatzsammlung, "name">, erstellt: number = Date.now()): string {
+  return `Einsatz „${s.name}“ · Erstellt ${zeitLang(erstellt)}`;
+}
+
 /** Ausgabewege mit eigenem Bezugspunkt für „nur neue Bögen". */
 export type ExportZiel = "pdf" | "csv" | "csv-detail" | "xlsx";
 

@@ -190,7 +190,7 @@ describe("R12-D3 Geräteschlüssel-Rückfrage", () => {
 describe("R12-O1 verlorene Eingabe", () => {
   it("nennt Einheit und Text", () => {
     expect(verloreneEingabeText("THW Hatten", { notiz: "Pumpen Nord", zug: null })).toBe(
-      "Die Einheit „THW Hatten\" wurde in einem anderen Fenster entfernt — Ihre Eingabe Auftrag/Notiz „Pumpen Nord\" wurde nicht gespeichert.",
+      "Die Einheit „THW Hatten\" wurde in einem anderen Fenster entfernt — deine Eingabe Auftrag/Notiz „Pumpen Nord\" wurde nicht gespeichert.",
     );
     expect(verloreneEingabeText("X", { notiz: "  ", zug: "" })).toBe("");
     expect(verloreneEingabeText("X", { notiz: "a", zug: "Zug 2" })).toContain("Auftrag/Notiz „a\" und Zug „Zug 2\"");

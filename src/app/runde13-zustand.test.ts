@@ -72,7 +72,7 @@ describe("R13-O1 Sicherung einspielen: bei Fehlschlag bleibt der Bestand", () =>
     expect(fehler).toBeInstanceOf(Error);
     const satz = (fehler as Error).message;
     expect(satz).toMatch(/^Nicht eingespielt: Der Speicher dieses Geräts reicht für diese Sicherung nicht\./);
-    expect(satz).toContain("Ihre bisherigen Daten auf diesem Gerät sind unverändert.");
+    expect(satz).toContain("Deine bisherigen Daten auf diesem Gerät sind unverändert.");
     expect(satz).not.toMatch(/Failed to execute|quota/i);
     // Der Bestand ist wie vorher, halb geschriebene Schlüssel der Datei sind weg.
     expect(localStorage.getItem("eeb.einsaetze.v1")).toBe("ALT-EINSAETZE");

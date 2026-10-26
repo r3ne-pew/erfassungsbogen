@@ -231,7 +231,7 @@ describe("R15-S2 Kasten „Neu seit der letzten Kenntnisnahme“ nach Stapelimpo
     const kasten = () => document.querySelector<HTMLElement>(".stapel-eingang")!;
     expect(kasten().textContent).toContain("Neu seit der letzten Kenntnisnahme (8)");
     expect(kasten().querySelectorAll("ul > li").length).toBe(1);
-    expect(kasten().textContent).toContain("8 Einheiten ohne Einzelsatz, siehe Liste");
+    expect(kasten().textContent).toContain("8 Einheiten neu gemeldet — Zeilen je Einheit ausgeblendet, siehe Liste");
     expect(within(kasten()).getByRole("button", { name: "Zur Liste springen ↓" })).toBeTruthy();
     // Zug und Kenntnisnahme bleiben im Kasten erreichbar.
     expect(within(kasten()).getByRole("button", { name: "Zur Kenntnis genommen" })).toBeTruthy();

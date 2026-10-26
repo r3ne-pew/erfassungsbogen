@@ -9,7 +9,7 @@ import { Erfassungsbogen, VokabularWert } from "@bos/eeb-format/model";
 import type { VokabularEintrag } from "@bos/vokabulare/thw";
 import { vokabSortiert, type Pruefpunkt } from "../hilfen";
 import { funktionVergeben } from "../haeufige-funktionen";
-import { HOECHST_PERSONEN, mitGeltendemWert, zahlLesen, type ZahlRegeln } from "../zahl-eingabe";
+import { HOECHST_PERSONEN, mitGeltendemWert, zahlLesen, zahlMarkieren, type ZahlRegeln } from "../zahl-eingabe";
 import { naechstesFeld } from "../tastatur";
 import { beginntMit, falte, passtZurSuche, suchAlternativen, vokabRang } from "../schreibweise";
 
@@ -754,6 +754,7 @@ export function useZahlEingabe(
       value: text,
       "aria-invalid": abgelehnt || undefined,
       onChange: (e) => aufnehmen(e.target.value),
+      onFocus: zahlMarkieren, // Antippen markiert die Zahl: Überschreiben statt Anhängen (R16-S1)
       onBlur: () => setText(anzeige(zuletzt.current)),
     },
   };

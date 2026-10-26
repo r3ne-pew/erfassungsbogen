@@ -12,14 +12,19 @@
 > umsetzen: SBOM, CSP ohne unsafe-inline, Entpack-Grenze") betrifft die Kapitel
 > 2.1, 8.3, 8.6, 8.7 und 11.2 — dort jeweils vermerkt.
 >
-> **Nachgezogen 2026-10-26 (Probelauf Meldekopf):** Kap. 5, 6.2, 8.2: neuer
-> Baustein `src/app/handscanner.ts` (Tastatur-Wedge-Erkennung am Tempo, Abschluss
-> mit Enter/Tab oder nach kurzer Stille) — genutzt vom Scanner-Fenster und von
-> `App` als seitenweiter Lauscher außerhalb von Textfeldern; ein Scan ohne offenes
-> Fenster geht den Link-Weg. Das Scanner-Fenster lässt sich auf „Handscanner statt
-> Kamera" umstellen (neuer Schlüssel `eeb-scanweg`, localStorage, keine
-> Personendaten). Vorschlagslisten (`VorschlagFeld`) halten beim Klick auf ihre
-> Rollleiste den Fokus und rollen die Pfeiltasten-Markierung ins Bild. Kein neuer
+> **Nachgezogen 2026-10-26 (Runde 16):** Audit Runde 16 (33 Befunde, drei Pakete)
+> — Kap. 5, 8.2, 8.4, 8.5, 8.6: neuer Schlüssel `eeb.einsatz.rueckweg`
+> (sessionStorage, 15 Minuten: Rückweg für „Für neuen Einsatz vorbereiten",
+> `einsatz-vorbereiten.ts`). Einsatzname und -ort lassen sich nachträglich ändern
+> (`einsatzKopfSetzen` in `eintrag-zeiten.ts` schreibt über Laden und Speichern der
+> Sammlung, weil der Kern in `vendor/` keinen Setter bietet). Exporte (CSV, Excel):
+> Schlusszeile mit Einsatzname und Erstellzeit, „*" und Fußnote bei nicht
+> bestätigter Eintreffzeit, Dateinamen mit Datum-Zeit-Gruppe; der CSV-Schreiber
+> `einsatz-csv` lädt erst beim Klick nach (Startbündel, ADR-003 Aufnahmeregel 5).
+> „Namen einfügen…" liest Tabulator- und Semikolon-Zeilen als Spalten
+> (`namenVerdachtGruende`). Zahlenfelder markieren beim Antippen. Quittungen
+> schrumpfen nach 15 s auf eine Zeile; Tipps im Prellschutz bekommen „Einen Moment …".
+> Einzelbogen-PDF mit Titel in den Metadaten. Bundle-Budget neu gesetzt. Kein neuer
 > Host, Transportformat und Schema unverändert.
 >
 > **Nachgezogen 2026-10-26 (Runde 15):** Audit Runde 15 (40 Befunde, drei Pakete)

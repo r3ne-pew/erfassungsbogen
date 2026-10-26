@@ -352,6 +352,15 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > und `vendor/` unverändert. Der Entwurf trägt zusätzlich die Marke „über die
 > Startseite verlassen" (`fremd.startseite`, R5-N3, 3.3 D1) — keine Daten.
 
+> **Nachgezogen 2026-10-26 (Runde 16):** Audit Runde 16. Speicher (3.3, 5.5): neuer
+> Schlüssel `eeb.einsatz.rueckweg` (sessionStorage, 15 Minuten); der Zwischenstand des
+> Papierabgleichs wird bei „Endgültig löschen" und für verschwundene Einsätze
+> entfernt. Exporte (5.4): Schlusszeile mit Einsatzname und Erstellzeit in CSV und
+> Excel, Dateinamen mit Zeitangabe. Bedienung (5.3): Rückgängig für „Für neuen
+> Einsatz vorbereiten" und „Zahlen stimmen, so gezählt"; Name und Ort des Einsatzes
+> nachträglich änderbar. Lieferkette (6.4): Startbündel 1,20 MB. Keine neuen Hosts,
+> CSP und Transportformat unverändert.
+
 > **Nachgezogen 2026-10-26 (Runde 15):** Audit Runde 15. Speicher (3.3, 5.5): zwei neue
 > Schlüssel, `eeb.papierabgleich.v1.<Einsatz-ID>` (localStorage, 3 Tage, über die
 > Präfixregel `eeb.` in Sicherung und Löschweg enthalten) und `eeb.import-laeuft.v1`

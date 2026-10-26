@@ -327,7 +327,7 @@ describe("einsatzDetailCsvInhalt()", () => {
     expect(spalte(csv, 1, "Signatur")).toBe("gültig (AB12-CD34)");
   });
 
-  it("liefert bei leerer Sammlung nur die Kopfzeile", () => {
-    expect(zeilen(einsatzDetailCsvInhalt(sammlung([])))).toHaveLength(1);
+  it("liefert bei leerer Sammlung nur die Kopfzeile und die Kennzeile (R16-A1)", () => {
+    expect(zeilen(einsatzDetailCsvInhalt(sammlung([])))).toHaveLength(2);
   });
 });

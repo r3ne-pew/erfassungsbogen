@@ -75,7 +75,8 @@ function Wirt({ id }: { id: string }) {
 const karteVon = (name: string) => [...document.querySelectorAll<HTMLElement>(".einheit-zeile")].find((k) => k.textContent!.includes(name))!;
 /** Die Quittungsleiste nimmt ihre Knöpfe erst nach dem Prellschutz an (daumen-quittung.tsx). */
 async function bereit(knopf: HTMLElement) {
-  await waitFor(() => expect((knopf as HTMLButtonElement).disabled).toBe(false), { timeout: 2500 });
+  // Seit R16-D1 trägt die Leiste im Prellschutz `aria-disabled` statt `disabled` (ein Tipp sagt „Einen Moment …").
+  await waitFor(() => expect((knopf as HTMLButtonElement).disabled || knopf.getAttribute("aria-disabled") === "true").toBe(false), { timeout: 2500 });
 }
 const leisten = () => [...document.querySelectorAll<HTMLElement>(".quittung-daumen")];
 

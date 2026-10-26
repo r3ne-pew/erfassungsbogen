@@ -156,6 +156,28 @@ export function ovImText(verzeichnis: ThwOrtsverband[], text: string): ThwOrtsve
   return beste;
 }
 
+/** Die Vorschläge zu einer Eingabe (höchstens acht) — auch für den Hinweis nach dem Verlassen des Feldes (R16-E4). */
+export function ovTreffer(verzeichnis: readonly ThwOrtsverband[], wert: string): ThwOrtsverband[] {
+  const suche = sucheForm(wert);
+  return suche
+    ? verzeichnis
+        .filter((o) => sucheForm(o.name).includes(suche) || sucheForm(o.kurz).startsWith(suche) || sucheForm(o.ort).startsWith(suche))
+        .sort((a, b) => Number(sucheForm(b.name).startsWith(suche)) - Number(sucheForm(a.name).startsWith(suche)))
+        .slice(0, 8)
+    : [];
+}
+
+/** Satz zu einem Ortsverband-Namen ohne Kürzel: mehrdeutig („mehrere Orte heißen so") oder nicht im Verzeichnis (R16-E4). */
+export function ovFreiHinweis(name: string, treffer: readonly ThwOrtsverband[]): string {
+  if (treffer.length === 0) {
+    return `„${name}" ist nicht im OV-Verzeichnis — Vorschlag antippen, sonst fehlen Kürzel, Telefon und E-Mail. Ein Ortsverband, den es dort nicht gibt, darf so stehen bleiben.`;
+  }
+  const namen = treffer.slice(0, 3).map((o) => o.name).join(", ") + (treffer.length > 3 ? " …" : "");
+  return treffer.length === 1
+    ? `„${name}" meint vielleicht ${namen} — Vorschlag antippen, sonst fehlen Kürzel, Telefon und E-Mail.`
+    : `„${name}" kann mehrere Ortsverbände meinen (${namen}) — Vorschlag antippen, sonst fehlen Kürzel, Telefon und E-Mail.`;
+}
+
 /**
  * OV-Namensfeld mit Vorschlagsliste aus dem OV-Verzeichnis. Auswahl übernimmt
  * Kürzel + Kontaktdaten; ein direkt eingetipptes Kürzel ("OODE") wird beim
@@ -179,13 +201,7 @@ function OvVorschlagFeld(props: {
 
   // Beide Seiten gefaltet (R11-H1): „Hassmersheim" und „Muellheim" finden „Haßmersheim" und „Müllheim".
   // Bindestrich und Leerzeichen gleich (R13-H2): „Neu Ulm" findet „Neu-Ulm".
-  const suche = sucheForm(wert);
-  const treffer = suche
-    ? verzeichnis
-        .filter((o) => sucheForm(o.name).includes(suche) || sucheForm(o.kurz).startsWith(suche) || sucheForm(o.ort).startsWith(suche))
-        .sort((a, b) => Number(sucheForm(b.name).startsWith(suche)) - Number(sucheForm(a.name).startsWith(suche)))
-        .slice(0, 8)
-    : [];
+  const treffer = ovTreffer(verzeichnis, wert);
   // R11-N2: steht das Kürzel schon da und ist der einzige Vorschlag, wiederholt die Liste nur den Eintrag und verdeckt Telefon und E-Mail.
   const nurEintrag = !!kennung && treffer.length === 1 && treffer[0]!.kurz === wert.trim().toUpperCase();
   const gezeigt = nurEintrag ? [] : treffer;
@@ -288,7 +304,12 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh, ortFokus = false }:
   useEffect(() => {
     if (!ortFokus || (bogen.einheit.hierarchie[0]?.name ?? "").trim() !== "") return;
     const feld = document.getElementById("feld-einheit-name");
-    feld?.scrollIntoView?.({ block: "center" });
+    // R16-M1: Die Seite bleibt am Anfang (Kopf, Marke „Aufnahme für: …", „1. Einheit"); der Fokus springt nicht mehr hinunter.
+    try {
+      window.scrollTo(0, 0);
+    } catch {
+      /* Testumgebung ohne Layout */
+    }
     feld?.focus({ preventScroll: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -640,6 +661,7 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh, ortFokus = false }:
           <input
             {...NAMEN_EINGABE}
             value={e.organisationName ?? ""}
+            autoComplete="off"
             onChange={(ev) => setE({ organisationName: ev.target.value || undefined })}
             placeholder={ORGANISATIONSNAME_BEISPIEL[e.organisation] ?? "z. B. Name der Organisation"}
           />
@@ -770,6 +792,8 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh, ortFokus = false }:
               />
             ) : (
               <input
+                {...NAMEN_EINGABE}
+                autoComplete="off" // Ortsnamen und Dienststellen: keine Autokorrektur, keine Vorschläge aus anderen Formularen (R16-H2)
                 id={i === 0 ? "feld-einheit-name" : undefined}
                 value={h.name}
                 onChange={(ev) => setE({ hierarchie: e.hierarchie.map((x, j) => (j === i ? { ...x, name: ev.target.value } : x)) })}
@@ -807,8 +831,7 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh, ortFokus = false }:
             !h.kurz?.trim() &&
             nameImFokus !== i && (
               <p className="hinweis warnung-text ov-frei-hinweis" role="status">
-                „{h.name.trim()}" ist nicht im OV-Verzeichnis — Vorschlag antippen, sonst fehlen Kürzel, Telefon und E-Mail.
-                Ein Ortsverband, den es dort nicht gibt, darf so stehen bleiben.
+                {ovFreiHinweis(h.name.trim(), ovTreffer(ovVerzeichnis, h.name))}
               </p>
             )}
           {/* Das Kürzel (z. B. THW-OV "OODE") ergibt nur beim THW Sinn; andere Organisationen führen keine solchen Kürzel.

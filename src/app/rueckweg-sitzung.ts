@@ -21,6 +21,8 @@ interface Gemerkt<T> {
 
 export const FAHRZEUG_WEG_SCHLUESSEL = "eeb.fahrzeug.rueckweg";
 export const EBENE_WEG_SCHLUESSEL = "eeb.ebene.rueckweg";
+/** „Für neuen Einsatz vorbereiten“: Zeitraum, Ort/Auftrag und Sofortbedarf davor (R16-E2). */
+export const EINSATZ_WEG_SCHLUESSEL = "eeb.einsatz.rueckweg";
 
 function sitzung(): Storage | null {
   try {
@@ -79,7 +81,7 @@ export function rueckwegeVergessen(): void {
   } catch {
     /* nichts zu tun */
   }
-  for (const k of [FAHRZEUG_WEG_SCHLUESSEL, EBENE_WEG_SCHLUESSEL]) {
+  for (const k of [FAHRZEUG_WEG_SCHLUESSEL, EBENE_WEG_SCHLUESSEL, EINSATZ_WEG_SCHLUESSEL]) {
     try {
       sitzung()?.removeItem(k);
     } catch {

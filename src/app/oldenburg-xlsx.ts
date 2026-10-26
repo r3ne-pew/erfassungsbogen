@@ -88,8 +88,8 @@ import {
 import { geltendeJeEinheit } from "./fassung-vorrang";
 import { zaehltInLage } from "./auswertung";
 import { datumVonMs, lueckenAlle, meldungsNummern, pruefpunkteEintrag } from "./einheiten-tabelle";
-import { eintreffzeit, zeitLang } from "./eintrag-zeiten";
-import { nachtragGrundText, ortHinweisText, ortHinweise, type NachtragGrund } from "./export-stand";
+import { EINTREFF_HINWEIS, eintreffzeit, eintreffzeitUnbestaetigt, zeitLang } from "./eintrag-zeiten";
+import { exportKennzeile, nachtragGrundText, ortHinweisText, ortHinweise, type NachtragGrund } from "./export-stand";
 
 export { XLSX_MIME };
 
@@ -347,6 +347,8 @@ interface Kontext {
   fremderOrt?: string;
   /** Laufende Nummer der Meldung wie auf Karte und Lageblatt; steht vorn in „Bemerkung" (R9-A2). */
   nr?: number;
+  /** Eintreffzeit ist nur der Eingang am Gerät, nicht bestätigt; „Bemerkung" sagt es (R16-A1). */
+  eintreffUnbestaetigt?: boolean;
 }
 
 function zeileFuer(b: Erfassungsbogen, k: Kontext): Zeile {
@@ -415,6 +417,7 @@ function zeileFuer(b: Erfassungsbogen, k: Kontext): Zeile {
       k.fremderOrt ? ortHinweisText(k.fremderOrt) : "",
       b.uebung === true ? "ÜBUNG" : "",
       k.zaehltNicht ? "zählt nicht in der Lage" : "",
+      k.eintreffUnbestaetigt ? "Eintreffzeit nicht bestätigt (Zeit des Einlesens am Gerät)" : "",
       zeitraumVorbei ? `Einsatzzeitraum im Bogen endete ${datumDeutsch(datumZuIso(b.einsatz.zeitraumBis))} — Bogen aus früherer Lage?` : "",
       k.rueckfragen?.length ? `Hinweise: ${lueckenAlle(k.rueckfragen)}` : "",
       b.sonstiges ?? "",
@@ -506,8 +509,8 @@ function blattBauen(
   bloecke: { kopf: string; zeilen: Zeile[] }[] = [],
   /** Nachtrag: steht in der Hinweisleiste (A1), weil dort die Summen sind (R5-K6). */
   kennzeichen?: string,
-  /** Nachtrag: ausführlicher Hinweis in einer Schlusszeile — A1 ist nur drei Spalten breit. */
-  fuss?: string,
+  /** Schlusszeilen (Nachtrag-Hinweis, Lage und Erstellzeit, Fußnote) — A1 ist nur drei Spalten breit. */
+  fuss: string[] = [],
 ): Uint8Array<ArrayBuffer> {
   const summenEnde = Math.max(ERSTE_DATENZEILE, ERSTE_DATENZEILE + zeilen.length - 1);
   const xml = [leisteZeile(summenEnde, zeilen, kennzeichen), kopfZeile(), ...zeilen.map((z, i) => datenZeile(z, ERSTE_DATENZEILE + i))];
@@ -522,10 +525,10 @@ function blattBauen(
     block.zeilen.forEach((z, i) => xml.push(datenZeile(z, kopfNr + 1 + i)));
     letzteZeile = kopfNr + block.zeilen.length;
   }
-  if (fuss) {
-    letzteZeile += 2;
-    xml.push(zeileXml(letzteZeile, [{ spalte: 0, wert: fuss, stil: STIL_BLOCKKOPF }]));
-  }
+  fuss.forEach((text, i) => {
+    letzteZeile += i === 0 ? 2 : 1;
+    xml.push(zeileXml(letzteZeile, [{ spalte: 0, wert: text, stil: STIL_BLOCKKOPF }]));
+  });
   return mappeBauen(
     {
       name: "Tabelle1",
@@ -553,7 +556,12 @@ export function bogenOldenburgXlsx(b: Erfassungsbogen): Uint8Array<ArrayBuffer> 
  * einem eigenen Block außerhalb der Summen, die abgerückten, aufgegangenen und
  * (in einer echten Lage) die Übungsmeldungen (R2-K2).
  */
-export function einsatzOldenburgXlsx(s: Einsatzsammlung): Uint8Array<ArrayBuffer> {
+export function einsatzOldenburgXlsx(
+  s: Einsatzsammlung,
+  /** Ganze Sammlung für die Kennzeichnung der Eintreffzeit (beim Teilexport fehlt die erste Fassung sonst). */
+  historie: readonly MeldeEintrag[] = s.eintraege,
+  erstellt: number = Date.now(),
+): Uint8Array<ArrayBuffer> {
   // Nach Nr. wie Lageblatt, Sammel-PDF und CSV (R9-A2); ohne Nummer nach Name.
   const nummern = meldungsNummern(s.eintraege);
   const meldungen = geltendeJeEinheit(s.eintraege).sort(
@@ -566,9 +574,14 @@ export function einsatzOldenburgXlsx(s: Einsatzsammlung): Uint8Array<ArrayBuffer
   const zaehlt = (e: MeldeEintrag) => e.status === MeldeStatus.ANWESEND && zaehltInLage(s.art, e.bogen);
   const gruende = s.nachtragGruende;
   const orte = ortHinweise(s);
-  const zeile = (e: MeldeEintrag) => zeileFuer(e.bogen, { ...kontextAus(s, e, zaehlt(e), gruende?.[e.einheitSchluessel], orte[e.einheitSchluessel]), nr: nummern.get(e.einheitSchluessel) });
+  const unbestaetigt = new Set(meldungen.filter((e) => eintreffzeitUnbestaetigt(e, historie)).map((e) => e.id));
+  const zeile = (e: MeldeEintrag) =>
+    zeileFuer(e.bogen, { ...kontextAus(s, e, zaehlt(e), gruende?.[e.einheitSchluessel], orte[e.einheitSchluessel]), nr: nummern.get(e.einheitSchluessel), eintreffUnbestaetigt: unbestaetigt.has(e.id) });
   const nichtGezaehlt = meldungen.filter((e) => !zaehlt(e));
-  if (!gruende) return blattBauen(meldungen.filter(zaehlt).map(zeile), [{ kopf: blockKopfText(nichtGezaehlt.length), zeilen: nichtGezaehlt.map(zeile) }]);
+  // Lage und Erstellzeit wie im Kopf von Lageblatt und Sammel-PDF; Fußnote zur Eintreffzeit nur, wo sie gebraucht wird (R16-A1).
+  const kennung = [exportKennzeile(s, erstellt), ...(unbestaetigt.size > 0 ? [`* ${EINTREFF_HINWEIS}`] : [])];
+  // A1 trägt den Einsatznamen (der Nachtrag hat dort seine Kennzeichnung); gekürzt in der schmalen Leiste, voll steht er in der Schlusszeile.
+  if (!gruende) return blattBauen(meldungen.filter(zaehlt).map(zeile), [{ kopf: blockKopfText(nichtGezaehlt.length), zeilen: nichtGezaehlt.map(zeile) }], `Einsatz „${s.name}“`, kennung);
   // Nachtrag (R5-K6, R5-W7): Die Summen in Zeile 1 gelten nur für die NEUEN
   // Einheiten; die geänderten stehen darunter und ersetzen ihre Zeile der letzten
   // Lieferung. Die Leiste sagt, dass die Datei nur ein Teil der Lage ist.
@@ -582,7 +595,7 @@ export function einsatzOldenburgXlsx(s: Einsatzsammlung): Uint8Array<ArrayBuffer
       { kopf: blockKopfText(nichtGezaehlt.length), zeilen: nichtGezaehlt.map(zeile) },
     ],
     "NACHTRAG – Teil der Lage",
-    `NACHTRAG${seit} — nicht die ganze Lage. „Summe Nachtrag“ (Zeile 1) zählt nur die neuen Einheiten; geänderte Einheiten ersetzen ihre Zeile der letzten Lieferung.`,
+    [`NACHTRAG${seit} — nicht die ganze Lage. „Summe Nachtrag“ (Zeile 1) zählt nur die neuen Einheiten; geänderte Einheiten ersetzen ihre Zeile der letzten Lieferung.`, ...kennung],
   );
 }
 

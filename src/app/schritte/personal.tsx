@@ -26,7 +26,8 @@ import {
   unterbringungMWD,
   verpflegung,
 } from "@bos/eeb-format/model";
-import { namenEinsetzen, parseNamen } from "../personal-schnell";
+import { namenEinsetzen, namenVerdachtGruende, parseNamen } from "../personal-schnell";
+import { SOLL_NICHT_GEMELDET } from "../soll-text";
 import { beispielPersonen } from "../beispielnamen";
 import { beispielMerken } from "../beispiel-herkunft";
 import { stanPersonalVorbelegung } from "@bos/vokabulare/thw-stan-personal";
@@ -1326,7 +1327,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
               return soll.fuehrer === sm.fuehrer && soll.unterfuehrer === sm.unterfuehrer && soll.mannschaft === sm.mannschaft;
             })() && (
               <p className="hinweis warnung-text">
-                Vorgabe nach Einheitstyp (Sollstärke), nicht gezählt: Mit der gezählten Stärke überschreiben, nicht dazuzählen.
+                Vorgabe nach Einheitstyp (Sollstärke): {SOLL_NICHT_GEMELDET}. Mit der gezählten Stärke überschreiben, nicht dazuzählen.
               </p>
             )}
           <div className="stepper-zeile">
@@ -1655,7 +1656,7 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
             bis sie übernommen oder von Hand geleert wird. */}
         {namenText.trim() !== "" && (
           <p className="hinweis">
-            Die Liste bleibt stehen, auch wenn Sie das Fenster schließen — bis Sie sie übernehmen oder leeren.{" "}
+            Die Liste bleibt stehen, auch wenn du das Fenster schließt — bis du sie übernimmst oder leerst.{" "}
             <button
               type="button"
               onClick={async () => {
@@ -1734,14 +1735,14 @@ export function SchrittPersonal({ bogen, aendern: aendernRoh }: SchrittProps) {
         {namenAlle.some(namenVerdaechtig) && (
           <p className="warnung" role="status">
             {namenAlle.filter(namenVerdaechtig).length === 1 ? "Eine Zeile sieht" : `${namenAlle.filter(namenVerdaechtig).length} Zeilen sehen`} nicht
-            nach einem Namen aus (Ziffern, Klammern) und {namenAlle.filter(namenVerdaechtig).length === 1 ? "wird" : "werden"} nicht übernommen. Wer sie
+            nach einem Namen aus ({namenVerdachtGruende(namenAlle.filter(namenVerdaechtig))}) und {namenAlle.filter(namenVerdaechtig).length === 1 ? "wird" : "werden"} nicht übernommen. Wer sie
             doch braucht, hakt sie an.
           </p>
         )}
         {namenAlle.some((n) => n.unsicher && !namenVerdaechtig(n)) && (
           <p className="warnung" role="status">
-            Bei „Reihenfolge prüfen" stehen vor dem Komma mehrere Wörter — gelesen wird „Nachname, Vorname". Meint die Zeile
-            „Vorname Nachname, Funktion", sie als „Nachname, Vorname, Funktion" schreiben.
+            Bei „Reihenfolge prüfen" ist die Reihenfolge geraten (mehrere Wörter vor dem Komma, Funktion ohne Komma) — die
+            Vorschau zeigt „Nachname, Vorname". Stimmt das nicht, die Zeile als „Nachname, Vorname, Funktion" schreiben.
           </p>
         )}
         {anzahlDoppelt > 0 && (

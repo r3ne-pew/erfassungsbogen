@@ -703,6 +703,33 @@ describe("Assistenten-Durchlauf", () => {
     expect(localStorage.getItem("eeb.entwurf.ersetzt.v1")).toContain("Eigenhausen");
   }, 30000);
 
+  it("zeigt beim Erstbesuch den Offline-Fortschritt unter den Knöpfen beider Wege, damit nichts darunter springt (R16-H3)", () => {
+    render(<App />);
+    const badge = document.querySelector(".offline-badge")!;
+    expect(badge).not.toBeNull();
+    for (const name of ["Neuen Bogen erstellen", "Neue Einsatz-Sammlung…", "Einheit schnell erfassen (nur Stärke)…"]) {
+      const knopf = screen.getByRole("button", { name });
+      expect(knopf.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+
+  it("bietet die Schnellerfassung (nur Stärke) auch in der Einsatzansicht, mit dieser Sammlung vorbelegt (R16-W3)", async () => {
+    einsatzImSpeicherAnlegen("Sammelhausen", EinsatzArt.EINSATZ);
+    const nutzer = userEvent.setup();
+    render(<App />);
+    await nutzer.click(screen.getByRole("button", { name: "Öffnen" }));
+    await nutzer.click(await screen.findByRole("button", { name: "Einheit schnell erfassen (nur Stärke)…" }));
+    // Keine Frage nach der Sammlung: Ziel ist der geöffnete Einsatz, die Erfassung läuft als Schnellerfassung.
+    expect(document.querySelector("dialog[aria-label='Einheit schnell erfassen — für welche Sammlung?']")).toBeNull();
+    expect(within(screen.getByRole("banner")).getByText(/Aufnahme für: Sammelhausen/)).toBeDefined();
+    expect(within(screen.getByRole("banner")).getByText("Schnellerfassung")).toBeDefined();
+    await nutzer.type(screen.getByLabelText("Ort der Einheit (Pflicht)"), "Schnellhausen");
+    await nutzer.click(screen.getByRole("button", { name: "Weiter →" }));
+    // Direkt zur Stärke, ohne Umweg über „2. Einsatz", und ohne von Hand auf „Nur Stärke" umzustellen.
+    expect(screen.getByRole("heading", { level: 2, name: "3. Personal" })).toBeDefined();
+    expect((screen.getByLabelText(/Nur Stärke/) as HTMLInputElement).checked).toBe(true);
+  }, 30000);
+
   it("führt die Schnellerfassung von der Startseite in die gewählte Sammlung (R2-N6, R2-S2)", async () => {
     const einsatz = einsatzImSpeicherAnlegen("Sammelhausen", EinsatzArt.EINSATZ);
     const nutzer = userEvent.setup();
@@ -852,14 +879,29 @@ describe("Assistenten-Durchlauf", () => {
     if (umstellen) await nutzer.click(within(umstellen).getByRole("button", { name: "Nur Stärke melden" }));
 
     // Der Hinweis über den Zählfeldern steht, auch wenn Karten schon Funktionen tragen.
-    expect(screen.getByText(/Vorgabe nach Einheitstyp \(Sollstärke\), nicht gezählt/)).toBeDefined();
+    // R16-S2: derselbe Wortlaut wie in der Rückfrage und in der Summe der Lage.
+    expect(screen.getByText(/Vorgabe nach Einheitstyp \(Sollstärke\): Sollwert, nicht gemeldet — erscheint in der Summe/)).toBeDefined();
+    // R16-S2: Die unveränderten Sollzahlen sind noch nichts Gezähltes — Reiter 3 trägt kein Häkchen.
+    expect(screen.getByRole("button", { name: /^3\. Personal/ }).textContent).not.toContain("✓");
     await nutzer.click(screen.getByRole("button", { name: "In Einsatz übernehmen" }));
     const frage = rueckfrage("Nur Sollplätze, keine gemeldete Stärke");
     expect(frage.textContent).toMatch(/Zahlen der Vorbelegung nach Einheitstyp/);
+    // R16-S3: die riskantere Antwort steht zuletzt, nicht neben der Hauptaktion.
+    const wege = within(frage).getAllByRole("button").map((k) => k.textContent);
+    expect(wege.indexOf("Stärke jetzt eintragen")).toBe(0);
+    expect(wege.indexOf("Zahlen stimmen, so gezählt")).toBeGreaterThan(wege.indexOf("Als Sollstärke ablegen"));
     await nutzer.click(within(frage).getByRole("button", { name: "Zahlen stimmen, so gezählt" }));
 
     expect(einsaetzeLaden().find((x) => x.id === einsatz.id)!.eintraege).toHaveLength(1);
     expect(screen.queryByText("Sollstärke, nicht gemeldet")).toBeNull();
+    // R16-S3: Quittung mit „Rückgängig"; danach steht die Einheit wieder als Sollstärke da, Zeiten und Eintrag bleiben.
+    const rueck = await screen.findByRole("button", { name: "Rückgängig — wieder als Sollstärke führen" });
+    await waitFor(() => expect(rueck.getAttribute("aria-disabled")).toBeNull(), { timeout: 2000 });
+    await nutzer.click(rueck);
+    expect(await screen.findByText("Sollstärke, nicht gemeldet")).toBeDefined();
+    const eintraege = einsaetzeLaden().find((x) => x.id === einsatz.id)!.eintraege;
+    expect(eintraege).toHaveLength(1);
+    expect(eintraege[0]!.bogen.personal.length).toBeGreaterThan(0);
   }, 30000);
 
   /**
@@ -1052,6 +1094,13 @@ describe("Assistenten-Durchlauf", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "2. Einsatz" })).toBeDefined();
     expect(screen.getByText(/Einsatzdaten für den neuen Einsatz zurückgesetzt/)).toBeDefined();
     expect(screen.queryByText(/ist vorbei — gilt dieser Bogen noch/)).toBeNull();
+    // R16-E2: Quittung mit „Rückgängig", das den Ort/Auftrag wiederbringt und auch das Neuladen übersteht.
+    expect(screen.queryByDisplayValue("Gebäudeschaden Ulm")).toBeNull();
+    expect(sessionStorage.getItem("eeb.einsatz.rueckweg")).toContain("Gebäudeschaden Ulm");
+    await nutzer.click(await screen.findByRole("button", { name: /Rückgängig — Zeitraum, Ort\/Auftrag und Sofortbedarf/ }));
+    expect(await screen.findByDisplayValue("Gebäudeschaden Ulm")).toBeDefined();
+    expect(sessionStorage.getItem("eeb.einsatz.rueckweg")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Rückgängig — Zeitraum, Ort\/Auftrag/ })).toBeNull();
   }, 20000);
 
   /**
@@ -1762,7 +1811,8 @@ describe("Neuen Einsatz anlegen", () => {
 
       await waitFor(() => expect(mitschnitt.dateien).toHaveLength(1));
       const [datei] = mitschnitt.dateien;
-      expect(datei!.name).toBe("eeb-einsatz-Hochwasser_Weser-oldenburg.xlsx");
+      // Mit Datum-Zeit-Gruppe wie die PDFs (R16-A1).
+      expect(datei!.name).toMatch(/^eeb-einsatz-\d{6}[a-z]{3}\d{2}_Hochwasser_Weser-oldenburg\.xlsx$/);
       const bytes = new Uint8Array(await datei!.blob.arrayBuffer());
       expect(String.fromCharCode(bytes[0]!, bytes[1]!)).toBe("PK");
     } finally {
@@ -1798,7 +1848,7 @@ describe("Neuen Einsatz anlegen", () => {
       expect(await screen.findByText(/seitdem 1 neuer Bogen/)).toBeDefined();
 
       await nutzer.click(screen.getByRole("checkbox", { name: /Nur neue Bögen seit dem letzten Export/ }));
-      await nutzer.click(screen.getByRole("button", { name: "Übersicht als CSV" }));
+      await nutzer.click(screen.getByRole("button", { name: "Übersicht als CSV — Nachtrag (1 Einheit)" }));
       await waitFor(() => expect(mitschnitt.dateien).toHaveLength(2));
       const nachlieferung = await mitschnitt.dateien[1]!.blob.text();
       expect(nachlieferung).toContain("OV Zweiter");
@@ -1829,7 +1879,7 @@ describe("Neuen Einsatz anlegen", () => {
       await waitFor(() => expect(mitschnitt.dateien).toHaveLength(1));
       await nutzer.click(screen.getByRole("checkbox", { name: /Nur neue Bögen seit dem letzten Export/ }));
       // Die CSV hat nichts mehr zu liefern, Excel und PDF noch alles.
-      expect((screen.getByRole("button", { name: "Übersicht als CSV" }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole("button", { name: "Übersicht als CSV — Nachtrag: nichts Neues" }) as HTMLButtonElement).disabled).toBe(true);
       expect((screen.getByRole("button", { name: /^Excel-Liste/ }) as HTMLButtonElement).disabled).toBe(false);
       expect((screen.getByRole("button", { name: /^Sammel-PDF \((nur neue Bögen|erste Lieferung: alle Bögen)\)$/ }) as HTMLButtonElement).disabled).toBe(false);
       expect(screen.getByText(/Excel-Liste: noch nicht in diesem Format exportiert/)).toBeDefined();
@@ -1837,7 +1887,7 @@ describe("Neuen Einsatz anlegen", () => {
       // Abrücken nach dem CSV-Export: Änderung, und die CSV lässt sich wieder laden.
       await nutzer.click(screen.getAllByRole("button", { name: "Abrücken" })[0]!);
       expect(await screen.findByText(/seitdem 1 Änderung \(Abrücken\)/)).toBeDefined();
-      await nutzer.click(screen.getByRole("button", { name: "Übersicht als CSV" }));
+      await nutzer.click(screen.getByRole("button", { name: "Übersicht als CSV — Nachtrag (1 Einheit)" }));
       await waitFor(() => expect(mitschnitt.dateien).toHaveLength(2));
       const nachtrag = await mitschnitt.dateien[1]!.blob.text();
       expect(nachtrag).toContain("abgerückt");

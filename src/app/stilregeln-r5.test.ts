@@ -100,7 +100,7 @@ describe("Deckel-Regel für Dialog, Startseite, Kopf und Leiste (R5-M1, R5-M2, R
     expect(bloecke(".start > p.start-intro").join("\n")).toMatch(/min\(var\(--t-l\), 20px\)/);
     expect(bloecke(".weiche > .weiche-weg > h2").join("\n")).toMatch(/min\(var\(--t-xl\), 28px\)/);
     expect(css).toMatch(/@media \(max-width: 640px\)\s*\{\s*\.start-intro-lang\s*\{\s*display:\s*none/);
-    // Beim Erstbesuch steht der Offline-Hinweis unter den Aktionen des ersten Wegs.
+    // Beim Erstbesuch steht der Offline-Hinweis unter den Aktionen beider Wege, nicht zwischen ihnen (R16-H3).
     expect(quelle("./app.tsx")).toMatch(/\{erststart && offlineHinweis\}/);
     expect(quelle("./app.tsx")).toMatch(/\{!bogen && !erststart && offlineHinweis\}/);
   });
