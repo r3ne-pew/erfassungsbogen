@@ -217,6 +217,20 @@ export function mwdText(x: { m: number; w: number; d: number; ohneAngabe?: numbe
 }
 
 /**
+ * Verpflegung eines Bogens als Satz: „11 Personen, davon 3 vegetarisch, 1 vegan". Bei 0 Portionen steht „nicht
+ * angefordert" und die Ernährung der Personen getrennt — „0 Personen, davon 3 vegetarisch" widersprach sich
+ * (R13-W4). Ohne Angabe zur Aufteilung (Schnellerfassung): „· Aufteilung vegetarisch/vegan: keine Angabe".
+ */
+export function verpflegungBogenText(personen: number, vp: { vegetarisch: number; vegan: number }, aufteilungAngegeben = true): string {
+  if (personen <= 0) {
+    return aufteilungAngegeben && (vp.vegetarisch > 0 || vp.vegan > 0)
+      ? `nicht angefordert (Ernährung der Personen: ${vp.vegetarisch} vegetarisch, ${vp.vegan} vegan)`
+      : "nicht angefordert";
+  }
+  return `${personen} Personen` + (aufteilungAngegeben ? `, davon ${vp.vegetarisch} vegetarisch, ${vp.vegan} vegan` : " · Aufteilung vegetarisch/vegan: keine Angabe");
+}
+
+/**
  * „6 Einheiten, 66 Personen (M 56 / W 10 / D 0)" — die Zahl fürs Quartier
  * (R3-K4). Leer, wenn niemand Unterbringung angefordert hat.
  */

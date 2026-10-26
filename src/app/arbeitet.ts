@@ -57,18 +57,39 @@ export function naechstesBild(): Promise<void> {
 export async function arbeiten<T>(was: string, aktion: () => Promise<T>): Promise<{ lief: true; wert: T } | { lief: false }> {
   if (aktuell !== null) return { lief: false };
   aktuell = was;
+  lauf = { von: zeitJetzt(), bis: Infinity };
   melden();
   try {
     await naechstesBild();
     return { lief: true, wert: await aktion() };
   } finally {
     aktuell = null;
+    if (lauf) lauf.bis = zeitJetzt();
     melden();
   }
+}
+
+/** Zeitbasis der Ereigniszeit (`Event.timeStamp`): Millisekunden seit dem Seitenstart. */
+function zeitJetzt(): number {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+let lauf: { von: number; bis: number } | null = null;
+
+/**
+ * Wurde der Tipp mit der Ereigniszeit `zeit` (`event.timeStamp`) während des letzten oder des laufenden Laufs
+ * ausgeführt? Die Erzeugung blockiert den Hauptfaden mehrere Sekunden: Ein zweiter Tipp, der schon nach 150 ms
+ * erfolgte, wird erst danach bearbeitet — und fände dann Sperre und Zeitfenster längst abgelaufen. Die Ereigniszeit
+ * verrät, dass er zu früh kam (R13-G1).
+ */
+export function tippWaehrendLauf(zeit: number): boolean {
+  if (!lauf || !Number.isFinite(zeit)) return false;
+  return zeit >= lauf.von && zeit <= lauf.bis;
 }
 
 /** Nur für Tests. */
 export function arbeitetZuruecksetzen(): void {
   aktuell = null;
+  lauf = null;
   melden();
 }

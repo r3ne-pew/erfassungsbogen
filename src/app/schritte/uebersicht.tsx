@@ -15,6 +15,7 @@ import {
   verpflegung,
 } from "@bos/eeb-format/model";
 import { vorlageAktualisieren, vorlageAnlegen, vorlageZahlenText, vorlagenLaden, type Vorlage } from "../vorlagen";
+import { unterschiedSatz, vorlageUnterschiede } from "../vorlagen-unterschied";
 import { TabellenScroll } from "../tabellen-scroll";
 import { RolleMarke } from "../rolle-marke";
 import {
@@ -43,7 +44,7 @@ import {
   zeitpunktDeutsch,
 } from "../hilfen";
 import { debugAktiv } from "../debug-plattform";
-import { mwdText } from "../auswertung";
+import { mwdText, verpflegungBogenText } from "../auswertung";
 import { bogenCsvInhalt } from "../bogen-csv";
 import { qrGroessePosten, VIELE_TEILE } from "../qr-posten";
 import { einheitSymbolSvg, svgDataUrl } from "../taktische-zeichen-bogen";
@@ -148,7 +149,7 @@ export function Uebersicht(props: {
       const stand = new Date(gleichnamig.geaendert).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
       const wahl = await frageWahl({
         titel: "Vorlage mit diesem Namen vorhanden",
-        text: `Es gibt schon eine Vorlage „${gleichnamig.name}" (gespeichert ${stand} Uhr). Zwei gleich benannte Karten sind beim Mustern kaum zu unterscheiden. Vorhanden: ${vorlageZahlenText(gleichnamig.bogen)} · dieser Bogen: ${vorlageZahlenText(bogen)}.`,
+        text: `Es gibt schon eine Vorlage „${gleichnamig.name}" (gespeichert ${stand} Uhr). Zwei gleich benannte Karten sind beim Mustern kaum zu unterscheiden. Vorhanden: ${vorlageZahlenText(gleichnamig.bogen)} · dieser Bogen: ${vorlageZahlenText(bogen)}.${unterschiedSatz(vorlageUnterschiede(gleichnamig.bogen, bogen))}`,
         wege: [
           { wert: "zusaetzlich", label: "Zusätzlich anlegen", hinweis: "Die vorhandene bleibt, wie sie ist." },
           { wert: "ersetzen", label: "Vorhandene ersetzen", hinweis: "Ihr Inhalt wird durch diesen Bogen überschrieben; danach gibt es „Rückgängig“.", gefahr: true },
@@ -270,6 +271,8 @@ export function Uebersicht(props: {
   // Schnellerfassung des Meldekopfs: Stärke als Summe, absichtlich ohne Namen.
   const nurStaerke = bogen.personalErfassung === PersonalErfassung.NUR_STAERKE;
   const staerkeText = `${s.fuehrer} / ${s.unterfuehrer} / ${s.mannschaft} / ${s.gesamt}`;
+  // R13-S2: Schnellerfassung (nur Stärke) von der Startseite: Ablegen in die Sammlung ist der erste Weg.
+  const schnellAblegen = nurStaerke && !props.sammelAktion && !props.vorlageBearbeitung && props.onInEinsatzAufnehmen != null;
   const mwd = unterbringungMWD(bogen);
   const vp = verpflegung(bogen);
   /**
@@ -563,6 +566,11 @@ export function Uebersicht(props: {
               <button type="button" className="primaer" onClick={props.sammelAktion.onUebernehmen}>
                 {props.sammelAktion.label}
               </button>
+            ) : schnellAblegen ? (
+              // R13-S2: Die Schnellerfassung ist die Meldung einer fremden Einheit; der erste Weg ist das Ablegen.
+              <button type="button" className="primaer" onClick={props.onInEinsatzAufnehmen}>
+                In Einsatz-Sammlung ablegen…
+              </button>
             ) : (
               // Ein Weg zum Ziel: QR, Nahbereich (AirDrop/Quick Share), PDF,
               // Link und Datei tragen denselben Bogen — der Dialog bündelt sie.
@@ -571,10 +579,10 @@ export function Uebersicht(props: {
               </button>
             )}
             <span className="neben-aktionen">
-              {(props.sammelAktion || props.vorlageBearbeitung) && (
+              {(props.sammelAktion || props.vorlageBearbeitung || schnellAblegen) && (
                 <button type="button" onClick={() => teilenDialog.current?.showModal()}>Bogen übergeben…</button>
               )}
-              {!props.sammelAktion && !props.vorlageBearbeitung && props.onInEinsatzAufnehmen && (
+              {!props.sammelAktion && !props.vorlageBearbeitung && !schnellAblegen && props.onInEinsatzAufnehmen && (
                 <button type="button" onClick={props.onInEinsatzAufnehmen}>In Einsatz-Sammlung ablegen…</button>
               )}
               <button type="button" onClick={alsVorlageSpeichern}>
@@ -587,6 +595,12 @@ export function Uebersicht(props: {
           </span>
         </div>
         {fehler && <p className="fehler">{fehler}</p>}
+        {schnellAblegen && (
+          <p className="hinweis schnell-hinweis">
+            Meldung einer fremden Einheit: Sie gehört in eine Einsatz-Sammlung. „Bogen übergeben…“ gäbe sie mit dem Siegel
+            dieses Geräts weiter.
+          </p>
+        )}
         {props.signatur && props.signatur.zustand !== "unsigniert" && (
           <p className={`signatur-herkunft ${props.signatur.zustand}`} role="status">
             Empfangen als: <strong>{signaturLabel(props.signatur)}</strong>
@@ -800,10 +814,7 @@ export function Uebersicht(props: {
           <dt>Verpflegung</dt>
           <dd>
             {bogen.sofortbedarf
-              ? `${bogen.sofortbedarf.verpflegungPersonen} Personen` +
-                (vpAufteilungAngegeben
-                  ? `, davon ${vp.vegetarisch} vegetarisch, ${vp.vegan} vegan`
-                  : " · Aufteilung vegetarisch/vegan: keine Angabe")
+              ? verpflegungBogenText(bogen.sofortbedarf.verpflegungPersonen, vp, vpAufteilungAngegeben)
               : "—"}
           </dd>
           <dt>Betriebsstoff</dt>

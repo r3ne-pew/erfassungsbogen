@@ -53,6 +53,12 @@ export function AbsenderkarteFeld(props: {
   }
 
   async function speichern() {
+    // R13-D2: „Übernehmen" mit lauter leeren Feldern ist „Angaben entfernen" und fragt genauso nach.
+    if (!absenderkarteGefuellt(entwurf)) {
+      if (absenderkarteGefuellt(karte)) await entfernen();
+      else setOffen(false);
+      return;
+    }
     // R12-E2: Eine Adresse, die die App selbst „unvollständig" nennt, reist mitsigniert in jedem QR-Code mit.
     if (emailProblem(entwurf.email)) {
       const trotzdem = await frageJaNein({

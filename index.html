@@ -5087,7 +5087,7 @@
        eine Marke mit Rahmen (Form statt nur Farbe, auch im Graustufenbild); die Bernsteinfarbe bleibt dem
        aktiven Schritt allein vorbehalten. */
     .nacht-modus .schritte button.status-begonnen .schritt-status {
-      color: var(--kopf-auf); border: 1px solid currentColor; border-radius: 999px; padding: 0.1em 0.4em; font-size: 0.85em;
+      color: var(--kopf-auf); border: 1px solid currentColor; border-radius: 999px; padding: 0.1em 0.4em; font-size: max(0.95em, 12px);
     }
 
     /* R7-H1: Entwurfskarte bei großer Schrift: Die Umbruchregel galt nur unter 30rem Fensterbreite (in der
@@ -5786,6 +5786,34 @@
       display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; margin: 4px 8px 0 0;
     }
     /* ===== Ende Runde 12 (Zustand) ===== */
+    /* ===== Runde 13 (Zustand) ===== */
+    /* R13-D1: „Jetzt" und „Beginn entfernen" mit 12 px Abstand statt 8 px (Handschuh, Alarmierungszeit). */
+    .lm-block .vorlage-aktionen { gap: 12px; }
+    /* R13-S2: Hinweis über den Knöpfen der Schnellerfassung. */
+    .schnell-hinweis { margin: var(--r-2, 0.5rem) 0; }
+    /* ===== Ende Runde 13 (Zustand) ===== */
+    /* ===== Runde 13 (Inhalte) ===== */
+    /* R13-W5: Zug für neu aufgenommene Einheiten gleich unter der Quittung; Knöpfe und Feld in Fingergröße. */
+    .zug-schnell { display: flex; flex-wrap: wrap; align-items: center; gap: var(--r-2); margin: var(--r-2) 0; }
+    .zug-schnell .zug-schnell-text { font-weight: 600; flex: 1 1 100%; }
+    .zug-schnell button, .zug-schnell input { min-height: 44px; }
+    .zug-schnell input { flex: 1 1 9rem; min-width: 0; }
+    /* ===== Ende Runde 13 (Inhalte) ===== */
+    /* ===== Runde 13 (Layout) ===== */
+    /* R13-M1: Die Kurzmarke „anon." in der klebenden Namensspalte der Tabelle bleibt unteilbar und kurz. */
+    table.einheiten-tabelle th .uebung-badge.anonym-kurz { white-space: nowrap; }
+    /* R13-M3: Kopfzellen der Tabelle ohne Sperrung; die zweite Spalte rückt 6 px von der klebenden Namensspalte ab,
+       damit „Ges." nicht angeschnitten wird. */
+    table.einheiten-tabelle thead th > .spalten-sortierung { letter-spacing: 0; }
+    table.einheiten-tabelle thead > tr > :first-child + th > .spalten-sortierung { padding-inline-start: 6px; }
+    /* R13-G2: „Zug zuordnen" wie „Auftrag/Notiz": Feld und Knöpfe in einer Reihe mit 8 px Abstand, auch zwischen den
+       Zugvorschlägen und unter dem Feld. */
+    .zug-bearbeiten:not(.zeit-bearbeiten):not(.notiz-bearbeiten) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: var(--r-2); }
+    .zug-bearbeiten:not(.zeit-bearbeiten):not(.notiz-bearbeiten) input { flex: 1 1 10rem; min-width: 0; }
+    .zug-bearbeiten .zug-vorschlaege { display: flex; flex-wrap: wrap; gap: 8px; flex-basis: 100%; }
+    /* R13-G3: Anruf- und Mail-Verknüpfungen in „Details" stehen mit mindestens 8 px Abstand (4 px je Verknüpfung). */
+    dl.paare dd a.kontakt-link { margin-block: 4px; margin-inline: 0 4px; }
+    /* ===== Ende Runde 13 (Layout) ===== */
   </style>
 </head>
 <body>

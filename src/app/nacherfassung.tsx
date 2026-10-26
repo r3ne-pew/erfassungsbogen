@@ -111,6 +111,24 @@ export function eintreffzeitPruefen(uhrzeit: string, jetzt = Date.now()): Eintre
   return jetzt - gestern <= GESTERN_STILL_MS ? { art: "zeit", zeit: gestern } : { art: "frage", heute, gestern };
 }
 
+/** Ergebnis von {@link abrueckzeitVomZettel}. */
+export type AbrueckzeitWahl = { art: "keine" } | { art: "zeit"; zeit: number } | { art: "fehler"; text: string };
+
+/**
+ * „Abgerückt um" vom Meldeblock (R13-A1): Leer = die Einheit ist noch da. Mit Uhrzeit braucht es das Eintreffen
+ * (`an`, ms), und die Abrückzeit liegt nicht davor und nicht in der Zukunft — sonst nennt der Text den Grund, und
+ * die Einheit wird nicht mit einer falschen Zeit abgerückt angelegt.
+ */
+export function abrueckzeitVomZettel(ab: string, an: number | null, jetzt = Date.now()): AbrueckzeitWahl {
+  if (ab.trim() === "") return { art: "keine" };
+  const wahl = eintreffzeitPruefen(ab, jetzt);
+  if (wahl.art === "keine") return { art: "fehler", text: "„Abgerückt um“ ist keine Uhrzeit (HH:MM)." };
+  if (wahl.art === "frage") return { art: "fehler", text: `„Abgerückt um“ ${ab} liegt in der Zukunft — Stunde oder Tag vertauscht?` };
+  if (an == null) return { art: "fehler", text: "„Abgerückt um“ braucht „Eingetroffen um“: Ohne die Eintreffzeit liegt die Abrückzeit vor der Übernahme." };
+  if (wahl.zeit < an) return { art: "fehler", text: "„Abgerückt um“ liegt vor „Eingetroffen um“ — Uhrzeiten vertauscht?" };
+  return { art: "zeit", zeit: wahl.zeit };
+}
+
 /**
  * Feld „Eingetroffen um" im Nacherfassungsweg. Steht auf dem ersten Schritt,
  * weil dort das Blatt oben anfängt und die Uhrzeit vom Meldeblock daneben
@@ -119,6 +137,9 @@ export function eintreffzeitPruefen(uhrzeit: string, jetzt = Date.now()): Eintre
 export function EintreffzeitFeld(props: {
   wert: string;
   onAendern: (wert: string) => void;
+  /** „Abgerückt um“ vom Meldeblock („ab“): Die Einheit wird gleich als abgerückt angelegt (R13-A1). */
+  abgerueckt?: string;
+  onAbgerueckt?: (wert: string) => void;
   /** „Nr. laut Zettel“ und Zug — das Gegenstück zum Kasten „Meldekopf“ des Blanko-Vordrucks (R5-A4). */
   nummer?: string;
   onNummer?: (wert: string) => void;
@@ -126,16 +147,21 @@ export function EintreffzeitFeld(props: {
   onZug?: (wert: string) => void;
   zuege?: string[];
 }) {
-  const [offenAnfang] = useState(() => !!(props.wert || props.nummer || props.zug));
+  const [offenAnfang] = useState(() => !!(props.wert || props.abgerueckt || props.nummer || props.zug));
   return (
     <section className="karte nacherfassung-zeit">
       {/* Die drei Zettelfelder sind optional (R11-M1): Eingeklappt (solange nichts eingetragen ist) liegt „Ort der
           Einheit" nicht zwei Bildschirme tiefer; die Zusammenfassung ist ein voller Knopf. */}
       <details className="zettel-angaben" open={offenAnfang}>
-      <summary>Angaben vom Zettel (optional): Eingetroffen um, Nr., Zug</summary>
+      <summary>Angaben vom Zettel (optional): Eingetroffen um, Abgerückt um, Nr., Zug</summary>
       <Feld titel="Eingetroffen um (vom Meldeblock)" schmal>
         <input type="time" value={props.wert} onChange={(e) => props.onAendern(e.target.value)} />
       </Feld>
+      {props.onAbgerueckt && (
+        <Feld titel="Abgerückt um (vom Meldeblock, leer = noch da)" schmal>
+          <input type="time" value={props.abgerueckt ?? ""} onChange={(e) => props.onAbgerueckt?.(e.target.value)} />
+        </Feld>
+      )}
       {props.onNummer && (
         <Feld titel="Nr. laut Zettel (leer = die App vergibt)" schmal>
           <input type="text" inputMode="numeric" value={props.nummer ?? ""} onChange={(e) => props.onNummer?.(e.target.value)} />

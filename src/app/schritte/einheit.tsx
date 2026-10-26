@@ -34,9 +34,9 @@ import { frageJaNein } from "../dialoge";
 import { DaumenQuittung } from "../daumen-quittung";
 import { EBENE_WEG_SCHLUESSEL, rueckwegHolen, rueckwegMerken } from "../rueckweg-sitzung";
 import { vorbelegungWegLesen, vorbelegungWegSichern, zustandsAbdruck, type VorbelegungWeg } from "../vorbelegung-rueckweg";
-import { Auswahl, Feld, FREMDE_DATEN, Hinweise, KENNUNG_EINGABE, VokabAuswahl, VorschlagFeld, type SchrittProps } from "./bausteine";
+import { Auswahl, Feld, FREMDE_DATEN, Hinweise, KENNUNG_EINGABE, NAMEN_EINGABE, VokabAuswahl, VorschlagFeld, type SchrittProps } from "./bausteine";
 import { TelefonFeld } from "./telefon-feld";
-import { falte, ortAnzeige } from "../schreibweise";
+import { ortAnzeige, sucheForm } from "../schreibweise";
 
 // Die beiden großen Datenpakete laden erst mit Schritt 1, nicht mit dem
 // Start-Bundle: das THW-OV-Verzeichnis (~190 KB Quelldaten) und die
@@ -178,11 +178,12 @@ function OvVorschlagFeld(props: {
   const { id, wert, platzhalter, verzeichnis, tippen, uebernehmen, aufgeloest, kennung } = props;
 
   // Beide Seiten gefaltet (R11-H1): „Hassmersheim" und „Muellheim" finden „Haßmersheim" und „Müllheim".
-  const suche = falte(wert);
+  // Bindestrich und Leerzeichen gleich (R13-H2): „Neu Ulm" findet „Neu-Ulm".
+  const suche = sucheForm(wert);
   const treffer = suche
     ? verzeichnis
-        .filter((o) => falte(o.name).includes(suche) || falte(o.kurz).startsWith(suche) || falte(o.ort).startsWith(suche))
-        .sort((a, b) => Number(falte(b.name).startsWith(suche)) - Number(falte(a.name).startsWith(suche)))
+        .filter((o) => sucheForm(o.name).includes(suche) || sucheForm(o.kurz).startsWith(suche) || sucheForm(o.ort).startsWith(suche))
+        .sort((a, b) => Number(sucheForm(b.name).startsWith(suche)) - Number(sucheForm(a.name).startsWith(suche)))
         .slice(0, 8)
     : [];
   // R11-N2: steht das Kürzel schon da und ist der einzige Vorschlag, wiederholt die Liste nur den Eintrag und verdeckt Telefon und E-Mail.
@@ -216,13 +217,13 @@ function OvVorschlagFeld(props: {
         // Kürzel und Telefon von Neustadt (Holstein) ein, obwohl ebenso
         // „Neustadt an der Aisch" oder „… an der Weinstraße" gemeint sein
         // konnte — ohne dass jemand gewählt hatte (Audit Runde 3, R3-S4).
-        const klein = falte(e);
-        const gleichAnfang = verzeichnis.filter((o) => falte(o.name).startsWith(klein));
+        const klein = sucheForm(e);
+        const gleichAnfang = verzeichnis.filter((o) => sucheForm(o.name).startsWith(klein));
         // Ohne Groß-/Kleinschreibung: „ulm" gehörte zu „Ulm", blieb aber Freitext
         // ohne Kürzel und Kontakt (Audit Runde 4, R4-H1); ohne Umlaut-Unterschiede (R11-H1).
         const ov =
           verzeichnis.find((o) => o.kurz === e.toUpperCase()) ??
-          (gleichAnfang.length === 1 && falte(gleichAnfang[0]!.name) === klein ? gleichAnfang[0] : undefined);
+          (gleichAnfang.length === 1 && sucheForm(gleichAnfang[0]!.name) === klein ? gleichAnfang[0] : undefined);
         if (ov) (aufgeloest ?? uebernehmen)(ov);
       }}
     />
@@ -637,6 +638,7 @@ export function SchrittEinheit({ bogen, aendern: aendernRoh, ortFokus = false }:
         </Feld>
         <Feld titel={`Organisationsname${e.organisation === OrganisationsTyp.SONSTIGE ? " (Pflicht)" : " (optional)"}`}>
           <input
+            {...NAMEN_EINGABE}
             value={e.organisationName ?? ""}
             onChange={(ev) => setE({ organisationName: ev.target.value || undefined })}
             placeholder={ORGANISATIONSNAME_BEISPIEL[e.organisation] ?? "z. B. Name der Organisation"}

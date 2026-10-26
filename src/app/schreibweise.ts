@@ -20,6 +20,14 @@ export function falte(text: string): string {
     .trim();
 }
 
+/**
+ * Wie {@link falte}, dazu Bindestrich, Schrägstrich und Punkt wie ein Leerzeichen: „Neu Ulm", „Baden Baden" und
+ * „Villingen Schwenningen" finden „Neu-Ulm", „Baden-Baden" und „Villingen-Schwenningen" (R13-H2).
+ */
+export function sucheForm(text: string): string {
+  return falte(text.replace(/[-‐-―/.]/g, " "));
+}
+
 /** Die Wörter einer Suche, gefaltet: getrennt an Leerzeichen, „/" und Komma; ohne reine Satzzeichen. */
 export function suchWoerter(suche: string): string[] {
   return falte(suche)
@@ -37,6 +45,42 @@ export function passtZurSuche(text: string, suche: string): boolean {
   if (woerter.length === 0) return false;
   const t = falte(text);
   return woerter.every((w) => t.includes(w));
+}
+
+/** Gebräuchliche Kurzformen der Einheitentypen → ausgeschriebener Suchbegriff (R13-H1). Ergänzen, ersetzen nie. */
+const KURZFORMEN: Record<string, string> = { bgr: "Bergungsgruppe", fz: "Fachzug" };
+
+/**
+ * Zusätzliche Suchtexte zu einer Eingabe: ohne führende Ordnungszahl („1. BGr", „2.BGr" → „BGr") und mit
+ * ausgeschriebener Kurzform („BGr" → „Bergungsgruppe"). Die Eingabe selbst bleibt Suchtext; diese kommen dazu (R13-H1).
+ */
+export function suchAlternativen(suche: string): string[] {
+  const ohneZahl = suche.replace(/^\s*[1-9]\s*\.\s*/, "").trim();
+  const basis = ohneZahl !== "" ? ohneZahl : suche.trim();
+  const aus = new Set<string>();
+  if (basis !== suche.trim()) aus.add(basis);
+  const k = KURZFORMEN[falte(basis)];
+  if (k) aus.add(k);
+  return [...aus];
+}
+
+/**
+ * Rang eines Vokabulareintrags zur Suche: 0 = jedes Suchwort ist ein ganzes Wort des Kürzels („TZ" → „ZTr TZ"),
+ * 1 = jedes Suchwort beginnt ein Wort von Kürzel oder Name, 2 = steht nur mitten im Wort („TZ" in „Abstützsystem"),
+ * 3 = passt nicht. Vorher stand der Technische Zug bei „TZ" hinter acht Treffern mitten im Wort (R13-H1).
+ */
+export function vokabRang(kurz: string, name: string, suche: string): 0 | 1 | 2 | 3 {
+  const woerter = suchWoerter(suche);
+  if (woerter.length === 0) return 3;
+  const label = falte(`${kurz} ${name}`);
+  if (!woerter.every((w) => label.includes(w))) return 3;
+  // Der ganze Name („Bergungsgruppe") ist der genaueste Treffer, vor „Bergungsgruppe (Abstützsystem Holz)".
+  if (falte(name) === falte(suche)) return 0;
+  const kurzWorte = falte(kurz).split(/[^a-z0-9]+/).filter(Boolean);
+  if (woerter.every((w) => kurzWorte.includes(w))) return 0;
+  const alleWorte = label.split(/[^a-z0-9]+/).filter(Boolean);
+  if (woerter.every((w) => alleWorte.some((x) => x.startsWith(w)))) return 1;
+  return 2;
 }
 
 /**

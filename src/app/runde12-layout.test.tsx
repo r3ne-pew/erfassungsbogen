@@ -137,6 +137,9 @@ describe("Lagemonitor: Zweck und Wirkung von Beginn, „Jetzt“ und „Beginn e
     expect(screen.queryByRole("button", { name: "Löschen" })).toBeNull();
     await nutzer.click(screen.getByRole("button", { name: "Jetzt" }));
     await nutzer.click(screen.getByRole("button", { name: "Beginn entfernen" }));
+    // Seit R13-D1 fragt „Beginn entfernen“ nach, wie „Jetzt“ bei vorhandenem Beginn.
+    const frage = await screen.findByRole("dialog", { name: "Einsatzbeginn entfernen?" });
+    await nutzer.click(within(frage).getByRole("button", { name: "Beginn entfernen" }));
     expect(screen.queryByRole("button", { name: "Beginn entfernen" })).toBeNull();
   });
 });

@@ -38,3 +38,11 @@ export function speicherFehlerDetails(art: SpeicherFehlerArt, fremd: boolean, le
       : "Der Bogen bleibt geöffnet. Zuerst sichern, dann Platz schaffen: in der Fußzeile der Startseite Papierkorb leeren oder alte Einsätze endgültig löschen (die Sicherung selbst schafft keinen Platz).";
   return `${ausgang}${stand}`;
 }
+
+/**
+ * Rat bei vollem Speicher, wenn das Ablegen eines Einsatzes im Papierkorb scheitert und der Papierkorb leer ist
+ * (R13-O3): „Papierkorb leeren" gibt es dann nicht. Platz schafft, was den Bestand verkleinert.
+ */
+export const PAPIERKORB_LEER_RAT =
+  "Der Speicher ist voll, der Papierkorb leer — der Einsatz ist nicht gelöscht. Erst sichern (Einsatz weitergeben / sichern). " +
+  "Platz schafft nur Verkleinern: unter „Mehr…“ Meldungen oder Einheiten entfernen, zuletzt „Alle Daten löschen“ (nach der Sicherung).";

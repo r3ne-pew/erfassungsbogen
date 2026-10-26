@@ -526,6 +526,31 @@ export function LagemonitorBlock({ einsatzId, alleIds }: { einsatzId: string; al
     setze(Date.now());
   }
 
+  /**
+   * „Beginn entfernen" (und Leeren des Feldes) fragt wie „Jetzt" nach und nennt den Wert, der verloren ginge:
+   * die genaue Alarmierungszeit lässt sich später nur schätzen (R13-D1).
+   */
+  async function entferneBeginn() {
+    if (beginn == null) return;
+    const alt = uhrTeile(new Date(beginn));
+    const ja = await frageJaNein({
+      titel: "Einsatzbeginn entfernen?",
+      text: `Eingetragen ist ${alt.zeit} Uhr, ${alt.datum}. Der Beginn ist danach nicht mehr gespeichert, der Fernseher zeigt keine Dauer.`,
+      ok: "Beginn entfernen",
+      abbruch: "Beginn behalten",
+      gefahr: true,
+      fokus: "abbruch",
+    });
+    if (!ja) return;
+    setze(null);
+  }
+
+  function beginnGeaendert(wert: string) {
+    const ms = ausEingabeWert(wert);
+    if (ms == null && beginn != null) void entferneBeginn();
+    else setze(ms);
+  }
+
   const hinweis = beginnHinweis(beginn, Date.now());
 
   return (
@@ -559,11 +584,11 @@ export function LagemonitorBlock({ einsatzId, alleIds }: { einsatzId: string; al
           <input
             type="datetime-local"
             value={beginn != null ? zuEingabeWert(beginn) : ""}
-            onChange={(e) => setze(ausEingabeWert(e.target.value))}
+            onChange={(e) => beginnGeaendert(e.target.value)}
           />
         </label>{" "}
         <button type="button" onClick={() => void setzeJetzt()}>Jetzt</button>{" "}
-        {beginn != null && <button type="button" onClick={() => setze(null)}>Beginn entfernen</button>}{" "}
+        {beginn != null && <button type="button" onClick={() => void entferneBeginn()}>Beginn entfernen</button>}{" "}
         <button type="button" className="primaer" onClick={() => lagemonitorOeffnen(einsatzId)}>
           Lagemonitor öffnen
         </button>

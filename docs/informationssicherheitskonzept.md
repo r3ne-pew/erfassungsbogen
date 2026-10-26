@@ -343,6 +343,14 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > und `vendor/` unverändert. Der Entwurf trägt zusätzlich die Marke „über die
 > Startseite verlassen" (`fremd.startseite`, R5-N3, 3.3 D1) — keine Daten.
 
+> **Nachgezogen 2026-10-26 (Runde 13):** Audit Runde 13. Speicher (3.3, 5.5): kein
+> neuer Schlüssel. „Sicherung einspielen" stellt bei einem Schreibfehler den
+> vorherigen Bestand wieder her (Verfügbarkeit, 5.5); bei vollem Speicher nennt die
+> Meldung Verkleinern statt eines leeren Papierkorbs. Bedienung (5.3): Rückfragen
+> bei „Beginn entfernen", leerer Absenderkarte und „alle auswählen" beim Aufteilen;
+> Sperre gegen Doppeltipp gilt für alle Ausgaben. Lieferkette (6.4): Startbündel
+> 1,18 MB. Keine neuen Hosts, CSP und Transportformat unverändert.
+
 > **Nachgezogen 2026-10-26 (Runde 12):** Audit Runde 12. Speicher (3.3, 5.5): neuer
 > Schlüssel `eeb.sicherung.stand.v1` (Zählstand der letzten Sicherung, über die
 > Präfixregel `eeb.` in Sicherung und Löschweg enthalten). Bedienung (5.3): Sperre

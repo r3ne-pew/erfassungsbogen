@@ -47,9 +47,21 @@ export function bedarfText(s: EinsatzSummen): string | null {
   // Reihenfolge wie die Kopfzeile der Einsatzansicht; Verpflegung und „Personen" wie dort (R12-K4).
   if ((s.verpflegungAngefordert ?? 0) > 0) teile.push(`Verpflegung ${s.verpflegungAngefordert}`);
   if (s.unterbringungBenoetigt > 0) teile.push(`Unterbringung ${personenText(s.unterbringungAngefordert.personen)}`);
-  if (s.kraftstoff.dieselLiter > 0) teile.push(`Diesel ${s.kraftstoff.dieselLiter} l`);
+  teile.push(...kraftstoffTeile(s.kraftstoff));
   if (s.ruhezeitErforderlich > 0) teile.push(`Ruhezeit ${s.ruhezeitErforderlich} ${s.ruhezeitErforderlich === 1 ? "Einheit" : "Einheiten"}`);
   return teile.length > 0 ? `Bedarf: ${teile.join(" · ")}` : null;
+}
+
+/**
+ * Kraftstoffe mit Menge größer 0 in der Schreibweise des Lageblatts: „Diesel 580 l", „Benzin 160 l",
+ * „Gemisch 10 l" (R13-K1). Kurzzeile der Einsatzansicht und Lagemonitor nennen damit alle angeforderten Sorten.
+ */
+export function kraftstoffTeile(k: { dieselLiter: number; benzinLiter: number; gemischLiter: number }): string[] {
+  const teile: string[] = [];
+  if (k.dieselLiter > 0) teile.push(`Diesel ${k.dieselLiter} l`);
+  if (k.benzinLiter > 0) teile.push(`Benzin ${k.benzinLiter} l`);
+  if (k.gemischLiter > 0) teile.push(`Gemisch ${k.gemischLiter} l`);
+  return teile;
 }
 
 /**
@@ -131,6 +143,24 @@ export function anwesendenAlterText(a: AnwesendenAlter | null, jetzt: number): s
 export function lageblattAlterText(empfangenAm: readonly number[], jetzt: number): string | null {
   const t = anwesendenAlterText(anwesendenAlter(empfangenAm.map((z) => ({ empfangenAm: z })), jetzt), jetzt);
   return t ? `⚠ ${t}` : null;
+}
+
+/**
+ * Zeile des Lageblatts, deren Meldung zum Druckzeitpunkt eine Stunde alt oder älter ist: „⚠ Meldung vor 6 Std 41 Min".
+ * Der Kopf nennt „4 von 7 älter als 1 Std"; die Zeile sagt, welche (R13-K2). `null` darunter oder ohne Eingang.
+ */
+export function lageblattZeilenAlter(empfangenAm: number | undefined, jetzt: number): string | null {
+  if (empfangenAm == null || jetzt - empfangenAm < VERALTET_ALTER_MIN * 60_000) return null;
+  return `⚠ Meldung ${alterText(empfangenAm, jetzt)}`;
+}
+
+/**
+ * Stärke „F / U / M / G" der Summenzeile: Mit dreistelligen Werten bräche die schmale Spalte um, und die
+ * Gesamtstärke stünde allein in der zweiten Zeile (R13-A5). Dann ohne Leerzeichen um die Schrägstriche.
+ */
+export function staerkeSummenText(f: number, u: number, m: number, g: number): string {
+  const breit = `${f} / ${u} / ${m} / ${g}`;
+  return breit.length > 14 ? `${f}/${u}/${m}/${g}` : breit;
 }
 
 /** Zwischensumme je Zug: „älteste Meldung vor 5 Std 0 Min" — nur ab einer Stunde, sonst `null` (R12-K3). */

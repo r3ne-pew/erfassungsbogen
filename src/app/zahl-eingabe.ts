@@ -47,6 +47,16 @@ const EINHEIT_HINTEN = /^(.*\d[.,]?\d*)(?:l|ltr\.?|liter|litern|personen|person|
 export const HOECHST_LITER = 99999;
 export const HOECHST_PERSONEN = 9999;
 
+/**
+ * Satz zu einer nicht übernommenen Eingabe um den Wert ergänzen, der weiter gilt (R13-E1): Beim Tippen ist die Zahl bis
+ * zum Buchstaben („5" von „5O") schon gespeichert; „nicht übernommen" allein ließ offen, ob das Feld leer oder 5 gilt.
+ * Beim Einfügen gilt der vorige Wert. Ohne bekannten Wert bleibt der Satz, wie er ist.
+ */
+export function mitGeltendemWert(ergebnis: ZahlErgebnis, bisher: number | undefined): ZahlErgebnis {
+  if (ergebnis.wert !== null || !ergebnis.meldung || bisher === undefined) return ergebnis;
+  return { ...ergebnis, meldung: `${ergebnis.meldung} Es gilt weiter ${bisher}.` };
+}
+
 /** Eingabetext → Zahl oder Meldung. Leer zählt als 0 (ohne Meldung). */
 export function zahlLesen(eingabe: string, regeln: ZahlRegeln = {}): ZahlErgebnis {
   const min = regeln.min ?? 0;
