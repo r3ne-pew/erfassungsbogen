@@ -123,6 +123,15 @@ function gewichtet<T>(paare: readonly (readonly [T, number])[]): T {
   return paare[paare.length - 1]![0];
 }
 
+// Eigener Zufallsstrom für die Helfer aus Nachbar-Ortsverbänden (seit 2026-10-27):
+// Er hängt nicht am Hauptstrom, damit die übrigen Bögen beim Neuerzeugen
+// byteidentisch bleiben und nur die Bögen mit fremden Helfern sich ändern.
+const rndOv = prng(20261027);
+const wuerfelOv = (p: number): boolean => rndOv() < p;
+const wahlOv = <T,>(arr: readonly T[]): T => arr[Math.floor(rndOv() * arr.length)]!;
+const ganzOv = (minInkl: number, maxInkl: number): number =>
+  minInkl + Math.floor(rndOv() * (maxInkl - minInkl + 1));
+
 // ------------------------------------------------------------- Namens-Pools
 
 const VORNAMEN_M = [
@@ -596,6 +605,57 @@ function fahrzeugeBauen(typCode: number, minus: boolean, plus: boolean): Fahrzeu
   return { fahrzeuge, notizen };
 }
 
+// ------------------------------------------- Helfer aus anderen Ortsverbänden
+
+/**
+ * Nachbar-Ortsverbände: dieselbe Regionalstelle, sonst derselbe Landesverband.
+ * Von dort kommen im Einsatz die Helfer, die eine Einheit auffüllen.
+ */
+function nachbarOvs(ov: ThwOrtsverband): ThwOrtsverband[] {
+  const eigene = THW_OV_REGIONALSTRUKTUR[ov.name];
+  const gleicheRst = THW_ORTSVERBAENDE.filter(
+    (o) => o.name !== ov.name && THW_OV_REGIONALSTRUKTUR[o.name]?.regionalstelle === eigene?.regionalstelle,
+  );
+  if (gleicheRst.length > 0) return gleicheRst;
+  const gleicherLv = THW_ORTSVERBAENDE.filter(
+    (o) => o.name !== ov.name && THW_OV_REGIONALSTRUKTUR[o.name]?.landesverband === eigene?.landesverband,
+  );
+  return gleicherLv.length > 0 ? gleicherLv : THW_ORTSVERBAENDE.filter((o) => o.name !== ov.name);
+}
+
+/**
+ * In rund jeder dritten Einheit sind ein bis drei Helfer aus Nachbar-Ortsverbänden
+ * dabei (Hoya: Einheiten werden im Einsatz aus mehreren OVs zusammengestellt).
+ * `Person.dienststelle` trägt den fremden OV; wer aus dem OV der Einheit kommt,
+ * trägt nichts. Die Führungskraft (erste Person) bleibt aus dem eigenen OV.
+ * Gibt den Satz für „Sonstiges" zurück, oder null.
+ */
+function fremdeHelferSetzen(personal: Person[], ov: ThwOrtsverband, wahrscheinlichkeit = 0.3): string | null {
+  if (personal.length < 3 || !wuerfelOv(wahrscheinlichkeit)) return null;
+  const nachbarn = nachbarOvs(ov);
+  if (nachbarn.length === 0) return null;
+  const anzahl = Math.min(ganzOv(1, 3), personal.length - 1);
+  // Ein oder zwei fremde OVs je Einheit.
+  const fremde = [wahlOv(nachbarn)];
+  if (anzahl > 1 && nachbarn.length > 1 && wuerfelOv(0.4)) {
+    let zweiter = wahlOv(nachbarn);
+    while (zweiter.name === fremde[0]!.name) zweiter = wahlOv(nachbarn);
+    fremde.push(zweiter);
+  }
+  const jeOv = new Map<string, number>();
+  const belegt = new Set<number>();
+  for (let i = 0; i < anzahl; i++) {
+    let index = ganzOv(1, personal.length - 1);
+    while (belegt.has(index)) index = ganzOv(1, personal.length - 1);
+    belegt.add(index);
+    const fremd = fremde[i % fremde.length]!;
+    personal[index]!.dienststelle = fremd.name;
+    jeOv.set(fremd.name, (jeOv.get(fremd.name) ?? 0) + 1);
+  }
+  const teile = [...jeOv.entries()].map(([name, n]) => `${n} Helfer aus OV ${name}`);
+  return `Verstärkung: ${teile.join(" und ")}.`;
+}
+
 // -------------------------------------------------------- Bogen zusammensetzen
 
 interface BeispielBogen {
@@ -645,6 +705,11 @@ function bogenBauen(nr: number, ov: ThwOrtsverband, typCode: number, stanTreu: b
 
   if (istDelta > 0) notizen.unshift(`${istDelta} Helfer über StAN-Soll (Reserve aktiviert).`);
   if (istDelta < 0) notizen.unshift(`${-istDelta} Sollplätze unbesetzt.`);
+
+  // Helfer aus Nachbar-Ortsverbänden — unabhängig von der StAN-Abweichung:
+  // Die Stärke ändert sich dadurch nicht, nur die Herkunft steht am Helfer.
+  const verstaerkung = fremdeHelferSetzen(personal, ov);
+  if (verstaerkung) notizen.push(verstaerkung);
 
   // Einsatz: Juli-2026-Unwetterlage, Ort aus dem OV-Standort.
   const tag = datumAusIso("2026-07-16") + ganz(0, 2);
@@ -727,6 +792,12 @@ function grossbogenBauen(): BeispielBogen {
   }
   // Datenmenge über das QR-Budget treiben: Zusatzfunktionen, Qualifikationen,
   // Mobilnummern für alle.
+  // Auch hier Helfer aus Nachbar-Ortsverbänden: ein verstärkter Zug wird aus
+  // mehreren OVs zusammengestellt — vier Helfer tragen einen fremden OV.
+  const fremdeOvs = nachbarOvs(ov);
+  [5, 12, 20, 33].forEach((index, i) => {
+    personal[index]!.dienststelle = fremdeOvs[i % fremdeOvs.length]!.name;
+  });
   const zusatzPool = [30, 31, 32, 36, 38, 41, 49, 51, 67];
   personal.forEach((p, i) => {
     const code = zusatzPool[i % zusatzPool.length]!;
@@ -980,7 +1051,9 @@ ${ANZAHL} generierte Beispiel-Einheiten aus ganz Deutschland (${STAN_TREU} exakt
 StAN-Soll, ${ANZAHL - STAN_TREU} mit zufälligen Abweichungen bei Personal und/oder
 Fahrzeugen) plus ein bewusst übergroßer Stress-Test-Bogen, der die
 QR-Segmentierung auslöst. Funkrufnamen nach Taschenkarte THW-Funkrufnamen
-(Stand 02/2022).
+(Stand 02/2022). In rund jeder dritten Einheit sind ein bis drei Helfer aus
+Nachbar-Ortsverbänden dabei (\`Person.dienststelle\`, Schema 10) — sie stehen
+unter „Sonstiges" und im PDF als „OV: …" am Helfer.
 
 Neu erzeugen mit: \`npm run beispiele\` (deterministisch, fester Zufalls-Seed).
 

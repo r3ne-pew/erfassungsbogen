@@ -19,7 +19,10 @@
 > je Person mit der Dienststelle aus Schritt 1 vor und schlägt beim THW die
 > Ortsverbände des Verzeichnisses vor (`OvVorschlagFeld`/`useOvDaten` aus Schritt 1,
 > in Karte und Kurz-Liste); das PDF nennt eine Abweichung als erste Zeile der
-> Kontaktspalte („OV: Bremen - Nord"). Kein neuer Host, kein neuer Speicherort.
+> Kontaktspalte („OV: Bremen - Nord"). Die THW-Beispielbögen (`npm run beispiele`)
+> tragen seit 2026-10-27 in rund jeder dritten Einheit ein bis drei Helfer aus
+> Nachbar-Ortsverbänden (eigener Zufallsstrom, übrige Bögen unverändert). Kein
+> neuer Host, kein neuer Speicherort.
 >
 > **Nachgezogen 2026-10-26 (Probelauf Meldekopf):** Kap. 5, 6.2, 8.2: neuer
 > Baustein `src/app/handscanner.ts` (Tastatur-Wedge-Erkennung am Tempo, Abschluss

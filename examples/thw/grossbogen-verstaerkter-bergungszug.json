@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 8,
+  "schemaVersion": 10,
   "uebung": true,
   "stand": 3439260,
   "einheit": {
@@ -226,7 +226,8 @@
         {
           "freitext": "Tischler (Beruf)"
         }
-      ]
+      ],
+      "dienststelle": "Aurich"
     },
     {
       "vorname": "Paul",
@@ -443,7 +444,8 @@
         {
           "freitext": "Funkamateur (extern)"
         }
-      ]
+      ],
+      "dienststelle": "Emden"
     },
     {
       "vorname": "Michael",
@@ -691,7 +693,8 @@
         {
           "freitext": "Landwirt — Erfahrung Großgeräte"
         }
-      ]
+      ],
+      "dienststelle": "Jever"
     },
     {
       "vorname": "Niklas",
@@ -1094,7 +1097,8 @@
         {
           "freitext": "Gesundheits- und Krankenpfleger (Beruf)"
         }
-      ]
+      ],
+      "dienststelle": "Leer"
     },
     {
       "vorname": "Lukas",

@@ -4,7 +4,9 @@
 StAN-Soll, 60 mit zufälligen Abweichungen bei Personal und/oder
 Fahrzeugen) plus ein bewusst übergroßer Stress-Test-Bogen, der die
 QR-Segmentierung auslöst. Funkrufnamen nach Taschenkarte THW-Funkrufnamen
-(Stand 02/2022).
+(Stand 02/2022). In rund jeder dritten Einheit sind ein bis drei Helfer aus
+Nachbar-Ortsverbänden dabei (`Person.dienststelle`, Schema 10) — sie stehen
+unter „Sonstiges" und im PDF als „OV: …" am Helfer.
 
 Neu erzeugen mit: `npm run beispiele` (deterministisch, fester Zufalls-Seed).
 
