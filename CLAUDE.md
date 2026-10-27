@@ -40,6 +40,27 @@ Typische Auslöser (nicht abschließend):
 - **Software-Lieferkette** (SBOM, `npm audit`, Dependabot, neue Abhängigkeiten)
   → ISK 6.4, Arc42 Kap. 2.1/8.3/8.6/8.7.
 
+## Portierungen des Formats in `vendor/eeb-format/ports/` mitziehen
+
+Im Format-Repo liegen unter `ports/` handgepflegte Leser des EEB-Formats in
+anderen Sprachen (derzeit VBA für Excel). Sie werden nicht generiert. Wer
+hier etwas ändert, das sie betrifft, zieht sie **im selben Arbeitsschritt**
+nach (die Regel im Detail: `vendor/eeb-format/CLAUDE.md`):
+
+- **Formatänderung im Submodul** (`SCHEMA_VERSION`, Felder, Flag-Bits,
+  Marker, Segmentierung) → im Format-Repo die Portierungen anpassen,
+  `npm run ports:testvektoren` und `npm run ports:pruefen` dort; erst dann
+  den Submodul-Stand hier heben.
+- **Vokabular** (`vendor/bos-vokabulare`: neue Codes bei Einheitstypen,
+  Funktionen, Fahrzeugtypen, Kennwörtern, Ebenen) →
+  `npm run vokabular:excel-vba` erzeugt
+  `vendor/eeb-format/ports/vba/m_digitalerEEBVokabular.bas` neu; das Ergebnis
+  im Format-Repo committen und den Submodul-Stand heben. Die CI prüft mit
+  `npm run vokabular:excel-vba -- --pruefen`, dass das Modul zum Vokabular
+  passt.
+- **Neue Freitext-Konventionen** (wie das Präfix `Beruf: `) → die
+  Portierungen müssen sie genauso trennen/anzeigen.
+
 Wenn eine Änderung eine dieser Stellen berührt, die Änderung im Dokument
 vornehmen und den *Prüfvermerk*/Stand dort aktualisieren. Ist die Anpassung
 größer als der Codewechsel selbst, wenigstens im Dokument vermerken, dass der

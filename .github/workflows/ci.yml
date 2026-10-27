@@ -45,6 +45,9 @@ jobs:
       - name: Genau eine Kopie je Kern-Baustein (ADR-003)
         run: npm run kern-kopien
 
+      - name: VBA-Vokabular der Format-Portierung passt zu bos-vokabulare
+        run: npm run vokabular:excel-vba -- --pruefen
+
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

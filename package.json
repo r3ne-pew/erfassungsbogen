@@ -29,6 +29,7 @@
     "blanko-pdf": "node --import tsx scripts/blanko-pdf.mts",
     "vokabular:berufe": "node --import tsx scripts/berufe-vokabular.mts",
     "vokabular:thw-funktionen": "node --import tsx scripts/thw-funktionen-vokabular.mts",
+    "vokabular:excel-vba": "node --import tsx scripts/excel-vokabular-vba.mts",
     "icons": "node scripts/render-icons.mjs",
     "screenshots": "node scripts/screenshots.mjs",
     "typecheck": "tsc --noEmit",
