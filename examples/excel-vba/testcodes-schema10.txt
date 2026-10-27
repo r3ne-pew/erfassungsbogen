@@ -1,0 +1,31 @@
+Testcodes für die Excel-Makros (erzeugt mit @bos/eeb-format, Schema 10)
+======================================================================
+
+Inhalt des Bogens: THW Bergungsgruppe OV Oldenburg, Übung, Stand 27.10.2026 08:30,
+zwei Personen (Anna Müller mit abweichender Dienststelle "OV Delmenhorst",
+Fahrerlaubnis B+CE, Qualifikation AGT und zwei Berufen; Ben Schulz),
+zwei Fahrzeuge (GKW mit 7 Sitzplätzen und Funkrufname Heros Oldenburg 22/51,
+MTW OV), Sofortbedarf, Bemerkung.
+
+Erwartung im Makro (EebBogenAlsText bzw. Spalten im Stärke-Blatt):
+  - schemaVersion = 10, keine Fehlermeldung "nicht unterstützte Schema-Version"
+  - personal(1).dienststelle = "OV Delmenhorst", personal(2).dienststelle = ""
+  - personal(1).berufe = "Elektroniker/in, Krankenpfleger/in"
+  - personal(1).qualifikationen = "AGT" (ohne die Berufe)
+  - personal(1).fahrerlaubnis = "B+CE"
+  - fahrzeuge(1).sitzplaetze = 7, fahrzeuge(2).typ = "Mannschaftstransportwagen Ortsverband"
+  - Bemerkungen: "...; Abweichende Dienststelle: Anna Müller (OV Delmenhorst)"
+
+1) Einzelner Code (ein QR):
+
+https://erfassungsbogen.app/#B.LMAD3AXPA$HT3E0MV3PY$SGX-HM$YKW*4E4NQJWVVUR$V-0L7:9L:L8AZOU*SENQUF5IFGXR9JB5/VB1PU/II3OP4L6-Z$H2-BUXKQ:81OEIUCYA9PZDD$FYASEI1WL0T7R*9W*WE$$ARSQU799I9H6VCKR6TQDGMG5MUXHT1X48SSZ1PD4ELE$OEB6JI1JG*IV/JGA*PW$6Z3FN3-I:78N-ZP*ULRMDF91$8OADHH6CBBMH9CDAYT5WQ/QNEBZ7YWKD5GWCQO7*0KD858D*KC08OW-GYBUJ:2Q/$R8T2G5RTLU8M3F5SQWI3D2XK8BR46$WSTWGH-DIKY7*69C4SS::LB5QEIM-1*-7CSFR$789L*SXT10X/*FT:LX6CBOXD2
+
+2) Derselbe Bogen als mehrteiliger Code (drei QR-Codes, Kopf "EEBS.<teil>.<anzahl>.<id>.").
+   In beliebiger Reihenfolge nacheinander in das Eingabefeld geben; nach dem
+   dritten Teil meldet das Makro "Alle 3 Teile erfasst".
+
+https://erfassungsbogen.app/#EEBS.1.3.2944134076.B.LMAD3AXPA$HT3E0MV3PY$SGX-HM$YKW*4E4NQJWVVUR$V-0L7:9L:L8AZOU*SENQUF5IFGXR9JB5/VB1PU/II3OP4L6-Z$H2-BUXKQ:81OEIUCYA9PZDD$FYASEI1WL0T
+
+https://erfassungsbogen.app/#EEBS.2.3.2944134076.B.7R*9W*WE$$ARSQU799I9H6VCKR6TQDGMG5MUXHT1X48SSZ1PD4ELE$OEB6JI1JG*IV/JGA*PW$6Z3FN3-I:78N-ZP*ULRMDF91$8OADHH6CBBMH9CDAYT5WQ/QNEBZ7YW
+
+https://erfassungsbogen.app/#EEBS.3.3.2944134076.B.KD5GWCQO7*0KD858D*KC08OW-GYBUJ:2Q/$R8T2G5RTLU8M3F5SQWI3D2XK8BR46$WSTWGH-DIKY7*69C4SS::LB5QEIM-1*-7CSFR$789L*SXT10X/*FT:LX6CBOXD2
