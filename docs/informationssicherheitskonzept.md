@@ -16,6 +16,14 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > Abhängigkeiten (6.4/R8/M8). Die betroffenen Abschnitte sind entsprechend
 > gekennzeichnet.
 >
+> **Nachgezogen 2026-10-29 — Schema 11:** Transportformat (5.2): Einsatzzeitraum
+> mit Uhrzeit, im Modell ISO 8601 mit Offset, im QR je Ende 3 Byte (Einsatz-Flags 4/8). Da die App neue Bögen
+> mit 08:00–18:00 vorbelegt, sind sie Schema 11; ältere App-Stände lehnen sie als
+> „nicht unterstützte Schema-Version" ab (gewollt). Die Eingangsprüfung
+> (`bogen-pruefung.ts`) verwirft Werte, die kein ISO-8601-Zeitpunkt mit Offset sind, und richtet
+> den Datumsteil am Tag aus `zeitraumVon`/`zeitraumBis` aus; der Encoder wirft bei
+> unlesbaren Werten statt still zu kürzen.
+>
 > **Nachgezogen 2026-10-26 — Hoya, Schema 10:** Transportformat (5.2): `Person.dienststelle`
 > als optionaler String im Binärformat, Schema 10 nur bei Nutzung; ältere App-Stände
 > lesen Bögen ohne das Feld unverändert, Bögen mit dem Feld lehnen sie als „nicht

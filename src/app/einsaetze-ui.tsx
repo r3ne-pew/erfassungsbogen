@@ -85,6 +85,7 @@ import {
   zeitpunktDeutsch,
   staerkePlausibilitaet,
   datumAnzeige,
+  zeitraumVonBis,
 } from "./hilfen";
 import { diffKurzfassung, type WertAenderung } from "@bos/meldekopf/meldung-diff";
 import { bogenDiff } from "./diff-lage";
@@ -3965,7 +3966,7 @@ export function BogenDetails({ bogen, absender, absenderKarte }: { bogen: Erfass
       <h4>Einsatz / Auftrag</h4>
       <dl className="paare">
         <dt>Zeitraum</dt>
-        <dd>{datumAnzeige(bogen.einsatz.zeitraumVon)} – {datumAnzeige(bogen.einsatz.zeitraumBis)}</dd>
+        <dd>{zeitraumVonBis(bogen)}</dd>
         <dt>Ort / Auftrag</dt><dd>{bogen.einsatz.ortAuftrag || "—"}</dd>
         <dt>Beginn / Ende</dt>
         <dd>

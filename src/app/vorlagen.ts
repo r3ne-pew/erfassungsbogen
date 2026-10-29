@@ -16,6 +16,7 @@ import type { Erfassungsbogen } from "@bos/eeb-format/model";
 import { datumAusIso, mitTransportVersion, staerke } from "@bos/eeb-format/model";
 import { bogenPruefen, dateinameTeil, einheitAnzeigename, migriereBogen } from "./hilfen";
 import { bogenBefund } from "./bogen-pruefung";
+import { einsatzVorgabe } from "./zeitraum-eingabe";
 import { aktive, imPapierkorb, papierkorbBereinigt } from "@bos/meldekopf/papierkorb";
 import { geprueftesJetztMs, stempelZeitpunkt } from "./datenschutz-uhr";
 import { rettungGesperrtFehler, rettungWiederholenFaellig, schreibenErlaubt, unlesbarerGesamttext, unlesbareVorlagenteile, vorlagenRetten } from "./unlesbar";
@@ -51,7 +52,7 @@ export function bogenAlsVorlage(b: Erfassungsbogen): Erfassungsbogen {
   const kopie = structuredClone(b);
   const t = heute();
   kopie.stand = stempelZeitpunkt();
-  kopie.einsatz = { zeitraumVon: t, zeitraumBis: t, ortAuftrag: "" };
+  kopie.einsatz = einsatzVorgabe(t);
   return kopie;
 }
 

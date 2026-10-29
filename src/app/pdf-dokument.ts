@@ -44,6 +44,7 @@ import {
   datumAnzeige,
   type QrSatz,
   zeitpunktDeutsch,
+  zeitraumVonBis,
 } from "./hilfen";
 import { bedarfNichtErfasst, mwdText, summiereBoegen, unterbringungAngefordertText, verpflegungText, type EinsatzSummen } from "./auswertung";
 import { EINTREFF_HINWEIS, zeitLang } from "./eintrag-zeiten";
@@ -2219,7 +2220,7 @@ export function pdfDokument(
     {
       text: blanko
         ? `${linie}______  –  ${linie}______`
-        : `${datumAnzeige(b.einsatz.zeitraumVon)} – ${datumAnzeige(b.einsatz.zeitraumBis)}`,
+        : zeitraumVonBis(b),
       colSpan: 2,
     },
     {},

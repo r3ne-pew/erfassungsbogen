@@ -7,6 +7,7 @@
 
 import type { Einsatz, Erfassungsbogen, Sofortbedarf } from "@bos/eeb-format/model";
 import { EINSATZ_WEG_SCHLUESSEL, rueckwegHolen, rueckwegMerken } from "./rueckweg-sitzung";
+import { einsatzVorgabe } from "./zeitraum-eingabe";
 
 export interface EinsatzWeg {
   einsatz: Einsatz;
@@ -24,7 +25,7 @@ export function einsatzAbdruck(b: Pick<Erfassungsbogen, "einsatz" | "sofortbedar
 /** Den Bogen für den nächsten Einsatz vorbereiten und den Stand davor merken; liefert den neuen Bogen und den Rückweg. */
 export function einsatzVorbereiten(b: Erfassungsbogen, heute: number, stand: number): { bogen: Erfassungsbogen; weg: EinsatzWeg } {
   const { sofortbedarf, ...ohneBedarf } = b;
-  const bogen: Erfassungsbogen = { ...ohneBedarf, einsatz: { zeitraumVon: heute, zeitraumBis: heute, ortAuftrag: "" }, stand };
+  const bogen: Erfassungsbogen = { ...ohneBedarf, einsatz: einsatzVorgabe(heute), stand };
   const danach = einsatzAbdruck(bogen);
   const weg: EinsatzWeg = { einsatz: b.einsatz, ...(sofortbedarf ? { sofortbedarf } : {}), nonce: Date.now(), danach };
   rueckwegMerken(EINSATZ_WEG_SCHLUESSEL, weg, danach);

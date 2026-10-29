@@ -11,6 +11,13 @@ Grundlage: Repository `wattnpapa/erfassungsbogen`, Stand 2026-09-12 — Version 
 > **Wichtig:** Der Commit „Sicherheitsbericht umsetzen" (`c7604e9`, 2026-09-12)
 > hat das in R5/M6 genannte Dekomprimierungs-Risiko bereits behoben.
 >
+> **Nachgezogen 2026-10-29 — Schema 11:** Der Einsatzzeitraum (5.4, Einsatzdaten) trägt
+> optional eine Uhrzeit zu „von" und „bis" (vorbelegt 08:00 und 18:00), gespeichert als
+> ISO 8601 mit dem Zeitzonen-Offset des erfassenden Geräts. Angabe zum Einsatz der
+> Einheit, kein personenbezogenes Merkmal einzelner Helfer; der Offset verrät nur die
+> Zeitzone (in Deutschland +01:00/+02:00); Speicherorte,
+> Empfänger, Exportwege (CSV zwei Spalten mehr) und Netzverbindungen unverändert.
+>
 > **Nachgezogen 2026-10-26 — Hoya, Schema 10:** Datenkategorie je Person erweitert (5.4):
 > `dienststelle` (Ortsverband/Dienststelle der Person, nur wenn abweichend von der
 > Einheit; organisatorische Angabe, kein besonderes Datum nach Art. 9). Reist mit dem

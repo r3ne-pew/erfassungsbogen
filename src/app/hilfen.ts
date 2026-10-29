@@ -34,6 +34,7 @@ import {
   verpflegung,
 } from "@bos/eeb-format/model";
 import { bogenBefund } from "./bogen-pruefung";
+import { einsatzVorgabe, uhrzeitAus, uhrzeitZuIso } from "./zeitraum-eingabe";
 import { emailProblem, emailSatz } from "./email-pruefung";
 import {
   EEB_URL_PREFIX,
@@ -773,7 +774,12 @@ export function pruefpunkte(b: Erfassungsbogen, mitFahrzeugen = true, heute?: Ee
   // Ein Tippfehler, ein Hinweis (Audit Runde 3, R3-E7): Liegt „bis" vor
   // „von", sagt der eine Hinweis dazu unten auch, welches Datum verdächtig ist
   // — „ist vorbei" für ein Datum im Jahr 2062 lenkte auf die falsche Fährte.
-  const bisVorVon = b.einsatz.zeitraumBis < b.einsatz.zeitraumVon;
+  // Ab Schema 11 zählt am selben Tag auch die Uhrzeit: 18:00 bis 08:00 ist derselbe Dreher.
+  // Verglichen wird die Wandzeit, wie sie angezeigt wird (Offset bleibt außen vor).
+  const ez = b.einsatz;
+  const [uVon, uBis] = [uhrzeitAus(ez.zeitraumVonIso), uhrzeitAus(ez.zeitraumBisIso)];
+  const bisVorVon =
+    ez.zeitraumBis < ez.zeitraumVon || (ez.zeitraumBis === ez.zeitraumVon && uVon != null && uBis != null && uBis < uVon);
   if (heute != null && !bisVorVon && b.einsatz.zeitraumBis < heute) {
     hinweise.push({
       text: `Einsatzzeitraum ${zeitraumDeutsch(b)} ist vorbei — gilt dieser Bogen noch für den aktuellen Einsatz? Sonst Zeitraum und Ort/Auftrag neu eintragen.`,
@@ -1115,11 +1121,29 @@ export function heuteDatum(): EebDatum {
   return Math.floor(jetztZeitpunkt() / MINUTEN_JE_TAG);
 }
 
-/** Einsatzzeitraum lesbar: „18.07.2026 – 22.07.2026" bzw. ein Tag. */
-export function zeitraumDeutsch(b: Erfassungsbogen): string {
-  const von = datumAnzeige(b.einsatz.zeitraumVon);
-  const bis = datumAnzeige(b.einsatz.zeitraumBis);
-  return von === bis ? von : `${von} – ${bis}`;
+/**
+ * Einsatzzeitraum lesbar: „18.07.2026 – 22.07.2026" bzw. ein Tag; mit Uhrzeit (ab Schema 11)
+ * „18.07.2026, 08:00 – 22.07.2026, 18:00" bzw. „18.07.2026, 08:00–18:00 Uhr".
+ */
+export function zeitraumDeutsch(b: Pick<Erfassungsbogen, "einsatz">): string {
+  const ez = b.einsatz;
+  const von = datumAnzeige(ez.zeitraumVon);
+  const bis = datumAnzeige(ez.zeitraumBis);
+  const [uVon, uBis] = [uhrzeitAus(ez.zeitraumVonIso), uhrzeitAus(ez.zeitraumBisIso)];
+  if (von === bis && uVon != null && uBis != null) return `${von}, ${uhrzeitZuIso(uVon)}–${uhrzeitZuIso(uBis)} Uhr`;
+  if (von === bis && uVon == null && uBis == null) return von;
+  return `${zeitraumGrenze(ez.zeitraumVon, uVon)} – ${zeitraumGrenze(ez.zeitraumBis, uBis)}`;
+}
+
+/** Ein Ende des Zeitraums: „18.07.2026" bzw. mit Uhrzeit „18.07.2026, 08:00". */
+export function zeitraumGrenze(tag: EebDatum, uhrzeit: number | undefined): string {
+  return uhrzeit == null ? datumAnzeige(tag) : `${datumAnzeige(tag)}, ${uhrzeitZuIso(uhrzeit)}`;
+}
+
+/** „von – bis" immer mit beiden Enden (Übersicht, PDF, Sammlung), mit Uhrzeit, wo gesetzt. */
+export function zeitraumVonBis(b: Pick<Erfassungsbogen, "einsatz">): string {
+  const ez = b.einsatz;
+  return `${zeitraumGrenze(ez.zeitraumVon, uhrzeitAus(ez.zeitraumVonIso))} – ${zeitraumGrenze(ez.zeitraumBis, uhrzeitAus(ez.zeitraumBisIso))}`;
 }
 
 /**
@@ -1283,7 +1307,7 @@ export function neuerBogen(): Erfassungsbogen {
       einheitsTyp: {},
       hierarchie: [ersteEbene(OrganisationsTyp.THW)],
     },
-    einsatz: { zeitraumVon: heute, zeitraumBis: heute, ortAuftrag: "" },
+    einsatz: einsatzVorgabe(heute),
     personalErfassung: PersonalErfassung.VOLLSTAENDIG,
     personal: [],
     fahrzeuge: [],

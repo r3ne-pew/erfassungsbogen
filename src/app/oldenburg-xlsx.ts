@@ -54,6 +54,7 @@
 import {
   ansprechpartner,
   datumZuIso,
+  MINUTEN_JE_TAG,
   staerke,
   unterbringungMWD,
   verpflegung,
@@ -91,6 +92,7 @@ import { zaehltInLage } from "./auswertung";
 import { datumVonMs, einheitenZahl, lueckenAlle, meldungsNummern, pruefpunkteEintrag } from "./einheiten-tabelle";
 import { handAenderungText } from "./angaben-alter";
 import { EINTREFF_HINWEIS, eintreffzeit, eintreffzeitUnbestaetigt, zeitLang } from "./eintrag-zeiten";
+import { uhrzeitAus } from "./zeitraum-eingabe";
 import { exportKennzeile, nachtragGrundText, ortHinweisText, ortHinweise, type NachtragGrund } from "./export-stand";
 
 export { XLSX_MIME };
@@ -393,7 +395,12 @@ function zeileFuer(b: Erfassungsbogen, k: Kontext): Zeile {
     // wurde (R2-K2, siehe Dateikopf).
     auftraege: k.auftrag ?? "",
     erreichbarkeit: erreichbarkeitText(b),
-    verfuegbarBis: zeitraumVorbei ? "" : excelDatum(b.einsatz.zeitraumBis),
+    // Ab Schema 11 mit Uhrzeit (Spalte ist ohnehin „Dat. / Zeit").
+    verfuegbarBis: zeitraumVorbei
+      ? ""
+      : uhrzeitAus(b.einsatz.zeitraumBisIso) != null
+        ? excelZeitpunkt(b.einsatz.zeitraumBis * MINUTEN_JE_TAG + uhrzeitAus(b.einsatz.zeitraumBisIso)!)
+        : excelDatum(b.einsatz.zeitraumBis),
     vorgesehenerAuftrag: b.einsatz.ortAuftrag,
     // Die Zeiten des Meldekopfs sind die gelebten; der Bogen trägt nur, was
     // die Einheit selbst eingetragen hat (beim Einzelbogen das einzige).

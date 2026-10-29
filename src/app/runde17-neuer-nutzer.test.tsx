@@ -240,9 +240,11 @@ describe("R17-N10 Zeitraum und Uhrzeit von Beginn und Ende", () => {
     expect(erklaerung.compareDocumentPosition(kaestchen) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("die Übersicht schreibt „Zeitraum (Tage)“ und „Uhrzeit Beginn / Ende“", () => {
+  // Seit Schema 11 trägt der Zeitraum eine Uhrzeit (vorbelegt 08:00–18:00) — „(Tage)" stimmt nicht mehr.
+  it("die Übersicht schreibt „Zeitraum“ mit Uhrzeit und „Uhrzeit Beginn / Ende“", () => {
     render(<Uebersicht bogen={neuerBogen()} geheZu={() => {}} neu={() => {}} />);
-    expect(screen.getByText("Zeitraum (Tage)")).toBeTruthy();
+    expect(screen.getByText("Zeitraum")).toBeTruthy();
+    expect(screen.getByText(/, 08:00 – .*, 18:00$/)).toBeTruthy();
     expect(screen.getByText("Uhrzeit Beginn / Ende")).toBeTruthy();
   });
 });

@@ -65,6 +65,7 @@ import {
   vokabularFuer,
   zeitpunktDeutsch,
 } from "./hilfen";
+import { uhrzeitAus, uhrzeitZuIso } from "./zeitraum-eingabe";
 import { csvDatei, csvZeile, jaNein, mitNachtragSpalte } from "./csv";
 import { berufText, qualifikationenUndBerufe } from "./beruf";
 import { telefonAlsTabellenText } from "./telefon-eingabe";
@@ -107,7 +108,9 @@ const SPALTEN = [
   // „Auftrag" und wurde dafür gehalten (R3-K7).
   "Ort/Auftrag (Bogen)",
   "Zeitraum von",
+  "Uhrzeit von",
   "Zeitraum bis",
+  "Uhrzeit bis",
   "Einsatzbeginn",
   "Einsatzende",
   "Personalerfassung",
@@ -200,6 +203,11 @@ const STATUS_TEXT: Record<MeldeStatus, string> = {
 // Derselbe Wortlaut wie auf der Karte (Audit Runde 2, R2-K6).
 const QUELLE_TEXT: Record<MeldeQuelle, string> = HERKUNFT_TEXT;
 
+function uhrzeitText(iso: string | undefined): string {
+  const minuten = uhrzeitAus(iso);
+  return minuten != null ? uhrzeitZuIso(minuten) : "";
+}
+
 function datumText(d: EebDatum | undefined): string {
   return d != null ? datumAnzeige(d) : "";
 }
@@ -278,6 +286,10 @@ function einheitSatz(b: Erfassungsbogen, k: Kontext): Satz {
     "Ort/Auftrag (Bogen)": b.einsatz.ortAuftrag,
     "Zeitraum von": datumText(b.einsatz.zeitraumVon),
     "Zeitraum bis": datumText(b.einsatz.zeitraumBis),
+    // Ab Schema 11; ältere Bögen tragen nur den Tag.
+    // Wandzeit ohne Offset, wie in der Oberfläche; der volle ISO-Zeitpunkt steht in der Bogen-Datei.
+    "Uhrzeit von": uhrzeitText(b.einsatz.zeitraumVonIso),
+    "Uhrzeit bis": uhrzeitText(b.einsatz.zeitraumBisIso),
     Einsatzbeginn: zeitpunktText(b.einsatz.einsatzbeginn),
     Einsatzende: zeitpunktText(b.einsatz.einsatzende),
     // Niemand hat gezählt: Die Stärke ist die Sollstärke der Vorbelegung (R9-A2).

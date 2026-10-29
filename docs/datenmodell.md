@@ -49,6 +49,22 @@ Schema ≤ 9 lesbar (der String wird dann gar nicht geschrieben). Eine
 eingefrorene v9-Fixture (`codec.migration.test.ts`) belegt, dass v9-Bögen
 unverschoben gelesen werden.
 
+Ein Einsatzzeitraum mit Uhrzeit fordert Schema 11. Im Modell (JSON, Datei)
+steht jedes Ende als ISO 8601 mit Zeitzonen-Offset in der Form nach RFC 3339
+(`einsatz.zeitraumVonIso`/`zeitraumBisIso`, z. B. `2026-10-29T08:00:00+01:00`).
+Im Binärstrom kostet ein Ende 3 Byte hinter `einsatzende`: die Wandzeit als
+Minute des Tages (uint16) und der Offset in Viertelstunden (uint8, +128),
+angekündigt durch die Flags 4 und 8 im Einsatz-Byte; der Decoder setzt daraus
+mit dem Tag wieder den ISO-String zusammen (`zeitraumIso`/`zeitraumIsoLesen` in
+`model.ts`). Der Tag bleibt in `zeitraumVon`/`zeitraumBis` (uint16) und ist auch
+für den Datumsteil maßgeblich, damit die Tageslogik („Zeitraum vorbei") und
+ältere Leser unverändert bleiben; fehlt der ISO-Wert, ist nur der Tag gemeldet.
+Die App setzt den Offset aus der Zeitzone des Geräts für genau diesen Tag
+(Sommer-/Winterzeit) und zeigt selbst nur Datum und Wandzeit. Die App belegt neue Bögen mit 08:00 bis 18:00 vor,
+sie sind damit Schema 11 und für App-Stände vor Schema 11 nicht mehr lesbar;
+wer beide Uhrzeitfelder leert, schreibt wieder die kleinere Version. Eine
+eingefrorene v10-Fixture belegt, dass v10-Bögen unverschoben gelesen werden.
+
 **Bewusste Ausnahme (v4):** Bis v3 stand das THW-Kennzeichen als Zahl im QR-Code
 (Flag 16 im Fahrzeug-Byte). Dieses Sonderformat ist entfallen; es gibt nur noch ein
 Kennzeichen als String. Beim Decodieren alter QR-Codes wird die Zahl nur noch

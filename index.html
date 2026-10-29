@@ -4973,9 +4973,13 @@
        auf dem Telefon in voller Breite untereinander; Datum mit Uhrzeit
        („mittel datum") behält sein 12rem, stapelt dort aber ebenso. */
     .zeile > label.feld.datum:not(.mittel) { flex: 0 1 11rem; }
+    /* Uhrzeit zum Zeitraum (Schema 11): 7rem reichte für „08:00 AM" samt Uhrsymbol nicht. */
+    .zeile > label.feld.schmal.uhrzeit { flex: 0 1 8.5rem; }
     @media (max-width: 30rem) {
       /* Beide Selektoren: der :not() oben zählt eine Klasse mehr. */
       .zeile > label.feld.datum, .zeile > label.feld.datum:not(.mittel) { flex: 1 1 100%; }
+      /* Die Uhrzeit steht wie das Datum in voller Breite, sonst klemmte Ort/Auftrag daneben. */
+      .zeile > label.feld.schmal.uhrzeit { flex: 1 1 100%; }
     }
     /* R2-G5: Im Querformat (über 540 px, also Zeile statt Stapel) stand in
        Rückfragen mit benannten Wegen die gefährliche Aktion in voller

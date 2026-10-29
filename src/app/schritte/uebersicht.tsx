@@ -45,6 +45,7 @@ import {
   vokabText,
   vokabularFuer,
   zeitpunktDeutsch,
+  zeitraumVonBis,
 } from "../hilfen";
 import { debugAktiv } from "../debug-plattform";
 import { mwdText, verpflegungBogenText } from "../auswertung";
@@ -723,7 +724,7 @@ export function Uebersicht(props: {
 
       {abschnitt("Einsatz", 1, (
         <dl className="paare">
-          <dt>Zeitraum (Tage)</dt><dd>{datumAnzeige(bogen.einsatz.zeitraumVon)} – {datumAnzeige(bogen.einsatz.zeitraumBis)}</dd>
+          <dt>Zeitraum</dt><dd>{zeitraumVonBis(bogen)}</dd>
           <dt>Ort / Auftrag</dt><dd>{bogen.einsatz.ortAuftrag || "nicht eingetragen"}</dd>
           <dt>Uhrzeit Beginn / Ende</dt>
           <dd>

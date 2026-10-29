@@ -14,7 +14,7 @@ import { useRef } from "react";
 import { beispielRestText } from "../beispiel-herkunft";
 import { frageJaNein } from "../dialoge";
 import { heuteDatum, pruefpunkte } from "../hilfen";
-import { zeitraumNachEingabe } from "../zeitraum-eingabe";
+import { uhrzeitAus, uhrzeitAusIso, uhrzeitZuIso, zeitraumNachEingabe, zeitraumZeitIso } from "../zeitraum-eingabe";
 import { Feld, Hinweise, NAMEN_EINGABE, type SchrittProps } from "./bausteine";
 
 /**
@@ -38,6 +38,21 @@ export function SchrittEinsatz({ bogen, aendern, meldekopf = false }: SchrittPro
    * er nie berührt hat.
    */
   const bisFolgtVon = ez.zeitraumBis === ez.zeitraumVon;
+  /**
+   * Uhrzeitfeld zum Zeitraum (ab Schema 11, im Bogen als ISO 8601 mit dem Offset der Gerätezeitzone). Geleert = nur
+   * der Tag ist gemeldet, wie bei älteren Bögen.
+   */
+  const uhrzeitSetzen = (feld: "zeitraumVonIso" | "zeitraumBisIso", wert: string) => {
+    const neu = { ...ez };
+    const minuten = uhrzeitAusIso(wert);
+    if (minuten == null) delete neu[feld];
+    else neu[feld] = zeitraumZeitIso(feld === "zeitraumVonIso" ? ez.zeitraumVon : ez.zeitraumBis, minuten);
+    aendern({ einsatz: neu });
+  };
+  const uhrzeitFeld = (iso: string | undefined) => {
+    const minuten = uhrzeitAus(iso);
+    return minuten != null ? uhrzeitZuIso(minuten) : "";
+  };
   /**
    * Zuletzt eingetragene Zeiten, solange der Schritt offen ist. Ein
    * versehentliches Ab- und Wiederanhaken setzte vorher „jetzt" und die
@@ -88,7 +103,7 @@ export function SchrittEinsatz({ bogen, aendern, meldekopf = false }: SchrittPro
           Monat, das Jahr war abgeschnitten — ein Vorjahresbogen fiel nicht auf.
           Auf dem Telefon stehen die Datumsfelder in voller Breite untereinander
           (index.html, Audit Runde 2, R2-H8). */}
-      <p className="gruppen-titel">Zeitraum: die Tage, für die die Einheit gemeldet ist (Datum)</p>
+      <p className="gruppen-titel">Zeitraum: die Tage mit Uhrzeit, für die die Einheit am Einsatzort laut Einsatzauftrag gemeldet ist (Datum und Uhrzeit)</p>
       <div className="zeile">
         <Feld titel="Zeitraum von" klasse="datum">
           <input
@@ -97,8 +112,15 @@ export function SchrittEinsatz({ bogen, aendern, meldekopf = false }: SchrittPro
             onChange={(e) => setEz(zeitraumNachEingabe(ez, "von", e.target.value, heuteDatum()))}
           />
         </Feld>
+        {/* Vorbelegt mit 08:00 bzw. 18:00 (einsatzVorgabe); ältere Bögen ohne Uhrzeit zeigen ein leeres Feld. */}
+        <Feld titel="Uhrzeit von" klasse="schmal uhrzeit">
+          <input type="time" value={uhrzeitFeld(ez.zeitraumVonIso)} onChange={(e) => uhrzeitSetzen("zeitraumVonIso", e.target.value)} />
+        </Feld>
         <Feld titel={bisFolgtVon ? "Zeitraum bis (Vorschlag: wie Beginn)" : "Zeitraum bis"} klasse="datum">
           <input type="date" value={datumZuIso(ez.zeitraumBis)} onChange={(e) => setEz(zeitraumNachEingabe(ez, "bis", e.target.value, heuteDatum()))} />
+        </Feld>
+        <Feld titel="Uhrzeit bis" klasse="schmal uhrzeit">
+          <input type="time" value={uhrzeitFeld(ez.zeitraumBisIso)} onChange={(e) => uhrzeitSetzen("zeitraumBisIso", e.target.value)} />
         </Feld>
         <Feld titel="Einsatzort / Auftrag">
           <input id="feld-ort-auftrag" value={ez.ortAuftrag} onChange={(e) => setEz({ ortAuftrag: e.target.value })} placeholder="z. B. Fernmeldebauübung Kabelblitz" {...NAMEN_EINGABE} />
@@ -110,8 +132,8 @@ export function SchrittEinsatz({ bogen, aendern, meldekopf = false }: SchrittPro
           Kästchen „Einsatzende" las sich als Frage, ob der Einsatz ein Ende
           hat, und ein versehentlicher Haken schickte mit dem QR-Code einen
           Abmelde-Zeitpunkt mit. */}
-      {/* Zwei getrennte Angaben, zwei Überschriften mit ihrem Erklärsatz direkt darunter: Der Zeitraum (Datum) oben bestimmt
-          „Zeitraum vorbei" beim Meldekopf, Beginn und Ende (Datum und Uhrzeit) sind eigene Nachweise (R17-N10). */}
+      {/* Zwei getrennte Angaben, zwei Überschriften mit ihrem Erklärsatz direkt darunter: Der Zeitraum (Datum, ab Schema 11 mit Uhrzeit) oben
+          bestimmt „Zeitraum vorbei" beim Meldekopf, Beginn und Ende (Datum und Uhrzeit) sind eigene Nachweise (R17-N10). */}
       <p className="gruppen-titel">Uhrzeit von Beginn und Ende (optional, für eigene Nachweise)</p>
       {meldekopf ? (
         <p className="hinweis">
