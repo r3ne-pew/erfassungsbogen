@@ -17,6 +17,7 @@ import {
 /** Schriftfaktoren der Kacheln: so lange verkleinern, bis in keiner Kachel etwas überläuft (der Auftrag bleibt vollständig). */
 const PX_MIN = 12;
 const PX_MAX = 64;
+const PX_TRENNEN = 18;
 
 export interface LageV2Props {
   klasse: string;
@@ -64,12 +65,16 @@ export function LageV2(p: LageV2Props) {
   const n = p.einheiten.length;
   const s = p.staerke;
 
-  // Wählt Spaltenzahl und Schriftgröße so, dass die Schrift möglichst groß ist und kein Inhalt (Auftrag!) überläuft.
+  // Wählt Spaltenzahl und Schriftgröße: Kacheln bleiben querformatig (Seitenverhältnis 1,3–2,5), dann wird die Schrift
+  // so groß wie möglich, ohne dass ein Inhalt (Auftrag!) überläuft. Trennen nur im Notfall (sehr kleine Schrift).
   useLayoutEffect(() => {
     const el = raster.current;
     if (!el || el.clientHeight === 0) return;
     const kacheln = Array.from(el.querySelectorAll<HTMLElement>(".lm2-kachel"));
     const ueberlauf = () => kacheln.some((k) => k.scrollHeight > k.clientHeight + 1 || k.scrollWidth > k.clientWidth + 1);
+    const cs = getComputedStyle(el);
+    const lueckeX = parseFloat(cs.columnGap) || 0;
+    const lueckeY = parseFloat(cs.rowGap) || 0;
     const anwenden = (spalten: number, px: number) => {
       el.style.gridTemplateColumns = `repeat(${spalten}, minmax(0, 1fr))`;
       el.style.gridTemplateRows = `repeat(${Math.ceil(n / spalten)}, minmax(0, 1fr))`;
@@ -77,21 +82,44 @@ export function LageV2(p: LageV2Props) {
       // Eine unvollständige letzte Zeile wird durch die letzte Kachel aufgefüllt, damit keine Leerfläche bleibt.
       kacheln.forEach((k, i) => { k.style.gridColumn = i === n - 1 && n % spalten ? `span ${spalten - (n % spalten) + 1}` : ""; });
     };
-    let beste = { spalten: 1, px: PX_MIN };
-    for (let c = 1; c <= Math.min(n, 10); c++) {
+    const verhaeltnis = (c: number) => {
+      const z = Math.ceil(n / c);
+      return ((el.clientWidth - lueckeX * (c - 1)) / c) / ((el.clientHeight - lueckeY * (z - 1)) / z);
+    };
+    const groessteSchrift = (c: number) => {
+      anwenden(c, PX_MIN);
+      if (ueberlauf()) return PX_MIN;
       let lo = PX_MIN, hi = PX_MAX;
-      anwenden(c, lo);
-      if (ueberlauf()) { if (c > 1) continue; }
-      else {
-        while (hi - lo > 1) {
-          const mid = Math.floor((lo + hi) / 2);
-          anwenden(c, mid);
-          if (ueberlauf()) hi = mid; else lo = mid;
-        }
+      while (hi - lo > 1) {
+        const mid = Math.floor((lo + hi) / 2);
+        anwenden(c, mid);
+        if (ueberlauf()) hi = mid; else lo = mid;
       }
-      if (lo > beste.px || (lo === beste.px && c > beste.spalten && n % c === 0)) beste = { spalten: c, px: lo };
+      return lo;
+    };
+    const maxSpalten = Math.min(n, 12);
+    const alle = Array.from({ length: maxSpalten }, (_, i) => i + 1);
+    let kandidaten = alle.filter((c) => verhaeltnis(c) >= 1.3 && verhaeltnis(c) <= 2.5);
+    if (kandidaten.length === 0) {
+      const abstand = (c: number) => Math.abs(Math.log(verhaeltnis(c) / 1.8));
+      kandidaten = [alle.reduce((x, y) => (abstand(y) < abstand(x) ? y : x))];
     }
-    anwenden(beste.spalten, beste.px);
+    const suche = (trennen: boolean) => {
+      el.classList.toggle("lm2-trennen", trennen);
+      let beste = { spalten: kandidaten[0] ?? 1, px: 0 };
+      for (const c of kandidaten) {
+        const px = groessteSchrift(c);
+        if (px > beste.px) beste = { spalten: c, px };
+      }
+      return beste;
+    };
+    let ergebnis = suche(false);
+    if (ergebnis.px < PX_TRENNEN) {
+      const mitTrennung = suche(true);
+      if (mitTrennung.px > ergebnis.px) ergebnis = mitTrennung;
+      else el.classList.remove("lm2-trennen");
+    }
+    anwenden(ergebnis.spalten, ergebnis.px);
   });
   // Älteste Meldung und „n von m älter als 1 Std" stehen untereinander (der Text trennt sie mit Komma).
   const [aelteste, aelterAnteil] = (p.alterAnwesende ?? "").split(/, (?=\d+ von )/);
@@ -146,7 +174,7 @@ export function LageV2(p: LageV2Props) {
               return (
                 <li key={e.id} className={`lm2-kachel${e.alterMin != null ? " lm2-alt" : ""}`}>
                   <div className="lm2-kopfzeile">
-                    <span className="lm2-funkruf">{e.funkruf || e.typ || "–"}</span>
+                    <span className="lm2-funkruf">{e.funkruf || e.typ || e.ort || e.orga || "–"}</span>
                     <span className="lm2-staerke-klein" title="Führer / Unterführer / Mannschaft = gesamt">
                       {e.fuehrer}/{e.unterfuehrer}/{e.mannschaft}
                       <b>= {e.fuehrer + e.unterfuehrer + e.mannschaft}</b>
