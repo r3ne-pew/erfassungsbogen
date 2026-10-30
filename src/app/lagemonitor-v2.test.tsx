@@ -75,7 +75,7 @@ describe("Lagemonitor V2", () => {
     p.staerkeRolle = StaerkeRolle.FUEHRER;
     p.kontakte = [{ art: KontaktArt.MOBIL, dienstlich: true, wert: "01712345678" }];
     b.personal = [p];
-    const auftrag = "Fachgruppe Notversorgung und Notinstandsetzung, Trinkwasseraufbereitung an der Südbrücke einrichten und betreiben";
+    const auftrag = "Zug Beispielaufgabe: Einsatzstelle erkunden, Material bereitstellen und Bericht an die Leitung geben";
     meldungHinzufuegen(e.id, b);
     notizSetzen(e.id, einsaetzeLaden().find((x) => x.id === e.id)!.eintraege[0]!.id, auftrag);
     render(<Lagemonitor einsatzId={e.id} />);
