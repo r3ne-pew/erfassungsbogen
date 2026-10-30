@@ -1,9 +1,13 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { EinsatzArt, einsatzAnlegen, meldungHinzufuegen } from "@bos/meldekopf/einsaetze";
-import { neuerBogen } from "./hilfen";
+import { neuePerson, neuerBogen } from "./hilfen";
+import { KontaktArt, StaerkeRolle } from "@bos/eeb-format/model";
 import { Lagemonitor, STUFE_SCHLUESSEL } from "./lagemonitor-ui";
-import { ANSICHT_SCHLUESSEL, kachelSpalten } from "./lagemonitor-v2";
+import { ANSICHT_SCHLUESSEL, ANZEIGE_SCHLUESSEL, fuehrerName, kachelSpalten } from "./lagemonitor-v2";
+import { notizSetzen } from "./eintrag-zeiten";
+import { einsaetzeLaden } from "./einsaetze-lesen";
+import { telefonAnzeige } from "./lagemonitor";
 
 describe("kachelSpalten", () => {
   it("liefert genug Spalten, damit alle Einheiten ohne Rollen passen", () => {
@@ -58,5 +62,46 @@ describe("Lagemonitor V2", () => {
     expect(document.querySelector("main.lm-gedimmt")).toBeTruthy();
     fireEvent.click(within(menu).getByRole("button", { name: "Lagemonitor V1" }));
     expect(document.querySelector(".lm2")).toBeNull();
+  });
+
+  it("zeigt den Auftrag vollständig, Einheitsführer und Telefon nach Menüwahl", () => {
+    localStorage.setItem(ANSICHT_SCHLUESSEL, "v2");
+    const e = einsatzAnlegen("Hochwasser Süd", EinsatzArt.EINSATZ);
+    const b = neuerBogen();
+    b.einheit.hierarchie[0]!.name = "OV Musterstadt";
+    const p = neuePerson();
+    p.vorname = "Patrick";
+    p.nachname = "Muster";
+    p.staerkeRolle = StaerkeRolle.FUEHRER;
+    p.kontakte = [{ art: KontaktArt.MOBIL, dienstlich: true, wert: "01712345678" }];
+    b.personal = [p];
+    const auftrag = "Fachgruppe Notversorgung und Notinstandsetzung, Trinkwasseraufbereitung an der Südbrücke einrichten und betreiben";
+    meldungHinzufuegen(e.id, b);
+    notizSetzen(e.id, einsaetzeLaden().find((x) => x.id === e.id)!.eintraege[0]!.id, auftrag);
+    render(<Lagemonitor einsatzId={e.id} />);
+    expect(document.querySelector(".lm2-auftrag")?.textContent).toBe(auftrag);
+    expect(document.querySelector(".lm2-leiter")?.textContent).toContain("P. Muster");
+    expect(document.querySelector(".lm2-leiter")?.textContent).toContain("0171 2345678");
+    fireEvent.click(screen.getByRole("button", { name: /Menü/ }));
+    const menu = screen.getByRole("dialog", { name: "Menü" });
+    fireEvent.click(within(menu).getByRole("button", { name: "Muster" }));
+    fireEvent.click(within(menu).getAllByRole("button", { name: "ausgeblendet" })[1]!);
+    expect(JSON.parse(localStorage.getItem(ANZEIGE_SCHLUESSEL)!)).toEqual({ fuehrer: "nachname", kontakt: "aus" });
+    expect(document.querySelector(".lm2-leiter")?.textContent).toBe("Muster");
+  });
+});
+
+describe("fuehrerName / telefonAnzeige", () => {
+  const l = { vorname: "Patrick", nachname: "Muster" };
+  it("formatiert die fünf Darstellungen", () => {
+    expect(fuehrerName(l, "voll")).toBe("Patrick Muster");
+    expect(fuehrerName(l, "initialeNachname")).toBe("P. Muster");
+    expect(fuehrerName(l, "vornameInitiale")).toBe("Patrick M.");
+    expect(fuehrerName(l, "nachname")).toBe("Muster");
+    expect(fuehrerName(l, "aus")).toBe("");
+  });
+  it("setzt die Vorwahl ab", () => {
+    expect(telefonAnzeige("01712345678")).toBe("0171 2345678");
+    expect(telefonAnzeige("112")).toBe("112");
   });
 });

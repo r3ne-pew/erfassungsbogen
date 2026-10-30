@@ -31,7 +31,7 @@ import { alterKurz, alterText, anwesendenAlterText, ausEingabeWert, bedarfText, 
 
 import { URL_PARAMETER, lagemonitorKennung } from "./lagemonitor-kennung";
 import { LageV2 } from "./lagemonitor-v2-ui";
-import { ansichtLesen, ansichtMerken, type Ansicht } from "./lagemonitor-v2";
+import { ansichtLesen, ansichtMerken, anzeigeLesen, anzeigeMerken, type Ansicht, type AnzeigeWahl } from "./lagemonitor-v2";
 /** Gemerkte Helligkeitsstufe des Monitors („dunkel" oder „gedimmt"; „hell" wird nie gemerkt, R7-L3). */
 export const STUFE_SCHLUESSEL = "eeb.lagestufe.v1";
 /** Mehr Bewegungszeilen als das gibt es nicht im Bild; der Rest steht als „+ n weitere" (R7-K2). */
@@ -290,6 +290,11 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
   // aus Hell führt ein Tipp zurück auf Dunkel statt über ein zweites helles Bild (R8-L4).
   const [stufe, setStufe] = useState<Stufe>(stufeLesen);
   const [ansicht, setAnsicht] = useState<Ansicht>(ansichtLesen);
+  const [anzeige, setAnzeige] = useState<AnzeigeWahl>(anzeigeLesen);
+  function anzeigeWechseln(neu: AnzeigeWahl) {
+    setAnzeige(neu);
+    anzeigeMerken(neu);
+  }
   function ansichtWechseln(neu: Ansicht) {
     setAnsicht(neu);
     ansichtMerken(neu);
@@ -451,6 +456,8 @@ export function Lagemonitor({ einsatzId }: { einsatzId: string }) {
               ? `Keine Einheit in der Lage (${bild.uebungenDaneben} Übung, nicht gezählt).`
               : "Noch keine Einheit gemeldet."
         }
+        anzeige={anzeige}
+        onAnzeige={anzeigeWechseln}
         ansicht={ansicht}
         onAnsicht={ansichtWechseln}
         stufenleiste={stufenleiste}

@@ -17,25 +17,29 @@ main.lm.lm2 { padding: 1.2vh 1.5vw; gap: 1.2vh; text-align: left; }
 .lm2-zahlen { font-size: min(7vh, 5.5vw); font-weight: 700; line-height: 1.1; }
 .lm2-zaehler { font-size: min(4vh, 3.2vw); display: flex; flex-direction: column; }
 .lm2-bedarf { font-size: 0.7em; font-weight: 700; }
-.lm2-stand { margin-left: auto; text-align: right; display: flex; flex-direction: column; }
+.lm2-stand { margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 0.1em; font-size: min(2.6vh, 1.8vw); line-height: 1.2; }
+.lm2-stand-zeile { display: block; }
+.lm2-warnung { color: var(--lm-warn); font-weight: 700; }
 .lm2-einheiten { flex: 1 1 0; min-height: 0; display: flex; }
 .lm2-raster { list-style: none; margin: 0; padding: 0; flex: 1; display: grid; gap: 1vh 0.8vw; min-height: 0; }
 .lm2-kachel {
   container-type: size;
   min-width: 0; min-height: 0; overflow: hidden;
   border: 2px solid var(--lm-rahmen); border-radius: 0.5vh;
-  padding: 3cqmin 4cqmin;
-  display: flex; flex-direction: column; gap: 2cqmin;
-  line-height: 1.15;
+  padding: 0.5em 0.7em;
+  display: flex; flex-direction: column; gap: 0.3em;
+  line-height: 1.15; font-size: var(--lm2-px, 16px);
 }
 .lm2-alt { border-color: var(--lm-warn); }
 .lm2-kopfzeile { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5em; }
-.lm2-funkruf { font-weight: 700; font-size: clamp(14px, min(17cqh, 9cqw), 56px); overflow-wrap: anywhere; }
-.lm2-staerke-klein { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: clamp(14px, min(13cqh, 7cqw), 44px); }
-.lm2-staerke-klein b { margin-left: 0.3em; }
-.lm2-meta { font-size: clamp(var(--lm-min), min(10cqh, 5.5cqw), 30px); opacity: 0.9; overflow-wrap: anywhere; }
-.lm2-auftrag { font-size: clamp(var(--lm-min), min(9cqh, 5cqw), 26px); opacity: 0.8; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lm2-warn { margin-top: auto; color: var(--lm-warn); font-weight: 700; font-size: clamp(var(--lm-min), min(10cqh, 5.5cqw), 28px); }
+.lm2-funkruf { font-weight: 700; font-size: 1.15em; line-height: 1.1; overflow-wrap: normal; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lm2-staerke-klein { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 1.15em; }
+.lm2-meta { font-size: 0.8em; opacity: 0.9; overflow-wrap: normal; hyphens: auto; }
+/* Der Auftrag ist kritisch: er bricht um und wird nie gekürzt; stattdessen schrumpft die Kachelschrift (lagemonitor-v2-ui.tsx). */
+.lm2-auftrag { font-size: 1em; font-weight: 600; line-height: 1.15; overflow-wrap: normal; hyphens: auto; }
+.lm2-leiter { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 0.8em; font-size: 0.85em; opacity: 0.95; }
+.lm2-telefon { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lm2-warn { margin-top: auto; color: var(--lm-warn); font-weight: 700; font-size: 0.8em; }
 .lm2-menu {
   position: fixed; top: 0; right: 0; bottom: 0; width: min(32rem, 100vw); z-index: 10; overflow-y: auto;
   box-sizing: border-box; padding: 1rem 1.2rem; background: var(--lm-grund); color: var(--lm-text);
@@ -51,3 +55,5 @@ main.lm.lm2 { padding: 1.2vh 1.5vw; gap: 1.2vh; text-align: left; }
   .lm2-raster { grid-template-columns: 1fr !important; grid-template-rows: none !important; overflow-y: auto; }
   .lm2-kachel { min-height: 9rem; }
 }
+
+.lm2-menu h2, .lm2-menu h3 { color: var(--lm-text); }
